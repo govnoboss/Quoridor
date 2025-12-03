@@ -416,7 +416,6 @@ const Game = {
   }
 };
 
-// ===== ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ AI (БЕЗ МУТАЦИЙ!) =====
 
 Game.hasPawnAtWithState = function(state, r, c) {
   return state.players.some(p => p.pos.r === r && p.pos.c === c);
