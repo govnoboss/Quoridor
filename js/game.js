@@ -1,4 +1,4 @@
-// js/game.js — НОВАЯ ВЕРСИЯ: Белый игрок снизу, ходит первым
+// js/game.js — ИСПРАВЛЕНО: больше никаких мутаций глобального state!
 const Game = {
   canvas: document.getElementById('board'),
   ctx: null,
@@ -9,10 +9,10 @@ const Game = {
     hWalls: Array.from({length:8},()=>Array(8).fill(false)),
     vWalls: Array.from({length:8},()=>Array(8).fill(false)),
     players: [
-      {color:'white', pos:{r:8, c:4}, wallsLeft:10},  // ← Белый теперь снизу!
-      {color:'black', pos:{r:0, c:4}, wallsLeft:10}   // ← Чёрный сверху
+      {color:'white', pos:{r:8, c:4}, wallsLeft:10},
+      {color:'black', pos:{r:0, c:4}, wallsLeft:10}
     ],
-    currentPlayer: 0,     // 0 = белый = игрок (ходит первым!)
+    currentPlayer: 0,
     drag: null,
     botDifficulty: 'none'
   },
@@ -30,7 +30,6 @@ const Game = {
     this.reset();
     UI.showScreen('gameScreen');
     this.draw();
-    // Бот теперь чёрный (игрок 1) — ходит вторым, всё ок
   },
 
   setupCanvas() {
@@ -54,7 +53,6 @@ const Game = {
     this.drawDragPreview();
   },
 
-  // ← ВСЁ НИЖЕ — без изменений (кроме одной строки в checkVictory)
   drawGrid() {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
@@ -130,7 +128,7 @@ const Game = {
     }
   },
 
-  drawDragPreview() { /* ← без изменений, оставь как был */ 
+  drawDragPreview() {
     if (!this.state.drag) return;
     if (this.state.drag.type === 'pawn') {
       const target = this.getCellFromCoords(this.state.drag.x, this.state.drag.y);
@@ -192,7 +190,10 @@ const Game = {
     return (r >= 0 && r < 8 && c >= 0 && c < 8) ? {r, c} : null;
   },
 
-  hasPawnAt(r, c) { return this.state.players.some(p => p.pos.r === r && p.pos.c === c); },
+  hasPawnAt(r, c) { 
+    return this.state.players.some(p => p.pos.r === r && p.pos.c === c); 
+  },
+  
   getPlayerAt(r, c) {
     return this.state.players[0].pos.r === r && this.state.players[0].pos.c === c ? 0 :
            this.state.players[1].pos.r === r && this.state.players[1].pos.c === c ? 1 : -1;
@@ -201,10 +202,30 @@ const Game = {
   isWallBetween(fr, fc, tr, tc) {
     const dr = tr - fr, dc = tc - fc;
     if (Math.abs(dr) + Math.abs(dc) !== 1) return true;
-    if (dc === 1) { let b=false; if(fr>0)b=b||this.state.vWalls[fr-1][fc]; if(fr<8)b=b||this.state.vWalls[fr][fc]; return b; }
-    if (dc === -1 && fc > 0) { let b=false; if(fr>0)b=b||this.state.vWalls[fr-1][fc-1]; if(fr<8)b=b||this.state.vWalls[fr][fc-1]; return b; }
-    if (dr === 1) { let b=false; if(fc>0)b=b||this.state.hWalls[fr][fc-1]; b=b||this.state.hWalls[fr][fc]; return b; }
-    if (dr === -1 && fr > 0) { let b=false; if(fc>0)b=b||this.state.hWalls[fr-1][fc-1]; b=b||this.state.hWalls[fr-1][fc]; return b; }
+    if (dc === 1) { 
+      let b=false; 
+      if(fr>0) b=b||this.state.vWalls[fr-1][fc]; 
+      if(fr<8) b=b||this.state.vWalls[fr][fc]; 
+      return b; 
+    }
+    if (dc === -1 && fc > 0) { 
+      let b=false; 
+      if(fr>0) b=b||this.state.vWalls[fr-1][fc-1]; 
+      if(fr<8) b=b||this.state.vWalls[fr][fc-1]; 
+      return b; 
+    }
+    if (dr === 1) { 
+      let b=false; 
+      if(fc>0) b=b||this.state.hWalls[fr][fc-1]; 
+      b=b||this.state.hWalls[fr][fc]; 
+      return b; 
+    }
+    if (dr === -1 && fr > 0) { 
+      let b=false; 
+      if(fc>0) b=b||this.state.hWalls[fr-1][fc-1]; 
+      b=b||this.state.hWalls[fr-1][fc]; 
+      return b; 
+    }
     return false;
   },
 
@@ -215,13 +236,15 @@ const Game = {
     if (dist === 2 && (dr === 0 || dc === 0)) {
       const midR = fr + Math.sign(dr);
       const midC = fc + Math.sign(dc);
-      return this.hasPawnAt(midR, midC) && this.getPlayerAt(midR, midC) !== this.state.currentPlayer && !this.isWallBetween(midR, midC, tr, tc);
+      return this.hasPawnAt(midR, midC) && 
+             this.getPlayerAt(midR, midC) !== this.state.currentPlayer && 
+             !this.isWallBetween(midR, midC, tr, tc);
     }
     return false;
   },
 
   hasPathToGoal(playerIdx) {
-    const targetRow = playerIdx === 0 ? 0 : 8;  // ← Белый идёт к 0, чёрный к 8
+    const targetRow = playerIdx === 0 ? 0 : 8;
     const start = this.state.players[playerIdx].pos;
     const visited = Array(9).fill().map(() => Array(9).fill(false));
     const queue = [{r: start.r, c: start.c}];
@@ -232,7 +255,8 @@ const Game = {
       if (r === targetRow) return true;
       for (const {dr, dc} of this.directions) {
         const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !visited[nr][nc] && !this.isWallBetween(r, c, nr, nc)) {
+        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !visited[nr][nc] && 
+            !this.isWallBetween(r, c, nr, nc)) {
           visited[nr][nc] = true;
           queue.push({r: nr, c: nc});
         }
@@ -241,7 +265,9 @@ const Game = {
     return false;
   },
 
-  isValidWallPlacement() { return this.hasPathToGoal(0) && this.hasPathToGoal(1); },
+  isValidWallPlacement() { 
+    return this.hasPathToGoal(0) && this.hasPathToGoal(1); 
+  },
 
   checkWallPlacement(r, c, vertical) {
     if (vertical) {
@@ -260,9 +286,12 @@ const Game = {
 
   placeWall(r, c, vertical) {
     if (!this.checkWallPlacement(r, c, vertical)) return false;
-    if (vertical) this.state.vWalls[r][c] = true; else this.state.hWalls[r][c] = true;
+    if (vertical) this.state.vWalls[r][c] = true; 
+    else this.state.hWalls[r][c] = true;
+    
     if (!this.isValidWallPlacement()) {
-      if (vertical) this.state.vWalls[r][c] = false; else this.state.hWalls[r][c] = false;
+      if (vertical) this.state.vWalls[r][c] = false; 
+      else this.state.hWalls[r][c] = false;
       return false;
     }
     this.state.players[this.state.currentPlayer].wallsLeft--;
@@ -280,7 +309,8 @@ const Game = {
 
   checkVictory() {
     const p = this.state.players[this.state.currentPlayer];
-    if ((this.state.currentPlayer === 0 && p.pos.r === 0) || (this.state.currentPlayer === 1 && p.pos.r === 8)) {
+    if ((this.state.currentPlayer === 0 && p.pos.r === 0) || 
+        (this.state.currentPlayer === 1 && p.pos.r === 8)) {
       alert(`${p.color === 'white' ? 'Белый' : 'Чёрный'} победил!`);
       UI.backToMenu();
       return true;
@@ -303,9 +333,11 @@ const Game = {
   reset() {
     this.state.hWalls.forEach(r=>r.fill(false));
     this.state.vWalls.forEach(r=>r.fill(false));
-    this.state.players[0].pos = {r:8,c:4}; this.state.players[0].wallsLeft = 10;  // белый снизу
-    this.state.players[1].pos = {r:0,c:4}; this.state.players[1].wallsLeft = 10;  // чёрный сверху
-    this.state.currentPlayer = 0;  // белый ходит первым
+    this.state.players[0].pos = {r:8,c:4}; 
+    this.state.players[0].wallsLeft = 10;
+    this.state.players[1].pos = {r:0,c:4}; 
+    this.state.players[1].wallsLeft = 10;
+    this.state.currentPlayer = 0;
     this.state.drag = null;
     this.updateTurnDisplay();
   },
@@ -313,12 +345,16 @@ const Game = {
   startWallDrag(vertical, e) {
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     const rect = this.canvas.getBoundingClientRect();
-    this.state.drag = { type: 'wall', isVertical: vertical, x: e.clientX - rect.left, y: e.clientY - rect.top };
+    this.state.drag = { 
+      type: 'wall', 
+      isVertical: vertical, 
+      x: e.clientX - rect.left, 
+      y: e.clientY - rect.top 
+    };
     this.draw();
   },
 
   initEvents() {
-    // ← все обработчики без изменений (остаются как в предыдущей версии)
     this.canvas.addEventListener('pointerdown', e => {
       if (this.state.drag) return;
       const rect = this.canvas.getBoundingClientRect();
@@ -334,8 +370,15 @@ const Game = {
       }
     });
 
-    document.getElementById('hTpl').onpointerdown = e => { e.preventDefault(); this.startWallDrag(false, e); };
-    document.getElementById('vTpl').onpointerdown = e => { e.preventDefault(); this.startWallDrag(true, e); };
+    document.getElementById('hTpl').onpointerdown = e => { 
+      e.preventDefault(); 
+      this.startWallDrag(false, e); 
+    };
+    
+    document.getElementById('vTpl').onpointerdown = e => { 
+      e.preventDefault(); 
+      this.startWallDrag(true, e); 
+    };
 
     window.addEventListener('pointermove', e => {
       if (!this.state.drag) return;
@@ -360,7 +403,8 @@ const Game = {
         }
       } else if (this.state.drag.type === 'wall') {
         const slot = this.getNearestSlot(x, y);
-        if (slot && this.state.players[this.state.currentPlayer].wallsLeft > 0 && this.placeWall(slot.r, slot.c, this.state.drag.isVertical)) {
+        if (slot && this.state.players[this.state.currentPlayer].wallsLeft > 0 && 
+            this.placeWall(slot.r, slot.c, this.state.drag.isVertical)) {
           this.nextTurn();
         }
       }
@@ -396,11 +440,8 @@ const Game = {
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  Game.setupCanvas();
-  Game.updateTurnDisplay();
-  Game.initEvents();
-});
+// ===== ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ AI (БЕЗ МУТАЦИЙ!) =====
+
 Game.hasPawnAtWithState = function(state, r, c) {
   return state.players.some(p => p.pos.r === r && p.pos.c === c);
 };
@@ -411,13 +452,33 @@ Game.getPlayerAtWithState = function(state, r, c) {
 };
 
 Game.isWallBetweenWithState = function(state, fr, fc, tr, tc) {
-  // тот же код, что и в isWallBetween, но работает с переданным state
   const dr = tr - fr, dc = tc - fc;
   if (Math.abs(dr) + Math.abs(dc) !== 1) return true;
-  if (dc === 1) { let b=false; if(fr>0)b=b||state.vWalls[fr-1][fc]; if(fr<8)b=b||state.vWalls[fr][fc]; return b; }
-  if (dc === -1 && fc > 0) { let b=false; if(fr>0)b=b||state.vWalls[fr-1][fc-1]; if(fr<8)b=b||state.vWalls[fr][fc-1]; return b; }
-  if (dr === 1) { let b=false; if(fc>0)b=b||state.hWalls[fr][fc-1]; b=b||state.hWalls[fr][fc]; return b; }
-  if (dr === -1 && fr > 0) { let b=false; if(fc>0)b=b||state.hWalls[fr-1][fc-1]; b=b||state.hWalls[fr-1][fc]; return b; }
+  
+  if (dc === 1) { 
+    let b = false; 
+    if (fr > 0) b = b || state.vWalls[fr-1][fc]; 
+    if (fr < 8) b = b || state.vWalls[fr][fc]; 
+    return b; 
+  }
+  if (dc === -1 && fc > 0) { 
+    let b = false; 
+    if (fr > 0) b = b || state.vWalls[fr-1][fc-1]; 
+    if (fr < 8) b = b || state.vWalls[fr][fc-1]; 
+    return b; 
+  }
+  if (dr === 1) { 
+    let b = false; 
+    if (fc > 0) b = b || state.hWalls[fr][fc-1]; 
+    b = b || state.hWalls[fr][fc]; 
+    return b; 
+  }
+  if (dr === -1 && fr > 0) { 
+    let b = false; 
+    if (fc > 0) b = b || state.hWalls[fr-1][fc-1]; 
+    b = b || state.hWalls[fr-1][fc]; 
+    return b; 
+  }
   return false;
 };
 
@@ -436,14 +497,39 @@ Game.checkWallPlacementWithState = function(state, r, c, vertical) {
   return true;
 };
 
+// ✅ ГЛАВНОЕ ИСПРАВЛЕНИЕ: функция теперь чистая, без мутаций!
 Game.isValidWallPlacementWithState = function(state) {
-  const oldCurrent = Game.state.currentPlayer;
-  let hasPath0 = true, hasPath1 = true;
-  // Временно подменяем состояние для проверки
-  const temp = Game.state;
-  Game.state = state;
-  hasPath0 = Game.hasPathToGoal(0);
-  hasPath1 = Game.hasPathToGoal(1);
-  Game.state = temp;
-  return hasPath0 && hasPath1;
+  // Проверяем путь для обоих игроков БЕЗ изменения глобального state
+  return Game.hasPathToGoalWithState(state, 0) && 
+         Game.hasPathToGoalWithState(state, 1);
 };
+
+// Новая чистая функция для проверки пути
+Game.hasPathToGoalWithState = function(state, playerIdx) {
+  const targetRow = playerIdx === 0 ? 0 : 8;
+  const start = state.players[playerIdx].pos;
+  const visited = Array(9).fill().map(() => Array(9).fill(false));
+  const queue = [{r: start.r, c: start.c}];
+  visited[start.r][start.c] = true;
+
+  while (queue.length) {
+    const {r, c} = queue.shift();
+    if (r === targetRow) return true;
+    
+    for (const {dr, dc} of Game.directions) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !visited[nr][nc] && 
+          !Game.isWallBetweenWithState(state, r, c, nr, nc)) {
+        visited[nr][nc] = true;
+        queue.push({r: nr, c: nc});
+      }
+    }
+  }
+  return false;
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  Game.setupCanvas();
+  Game.updateTurnDisplay();
+  Game.initEvents();
+});
