@@ -68,20 +68,9 @@ const Game = {
     if (!this.state.drag || this.state.drag.type !== 'pawn' || this.state.drag.playerIdx !== this.state.currentPlayer) return;
     const {r, c} = this.state.players[this.state.currentPlayer].pos;
 
-    for (const {dr, dc} of this.directions) {
-      const nr = r + dr, nc = c + dc;
-      if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !this.hasPawnAt(nr, nc) && !this.isWallBetween(r, c, nr, nc)) {
-        this.drawMoveHint(nr, nc, '#4ade80');
-      }
-    }
-    for (const {dr, dc} of this.directions) {
-      const midR = r + dr, midC = c + dc;
-      const tr = r + dr * 2, tc = c + dc * 2;
-      if (midR >= 0 && midR < 9 && midC >= 0 && midC < 9 && tr >= 0 && tr < 9 && tc >= 0 && tc < 9 &&
-          this.hasPawnAt(midR, midC) && this.getPlayerAt(midR, midC) !== this.state.currentPlayer &&
-          !this.hasPawnAt(tr, tc) && !this.isWallBetween(midR, midC, tr, tc)) {
-        this.drawMoveHint(tr, tc, '#22c55e');
-      }
+    const moves = this.getJumpTargets(r, c);
+    for (const {r: nr, c: nc} of moves) {
+      this.drawMoveHint(nr, nc, '#4ade80');
     }
   },
 
@@ -229,19 +218,6 @@ const Game = {
     return false;
   },
 
-  canMovePawn(fr, fc, tr, tc) {
-    if (tr < 0 || tr > 8 || tc < 0 || tc > 8 || this.hasPawnAt(tr, tc)) return false;
-    const dr = tr - fr, dc = tc - fc, dist = Math.abs(dr) + Math.abs(dc);
-    if (dist === 1) return !this.isWallBetween(fr, fc, tr, tc);
-    if (dist === 2 && (dr === 0 || dc === 0)) {
-      const midR = fr + Math.sign(dr);
-      const midC = fc + Math.sign(dc);
-      return this.hasPawnAt(midR, midC) && 
-             this.getPlayerAt(midR, midC) !== this.state.currentPlayer && 
-             !this.isWallBetween(midR, midC, tr, tc);
-    }
-    return false;
-  },
 
   hasPathToGoal(playerIdx) {
     const targetRow = playerIdx === 0 ? 0 : 8;
@@ -450,7 +426,10 @@ Game.getPlayerAtWithState = function(state, r, c) {
   return state.players[0].pos.r === r && state.players[0].pos.c === c ? 0 :
          state.players[1].pos.r === r && state.players[1].pos.c === c ? 1 : -1;
 };
-
+Game.canMovePawn = function(fr, fc, tr, tc) {
+  const moves = this.getJumpTargets(fr, fc);
+  return moves.some(m => m.r === tr && m.c === tc);
+};
 Game.isWallBetweenWithState = function(state, fr, fc, tr, tc) {
   const dr = tr - fr, dc = tc - fc;
   if (Math.abs(dr) + Math.abs(dc) !== 1) return true;
@@ -526,6 +505,54 @@ Game.hasPathToGoalWithState = function(state, playerIdx) {
     }
   }
   return false;
+};
+Game.getJumpTargets = function(fr, fc) {
+  const targets = [];
+
+  for (const {dr, dc} of this.directions) {
+    const nr = fr + dr, nc = fc + dc;
+    if (nr < 0 || nr > 8 || nc < 0 || nc > 8) continue;
+
+    if (!this.hasPawnAt(nr, nc) && !this.isWallBetween(fr, fc, nr, nc)) {
+      // Простое движение
+      targets.push({r: nr, c: nc});
+    } else if (this.hasPawnAt(nr, nc)) {
+      const midR = nr, midC = nc;
+      const jumpR = nr + dr, jumpC = nc + dc;
+
+      // Прямой прыжок
+      if (jumpR >= 0 && jumpR < 9 && jumpC >= 0 && jumpC < 9 &&
+          !this.hasPawnAt(jumpR, jumpC) &&
+          !this.isWallBetween(fr, fc, midR, midC) &&
+          !this.isWallBetween(midR, midC, jumpR, jumpC)) {
+        targets.push({r: jumpR, c: jumpC});
+      } else {
+        // Диагональные прыжки
+        if (dr !== 0) { // соперник сверху/снизу
+          for (const dcDiag of [-1, 1]) {
+            const diagR = midR, diagC = midC + dcDiag;
+            if (diagC >= 0 && diagC < 9 &&
+                !this.hasPawnAt(diagR, diagC) &&
+                !this.isWallBetween(midR, midC, diagR, diagC)) {
+              targets.push({r: diagR, c: diagC});
+            }
+          }
+        }
+        if (dc !== 0) { // соперник слева/справа
+          for (const drDiag of [-1, 1]) {
+            const diagR = midR + drDiag, diagC = midC;
+            if (diagR >= 0 && diagR < 9 &&
+                !this.hasPawnAt(diagR, diagC) &&
+                !this.isWallBetween(midR, midC, diagR, diagC)) {
+              targets.push({r: diagR, c: diagC});
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return targets;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
