@@ -430,6 +430,7 @@ Game.canMovePawn = function(fr, fc, tr, tc) {
   const moves = this.getJumpTargets(fr, fc);
   return moves.some(m => m.r === tr && m.c === tc);
 };
+
 Game.isWallBetweenWithState = function(state, fr, fc, tr, tc) {
   const dr = tr - fr, dc = tc - fc;
   if (Math.abs(dr) + Math.abs(dc) !== 1) return true;
