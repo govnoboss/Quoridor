@@ -1,326 +1,317 @@
-  // js/ai.js — УЛУЧШЕННАЯ ВЕРСИЯ: Умный AI с правильной стратегией
-  const AI = {
-    cloneState(state) {
-      return {
-        hWalls: state.hWalls.map(row => row.slice()),
-        vWalls: state.vWalls.map(row => row.slice()),
-        players: state.players.map(p => ({
-          color: p.color,
-          pos: { ...p.pos },
-          wallsLeft: p.wallsLeft
-        })),
-        currentPlayer: state.currentPlayer
-      };
-    },
+// js/ai.js — УЛУЧШЕННАЯ ВЕРСИЯ: ИИ уровня "непобедимый"
+const AI = {
+  cloneState(state) {
+    return {
+      hWalls: state.hWalls.map(row => row.slice()),
+      vWalls: state.vWalls.map(row => row.slice()),
+      players: state.players.map(p => ({
+        color: p.color,
+        pos: { ...p.pos },
+        wallsLeft: p.wallsLeft
+      })),
+      currentPlayer: state.currentPlayer
+    };
+  },
 
-    // Улучшенный BFS с возвратом полного пути
-    findShortestPath(state, playerIdx) {
-      const targetRow = playerIdx === 0 ? 0 : 8;
-      const start = state.players[playerIdx].pos;
-      const visited = Array(9).fill().map(() => Array(9).fill(false));
-      const parent = Array(9).fill().map(() => Array(9).fill(null));
-      const queue = [{ r: start.r, c: start.c }];
-      visited[start.r][start.c] = true;
+  shortestPathDistance(state, playerIdx) {
+    const targetRow = playerIdx === 0 ? 0 : 8;
+    const start = state.players[playerIdx].pos;
+    const visited = Array(9).fill().map(() => Array(9).fill(false));
+    const queue = [{ r: start.r, c: start.c, dist: 0 }];
+    visited[start.r][start.c] = true;
 
-      while (queue.length) {
-        const { r, c } = queue.shift();
-        
-        if (r === targetRow) {
-          // Восстанавливаем путь
-          const path = [];
-          let curr = { r, c };
-          while (curr) {
-            path.unshift(curr);
-            curr = parent[curr.r][curr.c];
-          }
-          return { distance: path.length - 1, path };
-        }
+    while (queue.length) {
+      const { r, c, dist } = queue.shift();
+      if (r === targetRow) return dist;
 
-        for (const { dr, dc } of Game.directions) {
-          const nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !visited[nr][nc] &&
-              !Game.isWallBetweenWithState(state, r, c, nr, nc)) {
-            visited[nr][nc] = true;
-            parent[nr][nc] = { r, c };
-            queue.push({ r: nr, c: nc });
-          }
-        }
-      }
-      return { distance: Infinity, path: [] };
-    },
+      for (const { dr, dc } of Game.directions) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && !visited[nr][nc] &&
+            !Game.isWallBetweenWithState(state, r, c, nr, nc)) {
+          visited[nr][nc] = true;
+          queue.push({ r: nr, c: nc, dist: dist + 1 });
+        }
+      }
+    }
+    return Infinity;
+  },
 
-    shortestPathDistance(state, playerIdx) {
-      return this.findShortestPath(state, playerIdx).distance;
-    },
+  /**
+   * Усиленная функция оценки состояния доски.
+   * Повышенные веса для дистанции и стен, штрафы за чрезмерное использование стен.
+   */
+  evaluate(state) {
+    // 1. Оценка победы/поражения (терминальные состояния)
+    if (state.players[0].pos.r === 0) return -1000000;
+    if (state.players[1].pos.r === 8) return +1000000;
 
-    evaluate(state) {
-      // Проверка на победу
-      if (state.players[0].pos.r === 0) return -100000;
-      if (state.players[1].pos.r === 8) return +100000;
+    const d0 = this.shortestPathDistance(state, 0); // Дистанция игрока (r=0)
+    const d1 = this.shortestPathDistance(state, 1); // Дистанция бота (r=8)
 
-      const d0 = this.shortestPathDistance(state, 0);
-      const d1 = this.shortestPathDistance(state, 1);
+    // 2. Оценка недоступности (блокировка)
+    if (d0 === Infinity) return +600000;
+    if (d1 === Infinity) return -600000;
 
-      if (d0 === Infinity) return +60000;
-      if (d1 === Infinity) return -60000;
+    let score = 0;
 
-      // Основная оценка: разница в расстоянии до цели
-      let score = (d0 - d1) * 150;
+    // 3. Основная позиционная оценка (разница кратчайших путей). Вес 150.
+    score += (d0 - d1) * 150; 
 
-      // Бонус за оставшиеся стены
-      score += (state.players[1].wallsLeft - state.players[0].wallsLeft) * 30;
+    // 4. Оценка ресурсов (стены). Вес 40.
+    const walls0 = state.players[0].wallsLeft;
+    const walls1 = state.players[1].wallsLeft;
+    score += (walls1 - walls0) * 40; 
+    
+    // 5. Бонус за продвижение бота (8 - текущая_строка).
+    const botRow = state.players[1].pos.r;
+    score += (8 - botRow) * 10; 
 
-      // Штраф за бессмысленную трату стен
-      const wallsSpent = 10 - state.players[1].wallsLeft;
-      if (wallsSpent > 5 && d1 > d0 + 2) {
-        score -= wallsSpent * 40;
-      }
+    // 6. Стратегический штраф: если бот сильно впереди по дистанции, он должен финишировать, а не ставить стены.
+    if (d1 < d0 && walls1 > 0) {
+        // Если бот на 3 хода ближе (или больше), штрафуем за стены
+        if (d0 - d1 >= 3) score -= walls1 * 5; 
+    }
 
-      // Бонус за приближение к цели
-      const botPos = state.players[1].pos;
-      const distanceToGoal = Math.abs(botPos.r - 8);
-      score -= distanceToGoal * 10;
+    // 7. Центровой бонус для лучшего маневрирования.
+    const botCol = state.players[1].pos.c;
+    const centerBonus = 5 - Math.abs(4 - botCol); 
+    score += centerBonus * 8; 
 
-      return score;
-    },
+    return score;
+  },
 
-    // Умная генерация ходов стенами (только эффективные позиции)
-    generateSmartWallMoves(state, forPlayer) {
-      const moves = [];
-      const oppIdx = 1 - forPlayer;
-      const oppPath = this.findShortestPath(state, oppIdx);
-      
-      if (oppPath.distance === Infinity || oppPath.path.length < 2) return moves;
+  /**
+   * Генерирует "умные" ходы стеной с приоритетами.
+   * Стена должна увеличивать кратчайший путь противника минимум на 1.
+   */
+  generateSmartWallMoves(state, forPlayer) {
+    const moves = [];
+    const oppPlayer = 1 - forPlayer;
+    const myPos = state.players[forPlayer].pos;
+    const oppPos = state.players[oppPlayer].pos;
 
-      const oldOppDist = oppPath.distance;
-      
-      // Приоритет 1: Блокировка текущего пути противника
-      const pathPositions = oppPath.path.slice(0, Math.min(5, oppPath.path.length));
-      
-      // Приоритет 2: Блокировка рядом с противником
-      const oppPos = state.players[oppIdx].pos;
-      const nearOpp = [
-        { r: oppPos.r - 1, c: oppPos.c - 1 }, { r: oppPos.r - 1, c: oppPos.c },
-        { r: oppPos.r, c: oppPos.c - 1 },     { r: oppPos.r, c: oppPos.c },
-        { r: oppPos.r + 1, c: oppPos.c - 1 }, { r: oppPos.r + 1, c: oppPos.c }
-      ];
+    // 1. Расширенный набор кандидатов
+    const candidates = new Set();
+    // Области вокруг игроков
+    for (let r = -2; r <= 1; r++) {
+        for (let c = -2; c <= 1; c++) {
+            candidates.add(`${myPos.r + r},${myPos.c + c}`);
+            candidates.add(`${oppPos.r + r},${oppPos.c + c}`);
+        }
+    }
+    // Центр доски
+    candidates.add('3,3'); candidates.add('3,4'); candidates.add('4,3'); candidates.add('4,4');
 
-      // Приоритет 3: Центральные позиции для контроля
-      const centerPositions = [
-        { r: 3, c: 3 }, { r: 3, c: 4 }, { r: 3, c: 5 },
-        { r: 4, c: 3 }, { r: 4, c: 4 }, { r: 4, c: 5 },
-        { r: 5, c: 3 }, { r: 5, c: 4 }, { r: 5, c: 5 }
-      ];
+    const oldOppDist = this.shortestPathDistance(state, oppPlayer);
 
-      const candidates = [...pathPositions, ...nearOpp, ...centerPositions];
-      const tested = new Set();
+    for (const posStr of candidates) {
+        const [rStr, cStr] = posStr.split(',');
+        const r = parseInt(rStr), c = parseInt(cStr);
 
-      for (const { r, c } of candidates) {
-        if (r < 0 || r >= 8 || c < 0 || c >= 8) continue;
-        
-        const key = `${r},${c}`;
-        if (tested.has(key)) continue;
-        tested.add(key);
+        if (r < 0 || r >= 8 || c < 0 || c >= 8) continue;
 
-        // Горизонтальная стена
-        if (Game.checkWallPlacementWithState(state, r, c, false)) {
-          const temp = this.cloneState(state);
-          temp.hWalls[r][c] = true;
-          
-          if (Game.isValidWallPlacementWithState(temp)) {
-            const newOppDist = this.shortestPathDistance(temp, oppIdx);
-            
-            // Ставим стену только если она реально замедляет противника
-            if (newOppDist > oldOppDist) {
-              const effectiveness = newOppDist - oldOppDist;
-              moves.push({ 
-                type: 'wall', 
-                r, c, 
-                vertical: false, 
-                priority: 50 + effectiveness * 10 
-              });
-            }
-          }
-        }
+        const checkAndAddWall = (r, c, vertical) => {
+            if (Game.checkWallPlacementWithState(state, r, c, vertical)) {
+                const temp = this.cloneState(state);
+                if (vertical) temp.vWalls[r][c] = true;
+                else temp.hWalls[r][c] = true;
 
-        // Вертикальная стена
-        if (Game.checkWallPlacementWithState(state, r, c, true)) {
-          const temp = this.cloneState(state);
-          temp.vWalls[r][c] = true;
-          
-          if (Game.isValidWallPlacementWithState(temp)) {
-            const newOppDist = this.shortestPathDistance(temp, oppIdx);
-            
-            if (newOppDist > oldOppDist) {
-              const effectiveness = newOppDist - oldOppDist;
-              moves.push({ 
-                type: 'wall', 
-                r, c, 
-                vertical: true, 
-                priority: 50 + effectiveness * 10 
-              });
-            }
-          }
-        }
-      }
+                if (Game.isValidWallPlacementWithState(temp)) {
+                    const newOppDist = this.shortestPathDistance(temp, oppPlayer);
+                    
+                    // УСЛОВИЕ: Стена должна увеличить путь минимум на 1
+                    if (newOppDist >= oldOppDist + 1) {
+                        const move = { type: 'wall', r, c, vertical };
 
-      return moves;
-    },
+                        // ПРИОРИТЕТ: Супер-приоритет, если путь увеличивается на 2 и более
+                        if (newOppDist >= oldOppDist + 2) {
+                            move.priority = 1000; 
+                        } else {
+                            move.priority = 50; 
+                        }
+                        moves.push(move);
+                    }
+                }
+            }
+        };
 
-    generateMoves(state, forPlayer) {
-      const moves = [];
-      const p = state.players[forPlayer];
-      const { r, c } = p.pos;
+        checkAndAddWall(r, c, false); // Горизонтальная
+        checkAndAddWall(r, c, true);  // Вертикальная
+    }
+    return moves;
+  },
 
-      // Найдём оптимальный путь для приоритизации ходов
-      const myPath = this.findShortestPath(state, forPlayer);
-      const nextBestCell = myPath.path.length > 1 ? myPath.path[1] : null;
+  generateMoves(state, forPlayer) {
+    const moves = [];
+    const p = state.players[forPlayer];
+    const { r, c } = p.pos;
 
-      // Ходы пешкой
-      for (const { dr, dc } of Game.directions) {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 &&
-            !Game.hasPawnAtWithState(state, nr, nc) &&
-            !Game.isWallBetweenWithState(state, r, c, nr, nc)) {
-          
-          // Бонус если это следующая клетка на оптимальном пути
-          let priority = 100;
-          if (nextBestCell && nr === nextBestCell.r && nc === nextBestCell.c) {
-            priority = 200; // Приоритет движению к цели!
-          }
-          
-          moves.push({ type: 'pawn', r: nr, c: nc, priority });
-        }
+    // Ходы пешкой (с высоким приоритетом)
+    for (const { dr, dc } of Game.directions) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 &&
+            !Game.hasPawnAtWithState(state, nr, nc) &&
+            !Game.isWallBetweenWithState(state, r, c, nr, nc)) {
+            moves.push({ type: 'pawn', r: nr, c: nc, priority: 100 }); 
+        }
+        // Прыжки
+        const jr = r + dr * 2, jc = c + dc * 2;
+        if (jr >= 0 && jr < 9 && jc >= 0 && jc < 9 &&
+            Game.hasPawnAtWithState(state, r + dr, c + dc) &&
+            Game.getPlayerAtWithState(state, r + dr, c + dc) !== forPlayer &&
+            !Game.hasPawnAtWithState(state, jr, jc) &&
+            !Game.isWallBetweenWithState(state, r + dr, c + dc, jr, jc)) {
+            moves.push({ type: 'pawn', r: jr, c: jc, priority: 150 }); 
+        }
+    }
 
-        // Прыжки через противника
-        const jr = r + dr * 2, jc = c + dc * 2;
-        if (jr >= 0 && jr < 9 && jc >= 0 && jc < 9 &&
-            Game.hasPawnAtWithState(state, r + dr, c + dc) &&
-            Game.getPlayerAtWithState(state, r + dr, c + dc) !== forPlayer &&
-            !Game.hasPawnAtWithState(state, jr, jc) &&
-            !Game.isWallBetweenWithState(state, r + dr, c + dc, jr, jc)) {
-          
-          let priority = 150;
-          if (nextBestCell && jr === nextBestCell.r && jc === nextBestCell.c) {
-            priority = 250;
-          }
-          
-          moves.push({ type: 'pawn', r: jr, c: jc, priority });
-        }
-      }
+    // Стены — только умные (приоритет задан в generateSmartWallMoves)
+    if (p.wallsLeft > 0) {
+        const wallMoves = this.generateSmartWallMoves(state, forPlayer);
+        moves.push(...wallMoves);
+    }
 
-      // Стены — только если есть смысл
-      if (p.wallsLeft > 0) {
-        const wallMoves = this.generateSmartWallMoves(state, forPlayer);
-        moves.push(...wallMoves);
-      }
+    // Сортируем по приоритету (Супер-стены > Прыжки > Обычный ход > Базовые стены)
+    moves.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    return moves;
+  },
 
-      // Сортируем: сначала движение к цели, потом стены
-      moves.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-      return moves;
-    },
+  makeMove(difficulty = 'medium') {
+    const botPlayer = 1;
+    
+    // Установка глубины поиска в зависимости от сложности
+    let depth;
+    switch (difficulty) {
+        case 'easy':
+            depth = 2;
+            break;
+        case 'medium':
+            depth = 3;
+            break;
+        case 'hard':
+            depth = 5; 
+            break;
+        case 'impossible':
+            depth = 6; 
+            break;
+        default:
+            depth = 3;
+    }
 
-    makeMove(difficulty = 'medium') {
-      const botPlayer = 1;
-      const moves = this.generateMoves(Game.state, botPlayer);
-      
-      if (moves.length === 0) { 
-        Game.nextTurn(); 
-        return; 
-      }
+    const moves = this.generateMoves(Game.state, botPlayer);
+    if (moves.length === 0) { Game.nextTurn(); return; }
 
-      let bestMove = moves[0];
+    let bestMove = moves[0];
+    let bestScore = -Infinity;
+    const startTime = Date.now();
+    const moveScores = []; 
 
-      if (difficulty === 'easy') {
-        // Easy: 80% времени идём по оптимальному пути, 20% случайно
-        if (Math.random() < 0.8) {
-          const pawnMoves = moves.filter(m => m.type === 'pawn');
-          if (pawnMoves.length > 0) {
-            // Берём лучший ход пешкой (с наивысшим приоритетом)
-            bestMove = pawnMoves[0];
-          }
-        } else {
-          // Иногда делаем случайный ход для "человечности"
-          bestMove = moves[Math.floor(Math.random() * Math.min(3, moves.length))];
-        }
-      } else if (difficulty === 'medium') {
-        // Medium: minimax с ограниченной глубиной
-        const depth = 3;
-        let bestScore = -Infinity;
-        const startTime = Date.now();
+    if (difficulty === 'easy' && Math.random() < 0.3) {
+        const pawnMoves = moves.filter(m => m.type === 'pawn');
+        if (pawnMoves.length > 0) bestMove = pawnMoves[Math.floor(Math.random() * pawnMoves.length)];
+    } else {
+        for (const move of moves) {
+            if (Date.now() - startTime > 2500) break; // Таймаут
 
-        // Рассматриваем только топ-10 ходов для скорости
-        const topMoves = moves.slice(0, 10);
+            const test = this.cloneState(Game.state);
+            this.applyMove(test, move, botPlayer);
+            
+            let score = this.minimax(test, depth - 1, -Infinity, Infinity, false);
+            
+            // БОНУС: Поощрение движения пешкой
+            if (move.type === 'pawn') {
+                score += 150; 
+                // Дополнительный бонус за сокращение дистанции
+                const newDist = this.shortestPathDistance(test, botPlayer);
+                const oldDist = this.shortestPathDistance(Game.state, botPlayer);
+                if (newDist < oldDist) {
+                    score += (oldDist - newDist) * 50; 
+                }
+            }
 
-        for (const move of topMoves) {
-          if (Date.now() - startTime > 2000) break; // Таймаут 2 секунды
+            // АНТИЦИКЛИЧНОСТЬ: Добавляем случайный фактор (±20 очков)
+            const randomFactor = Math.random() * 40 - 20;
+            score += randomFactor;
 
-          const test = this.cloneState(Game.state);
-          this.applyMove(test, move, botPlayer);
-          
-          let score = this.minimax(test, depth - 1, -Infinity, Infinity, false);
-          
-          // Дополнительный бонус за движение пешкой
-          if (move.type === 'pawn') {
-            score += 150;
-          }
+            moveScores.push({
+                move: this.describeMoveForLog(move),
+                score: score.toFixed(1),
+                distanceAfter: this.shortestPathDistance(test, botPlayer)
+            });
 
-          if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
-          }
-        }
-      }
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            } else if (score === bestScore && Math.random() < 0.5) { 
+                // Если счет равен, с 50% шансом выбираем новый ход
+                bestMove = move; 
+            }
+        }
 
-      // Применяем выбранный ход
-      this.applyMove(Game.state, bestMove, botPlayer);
-      Game.draw();
-      
-      if (Game.checkVictory()) return;
-      Game.nextTurn();
-    },
+        // Сортируем и выводим топ-3
+        moveScores.sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
+        console.log('🤖 ИИ анализирует ходы:');
+        console.log(`📍 Текущая позиция: r${Game.state.players[botPlayer].pos.r} c${Game.state.players[botPlayer].pos.c}`);
+        moveScores.slice(0, 3).forEach((item, i) => {
+            const medal = ['🥇', '🥈', '🥉'][i] || '▪️';
+            console.log(`${medal} ${item.move} → Оценка: ${item.score}, Дистанция: ${item.distanceAfter}`);
+        });
+        console.log(`✅ Выбран: ${this.describeMoveForLog(bestMove)} (${bestScore.toFixed(1)} очков)\n`);
+    }
 
-    minimax(state, depth, alpha, beta, maximizing) {
-      if (depth === 0) return this.evaluate(state);
+    this.applyMove(Game.state, bestMove, botPlayer);
+    Game.draw();
+    if (Game.checkVictory()) return;
+    Game.nextTurn();
+  },
 
-      const botPlayer = 1;
-      const current = maximizing ? botPlayer : 0;
-      const moves = this.generateMoves(state, current);
+  describeMoveForLog(move) {
+    if (move.type === 'pawn') {
+      return `Ход на r${move.r} c${move.c}`;
+    } else {
+      const orient = move.vertical ? 'вертикальная' : 'горизонтальная';
+      return `Стена ${orient} r${move.r} c${move.c}`;
+    }
+  },
 
-      // Рассматриваем только топ-8 ходов на каждом уровне
-      const topMoves = moves.slice(0, 8);
+  minimax(state, depth, alpha, beta, maximizing) {
+    if (depth === 0) return this.evaluate(state);
 
-      if (maximizing) {
-        let max = -Infinity;
-        for (const m of topMoves) {
-          const s = this.cloneState(state);
-          this.applyMove(s, m, current);
-          max = Math.max(max, this.minimax(s, depth - 1, alpha, beta, false));
-          if (max >= beta) break;
-          alpha = Math.max(alpha, max);
-        }
-        return max;
-      } else {
-        let min = Infinity;
-        for (const m of topMoves) {
-          const s = this.cloneState(state);
-          this.applyMove(s, m, current);
-          min = Math.min(min, this.minimax(s, depth - 1, alpha, beta, true));
-          if (min <= alpha) break;
-          beta = Math.min(beta, min);
-        }
-        return min;
-      }
-    },
+    const botPlayer = 1;
+    const current = maximizing ? botPlayer : 0;
+    const moves = this.generateMoves(state, current);
 
-    applyMove(state, move, playerIdx) {
-      if (move.type === 'pawn') {
-        state.players[playerIdx].pos.r = move.r;
-        state.players[playerIdx].pos.c = move.c;
-      } else {
-        if (move.vertical) state.vWalls[move.r][move.c] = true;
-        else state.hWalls[move.r][move.c] = true;
-        state.players[playerIdx].wallsLeft--;
-      }
-    }
-  };
+    if (maximizing) {
+      let max = -Infinity;
+      for (const m of moves) {
+        const s = this.cloneState(state);
+        this.applyMove(s, m, current);
+        max = Math.max(max, this.minimax(s, depth - 1, alpha, beta, false));
+        if (max >= beta) break;
+        alpha = Math.max(alpha, max);
+      }
+      return max;
+    } else {
+      let min = Infinity;
+      for (const m of moves) {
+        const s = this.cloneState(state);
+        this.applyMove(s, m, current);
+        min = Math.min(min, this.minimax(s, depth - 1, alpha, beta, true));
+        if (min <= alpha) break;
+        beta = Math.min(beta, min);
+      }
+      return min;
+    }
+  },
+
+  applyMove(state, move, playerIdx) {
+    if (move.type === 'pawn') {
+      state.players[playerIdx].pos.r = move.r;
+      state.players[playerIdx].pos.c = move.c;
+    } else {
+      if (move.vertical) state.vWalls[move.r][move.c] = true;
+      else state.hWalls[move.r][move.c] = true;
+      state.players[playerIdx].wallsLeft--;
+    }
+  }
+};
