@@ -18,7 +18,7 @@
       <button onclick="UI.showAbout()">Об игре</button>
     </div>
   </div>
-
+  
   <!-- Выбор режима -->
   <div id="modeScreen" class="screen">
     <h2>Выберите режим</h2>
@@ -29,7 +29,22 @@
     <button onclick="Game.startVsBot('impossible')">Против нереального бота</button>
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
+  
+  <div id="multiplayerScreen" class="screen">
+  <h2>Сетевая игра</h2>
+  <div class="network-setup">
+    <p>Статус: <span id="netStatus" style="font-weight: bold;">Отключено</span></p>
 
+    <input type="text" id="roomIdInput" placeholder="Код комнаты (4 цифры)">
+
+    <button onclick="Net.createRoom()">Создать комнату</button>
+    <button onclick="Net.joinRoom()">Присоединиться</button>
+
+    <div id="netInfo" style="margin-top: 10px; color: #888;"></div>
+  </div>
+
+  <button onclick="UI.showModeSelect()">Назад к режимам</button>
+</div>
   <!-- Игровой экран -->
   <div id="gameScreen" class="screen">
     <div class="wrap">

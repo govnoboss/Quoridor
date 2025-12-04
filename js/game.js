@@ -332,6 +332,8 @@ const Game = {
 
   initEvents() {
     this.canvas.addEventListener('pointerdown', e => {
+      if (this.state.currentPlayer !== 0 && this.state.botDifficulty !== 'none') return;
+
       if (this.state.drag) return;
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -345,6 +347,18 @@ const Game = {
         this.draw();
       }
     });
+
+    document.getElementById('hTpl').onpointerdown = e => { 
+      if (this.state.currentPlayer !== 0 && this.state.botDifficulty !== 'none') return;
+      e.preventDefault(); 
+      this.startWallDrag(false, e); 
+    };
+
+    document.getElementById('vTpl').onpointerdown = e => { 
+      if (this.state.currentPlayer !== 0 && this.state.botDifficulty !== 'none') return;
+      e.preventDefault(); 
+      this.startWallDrag(true, e); 
+    };
 
     document.getElementById('hTpl').onpointerdown = e => { 
       e.preventDefault(); 
