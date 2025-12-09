@@ -571,26 +571,25 @@ const Game = {
   // 6. МЕТОДЫ УПРАВЛЕНИЯ ХОДОМ
   // ====================================================================
 
-  /**
-   * Применяет ход, полученный от соперника по сети.
-   * @param {object} moveData Данные хода {type, ...args}
-   */
-  handleRemoteMove(moveData) {
-    console.log('[GAME] Применяю удаленный ход:', moveData);
-    
-    // Применяем изменения к state
-    if (moveData.type === 'pawn') {
-      const pIdx = this.state.currentPlayer; // Сейчас ходит соперник
-      this.state.players[pIdx].pos = { r: moveData.r, c: moveData.c };
-    } else if (moveData.type === 'wall') {
-      this.placeWall(moveData.r, moveData.c, moveData.isVertical);
-    }
-    
-    // Проверяем победу и передаем ход МНЕ
-    if (!this.checkVictory()) {
-      this.nextTurn();
-    }
-    this.draw();
+applyServerMove(data) {
+      console.log('[GAME] Сервер подтвердил ход:', data);
+      const { playerIdx, move, nextPlayer } = data;
+
+      // 1. Применяем изменения к локальному State
+      if (move.type === 'pawn') {
+          this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+      } else if (move.type === 'wall') {
+          if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
+          else this.state.hWalls[move.r][move.c] = true;
+          this.state.players[playerIdx].wallsLeft--;
+      }
+
+      // 2. Обновляем текущего игрока
+      this.state.currentPlayer = nextPlayer;
+      
+      // 3. Обновляем UI
+      this.updateTurnDisplay();
+      this.draw();
   },
 
   /**
@@ -726,47 +725,49 @@ const Game = {
     });
 
     // === 7.3. Окончание перетаскивания (pointerup) ===
-    window.addEventListener('pointerup', e => {
+window.addEventListener('pointerup', e => {
       if (!this.state.drag) return;
+      
       const rect = this.canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-let moveMade = false; // Флаг: был ли сделан валидный ход
-  let moveData = null;  // Данные для отправки
 
-  if (this.state.drag.type === 'pawn') {
-    const target = this.getCellFromCoords(x, y);
-    const player = this.state.players[this.state.drag.playerIdx];
-    
-    if (target && this.canMovePawn(player.pos.r, player.pos.c, target.r, target.c)) {
-      player.pos = {r: target.r, c: target.c};
-      moveMade = true;
-      moveData = { type: 'pawn', r: target.r, c: target.c }; // Готовим пакет
-    }
-    } else if (this.state.drag.type === 'wall') {
-      const slot = this.getNearestSlot(x, y);
-      if (slot && this.state.players[this.state.currentPlayer].wallsLeft > 0 && 
-          this.placeWall(slot.r, slot.c, this.state.drag.isVertical)) {
-        moveMade = true;
-        moveData = { type: 'wall', r: slot.r, c: slot.c, isVertical: this.state.drag.isVertical }; // Готовим пакет
+      let potentialMove = null;
+
+      // Рассчитываем, какой ход хочет сделать игрок
+      if (this.state.drag.type === 'pawn') {
+        const target = this.getCellFromCoords(x, y);
+        // Не проверяем canMovePawn здесь строго, сервер проверит. 
+        // Но для UI лучше проверить, чтобы зря не слать запросы.
+        if (target) {
+           potentialMove = { type: 'pawn', r: target.r, c: target.c };
+        }
+      } else if (this.state.drag.type === 'wall') {
+        const slot = this.getNearestSlot(x, y);
+        if (slot) {
+           potentialMove = { type: 'wall', r: slot.r, c: slot.c, isVertical: this.state.drag.isVertical };
+        }
       }
-    }
 
-    // Если ход сделан успешно
-    if (moveMade) {
-      // 1. Отправляем на сервер, если мы онлайн
-      if (Net.isOnline) {
-          Net.sendMove(moveData);
+      // Если есть попытка хода
+      if (potentialMove) {
+          if (Net.isOnline) {
+              console.log('[GAME] Отправляю ход на проверку:', potentialMove);
+              Net.sendMove(potentialMove);
+              // Блокируем UI или просто ждем ответа (фишка вернется на место, если сервер откажет,
+              // так как мы не обновили this.state.players.pos локально)
+          } else {
+              // ЛОКАЛЬНАЯ ИГРА (оставляем старую логику для тестов без сети)
+              // ... тут код для офлайн режима ...
+              // Но пока можно сосредоточиться на Online
+          }
       }
-      
-      // 2. Локально меняем очередь хода
-      if (!this.checkVictory()) this.nextTurn();
-    }
 
-    this.state.drag = null;
-    this.canvas.style.cursor = 'default';
-    this.draw();
-  });
+      // Сбрасываем перетаскивание визуально
+      this.state.drag = null;
+      this.canvas.style.cursor = 'default';
+      this.draw(); // Перерисует фишку на СТАРОМ месте, пока сервер не ответит
+    });
 
     // === 7.4. Клавиатура и UI ===
     window.addEventListener('keydown', e => {

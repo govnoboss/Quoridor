@@ -24,9 +24,13 @@ const Net = {
         });
 
         // 2. Получение хода соперника
-        this.socket.on('opponentMove', (moveData) => {
-            console.log('[NET] Получен ход соперника:', moveData);
-            Game.handleRemoteMove(moveData);
+            this.socket.on('serverMove', (data) => {
+            // data = { playerIdx, move, nextPlayer }
+            Game.applyServerMove(data);
+            this.socket.on('moveRejected', (data) => {
+            console.warn('[NET] Ход отклонен сервером:', data.reason);
+            console.log('Недопустимый ход!');
+        });
         });
     },
 
@@ -41,13 +45,12 @@ const Net = {
     },
 
     sendMove(moveData) {
-        if (!this.isOnline) return;
-        console.log('[NET] Отправляю ход:', moveData);
-        this.socket.emit('playerMove', {
-            lobbyId: this.lobbyId,
-            move: moveData
-        });
-    }
+            if (!this.isOnline) return;
+            this.socket.emit('playerMove', {
+                lobbyId: this.lobbyId,
+                move: moveData
+            });
+        }
 };
 
 Net.init();
