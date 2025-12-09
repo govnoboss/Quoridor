@@ -81,6 +81,7 @@ const UI = {
     // Если hideSearch() вызывается из Net.js (после gameFound), отмена не нужна.
     // Для простоты, оставим это в onclick на кнопке "Отменить поиск" в index.html.
   }
+
 };
 
 document.addEventListener('DOMContentLoaded', () => {

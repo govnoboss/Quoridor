@@ -817,12 +817,6 @@ window.addEventListener('pointerup', e => {
         this.draw();
       }
     };
-
-    // Кнопка сброса игры
-    document.getElementById('resetBtn').onclick = () => {
-      this.reset();
-      this.draw();
-    };
   },
   
   // ====================================================================
