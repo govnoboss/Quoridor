@@ -28,6 +28,14 @@ function createInitialState() {
         playerSockets: [null, null] 
     };
 }
+function checkVictory(state) {
+    // Белые (индекс 0) должны достичь строки 0
+    if (state.players[0].pos.r === 0) return 0;
+    // Черные (индекс 1) должны достичь строки 8
+    if (state.players[1].pos.r === 8) return 1;
+    
+    return -1; // -1 означает, что победителя пока нет
+}
 
 io.on('connection', (socket) => {
     console.log(`Пользователь подключен: ${socket.id}`);
@@ -112,28 +120,68 @@ io.on('connection', (socket) => {
         }
 
         if (valid) {
-            console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
-            
-            // Переключаем ход
-            game.currentPlayer = 1 - game.currentPlayer;
+                    console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
+                    
+                    // --- НОВАЯ ЛОГИКА: ПРОВЕРКА ПОБЕДЫ ---
+                    const winnerIdx = checkVictory(game);
+                    if (winnerIdx !== -1) {
+                        console.log(`[GAME OVER] Лобби ${lobbyId}: Игрок ${winnerIdx} победил, достигнув цели.`);
+                        
+                        io.to(lobbyId).emit('gameOver', { 
+                            winnerIdx: winnerIdx, 
+                            reason: 'Goal reached' 
+                        });
+                        delete activeGames[lobbyId];
+                        return; // Останавливаем обработку хода
+                    }
+                    // ----------------------------------------
 
-            // Отправляем подтверждение всем
-            io.to(lobbyId).emit('serverMove', {
-                playerIdx: playerIdx,
-                move: move,
-                nextPlayer: game.currentPlayer
-            });
-        } else {
+                    // Переключаем ход (если игра не окончена)
+                    game.currentPlayer = 1 - game.currentPlayer;
+
+                    // Отправляем подтверждение всем
+                    io.to(lobbyId).emit('serverMove', {
+                        playerIdx: playerIdx,
+                        move: move,
+                        nextPlayer: game.currentPlayer
+                    });
+                }
+        else {
             console.log(`[MOVE INVALID] Лобби ${lobbyId}, Ход отклонен.`);
             socket.emit('moveRejected', { reason: 'Invalid move' });
         }
     });
 
     socket.on('disconnect', () => {
-        // Простая очистка очереди
+        console.log(`[DISCONNECT] Пользователь отключен: ${socket.id}`);
+        
+        // (Очистка очереди поиска...)
         const index = searchQueue.indexOf(socket.id);
         if (index > -1) searchQueue.splice(index, 1);
-        // Очистку activeGames можно добавить позже (когда оба игрока вышли)
+        
+        // --- НОВАЯ ЛОГИКА: ОБРАБОТКА ВЫХОДА ИЗ АКТИВНОЙ ИГРЫ ---
+        for (const lobbyId in activeGames) {
+            const game = activeGames[lobbyId];
+            const disconnectedIdx = game.playerSockets.indexOf(socket.id);
+
+            if (disconnectedIdx !== -1) {
+                // Если отключившийся игрок найден в активной игре
+                const winnerIdx = 1 - disconnectedIdx; 
+                const winnerSocketId = game.playerSockets[winnerIdx];
+                
+                console.log(`[RAGE QUIT] Лобби ${lobbyId}: Игрок ${disconnectedIdx} отключился. Игрок ${winnerIdx} победил.`);
+                
+                // Уведомляем оставшегося игрока
+                io.to(winnerSocketId).emit('gameOver', { 
+                    winnerIdx: winnerIdx, 
+                    reason: 'Opponent disconnected' 
+                });
+                
+                // Очищаем серверное состояние
+                delete activeGames[lobbyId];
+                break;
+            }
+        }
     });
 });
 

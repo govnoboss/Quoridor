@@ -9,7 +9,6 @@ const Net = {
 
         this.socket.on('connect', () => console.log('[NET] Socket connected:', this.socket.id));
         
-        // 1. Старт игры
         this.socket.on('gameStart', (data) => {
             console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             
@@ -17,15 +16,19 @@ const Net = {
             this.myColor = data.color;
             this.lobbyId = data.lobbyId;
 
-            UI.hideSearch(); // Убираем меню поиска
+            UI.hideSearch(); 
             
-            // Запускаем игру в режиме Online
             Game.startOnline(data.color);
         });
-
-        // 2. Получение хода соперника
+        this.socket.on('gameOver', (data) => {
+            console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);
+            this.isOnline = false;
+            this.lobbyId = null;
+            this.myColor = null;
+            
+            Game.handleGameOver(data.winnerIdx, data.reason);
+        });
             this.socket.on('serverMove', (data) => {
-            // data = { playerIdx, move, nextPlayer }
             Game.applyServerMove(data);
             this.socket.on('moveRejected', (data) => {
             console.warn('[NET] Ход отклонен сервером:', data.reason);
