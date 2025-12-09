@@ -5,12 +5,7 @@ const Shared = require('./shared.js'); // Подключаем общую лог
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: "*", 
-        methods: ["GET", "POST"]
-    }
-});
+const io = socketIo(server);
 
 let searchQueue = [];
 let lobbyCounter = 1;
