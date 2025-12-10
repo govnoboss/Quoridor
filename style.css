@@ -44,12 +44,11 @@ body.light canvas{background:#ddd}
 #searchTimer {
   font-size: 1.5em;
   font-weight: bold;
-  /* Добавьте стили, чтобы он "выделялся" */
-  color: #ffcc00; /* Жёлтый цвет, например */
+  color: #ffcc00; 
   border: 2px solid #ffcc00;
   padding: 5px 15px;
   border-radius: 5px;
-  animation: pulse 1s infinite alternate; /* Анимация для привлечения внимания */
+  animation: pulse 1s infinite alternate;
 }
 
 @keyframes pulse {
