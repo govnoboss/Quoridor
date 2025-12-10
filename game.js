@@ -641,13 +641,12 @@ applyServerMove(data) {
     this.state.currentPlayer = 1 - this.state.currentPlayer;
     this.updateTurnDisplay();
 
-    // Если сейчас ход Бота (Индекс 1) и включен режим против Бота
     if (this.state.botDifficulty !== 'none' && this.state.currentPlayer === 1) {
       setTimeout(() => {
         document.getElementById('turnInfo').textContent = 'Бот думает...';
         // Вызываем логику бота (предполагается, что AI.makeMove определен в другом файле)
         AI.makeMove(this.state.botDifficulty); 
-      }, 600);
+      }, 50);
     }
   },
 
@@ -760,11 +759,8 @@ window.addEventListener('pointerup', e => {
 
       let potentialMove = null;
 
-      // Рассчитываем, какой ход хочет сделать игрок
       if (this.state.drag.type === 'pawn') {
         const target = this.getCellFromCoords(x, y);
-        // Не проверяем canMovePawn здесь строго, сервер проверит. 
-        // Но для UI лучше проверить, чтобы зря не слать запросы.
         if (target) {
            potentialMove = { type: 'pawn', r: target.r, c: target.c };
         }
@@ -775,17 +771,32 @@ window.addEventListener('pointerup', e => {
         }
       }
 
-      // Если есть попытка хода
       if (potentialMove) {
           if (Net.isOnline) {
               console.log('[GAME] Отправляю ход на проверку:', potentialMove);
               Net.sendMove(potentialMove);
-              // Блокируем UI или просто ждем ответа (фишка вернется на место, если сервер откажет,
-              // так как мы не обновили this.state.players.pos локально)
           } else {
-              // ЛОКАЛЬНАЯ ИГРА (оставляем старую логику для тестов без сети)
-              // ... тут код для офлайн режима ...
-              // Но пока можно сосредоточиться на Online
+              // ЛОКАЛЬНАЯ ИГРА: Восстановленная логика
+              const playerIdx = this.state.currentPlayer;
+              
+              if (potentialMove.type === 'pawn') {
+                  const { r: tr, c: tc } = potentialMove;
+                  const player = this.state.players[playerIdx];
+                  // Проверяем, что ход допустим (нужна реальная проверка, а не только потенциальный ход)
+                  if (this.canMovePawn(player.pos.r, player.pos.c, tr, tc)) {
+                      player.pos = { r: tr, c: tc };
+                      if (!this.checkVictory()) this.nextTurn();
+                  }
+
+              } else if (potentialMove.type === 'wall') {
+                  const { r: wr, c: wc, isVertical } = potentialMove;
+                  // Проверяем, что есть стены и размещение прошло успешно
+                  if (this.state.players[playerIdx].wallsLeft > 0 && 
+                      this.placeWall(wr, wc, isVertical)) {
+                      // Логика placeWall уже уменьшила wallsLeft и проверила победу (не блокирует ли путь)
+                      this.nextTurn();
+                  }
+              }
           }
       }
 

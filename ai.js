@@ -77,6 +77,10 @@ const AI = {
     const centerBonus = 5 - Math.abs(4 - botCol); 
     score += centerBonus * 8; 
 
+    // 8. Бонус за баланс (Стены vs Дистанция).
+    if (d1 > 0) {
+        score -= walls1 * (10 / d1) * 2;
+    }
     return score;
   },
 
@@ -179,7 +183,6 @@ const AI = {
   makeMove(difficulty = 'medium') {
     const botPlayer = 1;
     
-    // Установка глубины поиска в зависимости от сложности
     let depth;
     switch (difficulty) {
         case 'easy':

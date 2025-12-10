@@ -5,9 +5,7 @@ const Net = {
     lobbyId: null,     // ID комнаты
 
     init() {
-        this.socket = io("wss://quoridor-ogf4.onrender.com", {
-  transports: ["websocket"]
-});
+        this.socket = io(); 
 
         this.socket.on('connect', () => console.log('[NET] Socket connected:', this.socket.id));
         
