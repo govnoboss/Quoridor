@@ -5,7 +5,7 @@ const Net = {
     lobbyId: null,     // ID комнаты
 
     init() {
-        this.socket = io("https://quoridor-ogf4.onrender.com", {
+        this.socket = io("wss://quoridor-ogf4.onrender.com", {
   transports: ["websocket"]
 });
 
