@@ -16,8 +16,6 @@ const UI = {
     const theme = document.getElementById('themeSelect').value;
     document.body.className = theme;
     localStorage.setItem('quoridor-theme', theme);
-    alert('Настройки сохранены!');
-    this.backToMenu();
   },
   
   // Отключает все кнопки, кроме тех, что в контейнере поиска

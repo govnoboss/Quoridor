@@ -4,7 +4,7 @@ const Game = {
   canvas: document.getElementById('board'),
   /** @type {?CanvasRenderingContext2D} 2D-контекст для отрисовки. */
   ctx: null,
-
+  myPlayerIndex: -1,
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -59,13 +59,13 @@ const Game = {
    * Запускает сетевую игру.
    * @param {'white'|'black'} color Цвет игрока
    */
-  startOnline(color) {
+  startOnline(color, playerIdx) {
     this.reset();
-    this.state.botDifficulty = 'none'; // Ботов выключаем
+    this.state.botDifficulty = 'none'; 
+
+    this.myPlayerIndex = playerIdx;
     
-    // Сохраняем сетевые параметры прямо в state (или читаем из Net)
-    // Для удобства UI покажем, кто мы
-    console.log(`[GAME] Старт Онлайн. Я играю за: ${color}`);
+    console.log(`[GAME] Старт Онлайн. Я играю за: ${color} (Индекс: ${this.myPlayerIndex})`);
     
     UI.showScreen('gameScreen');
     this.draw();
@@ -174,8 +174,8 @@ handleGameOver(winnerIdx, reason) {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         const x = c * this.CONFIG.cellSize + 2;
-        const y = r * this.CONFIG.cellSize + 2;
-        this.ctx.fillStyle = '#2a2a2a'; // Фон ячейки
+        const y = this.transformRow(r) * this.CONFIG.cellSize + 2;
+        this.ctx.fillStyle = '#2a2a2a'; 
         this.ctx.fillRect(x, y, this.CONFIG.cellSize - 4, this.CONFIG.cellSize - 4);
       }
     }
@@ -188,7 +188,7 @@ handleGameOver(winnerIdx, reason) {
     const radius = this.CONFIG.cellSize * 0.35;
     this.state.players.forEach((p) => {
       const x = (p.pos.c + 0.5) * this.CONFIG.cellSize;
-      const y = (p.pos.r + 0.5) * this.CONFIG.cellSize;
+      const y = (this.transformRow(p.pos.r) + 0.5) * this.CONFIG.cellSize;
       this.ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -203,21 +203,26 @@ handleGameOver(winnerIdx, reason) {
    * Рисует все размещенные стены (горизонтальные и вертикальные).
    */
   drawPlacedWalls() {
-    this.ctx.fillStyle = '#e09f3e'; // Цвет стены
+    this.ctx.fillStyle = '#e09f3e';
     const len = this.CONFIG.cellSize * 2;
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+
+      // НОВЫЙ КОД: Переворот индекса стены R_WALL
+      const displayRWall = this.myPlayerIndex === 1 ? 7 - r : r; 
+
       // Горизонтальные стены
       if (this.state.hWalls[r][c]) {
         const x = c * this.CONFIG.cellSize + this.CONFIG.gap;
-        // Стена находится между строкой r и r+1
-        const y = (r + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+        // ИСПОЛЬЗУЕМ displayRWall (по сути, это отображаемая строка r-ячейки, над которой стена)
+        const y = (displayRWall + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
         this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
       }
       // Вертикальные стены
       if (this.state.vWalls[r][c]) {
         // Стена находится между столбцом c и c+1
         const x = (c + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-        const y = r * this.CONFIG.cellSize + this.CONFIG.gap;
+        // ИСПОЛЬЗУЕМ displayRWall
+        const y = displayRWall * this.CONFIG.cellSize + this.CONFIG.gap;
         this.ctx.fillRect(x, y, this.CONFIG.wallThick, len - this.CONFIG.gap * 2);
       }
     }
@@ -246,7 +251,7 @@ handleGameOver(winnerIdx, reason) {
    */
   drawMoveHint(r, c, color = '#4ade80') {
     const x = c * this.CONFIG.cellSize + this.CONFIG.cellSize / 2;
-    const y = r * this.CONFIG.cellSize + this.CONFIG.cellSize / 2;
+    const y = this.transformRow(r) * this.CONFIG.cellSize + this.CONFIG.cellSize / 2;
     this.ctx.fillStyle = color;
     this.ctx.globalAlpha = 0.35;
     this.ctx.beginPath();
@@ -262,16 +267,15 @@ handleGameOver(winnerIdx, reason) {
    */
   drawDragPreview() {
     if (!this.state.drag) return;
-
+    
     if (this.state.drag.type === 'pawn') {
       // Предпросмотр для фишки
       const target = this.getCellFromCoords(this.state.drag.x, this.state.drag.y);
       const {r, c} = this.state.players[this.state.drag.playerIdx].pos;
-      
       // Если целевая клетка допустима, рисуем полупрозрачную фишку там
       if (target && this.canMovePawn(r, c, target.r, target.c)) {
         const x = (target.c + 0.5) * this.CONFIG.cellSize;
-        const y = (target.r + 0.5) * this.CONFIG.cellSize;
+        const y = (this.transformRow(target.r) + 0.5) * this.CONFIG.cellSize;
         this.ctx.globalAlpha = 0.5;
         this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#fff' : '#000';
         this.ctx.beginPath();
@@ -308,13 +312,28 @@ handleGameOver(winnerIdx, reason) {
         
         // Рисуем полупрозрачную стену в слоте
         if (this.state.drag.isVertical) {
-          const x = (slot.c + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-          const y = slot.r * this.CONFIG.cellSize + this.CONFIG.gap;
-          this.ctx.fillRect(x, y, this.CONFIG.wallThick, len - this.CONFIG.gap * 2);
+            // ВЕРТИКАЛЬНАЯ — между r и r+1
+            const top = this.transformRow(tr);
+            const bottom = this.transformRow(tr + 1);
+
+            const rDisp = Math.min(top, bottom);
+
+            const x = (tc + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+            const y = rDisp * this.CONFIG.cellSize + this.CONFIG.gap;
+
+            this.ctx.fillRect(x, y, this.CONFIG.wallThick, len - this.CONFIG.gap * 2);
+
         } else {
-          const x = slot.c * this.CONFIG.cellSize + this.CONFIG.gap;
-          const y = (slot.r + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-          this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
+            // ГОРИЗОНТАЛЬНАЯ — между r и r+1 по вертикали
+            const top = this.transformRow(tr);
+            const bottom = this.transformRow(tr + 1);
+
+            const rDisp = Math.min(top, bottom);
+
+            const x = tc * this.CONFIG.cellSize + this.CONFIG.gap;
+            const y = (rDisp + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+
+            this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
         }
       }
       // Рисуем стену под курсором (саму "руку")
@@ -337,10 +356,30 @@ handleGameOver(winnerIdx, reason) {
    * @returns {?{r: number, c: number}} Координаты ячейки или null, если за пределами поля.
    */
   getCellFromCoords(x, y) {
-    const c = Math.floor(x / this.CONFIG.cellSize);
-    const r = Math.floor(y / this.CONFIG.cellSize);
-    return (r >= 0 && r < 9 && c >= 0 && c < 9) ? {r, c} : null;
+  const c = Math.floor(x / this.CONFIG.cellSize);
+  const r_display = Math.floor(y / this.CONFIG.cellSize);
+
+  if (r_display >= 0 && r_display < 9 && c >= 0 && c < 9) {
+      // НОВЫЙ КОД: Обратная трансформация
+      const r_absolute = this.transformRow(r_display); 
+      return {r: r_absolute, c};
+  }
+  return null;
   },
+  /**
+ * Трансформирует абсолютную строку (R) в отображаемую (R_display)
+ * и наоборот, если мы играем за Черного (Player 1).
+ * @param {number} r Абсолютная строка (0-8).
+ * @returns {number} Отображаемая строка (0-8).
+ */
+
+  transformRow(r) {
+  // Переворачиваем доску только для Черного игрока (Player 1)
+  if (this.myPlayerIndex === 1) {
+    return 8 - r; 
+  }
+  return r;
+  },  
 
   /**
    * Преобразует координаты курсора (x, y в пикселях) в координаты ближайшего
@@ -350,10 +389,15 @@ handleGameOver(winnerIdx, reason) {
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
   getNearestSlot(x, y) {
-    // Слоты находятся между клетками, поэтому делим, округляем и вычитаем 1
-    const c = Math.round(x / this.CONFIG.cellSize) - 1;
-    const r = Math.round(y / this.CONFIG.cellSize) - 1;
-    return (r >= 0 && r < 8 && c >= 0 && c < 8) ? {r, c} : null;
+  const c = Math.round(x / this.CONFIG.cellSize) - 1;
+  const r_display = Math.round(y / this.CONFIG.cellSize) - 1;
+
+  if (r_display >= 0 && r_display < 8 && c >= 0 && c < 8) {
+      // НОВЫЙ КОД: Обратная трансформация для 8x8 (7 - r_display)
+      const r_absolute = this.myPlayerIndex === 1 ? 7 - r_display : r_display; 
+      return {r: r_absolute, c};
+  }
+  return null;
   },
 
   /**
@@ -716,7 +760,7 @@ applyServerMove(data) {
       
       // Проверяем, находится ли нажатие в пределах радиуса фишки
       const px = (player.pos.c + 0.5) * this.CONFIG.cellSize;
-      const py = (player.pos.r + 0.5) * this.CONFIG.cellSize;
+      const py = (this.transformRow(player.pos.r) + 0.5) * this.CONFIG.cellSize;
       if ((x - px)**2 + (y - py)**2 < (this.CONFIG.cellSize * 0.4)**2) {
         this.state.drag = { type: 'pawn', playerIdx: this.state.currentPlayer, x, y };
         this.canvas.style.cursor = 'grabbing';
@@ -738,19 +782,21 @@ applyServerMove(data) {
 
     // === 7.2. Перемещение (pointermove) ===
     window.addEventListener('pointermove', e => {
+      const rect = this.canvas.getBoundingClientRect();
+      window.lastPointerX = e.clientX - rect.left;
+      window.lastPointerY = e.clientY - rect.top;
       if (Net.isOnline) {
         const myIdx = Net.myColor === 'white' ? 0 : 1;
       if (this.state.currentPlayer !== myIdx) return;
       }
       if (!this.state.drag) return;
-      const rect = this.canvas.getBoundingClientRect();
       this.state.drag.x = e.clientX - rect.left;
       this.state.drag.y = e.clientY - rect.top;
       this.draw();
     });
 
     // === 7.3. Окончание перетаскивания (pointerup) ===
-window.addEventListener('pointerup', e => {
+  window.addEventListener('pointerup', e => {
       if (!this.state.drag) return;
       
       const rect = this.canvas.getBoundingClientRect();
@@ -808,18 +854,48 @@ window.addEventListener('pointerup', e => {
 
     // === 7.4. Клавиатура и UI ===
     window.addEventListener('keydown', e => {
-      // Escape: Отмена перетаскивания
       if (e.key === 'Escape' && this.state.drag) {
         this.state.drag = null;
         this.canvas.style.cursor = 'default';
         this.draw();
       }
-      // R: Поворот перетаскиваемой стены
       if ((e.key === 'r' || e.key === 'R') && this.state.drag?.type === 'wall') {
         this.state.drag.isVertical = !this.state.drag.isVertical;
         this.draw();
       }
-    });
+      if (e.key === 'h' || e.key === 'H' || e.key === 'v' || e.key === 'V') {
+
+      // 1. Проверка: есть ли стены у игрока
+      const p = this.state.players[this.state.currentPlayer];
+      if (p.wallsLeft <= 0) return;
+
+      // 2. Проверка: если онлайн — только если мой ход
+      if (Net.isOnline) {
+        const myIdx = Net.myColor === 'white' ? 0 : 1;
+        if (this.state.currentPlayer !== myIdx) return;
+      }
+
+      // 3. Определяем ориентацию по клавише
+      const isVertical = (e.key === 'v' || e.key === 'V');
+
+      // 4. Берём координаты курсора
+      const rect = this.canvas.getBoundingClientRect();
+      const cursorX = window.lastPointerX ?? (rect.width / 2);
+      const cursorY = window.lastPointerY ?? (rect.height / 2);
+
+      // 5. Создаём drag-объект стены прямо в руку
+      this.state.drag = {
+        type: 'wall',
+        isVertical,
+        x: cursorX,
+        y: cursorY
+      };
+
+      this.canvas.style.cursor = 'grabbing';
+      this.draw();
+      return;
+    }
+  });
 
     // Кнопка поворота стены в UI
     document.getElementById('rotateBtn').onclick = () => {

@@ -11,16 +11,16 @@
   <div id="mainMenu" class="screen active">
     <h1>Quoridor</h1>
     <div class="menu-buttons">
-      <button onclick="UI.showModeSelect()">Играть</button>
-      <button onclick="UI.showSettings()">Настройки</button>
-      <button onclick="UI.showRules()">Правила</button>
-      <button onclick="UI.showAbout()">Об игре</button>
-      
       <div id="playOnlineContainer">
         <button id="playOnlineBtn" onclick="UI.showSearch()">Играть онлайн</button>
         <div id="searchTimer" class="hidden">0:00</div>
         <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch()">Отменить поиск</button>
       </div>
+      <button onclick="UI.showModeSelect()">Локальная игра</button>
+      <button onclick="UI.showSettings()">Настройки</button>
+      <button onclick="UI.showRules()">Правила</button>
+      <button onclick="UI.showAbout()">Об игре</button>
+      
       </div>
   </div>
   
@@ -72,6 +72,7 @@
     </label>
     <br><br>
     <button onclick="UI.saveSettings()">Сохранить</button>
+
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
@@ -87,8 +88,6 @@
   <div id="aboutScreen" class="screen">
     <h2>Об игре</h2>
     <p>Открытая веб-реализация настольной игры Quoridor<br>
-       С ботами Easy/Medium<br>
-       Версия: 1.0 (декабрь 2025)</p>
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 

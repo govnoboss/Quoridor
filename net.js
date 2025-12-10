@@ -3,7 +3,7 @@ const Net = {
     isOnline: false,   // Флаг, что мы играем в сети
     myColor: null,     // 'white' или 'black'
     lobbyId: null,     // ID комнаты
-
+    myPlayerIndex: -1,
     init() {
         this.socket = io(); 
 
@@ -15,10 +15,10 @@ const Net = {
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = data.lobbyId;
-
+            this.myPlayerIndex = data.color === 'white' ? 0 : 1;
             UI.hideSearch(); 
             
-            Game.startOnline(data.color);
+            Game.startOnline(data.color, this.myPlayerIndex);
         });
         this.socket.on('gameOver', (data) => {
             console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);

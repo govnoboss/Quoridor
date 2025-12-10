@@ -214,7 +214,7 @@ const AI = {
         if (pawnMoves.length > 0) bestMove = pawnMoves[Math.floor(Math.random() * pawnMoves.length)];
     } else {
         for (const move of moves) {
-            if (Date.now() - startTime > 2500) break; // Таймаут
+            if (Date.now() - startTime > 2500) break;
 
             const test = this.cloneState(Game.state);
             this.applyMove(test, move, botPlayer);
