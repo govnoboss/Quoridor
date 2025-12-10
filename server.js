@@ -1,11 +1,15 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+
 const Shared = require('./shared.js'); // Подключаем общую логику
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = require('socket.io')(server, {
+    cors: {
+        origin: "*"
+    }
+});
 
 let searchQueue = [];
 let lobbyCounter = 1;
@@ -13,6 +17,9 @@ let lobbyCounter = 1;
 let activeGames = {}; 
 
 app.use(express.static(__dirname));
+app.get('*', (req, res) => {
+    res.sendFile(__dirname + "/index.html");
+});
 
 // Функция создания начального состояния (копия из game.js)
 function createInitialState() {
