@@ -6,15 +6,14 @@ const Shared = require('./shared.js'); // Подключаем общую лог
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-
+    
 let searchQueue = [];
 let lobbyCounter = 1;
-// Хранилище активных игр: { lobbyId: GameState }
 let activeGames = {}; 
 
 app.use(express.static(__dirname));
 
-// Функция создания начального состояния (копия из game.js)
+
 function createInitialState() {
     return {
         hWalls: Array.from({length:8},()=>Array(8).fill(false)),
@@ -71,7 +70,13 @@ io.on('connection', (socket) => {
             }
         }
     });
-
+    socket.on('cancelSearch', () => {
+        const index = searchQueue.indexOf(socket.id);
+        if (index > -1) {
+            searchQueue.splice(index, 1);
+            console.log(`[QUEUE] Игрок ${socket.id} покинул очередь.`);
+        }
+    });
     // --- ОБРАБОТКА ХОДА (SERVER AUTHORITATIVE) ---
     socket.on('playerMove', (data) => {
         const { lobbyId, move } = data;
