@@ -4,8 +4,12 @@ const Net = {
     myColor: null,     // 'white' или 'black'
     lobbyId: null,     // ID комнаты
     myPlayerIndex: -1,
+    userID: null,
     init() {
         this.socket = io(); 
+        
+
+
 
         this.socket.on('connect', () => console.log('[NET] Socket connected:', this.socket.id));
         

@@ -61,3 +61,154 @@ body.light canvas{background:#ddd}
     transform: scale(1.05);
   }
 }
+/* Общий контейнер, чтобы центрировать всё на экране */
+.game-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 20px;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Левая колонка (Доска + Плашки) */
+.board-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Отступ между плашками и доской */
+  width: 540px; /* Фиксируем ширину под размер канваса */
+}
+
+/* Сайдбар справа */
+.sidebar {
+  width: 200px;
+  background: #262421; /* Фирменный темный цвет */
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 540px; /* Высота как у доски */
+  box-sizing: border-box; /* Чтобы padding не увеличивал ширину */
+}
+
+/* --- ПЛАШКИ ИГРОКОВ --- */
+.player-bar {
+  display: flex;
+  align-items: center;
+  background: #262421;
+  padding: 5px 10px;
+  border-radius: 4px;
+  color: #fff;
+  height: 50px;
+  position: relative;
+  transition: background 0.3s;
+}
+
+/* Подсветка активного игрока */
+.player-bar.active-turn {
+  background: #3c3a37; /* Чуть светлее */
+  box-shadow: inset 0 -2px 0 0 #e09f3e; /* Оранжевая полоска снизу */
+}
+
+.avatar-container {
+  margin-right: 10px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  background: #777; /* Серый квадрат-заглушка */
+  border-radius: 4px;
+}
+
+.player-info {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #eee;
+}
+
+.player-material {
+  font-size: 12px;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.wall-icon {
+  color: var(--wall);
+  font-size: 10px;
+}
+
+.timer {
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: bold;
+  background: #1a1a1a;
+  padding: 5px 10px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+/* Отличаем таймер активного игрока (опционально) */
+.active-turn .timer {
+  background: #eee;
+  color: #111;
+}
+
+/* --- САЙДБАР ЭЛЕМЕНТЫ --- */
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.wall-selector {
+  display: flex;
+  gap: 10px;
+}
+
+/* Переопределяем старые стили шаблонов для сайдбара */
+.template.h { width: 60px; height: 10px; }
+.template.v { width: 10px; height: 60px; }
+
+.control-btn {
+  width: 100%;
+  background: #444;
+  font-weight: bold;
+}
+
+.secondary-btn {
+  width: 100%;
+  background: #333;
+  color: #aaa;
+  border: none;
+}
+.secondary-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.mini-hint {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* Прячем старый UI, если он остался */
+#panel, .hint, .back-btn {
+  display: none !important;
+}

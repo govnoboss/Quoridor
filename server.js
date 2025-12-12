@@ -23,17 +23,14 @@ function createInitialState() {
             {color:'black', pos:{r:0, c:4}, wallsLeft:10}
         ],
         currentPlayer: 0,
-        // Связь индексов игроков с Socket ID
         playerSockets: [null, null] 
     };
 }
 function checkVictory(state) {
-    // Белые (индекс 0) должны достичь строки 0
     if (state.players[0].pos.r === 0) return 0;
-    // Черные (индекс 1) должны достичь строки 8
     if (state.players[1].pos.r === 8) return 1;
     
-    return -1; // -1 означает, что победителя пока нет
+    return -1; 
 }
 
 io.on('connection', (socket) => {

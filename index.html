@@ -37,28 +37,67 @@
 
   <button onclick="UI.showModeSelect()">Назад к режимам</button>
 </div>
-  <div id="gameScreen" class="screen">
-    <div class="wrap">
-      <h1>Quoridor</h1>
-      <div id="game-container">
-        <canvas id="board" width="540" height="540"></canvas>
-      </div>
-
-      <div id="panel">
-        <div id="hTpl" class="template h" title="Горизонтальная стена">H</div>
-        <div id="vTpl" class="template v" title="Вертикальная стена">V</div>
-        <div class="controls">
-          <button id="rotateBtn">Повернуть (R)</button>
+<div id="gameScreen" class="screen">
+    <div class="game-layout">
+      
+      <div class="board-area">
+        
+        <div class="player-bar" id="topPlayerBar">
+          <div class="avatar-container">
+            <div class="avatar"></div> </div>
+          <div class="player-info">
+            <div class="player-name-row">
+              <span class="player-name" id="topPlayerName">Оппонент</span>
+            </div>
+            <div class="player-material">
+              <span class="wall-icon">▐</span> 
+              <span id="topPlayerWalls">10</span>
+            </div>
+          </div>
+          <div class="timer" id="topPlayerTimer">10:00</div>
         </div>
-        <div id="turnInfo">Белый ходит • Стен: 10</div>
+
+        <div id="game-container">
+          <canvas id="board" width="540" height="540"></canvas>
+        </div>
+
+        <div class="player-bar" id="bottomPlayerBar">
+          <div class="avatar-container">
+            <div class="avatar"></div>
+          </div>
+          <div class="player-info">
+            <div class="player-name-row">
+              <span class="player-name" id="bottomPlayerName">Вы</span>
+            </div>
+            <div class="player-material">
+              <span class="wall-icon">▐</span> 
+              <span id="bottomPlayerWalls">10</span>
+            </div>
+          </div>
+          <div class="timer" id="bottomPlayerTimer">10:00</div>
+        </div>
+
       </div>
 
-      <div class="hint">
-        Перетащите свою пешку — все возможные ходы подсвечены зелёным.<br>
-        Стены нельзя ставить так, чтобы отрезать путь к цели!
+      <div class="sidebar">
+        <div class="controls-panel">
+           <div class="wall-selector">
+             <div id="hTpl" class="template h" title="Горизонтальная стена">H</div>
+             <div id="vTpl" class="template v" title="Вертикальная стена">V</div>
+           </div>
+           
+           <button id="rotateBtn" class="control-btn">Повернуть (R)</button>
+           
+           <div class="mini-hint">
+             Drag & Drop стены<br>или клик + R
+           </div>
+        </div>
+
+        <div class="menu-actions">
+           <button class="secondary-btn" onclick="UI.backToMenu()">Выйти</button>
+        </div>
       </div>
 
-      <button class="back-btn" onclick="UI.backToMenu()">Меню</button>
     </div>
   </div>
 

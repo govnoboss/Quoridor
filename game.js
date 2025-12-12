@@ -683,27 +683,81 @@ applyServerMove(data) {
    */
   nextTurn() {
     this.state.currentPlayer = 1 - this.state.currentPlayer;
+    this.isWallPlacementMode = false;
+    this.selectedWall = null;
+
+    // Вместо обращения к turnInfo напрямую, вызываем наш новый метод обновления UI
     this.updateTurnDisplay();
 
     if (this.state.botDifficulty !== 'none' && this.state.currentPlayer === 1) {
-      setTimeout(() => {
-        document.getElementById('turnInfo').textContent = 'Бот думает...';
-        // Вызываем логику бота (предполагается, что AI.makeMove определен в другом файле)
-        AI.makeMove(this.state.botDifficulty); 
-      }, 50);
+      setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
     }
+    this.draw();
   },
 
   /**
    * Обновляет информационный блок с данными о текущем ходе.
    */
+  /**
+   * Обновляет UI: плашки игроков, стены, подсветку хода.
+   */
   updateTurnDisplay() {
-    const p = this.state.players[this.state.currentPlayer];
-    document.getElementById('turnInfo').textContent = 
-      `${p.color === 'white' ? 'Белый' : 'Чёрный'} ходит • Стен: ${p.wallsLeft}`;
+    // 1. Определяем, кто есть кто
+    // Если игра онлайн или мы играем за черных (индекс 1) -> Мы снизу
+    // По умолчанию в Локальной игре (PvP) Player 0 (Белый) снизу, Player 1 (Черный) сверху.
+    // Но если мы перевернули доску (играем за черных), логика меняется.
     
-    // Управляем прозрачностью шаблонов стен в UI
-    const opacity = p.wallsLeft > 0 ? '1' : '0.3';
+    // Индекс того, кто отображается СНИЗУ (обычно "Вы")
+    const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0; 
+    const topIdx = 1 - bottomIdx;
+
+    const bottomPlayer = this.state.players[bottomIdx];
+    const topPlayer = this.state.players[topIdx];
+
+    // 2. Обновляем тексты Стен
+    const elBottomWalls = document.getElementById('bottomPlayerWalls');
+    const elTopWalls = document.getElementById('topPlayerWalls');
+    
+    if (elBottomWalls) elBottomWalls.textContent = bottomPlayer.wallsLeft;
+    if (elTopWalls) elTopWalls.textContent = topPlayer.wallsLeft;
+
+    // 3. Обновляем имена (Опционально, можно делать 1 раз при старте, но здесь надежнее)
+    const elBottomName = document.getElementById('bottomPlayerName');
+    const elTopName = document.getElementById('topPlayerName');
+    
+    if (elBottomName) elBottomName.textContent = (this.myPlayerIndex === -1) ? "Игрок 1 (Белый)" : "Вы";
+    if (elTopName) elTopName.textContent = (this.myPlayerIndex === -1) ? "Игрок 2 (Черный)" : "Оппонент";
+    
+    // В локальном PvP можно писать "Белый" / "Черный"
+    if (this.myPlayerIndex === -1) {
+       if(elBottomName) elBottomName.textContent = "Белый";
+       if(elTopName) elTopName.textContent = "Черный";
+    }
+
+    // 4. Подсветка активного хода (CSS класс .active-turn)
+    const bottomBar = document.getElementById('bottomPlayerBar');
+    const topBar = document.getElementById('topPlayerBar');
+
+    // Сбрасываем классы
+    bottomBar.classList.remove('active-turn');
+    topBar.classList.remove('active-turn');
+
+    if (this.state.currentPlayer === bottomIdx) {
+      bottomBar.classList.add('active-turn');
+    } else {
+      topBar.classList.add('active-turn');
+    }
+
+    // 5. Управляем прозрачностью кнопок выбора стен
+    // Если сейчас ход "Меня" (нижнего), и у меня есть стены — кнопки активны
+    const isMyTurn = (this.state.currentPlayer === bottomIdx);
+    // Если локальная игра - всегда активны, если есть стены у текущего
+    const localPlay = (this.myPlayerIndex === -1);
+    
+    const currentWalls = this.state.players[this.state.currentPlayer].wallsLeft;
+    const canBuild = (localPlay || isMyTurn) && currentWalls > 0;
+
+    const opacity = canBuild ? '1' : '0.3';
     document.getElementById('hTpl').style.opacity = opacity;
     document.getElementById('vTpl').style.opacity = opacity;
   },

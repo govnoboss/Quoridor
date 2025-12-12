@@ -74,10 +74,7 @@ const UI = {
     document.getElementById('cancelSearchBtn').classList.add('hidden');
     document.getElementById('searchTimer').classList.add('hidden');
 
-    // 3. Сетевой запрос на отмену поиска (если вызван пользователем)
-    // Убедитесь, что вы вызываете Net.cancelFindGame() ТОЛЬКО при нажатии кнопки "Отменить поиск"
-    // Если hideSearch() вызывается из Net.js (после gameFound), отмена не нужна.
-    // Для простоты, оставим это в onclick на кнопке "Отменить поиск" в index.html.
+
   }
 
 };
@@ -87,3 +84,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.className = saved;
   document.getElementById('themeSelect').value = saved;
 });
+
