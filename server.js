@@ -23,13 +23,15 @@ function createInitialState() {
             {color:'black', pos:{r:0, c:4}, wallsLeft:10}
         ],
         currentPlayer: 0,
-        playerSockets: [null, null] 
+        playerSockets: [null, null],
+        timers: [5, 5],
+        lastmoveTimestamp: Date.now()
     };
 }
 function checkVictory(state) {
     if (state.players[0].pos.r === 0) return 0;
     if (state.players[1].pos.r === 8) return 1;
-    
+    if (game.timers[game.currentPlayer] <= 0) return game.currentPlayer;
     return -1; 
 }
 
@@ -78,6 +80,20 @@ io.on('connection', (socket) => {
     socket.on('playerMove', (data) => {
         const { lobbyId, move } = data;
         const game = activeGames[lobbyId];
+        const now = Date.now();
+        const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
+
+        game.timers[game.currentPlayer] -= elapsed;
+        game.lastMoveTimestamp = now;
+
+        if (game.timers[playerIdx] < 0) {
+            io.to(lobbyId).emit('gameOver', { 
+                winnerIdx: 1 - playerIdx, 
+                reason: 'Time out' 
+            });
+            delete activeGames[lobbyId];
+            return;
+        }
 
         if (!game) {
             console.error(`[ERROR] Игра ${lobbyId} не найдена!`);
@@ -134,7 +150,7 @@ io.on('connection', (socket) => {
                             reason: 'Goal reached' 
                         });
                         delete activeGames[lobbyId];
-                        return; // Останавливаем обработку хода
+                        return; 
                     }
                     // ----------------------------------------
 
@@ -145,7 +161,10 @@ io.on('connection', (socket) => {
                     io.to(lobbyId).emit('serverMove', {
                         playerIdx: playerIdx,
                         move: move,
-                        nextPlayer: game.currentPlayer
+                        nextPlayer: game.currentPlayer,
+                        newState: game,
+                        move: data,
+                        timers: game.timers
                     });
                 }
         else {
@@ -188,6 +207,26 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+setInterval(() => {
+    const now = Date.now();
+    for (const lobbyId in activeGames) {
+        const game = activeGames[lobbyId];
+        const activeIdx = game.currentPlayer;
+        
+        const elapsedSinceLastMove = Math.floor((now - game.lastMoveTimestamp) / 1000);
+        const timeLeft = game.timers[activeIdx] - elapsedSinceLastMove;
+
+        if (timeLeft <= 0) {
+            console.log(`[TIMEOUT] Лобби ${lobbyId}: Игрок ${activeIdx} проиграл по времени.`);
+            io.to(lobbyId).emit('gameOver', { 
+                winnerIdx: 1 - activeIdx, 
+                reason: 'Time out' 
+            });
+            delete activeGames[lobbyId];
+        }
+    }
+}, 2000);
 
 server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);

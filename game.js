@@ -5,6 +5,9 @@ const Game = {
   /** @type {?CanvasRenderingContext2D} 2D-контекст для отрисовки. */
   ctx: null,
   myPlayerIndex: -1,
+  timers: [600, 600],
+  timerInterval: null,
+  initialTime: 600,
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -89,6 +92,7 @@ handleGameOver(winnerIdx, reason) {
     const myIdx = Net.myColor === 'white' ? 0 : 1;
     
     let message = '';
+    this.stopTimer()
     
     if (winnerIdx === myIdx) {
         // Мы победили
@@ -104,14 +108,11 @@ handleGameOver(winnerIdx, reason) {
 
     console.log(`[GAME OVER] ${message}`);
     
-    // В идеале, здесь нужно использовать более красивый элемент UI, 
-    // но для отладки подойдет и alert
     alert(message); 
     
-    // Сбрасываем игру и возвращаемся в меню
-    this.reset(); 
-    UI.backToMenu();
+    this.goToMainMenu();
   },
+  
   /**
    * Сбрасывает состояние игры к начальным параметрам.
    * Вызывается при старте новой игры или нажатии кнопки "Сброс".
@@ -125,6 +126,9 @@ handleGameOver(winnerIdx, reason) {
     this.state.players[1].wallsLeft = 10;
     this.state.currentPlayer = 0;
     this.state.drag = null;
+    this.stopTimer();
+    this.timers = [this.initialTime, this.initialTime];
+    this.updateTimerDisplay();
     this.updateTurnDisplay();
   },
 
@@ -135,6 +139,7 @@ handleGameOver(winnerIdx, reason) {
     this.state.botDifficulty = 'none';
     this.reset();
     UI.showScreen('gameScreen');
+    this.startTimer();
     this.draw();
   },
 
@@ -146,7 +151,48 @@ handleGameOver(winnerIdx, reason) {
     this.state.botDifficulty = diff;
     this.reset();
     UI.showScreen('gameScreen');
+    this.startTimer();
     this.draw();
+  },
+
+  startTimer() {
+    this.stopTimer();
+    this.timerInterval = setInterval(() => {
+      const activeIdx = this.state.currentPlayer;
+      if (this.timers[activeIdx] > 0) {
+        this.timers[activeIdx]--;
+        this.updateTimerDisplay();
+      } else {
+        this.handleTimeOut(activeIdx);
+      }
+    }, 1000);
+  },
+
+  stopTimer() {
+    if (this.timerInterval) clearInterval(this.timerInterval);
+  },
+
+  updateTimerDisplay() {
+    const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
+    const topIdx = 1 - bottomIdx;
+
+    const formatTime = (s) => {
+      const min = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+    };
+
+    const elBottom = document.getElementById('bottomPlayerTimer');
+    const elTop = document.getElementById('topPlayerTimer');
+
+    if (elBottom) elBottom.textContent = formatTime(this.timers[bottomIdx]);
+    if (elTop) elTop.textContent = formatTime(this.timers[topIdx]);
+  },
+
+  handleTimeOut(playerIdx) {
+    this.stopTimer();
+    alert(`Время вышло! Игрок ${playerIdx + 1} проиграл.`);
+    UI.backToMenu();
   },
 
   // ====================================================================
@@ -644,7 +690,6 @@ handleGameOver(winnerIdx, reason) {
 applyServerMove(data) {
       console.log('[GAME] Сервер подтвердил ход:', data);
       const { playerIdx, move, nextPlayer } = data;
-
       // 1. Применяем изменения к локальному State
       if (move.type === 'pawn') {
           this.state.players[playerIdx].pos = { r: move.r, c: move.c };
@@ -654,11 +699,16 @@ applyServerMove(data) {
           this.state.players[playerIdx].wallsLeft--;
       }
 
+      if (data.timers) {
+      this.timers = [...data.timers];
+      }
       // 2. Обновляем текущего игрока
       this.state.currentPlayer = nextPlayer;
       
       // 3. Обновляем UI
       this.updateTurnDisplay();
+      this.updateTimerDisplay();
+      this.startTimer(); 
       this.draw();
   },
 
@@ -685,6 +735,7 @@ applyServerMove(data) {
     this.state.currentPlayer = 1 - this.state.currentPlayer;
     this.isWallPlacementMode = false;
     this.selectedWall = null;
+    
 
     // Вместо обращения к turnInfo напрямую, вызываем наш новый метод обновления UI
     this.updateTurnDisplay();
@@ -692,6 +743,7 @@ applyServerMove(data) {
     if (this.state.botDifficulty !== 'none' && this.state.currentPlayer === 1) {
       setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
     }
+    this.startTimer();
     this.draw();
   },
 
@@ -1095,7 +1147,13 @@ applyServerMove(data) {
     return Game.hasPathToGoalWithState(state, 0) && 
            Game.hasPathToGoalWithState(state, 1);
   },
+  goToMainMenu() {
+    this.reset();
+    UI.backToMenu();
+  }
 };
+
+
 
 // Запуск инициализации после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
