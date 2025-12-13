@@ -24,14 +24,14 @@ function createInitialState() {
         ],
         currentPlayer: 0,
         playerSockets: [null, null],
-        timers: [5, 5],
-        lastmoveTimestamp: Date.now()
+        timers: [600, 600],
+        lastMoveTimestamp: Date.now()
     };
 }
 function checkVictory(state) {
     if (state.players[0].pos.r === 0) return 0;
     if (state.players[1].pos.r === 8) return 1;
-    if (game.timers[game.currentPlayer] <= 0) return game.currentPlayer;
+    if (state.timers[state.currentPlayer] <= 0) return game.currentPlayer;
     return -1; 
 }
 
@@ -82,6 +82,7 @@ io.on('connection', (socket) => {
         const game = activeGames[lobbyId];
         const now = Date.now();
         const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
+        const playerIdx = game.playerSockets.indexOf(socket.id);
 
         game.timers[game.currentPlayer] -= elapsed;
         game.lastMoveTimestamp = now;
@@ -101,7 +102,6 @@ io.on('connection', (socket) => {
         }
 
         // 1. Проверка очередности хода
-        const playerIdx = game.playerSockets.indexOf(socket.id);
         if (playerIdx !== game.currentPlayer) {
             console.log(`[WARN] Игрок ${socket.id} пытался походить не в свою очередь.`);
             socket.emit('moveRejected', { reason: 'Not your turn' });
@@ -162,8 +162,6 @@ io.on('connection', (socket) => {
                         playerIdx: playerIdx,
                         move: move,
                         nextPlayer: game.currentPlayer,
-                        newState: game,
-                        move: data,
                         timers: game.timers
                     });
                 }
