@@ -27,13 +27,28 @@
   <div id="modeScreen" class="screen">
     <h2>Выберите режим</h2>
     <button onclick="Game.startPvP()">Два игрока (PvP)</button>
-    <button onclick="Game.startVsBot('easy')">Против лёгкого бота</button>
-    <button onclick="Game.startVsBot('medium')">Против среднего бота</button>
-    <button onclick="Game.startVsBot('hard')">Против сильного бота</button>
-    <button onclick="Game.startVsBot('impossible')">Против нереального бота</button>
+    <div class="separator-line">--- Игра с ботом ---</div>
+    <button onclick="UI.selectBotDifficulty('easy')">Легкий бот</button>
+    <button onclick="UI.selectBotDifficulty('medium')">Средний бот</button>
+    <button onclick="UI.selectBotDifficulty('hard')">Сильный бот</button>
+    <button onclick="UI.selectBotDifficulty('impossible')">Непобедимый бот</button>
+    
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
+  <div id="colorSelectScreen" class="screen">
+    <h2>Выберите сторону</h2>
+    <p>Белые всегда ходят первыми</p>
+    <div class="menu-buttons horizontal">
+      <button onclick="Game.startVsBot('white')">
+         ⚪ Играть за Белых<br>(Вы ходите первым)
+      </button>
+      <button onclick="Game.startVsBot('black')">
+         ⚫ Играть за Чёрных<br>(Бот ходит первым)
+      </button>
+    </div>
+    <button onclick="UI.showModeSelect()">Назад</button>
+  </div>
 
   <button onclick="UI.showModeSelect()">Назад к режимам</button>
 </div>
@@ -94,7 +109,7 @@
         </div>
 
         <div class="menu-actions">
-           <button class="secondary-btn" onclick="UI.backToMenu()">Выйти</button>
+          <button class="secondary-btn" onclick="UI.handleSurrender()">Сдаться</button>
         </div>
       </div>
 

@@ -171,6 +171,30 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('surrender', (data) => {
+        const { lobbyId } = data;
+        const game = activeGames[lobbyId];
+    
+        if (game) {
+            const surrenderingIdx = game.playerSockets.indexOf(socket.id);
+            
+            if (surrenderingIdx !== -1) {
+                const winnerIdx = 1 - surrenderingIdx;
+                
+                console.log(`[SURRENDER] Лобби ${lobbyId}: Игрок ${surrenderingIdx} сдался.`);
+    
+                io.to(lobbyId).emit('gameOver', { 
+                    winnerIdx: winnerIdx, 
+                    reason: 'Surrender' 
+                });
+    
+                delete activeGames[lobbyId];
+            }
+        } else {
+            console.error(`[SURRENDER ERROR] Игра ${lobbyId} не найдена.`);
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`[DISCONNECT] Пользователь отключен: ${socket.id}`);
         

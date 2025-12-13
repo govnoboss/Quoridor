@@ -8,6 +8,7 @@ const Game = {
   timers: [600, 600],
   timerInterval: null,
   initialTime: 600,
+  pendingBotDifficulty: 'medium',
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -88,29 +89,42 @@ const Game = {
     // Масштабируем контекст для поддержки высокого разрешения
     this.ctx.scale(dpr, dpr);
   },
-handleGameOver(winnerIdx, reason) {
-    const myIdx = Net.myColor === 'white' ? 0 : 1;
+  handleGameOver(winnerIdx, reason) {
+    this.stopTimer();
+    this.isGameOver = true;
+
+    // Определяем текст сообщения в зависимости от того, кто победил
+    let message = "";
     
-    let message = '';
-    this.stopTimer()
-    
-    if (winnerIdx === myIdx) {
-        // Мы победили
-        message = (reason === 'Opponent disconnected') 
-            ? 'ПОБЕДА! Соперник покинул игру.' 
-            : 'ПОБЕДА! Вы достигли цели!';
+    // Если это сетевая игра (myPlayerIndex известен)
+    if (this.myPlayerIndex !== -1) {
+        if (winnerIdx === this.myPlayerIndex) {
+            message = `ПОБЕДА! 🎉\nПричина: ${this.translateReason(reason)}`;
+        } else {
+            message = `ПОРАЖЕНИЕ 💀\nПричина: ${this.translateReason(reason)}`;
+        }
     } else {
-        // Мы проиграли
-        message = (reason === 'Goal reached')
-            ? 'ПОРАЖЕНИЕ. Соперник достиг цели.'
-            : 'ИГРА ОКОНЧЕНА. Соперник победил.'; // На всякий случай
+        // Для локальной игры (PvP) просто пишем, какой цвет победил
+        const color = (winnerIdx === 0) ? "Белые" : "Черные";
+        message = `Игра окончена! Победили ${color}.\nПричина: ${this.translateReason(reason)}`;
     }
 
-    console.log(`[GAME OVER] ${message}`);
-    
-    alert(message); 
-    
-    this.goToMainMenu();
+    // Выводим результат
+    setTimeout(() => {
+        alert(message);
+        this.goToMainMenu();
+    }, 100);
+},
+
+// Вспомогательный метод для красивого вывода причины
+translateReason(reason) {
+    const reasons = {
+        'Goal reached': 'Цель достигнута',
+        'Time out': 'Время истекло',
+        'Surrender': 'Противник сдался',
+        'Opponent disconnected': 'Противник покинул игру'
+    };
+    return reasons[reason] || reason;
   },
   
   /**
@@ -143,16 +157,37 @@ handleGameOver(winnerIdx, reason) {
     this.draw();
   },
 
+  selectBotDifficulty(difficulty) {
+    this.pendingBotDifficulty = difficulty;
+    UI.showScreen('colorSelectScreen');
+  },
+
   /**
    * Запускает игру против бота.
    * @param {'easy'|'medium'|'hard'} diff Уровень сложности бота.
    */
-  startVsBot(diff) {
+  startVsBot(playerColor) {
+    const diff = this.pendingBotDifficulty;
     this.state.botDifficulty = diff;
+    
+    // Настройка сторон
+    // Если мы Белые: myPlayerIndex = 0. Бот = 1.
+    // Если мы Черные: myPlayerIndex = 1. Бот = 0.
+    if (playerColor === 'white') {
+        this.myPlayerIndex = 0;
+    } else {
+        this.myPlayerIndex = 1;
+    }
+
     this.reset();
     UI.showScreen('gameScreen');
-    this.startTimer();
-    this.draw();
+    
+    this.draw(); 
+    this.updateTurnDisplay();
+
+    if (this.myPlayerIndex === 1) {
+        setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
+    }
   },
 
   startTimer() {
@@ -733,16 +768,19 @@ applyServerMove(data) {
    */
   nextTurn() {
     this.state.currentPlayer = 1 - this.state.currentPlayer;
-    this.isWallPlacementMode = false;
-    this.selectedWall = null;
+    this.state.drag = null; 
     
-
-    // Вместо обращения к turnInfo напрямую, вызываем наш новый метод обновления UI
     this.updateTurnDisplay();
 
-    if (this.state.botDifficulty !== 'none' && this.state.currentPlayer === 1) {
-      setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
-    }
+    if (this.state.botDifficulty !== 'none') {
+      if (this.state.currentPlayer !== this.myPlayerIndex) {
+          // Если текущий игрок — не мы, значит это бот
+          setTimeout(() => {
+              AI.makeMove(this.state.botDifficulty);
+          }, 100  ); // Небольшая задержка для естественности
+      }
+  }
+    
     this.startTimer();
     this.draw();
   },
@@ -856,7 +894,7 @@ applyServerMove(data) {
       // Добавьте проверку playerIdx в логике drag, чтобы drag создавался только для playerIdx === myIdx
   }
       // Игнорируем нажатия, если ходит бот
-      if (this.state.currentPlayer !== 0 && this.state.botDifficulty !== 'none') return;
+      if (this.state.currentPlayer !== this.myPlayerIndex && this.state.botDifficulty !== 'none') return;
       if (this.state.drag) return; // Игнорируем, если уже что-то перетаскивается
 
       const rect = this.canvas.getBoundingClientRect();
@@ -877,7 +915,7 @@ applyServerMove(data) {
     // Обработчики для начала перетаскивания шаблонов стен
     // Примечание: Убран дубликат, добавлен общий обработчик для проверки хода бота
     const wallDragHandler = (vertical) => (e) => {
-      if (this.state.currentPlayer !== 0 && this.state.botDifficulty !== 'none') return;
+      if (this.state.currentPlayer !== this.myPlayerIndex && this.state.botDifficulty !== 'none') return;
       e.preventDefault(); 
       this.startWallDrag(vertical, e); 
     };
@@ -1150,7 +1188,21 @@ applyServerMove(data) {
   goToMainMenu() {
     this.reset();
     UI.backToMenu();
-  }
+  },
+
+  surrender() {
+    const loserIdx = (this.myPlayerIndex !== -1) ? this.myPlayerIndex : this.state.currentPlayer;
+    const winnerIdx = 1 - loserIdx;
+
+    alert("Вы сдались. Поражение.");
+    
+    if (typeof Net !== 'undefined' && Net.isOnline) {
+        // Net.socket.emit('surrender', { lobbyId: Net.lobbyId });
+    }
+
+    this.stopTimer();
+    this.goToMainMenu();
+  },
 };
 
 

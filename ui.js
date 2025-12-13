@@ -28,7 +28,6 @@ const UI = {
         b.disabled = true;
       });
     },
-
   // Включает все кнопки
   enableAll() {
     document.querySelectorAll('button').forEach(b => b.disabled = false);
@@ -61,6 +60,17 @@ const UI = {
       }
     },
 
+  handleSurrender() {
+      const confirmSurrender = confirm("Вы уверены, что хотите сдаться?");
+      if (confirmSurrender) {
+          if (Net.isOnline) {
+              Net.surrender();
+          } else {
+              Game.handleGameOver(1 - Game.state.currentPlayer, 'Surrender');
+          }
+      }
+  },
+
   hideSearch() {
     // 1. Остановка таймера
     if (this.searchTimerInterval) {
@@ -77,6 +87,11 @@ const UI = {
 
   }
 
+};
+
+UI.selectBotDifficulty = function(diff) {
+  Game.pendingBotDifficulty = diff;
+  UI.showScreen('colorSelectScreen');
 };
 
 document.addEventListener('DOMContentLoaded', () => {

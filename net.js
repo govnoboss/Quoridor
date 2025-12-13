@@ -41,6 +41,13 @@ const Net = {
         });
     },
 
+    surrender() {
+        if (this.isOnline && this.lobbyId) {
+            console.log('[NET] Отправка запроса на сдачу...');
+            this.socket.emit('surrender', { lobbyId: this.lobbyId });
+        }
+    },
+    
     findGame() {
         this.socket.emit('findGame');
         console.log('[NET] Ищу игру...');

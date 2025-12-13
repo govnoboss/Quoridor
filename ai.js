@@ -12,7 +12,10 @@ const AI = {
       currentPlayer: state.currentPlayer
     };
   },
-
+  getBotIndex() {
+    return Game.myPlayerIndex === 0 ? 1 : 0;
+    },
+    
   shortestPathDistance(state, playerIdx) {
     const targetRow = playerIdx === 0 ? 0 : 8;
     const start = state.players[playerIdx].pos;
@@ -40,49 +43,68 @@ const AI = {
    * Усиленная функция оценки состояния доски.
    * Повышенные веса для дистанции и стен, штрафы за чрезмерное использование стен.
    */
-  evaluate(state) {
-    // 1. Оценка победы/поражения (терминальные состояния)
-    if (state.players[0].pos.r === 0) return -1000000;
-    if (state.players[1].pos.r === 8) return +1000000;
+evaluate(state) {
+    const botIdx = this.getBotIndex();      
+    const humanIdx = 1 - botIdx;
 
-    const d0 = this.shortestPathDistance(state, 0); // Дистанция игрока (r=0)
-    const d1 = this.shortestPathDistance(state, 1); // Дистанция бота (r=8)
+    const botPos = state.players[botIdx].pos;
+    const humanPos = state.players[humanIdx].pos;
 
-    // 2. Оценка недоступности (блокировка)
-    if (d0 === Infinity) return +600000;
-    if (d1 === Infinity) return -600000;
+    const botTarget = botIdx === 0 ? 0 : 8;
+    const humanTarget = humanIdx === 0 ? 0 : 8;
 
-    let score = 0;
+    // 0. Мгновенная победа или поражение
+    if (botPos.r === botTarget) return 1000000;
+    if (humanPos.r === humanTarget) return -1000000; 
 
-    // 3. Основная позиционная оценка (разница кратчайших путей). Вес 150.
-    score += (d0 - d1) * 150; 
+    // 1. Расчет реальных путей (BFS)
+    const dBot = this.shortestPathDistance(state, botIdx);
+    const dHuman = this.shortestPathDistance(state, humanIdx);
 
-    // 4. Оценка ресурсов (стены). Вес 40.
-    const walls0 = state.players[0].wallsLeft;
-    const walls1 = state.players[1].wallsLeft;
-    score += (walls1 - walls0) * 40; 
-    
-    // 5. Бонус за продвижение бота (8 - текущая_строка).
-    const botRow = state.players[1].pos.r;
-    score += (8 - botRow) * 10; 
+    // Если пути перекрыты (хотя генератор ходов должен это отсекать)
+    if (dBot === Infinity) return -500000; 
+    // Если мы перекрыли путь врагу (в рамках правил это запрещено, но для оценки — это круто)
+    // Но так как checkVictory проверяется раньше, здесь ставим высокий балл
+    if (dHuman === Infinity) return 500000; 
 
-    // 6. Стратегический штраф: если бот сильно впереди по дистанции, он должен финишировать, а не ставить стены.
-    if (d1 < d0 && walls1 > 0) {
-        // Если бот на 3 хода ближе (или больше), штрафуем за стены
-        if (d0 - d1 >= 3) score -= walls1 * 5; 
-    }
+    let score = 0;
 
-    // 7. Центровой бонус для лучшего маневрирования.
-    const botCol = state.players[1].pos.c;
-    const centerBonus = 5 - Math.abs(4 - botCol); 
-    score += centerBonus * 8; 
+    // 2. БАЗОВАЯ ОЦЕНКА: Мы хотим, чтобы dBot был 0, а dHuman был большим.
+    // Чем ближе мы к финишу, тем ценнее каждый шаг.
+    score += (dHuman - dBot) * 100;
 
-    // 8. Бонус за баланс (Стены vs Дистанция).
-    if (d1 > 0) {
-        score -= walls1 * (10 / d1) * 2;
+    // 3. АГРЕССИВНОСТЬ В КОНЦЕ (Endgame)
+    // Если бот близок к финишу (<= 3 ходов), приоритет бега максимальный.
+    if (dBot <= 3) {
+        score += 500; 
     }
-    return score;
-  },
+
+    // 4. ОПАСНОСТЬ (Defense)
+    // Если враг близок к финишу, ценность его замедления взлетает до небес.
+    if (dHuman <= 3) {
+        score -= 500; // Паника! Нужно срочно что-то делать (ставить стены)
+    }
+
+    // 5. ОЦЕНКА СТЕН (Resources)
+    // Стена стоит очков, но меньше, чем шаг (шаг ~100).
+    // Одна стена ~ 15 очков. Это поощряет экономию, но позволяет тратить их ради выгоды.
+    const wallsDiff = state.players[botIdx].wallsLeft - state.players[humanIdx].wallsLeft;
+    score += wallsDiff * 15;
+
+    // 6. ЦЕНТР ДОСКИ (Positional)
+    // Исправлен баг: теперь берем правильную колонку бота (state.players[botIdx])
+    // Быть в центре (c=4) лучше, чем с краю, так как больше вариантов движения.
+    const centerDist = Math.abs(4 - state.players[botIdx].pos.c);
+    score -= centerDist * 5; // Небольшой штраф за удаление от центра
+
+    // 7. СТРАТЕГИЧЕСКАЯ КОРРЕКЦИЯ
+    // Если у бота путь намного короче, не нужно рисковать (лишние стены могут навредить самому себе).
+    if (dBot < dHuman - 2) {
+        score += 50; // Бонус за уверенное лидерство
+    }
+
+    return score;
+  },
 
   /**
    * Генерирует "умные" ходы стеной с приоритетами.
@@ -181,7 +203,7 @@ const AI = {
   },
 
   makeMove(difficulty = 'medium') {
-    const botPlayer = 1;
+        const botPlayer = this.getBotIndex();
     
     let depth;
     switch (difficulty) {
@@ -207,6 +229,7 @@ const AI = {
     let bestMove = moves[0];
     let bestScore = -Infinity;
     const startTime = Date.now();
+
     const moveScores = []; 
 
     if (difficulty === 'easy' && Math.random() < 0.3) {
@@ -221,16 +244,12 @@ const AI = {
             
             let score = this.minimax(test, depth - 1, -Infinity, Infinity, false);
             
-            // БОНУС: Поощрение движения пешкой
-            if (move.type === 'pawn') {
-                score += 150; 
                 // Дополнительный бонус за сокращение дистанции
                 const newDist = this.shortestPathDistance(test, botPlayer);
                 const oldDist = this.shortestPathDistance(Game.state, botPlayer);
                 if (newDist < oldDist) {
                     score += (oldDist - newDist) * 50; 
                 }
-            }
 
             // АНТИЦИКЛИЧНОСТЬ: Добавляем случайный фактор (±20 очков)
             const randomFactor = Math.random() * 40 - 20;
@@ -280,8 +299,9 @@ const AI = {
   minimax(state, depth, alpha, beta, maximizing) {
     if (depth === 0) return this.evaluate(state);
 
-    const botPlayer = 1;
-    const current = maximizing ? botPlayer : 0;
+    const botPlayer = this.getBotIndex();
+    const current = maximizing ? botPlayer : (1 - botPlayer);
+
     const moves = this.generateMoves(state, current);
 
     if (maximizing) {
