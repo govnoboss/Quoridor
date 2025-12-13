@@ -145,6 +145,14 @@
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
+  <div id="resultModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2 id="resultStatus">ПОБЕДА</h2>
+      <div class="result-divider"></div>
+      <p id="resultReason">Причина: Противник сдался</p>
+      <button class="primary-btn" onclick="Game.goToMainMenu()">В меню</button>
+    </div>
+  </div>
   
   <script src="ui.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>

@@ -93,28 +93,60 @@ const Game = {
     this.stopTimer();
     this.isGameOver = true;
 
-    // Определяем текст сообщения в зависимости от того, кто победил
-    let message = "";
+    const modal = document.getElementById('resultModal');
+    const statusText = document.getElementById('resultStatus');
+    const reasonText = document.getElementById('resultReason');
     
-    // Если это сетевая игра (myPlayerIndex известен)
-    if (this.myPlayerIndex !== -1) {
-        if (winnerIdx === this.myPlayerIndex) {
-            message = `ПОБЕДА! 🎉\nПричина: ${this.translateReason(reason)}`;
-        } else {
-            message = `ПОРАЖЕНИЕ 💀\nПричина: ${this.translateReason(reason)}`;
-        }
-    } else {
-        // Для локальной игры (PvP) просто пишем, какой цвет победил
-        const color = (winnerIdx === 0) ? "Белые" : "Черные";
-        message = `Игра окончена! Победили ${color}.\nПричина: ${this.translateReason(reason)}`;
-    }
+    const reasons = {
+        'Goal reached': 'Цель достигнута!',
+        'Time out': 'Время вышло',
+        'Surrender': 'Сдача',
+        'Opponent disconnected': 'Противник покинул игру'
+    };
 
-    // Выводим результат
-    setTimeout(() => {
-        alert(message);
-        this.goToMainMenu();
-    }, 100);
+    // ИСПРАВЛЕННАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ
+    let isWinner = false;
+    let statusMessage = "";
+
+    if (this.myPlayerIndex !== -1) {
+        // Сетевая игра: сравниваем с нашим индексом
+        isWinner = (winnerIdx === this.myPlayerIndex);
+        statusMessage = isWinner ? "ПОБЕДА 🎉" : "ПОРАЖЕНИЕ 💀";
+    } else {
+        // Локальная игра: в PvP кто-то один всегда побеждает
+        // Для красоты в локалке всегда используем зеленый фон (win-state)
+        isWinner = true; 
+        const colorName = (winnerIdx === 0) ? "БЕЛЫЕ" : "ЧЕРНЫЕ";
+        statusMessage = `ПОБЕДИЛИ ${colorName}!`;
+    }
+    
+    // Применяем стили
+    const contentBox = modal.querySelector('.modal-content');
+    contentBox.className = 'modal-content ' + (isWinner ? 'win-state' : 'lose-state');
+    
+    statusText.innerText = statusMessage;
+    reasonText.innerText = reasons[reason] || reason;
+
+    modal.classList.remove('hidden');
 },
+
+goToMainMenu() {
+  // 1. Находим модалку
+  const modal = document.getElementById('resultModal');
+  if (modal) {
+      modal.classList.add('hidden'); // Скрываем
+  }
+
+  // 2. Останавливаем все процессы игры
+  this.stopTimer();
+  this.isGameOver = false;
+
+  // 3. Возвращаемся в меню через UI
+  if (typeof UI !== 'undefined') {
+      UI.backToMenu();
+  }
+},
+
 
 // Вспомогательный метод для красивого вывода причины
 translateReason(reason) {
@@ -170,7 +202,6 @@ translateReason(reason) {
     const diff = this.pendingBotDifficulty;
     this.state.botDifficulty = diff;
     
-    // Настройка сторон
     // Если мы Белые: myPlayerIndex = 0. Бот = 1.
     // Если мы Черные: myPlayerIndex = 1. Бот = 0.
     if (playerColor === 'white') {
@@ -181,7 +212,7 @@ translateReason(reason) {
 
     this.reset();
     UI.showScreen('gameScreen');
-    
+    this.startTimer();
     this.draw(); 
     this.updateTurnDisplay();
 
@@ -194,11 +225,17 @@ translateReason(reason) {
     this.stopTimer();
     this.timerInterval = setInterval(() => {
       const activeIdx = this.state.currentPlayer;
+      
       if (this.timers[activeIdx] > 0) {
         this.timers[activeIdx]--;
         this.updateTimerDisplay();
       } else {
-        this.handleTimeOut(activeIdx);
+        this.stopTimer();
+        
+        if (!Net.isOnline) {
+          const winnerIdx = 1 - activeIdx;
+          this.handleGameOver(winnerIdx, 'Time out');
+        }
       }
     }, 1000);
   },
@@ -224,11 +261,6 @@ translateReason(reason) {
     if (elTop) elTop.textContent = formatTime(this.timers[topIdx]);
   },
 
-  handleTimeOut(playerIdx) {
-    this.stopTimer();
-    alert(`Время вышло! Игрок ${playerIdx + 1} проиграл.`);
-    UI.backToMenu();
-  },
 
   // ====================================================================
   // 2. МЕТОДЫ ОТРЕЗОВКИ (ВИЗУАЛИЗАЦИЯ)
@@ -753,11 +785,9 @@ applyServerMove(data) {
    */
   checkVictory() {
     const p = this.state.players[this.state.currentPlayer];
-    // Белый побеждает, если достиг строки 0. Черный — строки 8.
     if ((this.state.currentPlayer === 0 && p.pos.r === 0) || 
         (this.state.currentPlayer === 1 && p.pos.r === 8)) {
-      alert(`${p.color === 'white' ? 'Белый' : 'Чёрный'} победил!`);
-      UI.backToMenu();
+      this.handleGameOver(this.state.currentPlayer, 'Goal reached'); 
       return true;
     }
     return false;
@@ -1185,20 +1215,10 @@ applyServerMove(data) {
     return Game.hasPathToGoalWithState(state, 0) && 
            Game.hasPathToGoalWithState(state, 1);
   },
-  goToMainMenu() {
-    this.reset();
-    UI.backToMenu();
-  },
 
   surrender() {
     const loserIdx = (this.myPlayerIndex !== -1) ? this.myPlayerIndex : this.state.currentPlayer;
     const winnerIdx = 1 - loserIdx;
-
-    alert("Вы сдались. Поражение.");
-    
-    if (typeof Net !== 'undefined' && Net.isOnline) {
-        // Net.socket.emit('surrender', { lobbyId: Net.lobbyId });
-    }
 
     this.stopTimer();
     this.goToMainMenu();
