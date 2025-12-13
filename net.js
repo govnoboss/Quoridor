@@ -6,7 +6,11 @@ const Net = {
     myPlayerIndex: -1,
     userID: null,
     init() {
-        this.socket = io(); 
+        this.socket = io({
+            extraHeaders: {
+                "ngrok-skip-browser-warning": "any-value"
+            }
+        });
         
 
 

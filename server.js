@@ -4,8 +4,16 @@ const socketIo = require('socket.io');
 const Shared = require('./shared.js'); // Подключаем общую логику
 
 const app = express();
+
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    },
+    transports: ['polling', 'websocket'], // 👈 важно
+    allowUpgrades: true
+  });
     
 let searchQueue = [];
 let lobbyCounter = 1;
@@ -250,6 +258,6 @@ setInterval(() => {
     }
 }, 2000);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });
