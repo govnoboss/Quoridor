@@ -75,18 +75,14 @@ const Game = {
     this.draw();
   },
 
-  /**
-   * Настраивает Canvas для отрисовки, учитывая Device Pixel Ratio.
-   */
   setupCanvas() {
     this.ctx = this.canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const size = this.CONFIG.cellSize * this.CONFIG.gridCount;
     this.canvas.width = size * dpr;
     this.canvas.height = size * dpr;
-    this.canvas.style.width = size + 'px';
-    this.canvas.style.height = size + 'px';
-    // Масштабируем контекст для поддержки высокого разрешения
+    // this.canvas.style.width = size + 'px'; // <--- REMOVED: Managed by CSS (100%)
+    // this.canvas.style.height = size + 'px';// <--- REMOVED
     this.ctx.scale(dpr, dpr);
   },
   handleGameOver(winnerIdx, reason) {
@@ -242,6 +238,11 @@ const Game = {
 
   stopTimer() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+  },
+
+  syncTimers(serverTimers) {
+    this.timers = serverTimers;
+    this.updateTimerDisplay();
   },
 
   updateTimerDisplay() {
@@ -698,11 +699,14 @@ const Game = {
   startWallDrag(vertical, e) {
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+
     this.state.drag = {
       type: 'wall',
       isVertical: vertical,
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
     this.draw();
   },
@@ -736,8 +740,13 @@ const Game = {
       if (this.state.drag) return; // Игнорируем, если уже что-то перетаскивается
 
       const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      // SCALING FIX: account for CSS resizing
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
       const player = this.state.players[this.state.currentPlayer];
 
       // Проверяем, находится ли нажатие в пределах радиуса фишки
@@ -765,15 +774,20 @@ const Game = {
     // === 7.2. Перемещение (pointermove) ===
     window.addEventListener('pointermove', e => {
       const rect = this.canvas.getBoundingClientRect();
-      window.lastPointerX = e.clientX - rect.left;
-      window.lastPointerY = e.clientY - rect.top;
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+
+      // Store raw client coords if needed, but for logic use scaled
+      window.lastPointerX = (e.clientX - rect.left) * scaleX;
+      window.lastPointerY = (e.clientY - rect.top) * scaleY;
+
       if (Net.isOnline) {
         const myIdx = Net.myColor === 'white' ? 0 : 1;
         if (this.state.currentPlayer !== myIdx) return;
       }
       if (!this.state.drag) return;
-      this.state.drag.x = e.clientX - rect.left;
-      this.state.drag.y = e.clientY - rect.top;
+      this.state.drag.x = (e.clientX - rect.left) * scaleX;
+      this.state.drag.y = (e.clientY - rect.top) * scaleY;
       this.draw();
     });
 
@@ -782,8 +796,11 @@ const Game = {
       if (!this.state.drag) return;
 
       const rect = this.canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
 
       let potentialMove = null;
 

@@ -346,6 +346,11 @@ setInterval(() => {
                 reason: 'Time out'
             });
             delete activeGames[lobbyId];
+        } else {
+            // Send sync pulse to clients
+            const currentTimers = [...game.timers];
+            currentTimers[activeIdx] = timeLeft;
+            io.to(lobbyId).emit('timerUpdate', { timers: currentTimers });
         }
     }
 }, 2000);

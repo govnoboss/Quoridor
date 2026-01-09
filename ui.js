@@ -17,17 +17,17 @@ const UI = {
     document.body.className = theme;
     localStorage.setItem('quoridor-theme', theme);
   },
-  
+
   // Отключает все кнопки, кроме тех, что в контейнере поиска
   disableAll(excludeSearch = false) {
-      document.querySelectorAll('.menu-buttons button').forEach(b => {
-        // Исключаем кнопки, которые должны работать во время поиска
-        if (b.id === 'cancelSearchBtn') {
-            return;
-        }
-        b.disabled = true;
-      });
-    },
+    document.querySelectorAll('.menu-buttons button').forEach(b => {
+      // Исключаем кнопки, которые должны работать во время поиска
+      if (b.id === 'cancelSearchBtn') {
+        return;
+      }
+      b.disabled = true;
+    });
+  },
   // Включает все кнопки
   enableAll() {
     document.querySelectorAll('button').forEach(b => b.disabled = false);
@@ -42,33 +42,33 @@ const UI = {
   },
 
   showSearch() {
-      // 1. Изменение UI
-      this.disableAll(); 
-      document.getElementById('playOnlineBtn').classList.add('hidden');
-      document.getElementById('cancelSearchBtn').classList.remove('hidden');
-      document.getElementById('searchTimer').classList.remove('hidden');
-      document.getElementById('cancelSearchBtn').disabled = false;
+    // 1. Изменение UI
+    this.disableAll();
+    document.getElementById('playOnlineBtn').classList.add('hidden');
+    document.getElementById('cancelSearchBtn').classList.remove('hidden');
+    document.getElementById('searchTimer').classList.remove('hidden');
+    document.getElementById('cancelSearchBtn').disabled = false;
 
-      // 2. Запуск таймера
-      this.searchTime = 0;
-      this.updateSearchTimer();
-      this.searchTimerInterval = setInterval(() => this.updateSearchTimer(), 1000);
-      
-      // 3. Сетевой запрос на поиск игры
-      if (typeof Net !== 'undefined') {
-          Net.findGame();
-      }
-    },
+    // 2. Запуск таймера
+    this.searchTime = 0;
+    this.updateSearchTimer();
+    this.searchTimerInterval = setInterval(() => this.updateSearchTimer(), 1000);
+
+    // 3. Сетевой запрос на поиск игры
+    if (typeof Net !== 'undefined') {
+      Net.findGame();
+    }
+  },
 
   handleSurrender() {
-      const confirmSurrender = confirm("Вы уверены, что хотите сдаться?");
-      if (confirmSurrender) {
-          if (Net.isOnline) {
-              Net.surrender();
-          } else {
-              Game.handleGameOver(1 - Game.state.currentPlayer, 'Surrender');
-          }
+    const confirmSurrender = confirm("Вы уверены, что хотите сдаться?");
+    if (confirmSurrender) {
+      if (Net.isOnline) {
+        Net.surrender();
+      } else {
+        Game.handleGameOver(1 - Game.state.currentPlayer, 'Surrender');
       }
+    }
   },
 
   hideSearch() {
@@ -79,17 +79,44 @@ const UI = {
     }
 
     // 2. Изменение UI
-    this.enableAll(); 
+    this.enableAll();
     document.getElementById('playOnlineBtn').classList.remove('hidden');
     document.getElementById('cancelSearchBtn').classList.add('hidden');
     document.getElementById('searchTimer').classList.add('hidden');
+  },
 
+  // --- NOTIFICATIONS (Toasts) ---
+  showToast(msg, type = 'info', duration = 3000) {
+    const container = document.getElementById('notificationContainer');
+    const toast = document.createElement('div');
+    toast.className = `notification-toast ${type}`;
+    toast.textContent = msg;
 
+    container.appendChild(toast);
+
+    if (duration > 0) {
+      setTimeout(() => {
+        toast.classList.add('fading');
+        toast.addEventListener('animationend', () => toast.remove());
+      }, duration);
+    }
+    return toast; // Return element in case we want to remove it manually
+  },
+
+  // --- DISCONNECT OVERLAY ---
+  showDisconnectOverlay() {
+    const el = document.getElementById('disconnectModal');
+    el.classList.remove('hidden');
+  },
+
+  hideDisconnectOverlay() {
+    const el = document.getElementById('disconnectModal');
+    el.classList.add('hidden');
   }
 
 };
 
-UI.selectBotDifficulty = function(diff) {
+UI.selectBotDifficulty = function (diff) {
   Game.pendingBotDifficulty = diff;
   UI.showScreen('colorSelectScreen');
 };

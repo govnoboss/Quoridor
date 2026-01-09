@@ -70,13 +70,14 @@ const Net = {
 
         this.socket.on('opponentDisconnected', () => {
             console.log('[NET] Противник отключился. Ждем...');
-            // Можно добавить UI уведомление тут
-            alert('Противник отключился. Ожидаем возвращения... (30сек)');
+            UI.showToast('Противник отключился. Ожидаем возвращения... (30сек)', 'warning', 30000);
         });
 
         this.socket.on('opponentReconnected', () => {
             console.log('[NET] Противник вернулся!');
-            alert('Противник вернулся в игру!');
+            // Очищаем предыдущие тосты можно бы было, но пока просто кинем новый
+            // Лучше было бы иметь ID тоста, но для простоты - просто новое сообщение поверх
+            UI.showToast('Противник вернулся в игру!', 'info', 2000);
         });
 
         this.socket.on('gameOver', (data) => {
@@ -89,10 +90,32 @@ const Net = {
         });
         this.socket.on('serverMove', (data) => {
             Game.applyServerMove(data);
-            this.socket.on('moveRejected', (data) => {
-                console.warn('[NET] Ход отклонен сервером:', data.reason);
-                console.log('Недопустимый ход!');
-            });
+        });
+
+        this.socket.on('moveRejected', (data) => {
+            console.warn('[NET] Ход отклонен сервером:', data.reason);
+            UI.showToast('Недопустимый ход!', 'error');
+        });
+
+        this.socket.on('timerUpdate', (data) => {
+            Game.syncTimers(data.timers);
+        });
+
+        this.socket.on('forceDisconnect', (data) => {
+            console.log('[NET] Force Disconnected:', data.reason);
+            // alert('Соединение разорвано: Вы открыли игру в другой вкладке.');
+            this.socket.disconnect();
+            this.isOnline = false;
+            // location.reload(); // <--- УБРАЛИ АВТОРЕЛОАД
+            UI.showDisconnectOverlay(); // <--- ПОКАЗЫВАЕМ ОВЕРЛЕЙ
+        });
+
+        this.socket.on('findGameFailed', (data) => {
+            console.log('[NET] Find Game Failed:', data.reason);
+            const reasonMsg = data.reason === 'Already in game' ? 'Вы уже в игре!' : data.reason;
+            // alert('Ошибка поиска: ' + reasonMsg);
+            UI.showToast('Ошибка поиска: ' + reasonMsg, 'error');
+            UI.hideSearch();
         });
     },
 

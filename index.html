@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
 
   <meta charset="utf-8" />
@@ -7,6 +8,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <div id="mainMenu" class="screen active">
@@ -15,16 +17,17 @@
       <div id="playOnlineContainer">
         <button id="playOnlineBtn" onclick="UI.showSearch()">Играть онлайн</button>
         <div id="searchTimer" class="hidden">0:00</div>
-        <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(); Net.cancelFindGame()">Отменить поиск</button>
+        <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(); Net.cancelFindGame()">Отменить
+          поиск</button>
       </div>
       <button onclick="UI.showModeSelect()">Локальная игра</button>
       <button onclick="UI.showSettings()">Настройки</button>
       <button onclick="UI.showRules()">Правила</button>
       <button onclick="UI.showAbout()">Об игре</button>
-      
-      </div>
+
+    </div>
   </div>
-  
+
   <div id="modeScreen" class="screen">
     <h2>Выберите режим</h2>
     <button onclick="Game.startPvP()">Два игрока (PvP)</button>
@@ -33,7 +36,7 @@
     <button onclick="UI.selectBotDifficulty('medium')">Средний бот</button>
     <button onclick="UI.selectBotDifficulty('hard')">Сильный бот</button>
     <button onclick="UI.selectBotDifficulty('impossible')">Непобедимый бот</button>
-    
+
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
@@ -42,31 +45,32 @@
     <p>Белые всегда ходят первыми</p>
     <div class="menu-buttons horizontal">
       <button onclick="Game.startVsBot('white')">
-         ⚪ Играть за Белых<br>(Вы ходите первым)
+        ⚪ Играть за Белых<br>(Вы ходите первым)
       </button>
       <button onclick="Game.startVsBot('black')">
-         ⚫ Играть за Чёрных<br>(Бот ходит первым)
+        ⚫ Играть за Чёрных<br>(Бот ходит первым)
       </button>
     </div>
     <button onclick="UI.showModeSelect()">Назад</button>
   </div>
 
   <button onclick="UI.showModeSelect()">Назад к режимам</button>
-</div>
-<div id="gameScreen" class="screen">
+  </div>
+  <div id="gameScreen" class="screen">
     <div class="game-layout">
-      
+
       <div class="board-area">
-        
+
         <div class="player-bar" id="topPlayerBar">
           <div class="avatar-container">
-            <div class="avatar"></div> </div>
+            <div class="avatar"></div>
+          </div>
           <div class="player-info">
             <div class="player-name-row">
               <span class="player-name" id="topPlayerName">Оппонент</span>
             </div>
             <div class="player-material">
-              <span class="wall-icon">▐</span> 
+              <span class="wall-icon">▐</span>
               <span id="topPlayerWalls">10</span>
             </div>
           </div>
@@ -86,7 +90,7 @@
               <span class="player-name" id="bottomPlayerName">Вы</span>
             </div>
             <div class="player-material">
-              <span class="wall-icon">▐</span> 
+              <span class="wall-icon">▐</span>
               <span id="bottomPlayerWalls">10</span>
             </div>
           </div>
@@ -97,16 +101,16 @@
 
       <div class="sidebar">
         <div class="controls-panel">
-           <div class="wall-selector">
-             <div id="hTpl" class="template h" title="Горизонтальная стена">H</div>
-             <div id="vTpl" class="template v" title="Вертикальная стена">V</div>
-           </div>
-           
-           <button id="rotateBtn" class="control-btn">Повернуть (R)</button>
-           
-           <div class="mini-hint">
-             Drag & Drop стены<br>или клик + R
-           </div>
+          <div class="wall-selector">
+            <div id="hTpl" class="template h" title="Горизонтальная стена">H</div>
+            <div id="vTpl" class="template v" title="Вертикальная стена">V</div>
+          </div>
+
+          <button id="rotateBtn" class="control-btn">Повернуть (R)</button>
+
+          <div class="mini-hint">
+            Drag & Drop стены<br>или клик + R
+          </div>
         </div>
 
         <div class="menu-actions">
@@ -119,7 +123,7 @@
 
   <div id="settingsScreen" class="screen">
     <h2>Настройки</h2>
-    <label>Тема: 
+    <label>Тема:
       <select id="themeSelect">
         <option value="dark">Тёмная</option>
         <option value="light">Светлая</option>
@@ -134,16 +138,16 @@
   <div id="rulesScreen" class="screen">
     <h2>Правила Quoridor</h2>
     <p>• Цель — первым довести свою пешку до противоположного края доски.<br>
-       • За ход можно: либо передвинуть пешку, либо поставить стену.<br>
-       • Можно перепрыгнуть через соперника, если он стоит лицом к лицу.<br>
-       • Запрещено отрезать путь хотя бы одному игроку.</p>
+      • За ход можно: либо передвинуть пешку, либо поставить стену.<br>
+      • Можно перепрыгнуть через соперника, если он стоит лицом к лицу.<br>
+      • Запрещено отрезать путь хотя бы одному игроку.</p>
     <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
   <div id="aboutScreen" class="screen">
     <h2>Об игре</h2>
     <p>Открытая веб-реализация настольной игры Quoridor<br>
-    <button onclick="UI.backToMenu()">Назад</button>
+      <button onclick="UI.backToMenu()">Назад</button>
   </div>
 
   <div id="resultModal" class="modal-overlay hidden">
@@ -154,7 +158,22 @@
       <button class="primary-btn" onclick="Game.goToMainMenu()">В меню</button>
     </div>
   </div>
-  
+
+  <!-- Disconnect Overlay -->
+  <div id="disconnectModal" class="disconnect-overlay hidden">
+    <div class="disconnect-content">
+      <div class="disconnect-title">Соединение разорвано</div>
+      <div class="disconnect-msg">
+        Вы открыли игру в другой вкладке или окне.
+        <br>Эта сессия была завершена.
+      </div>
+      <button class="primary-btn" onclick="location.reload()">Вернуться в игру (Reconnect)</button>
+    </div>
+  </div>
+
+  <!-- Toasts Container -->
+  <div id="notificationContainer" class="notification-container"></div>
+
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="ui.js"></script>
   <script src="net.js"></script>
@@ -163,4 +182,5 @@
   <script src="game.js"></script>
   <script src="main.js"></script>
 </body>
+
 </html>
