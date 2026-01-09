@@ -18,7 +18,7 @@ const Game = {
    * @property {number} gap Небольшой отступ от краев ячейки (4).
    */
   /** @type {GameConfig} Конфигурация игры. */
-  CONFIG: { cellSize: 60, gridCount: 9, slotCount: 8, wallThick: 10, gap: 4 },
+  CONFIG: { cellSize: 120, gridCount: 9, slotCount: 8, wallThick: 20, gap: 8 },
 
   /**
    * @typedef {object} Direction
@@ -275,6 +275,7 @@ const Game = {
     const size = this.CONFIG.cellSize * this.CONFIG.gridCount;
     this.ctx.clearRect(0, 0, size, size);
     this.drawGrid();
+    this.drawCoordinates();
     this.drawPossibleMoves();
     this.drawPlacedWalls();
     this.drawPawns();
@@ -287,11 +288,56 @@ const Game = {
   drawGrid() {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
-        const x = c * this.CONFIG.cellSize + 2;
-        const y = this.transformRow(r) * this.CONFIG.cellSize + 2;
+        const x = c * this.CONFIG.cellSize + 4; // было 2
+        const y = this.transformRow(r) * this.CONFIG.cellSize + 4; // было 2
         this.ctx.fillStyle = '#2a2a2a';
-        this.ctx.fillRect(x, y, this.CONFIG.cellSize - 4, this.CONFIG.cellSize - 4);
+        this.ctx.fillRect(x, y, this.CONFIG.cellSize - 8, this.CONFIG.cellSize - 8); // было -4
       }
+    }
+  },
+
+  drawCoordinates() {
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = `bold ${this.CONFIG.cellSize * 0.2}px Inter, sans-serif`;
+    this.ctx.textBaseline = "top";
+    this.ctx.textAlign = "left";
+
+    const padding = this.CONFIG.cellSize * 0.08;
+
+    // Цифры (ranks) 1-9. Рисуем на левом столбце (c=0).
+    // r=0 -> 9, r=8 -> 1
+    for (let r = 0; r < 9; r++) {
+      // Вычисляем визуальную позицию клетки (r, 0)
+      const x = 0 + 4; // Отступ как у клетки
+      const y = this.transformRow(r) * this.CONFIG.cellSize + 4;
+
+      // Рисуем цифру в левом верхнем углу
+      // +padding
+      const label = (9 - r).toString();
+      this.ctx.fillText(label, x + padding, y + padding);
+    }
+
+    // Буквы (files) a-i. Рисуем на нижней строке (r=8).
+    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    this.ctx.textBaseline = "bottom";
+    this.ctx.textAlign = "right";
+
+    for (let c = 0; c < 9; c++) {
+      // Вычисляем визуальную позицию клетки (8, c)
+      // ВАЖНО: Нам нужно рисовать буквы всегда "внизу" визуально?
+      // ТЗ: "цифры в верхних левых... буквы в нижнем правом".
+      // Если мы перевернуты (Black), r=8 становится верхом.
+      // Обычно координаты привязаны к клеткам. Т.е. клетка (8,0) это 'a1'.
+      // Если мы Black, 'a1' вверху слева.
+      // Значит рисуем в клетках r=8 (это Rank 1).
+
+      const r = 8;
+      const x = (c + 1) * this.CONFIG.cellSize - 4; // Правый край клетки. (c+1)*size - board_padding(4)? no, just (c+1)*size - 4? 
+      // x = c*size + size - 4? -> c*size + size - 4.
+      const y = (this.transformRow(r) + 1) * this.CONFIG.cellSize - 4; // Нижний край клетки
+
+      const label = letters[c];
+      this.ctx.fillText(label, x - padding, y - padding);
     }
   },
 
@@ -896,17 +942,8 @@ const Game = {
       }
     });
 
-    // Кнопка поворота стены в UI
-    document.getElementById('rotateBtn').onclick = () => {
-      if (this.state.drag?.type === 'wall') {
-        this.state.drag.isVertical = !this.state.drag.isVertical;
-        this.draw();
-      }
-    };
+
   },
-
-
-
   surrender() {
     const loserIdx = (this.myPlayerIndex !== -1) ? this.myPlayerIndex : this.state.currentPlayer;
     const winnerIdx = 1 - loserIdx;
@@ -916,11 +953,183 @@ const Game = {
   },
 };
 
+// ====================================================================
+// DEMO BOARD - Декоративная доска для главного меню
+// ====================================================================
+const DemoBoard = {
+  canvas: null,
+  ctx: null,
+  cellSize: 80,
+  animationInterval: null,
+  moveIndex: 0,
 
+  // Демо-партия: последовательность ЛЕГАЛЬНЫХ ходов
+  // Белые (0) стартуют r=8,c=4, Черные (1) стартуют r=0,c=4
+  // ВАЖНО: Только ортогональные ходы (1 клетка по вертикали ИЛИ горизонтали)
+  demoMoves: [
+    // Ход 1-2: Оба идут вперед
+    { type: 'pawn', player: 0, r: 7, c: 4 },
+    { type: 'pawn', player: 1, r: 1, c: 4 },
+    // Ход 3-4: Белые ставят стену, черные идут вперед
+    { type: 'wall', player: 0, r: 6, c: 2, isVertical: false },
+    { type: 'pawn', player: 1, r: 2, c: 4 },
+    // Ход 5-6: Оба идут вперед
+    { type: 'pawn', player: 0, r: 6, c: 4 },
+    { type: 'pawn', player: 1, r: 3, c: 4 },
+    // Ход 7-8: Черные ставят стену, белые идут влево
+    { type: 'wall', player: 1, r: 5, c: 4, isVertical: true },
+    { type: 'pawn', player: 0, r: 6, c: 3 }, // Влево
+    // Ход 9-10: Черные вперед, белые вперед
+    { type: 'pawn', player: 1, r: 4, c: 4 },
+    { type: 'pawn', player: 0, r: 5, c: 3 }, // Вперед
+    // Ход 11-12: Черные вправо, белые стена
+    { type: 'pawn', player: 1, r: 4, c: 5 }, // Вправо
+    { type: 'wall', player: 0, r: 4, c: 5, isVertical: false },
+  ],
+
+  state: {
+    players: [{ pos: { r: 8, c: 4 } }, { pos: { r: 0, c: 4 } }],
+    hWalls: [],
+    vWalls: []
+  },
+
+  init() {
+    this.canvas = document.getElementById('demoBoard');
+    if (!this.canvas) return;
+
+    this.ctx = this.canvas.getContext('2d');
+    this.reset();
+    this.draw();
+    this.startAnimation();
+  },
+
+  reset() {
+    this.state.players = [{ pos: { r: 8, c: 4 } }, { pos: { r: 0, c: 4 } }];
+    this.state.hWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
+    this.state.vWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
+    this.moveIndex = 0;
+  },
+
+  startAnimation() {
+    if (this.animationInterval) clearInterval(this.animationInterval);
+    this.animationInterval = setInterval(() => this.playNextMove(), 1500);
+  },
+
+  playNextMove() {
+    if (this.moveIndex >= this.demoMoves.length) {
+      this.reset();
+      this.draw();
+      return;
+    }
+
+    const move = this.demoMoves[this.moveIndex];
+    if (move.type === 'pawn') {
+      this.state.players[move.player].pos = { r: move.r, c: move.c };
+    } else if (move.type === 'wall') {
+      if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
+      else this.state.hWalls[move.r][move.c] = true;
+    }
+
+    this.moveIndex++;
+    this.draw();
+  },
+
+  draw() {
+    const size = this.cellSize * 9;
+    this.ctx.clearRect(0, 0, size, size);
+    this.drawGrid();
+    this.drawCoordinates();
+    this.drawWalls();
+    this.drawPawns();
+  },
+
+  drawGrid() {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const x = c * this.cellSize + 2;
+        const y = r * this.cellSize + 2;
+        this.ctx.fillStyle = '#2a2a2a';
+        this.ctx.fillRect(x, y, this.cellSize - 4, this.cellSize - 4);
+      }
+    }
+  },
+
+  drawCoordinates() {
+    this.ctx.fillStyle = "#ffffff";
+    this.ctx.font = `bold ${this.cellSize * 0.18}px Inter, sans-serif`;
+    const padding = this.cellSize * 0.08;
+
+    // Цифры 1-9 в левом столбце (верхний левый угол клетки)
+    this.ctx.textBaseline = "top";
+    this.ctx.textAlign = "left";
+    for (let r = 0; r < 9; r++) {
+      const x = 0 + 2;
+      const y = r * this.cellSize + 2;
+      const label = (9 - r).toString();
+      this.ctx.fillText(label, x + padding, y + padding);
+    }
+
+    // Буквы a-i в нижней строке (правый нижний угол клетки)
+    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    this.ctx.textBaseline = "bottom";
+    this.ctx.textAlign = "right";
+    for (let c = 0; c < 9; c++) {
+      const x = (c + 1) * this.cellSize - 2;
+      const y = 9 * this.cellSize - 2;
+      this.ctx.fillText(letters[c], x - padding, y - padding);
+    }
+  },
+
+  drawWalls() {
+    this.ctx.fillStyle = '#e09f3e';
+
+    // Горизонтальные стены
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (this.state.hWalls[r][c]) {
+          const x = c * this.cellSize + 4;
+          const y = (r + 1) * this.cellSize - 5;
+          this.ctx.fillRect(x, y, this.cellSize * 2 - 8, 10);
+        }
+      }
+    }
+
+    // Вертикальные стены
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (this.state.vWalls[r][c]) {
+          const x = (c + 1) * this.cellSize - 5;
+          const y = r * this.cellSize + 4;
+          this.ctx.fillRect(x, y, 10, this.cellSize * 2 - 8);
+        }
+      }
+    }
+  },
+
+  drawPawns() {
+    const colors = ['#f0f0f0', '#1a1a1a'];
+    const strokes = ['#888', '#444'];
+
+    this.state.players.forEach((player, idx) => {
+      const x = (player.pos.c + 0.5) * this.cellSize;
+      const y = (player.pos.r + 0.5) * this.cellSize;
+      const radius = this.cellSize * 0.35;
+
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = colors[idx];
+      this.ctx.fill();
+      this.ctx.strokeStyle = strokes[idx];
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+    });
+  }
+};
 
 // Запуск инициализации после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
   Game.setupCanvas();
   Game.updateTurnDisplay();
   Game.initEvents();
+  DemoBoard.init();
 });

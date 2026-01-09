@@ -12,6 +12,25 @@ const UI = {
   showSettings() { this.showScreen('settingsScreen'); },
   showRules() { this.showScreen('rulesScreen'); },
   showAbout() { this.showScreen('aboutScreen'); },
+
+  setRulesLang(lang) {
+    const ruContent = document.getElementById('rulesContentRu');
+    const enContent = document.getElementById('rulesContentEn');
+    const ruBtn = document.getElementById('langRu');
+    const enBtn = document.getElementById('langEn');
+
+    if (lang === 'en') {
+      ruContent.classList.add('hidden');
+      enContent.classList.remove('hidden');
+      ruBtn.classList.remove('active');
+      enBtn.classList.add('active');
+    } else {
+      enContent.classList.add('hidden');
+      ruContent.classList.remove('hidden');
+      enBtn.classList.remove('active');
+      ruBtn.classList.add('active');
+    }
+  },
   saveSettings() {
     const theme = document.getElementById('themeSelect').value;
     document.body.className = theme;
@@ -61,14 +80,55 @@ const UI = {
   },
 
   handleSurrender() {
-    const confirmSurrender = confirm("Вы уверены, что хотите сдаться?");
-    if (confirmSurrender) {
-      if (Net.isOnline) {
-        Net.surrender();
-      } else {
-        Game.handleGameOver(1 - Game.state.currentPlayer, 'Surrender');
+    UI.showConfirm(
+      'Подтверждение сдачи',
+      'Вы уверены, что хотите сдаться?',
+      () => {
+        // Пользователь подтвердил сдачу
+        if (Net.isOnline) {
+          Net.surrender();
+        } else {
+          Game.handleGameOver(1 - Game.state.currentPlayer, 'Surrender');
+        }
       }
-    }
+    );
+  },
+
+  /**
+   * Показывает модальное окно подтверждения
+   * @param {string} title - Заголовок окна
+   * @param {string} message - Текст сообщения
+   * @param {function} onConfirm - Callback при нажатии "Да"
+   * @param {function} [onCancel] - Callback при нажатии "Отмена" (опционально)
+   */
+  showConfirm(title, message, onConfirm, onCancel = null) {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmTitle');
+    const messageEl = document.getElementById('confirmMessage');
+    const yesBtn = document.getElementById('confirmYes');
+    const noBtn = document.getElementById('confirmNo');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+
+    // Удаляем старые слушатели (если есть)
+    const newYesBtn = yesBtn.cloneNode(true);
+    const newNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+
+    // Добавляем новые слушатели
+    newYesBtn.onclick = () => {
+      modal.style.display = 'none';
+      if (onConfirm) onConfirm();
+    };
+
+    newNoBtn.onclick = () => {
+      modal.style.display = 'none';
+      if (onCancel) onCancel();
+    };
+
+    modal.style.display = 'flex';
   },
 
   hideSearch() {

@@ -355,13 +355,13 @@ canvas {
 
 /* Переопределяем старые стили шаблонов для сайдбара */
 .template.h {
-    width: 60px;
-    height: 10px;
+    width: 120px;
+    height: 20px;
 }
 
 .template.v {
-    width: 10px;
-    height: 60px;
+    width: 20px;
+    height: 120px;
 }
 
 .control-btn {
@@ -558,4 +558,255 @@ canvas {
 
 .primary-btn:hover {
     background: #ffb74d;
+}
+
+/* --- CONFIRMATION MODAL --- */
+.confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.confirm-box {
+    background: var(--bg);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    max-width: 400px;
+    text-align: center;
+    animation: slideUp 0.3s ease;
+}
+
+.confirm-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 15px;
+}
+
+.confirm-msg {
+    color: var(--text-dim);
+    margin-bottom: 25px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.confirm-actions button {
+    flex: 1;
+    max-width: 150px;
+}
+
+/* --- RULES PAGE --- */
+.rules-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.rules-header h2 {
+    margin: 0;
+}
+
+.lang-toggle {
+    display: flex;
+    gap: 5px;
+}
+
+.lang-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--text-dim);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.lang-btn.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+}
+
+.rules-content {
+    text-align: left;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.rules-section {
+    margin-bottom: 20px;
+}
+
+.rules-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.rules-section p {
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.rules-section ul {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+    color: var(--text-dim);
+}
+
+.rules-section li {
+    margin-bottom: 5px;
+}
+
+kbd {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: var(--accent);
+}
+
+/* --- MODE SELECTION --- */
+.mode-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+    width: 100%;
+    max-width: 300px;
+}
+
+.mode-buttons button {
+    padding: 15px 25px;
+    font-size: 1rem;
+}
+
+.separator-line {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin: 10px 0;
+    text-align: center;
+}
+
+/* --- MAIN MENU LAYOUT (Chess.com style) --- */
+#mainMenu .menu-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: flex-start;
+    width: 100%;
+    height: 100%;
+    gap: 0;
+}
+
+.board-preview {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 20px;
+    padding-left: 15%;
+    /* Смещение вправо */
+}
+
+.demo-board-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    /* Увеличил отступ */
+    align-items: flex-start;
+    /* Выравнивание по левому краю доски */
+    width: fit-content;
+}
+
+.demo-player-bar {
+    background: transparent;
+    padding: 0;
+    height: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.demo-player-bar .avatar {
+    width: 36px;
+    height: 36px;
+    background: #3c3a37;
+    border-radius: 4px;
+}
+
+.demo-player-bar .player-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+#demoBoard {
+    background: #1a1a1a;
+    border-radius: 4px;
+    max-height: 70vh;
+    /* Еще немного уменьшил для комфорта */
+    width: auto;
+    display: block;
+}
+
+.menu-panel {
+    flex: 0 0 320px;
+    background: #262421;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 30px;
+}
+
+.menu-panel h1 {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    text-align: center;
+    color: var(--text);
+}
+
+.menu-panel .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.menu-panel button {
+    padding: 16px 20px;
+    font-size: 1rem;
+    text-align: left;
+    border-radius: 8px;
+    background: #3a3a3a;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-panel button:hover {
+    background: #4a4a4a;
 }
