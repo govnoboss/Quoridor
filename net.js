@@ -65,6 +65,16 @@ const Net = {
 
             // Восстанавливаем состояние локально
             Game.myPlayerIndex = this.myPlayerIndex;
+
+            // Restore notation for history (server doesn't store it)
+            if (data.state.history) {
+                data.state.history.forEach(item => {
+                    if (!item.notation && Game.getNotation) {
+                        item.notation = Game.getNotation(item.move);
+                    }
+                });
+            }
+
             Game.state = data.state;
             Game.timers = data.timers; // Синхронизируем таймеры
 

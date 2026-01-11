@@ -681,9 +681,22 @@ const Game = {
     const slotR_absolute = this.myPlayerIndex === 1 ? 7 - slotR_display : slotR_display;
 
     // Проверяем валидность
-    const isValid = this.state.players[this.state.currentPlayer].wallsLeft > 0 &&
-      Shared.checkWallPlacement(this.state, slotR_absolute, slotC, isVertical) &&
-      Shared.isValidWallPlacement(this.state); // Внимание: BFS может быть тяжелым, но для 9x9 ок
+    // 1. Проверяем наличие стен и отсутствие пересечений (без учета путей)
+    let isValid = this.state.players[this.state.currentPlayer].wallsLeft > 0 &&
+      Shared.checkWallPlacement(this.state, slotR_absolute, slotC, isVertical);
+
+    // 2. Если пока валидно, проверяем, не блокирует ли путь
+    if (isValid) {
+      // Временно ставим стену в State для проверки путей
+      if (isVertical) this.state.vWalls[slotR_absolute][slotC] = true;
+      else this.state.hWalls[slotR_absolute][slotC] = true;
+
+      isValid = Shared.isValidWallPlacement(this.state);
+
+      // Убираем временную стену
+      if (isVertical) this.state.vWalls[slotR_absolute][slotC] = false;
+      else this.state.hWalls[slotR_absolute][slotC] = false;
+    }
 
     this.state.hoverWall = { r: slotR_absolute, c: slotC, isVertical, isValid };
     this.canvas.style.cursor = isValid ? 'pointer' : 'default';

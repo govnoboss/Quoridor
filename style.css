@@ -867,14 +867,20 @@ kbd {
 }
 
 .board-preview {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    /* Don't grow, allow shrink */
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    /* Align to left */
     justify-content: center;
     background: var(--bg);
     padding: 20px;
-    padding-left: 5%;
+    padding-left: 40px;
+    /* Fixed distance from wall */
+    min-width: 0;
+    /* Allow shrinking */
+    overflow: hidden;
 }
 
 .demo-board-container {
@@ -913,9 +919,12 @@ kbd {
 #demoBoard {
     background: #1a1a1a;
     border-radius: 4px;
-    height: 80vh;
-    width: auto;
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    aspect-ratio: 1/1;
     display: block;
+    object-fit: contain;
 }
 
 .menu-panel {
@@ -1217,9 +1226,9 @@ kbd {
         margin-bottom: 0px;
     }
 
-    /* --- SMARTPHONE SPECIFIC (Narrow or Short screens) --- */
-    @media (max-width: 500px),
-    (max-height: 750px) {
+    /* --- SMARTPHONE & TABLET (Portrait) --- */
+    @media (max-width: 900px),
+    (max-height: 800px) {
         #mainMenu .main-title {
             font-size: 1.8rem;
             margin-bottom: 10px;
@@ -1227,6 +1236,12 @@ kbd {
 
         #mainMenu .menu-layout {
             gap: 5px;
+        }
+
+        .board-preview {
+            align-items: center;
+            padding-left: 20px;
+            /* Reset desktop fixed padding */
         }
 
         #demoBoard {
@@ -1313,6 +1328,12 @@ kbd {
         background: transparent;
         justify-content: center;
         align-items: center;
+    }
+
+    #moveHistory {
+        max-height: 15vh;
+        width: 100%;
+        margin-bottom: 5px;
     }
 
     .player-bar {

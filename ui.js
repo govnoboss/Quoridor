@@ -19,7 +19,7 @@ const UI = {
       pname_black: "Черный",
       info_tip_title: "Совет дня",
       info_tip_text: "Стены — ваше главное оружие. Используйте их, чтобы удлинить путь соперника, но не блокируйте себя!",
-      info_leaderboard_title: "Лидерборд",
+      info_leaderboard_title: "Лидеры",
       info_hint: "Рейтинг обновляется в реальном времени",
       screen_mode_title: "Выберите режим",
       mode_pvp: "Два игрока (PvP)",
@@ -502,6 +502,18 @@ const UI = {
   // --- NOTIFICATIONS (Toasts) ---
   showToast(msg, type = 'info', duration = 3000) {
     const container = document.getElementById('notificationContainer');
+
+    // 1. Remove duplicate message (so we can move it to bottom)
+    const existing = Array.from(container.children).find(child => child.textContent === msg);
+    if (existing) {
+      existing.remove();
+    }
+
+    // 2. Limit concurrent toasts
+    while (container.children.length >= 3) {
+      container.removeChild(container.firstChild);
+    }
+
     const toast = document.createElement('div');
     toast.className = `notification-toast ${type}`;
     toast.textContent = msg;
