@@ -345,7 +345,14 @@
       <!-- Сайдбар для будущей истории ходов -->
       <div class="sidebar">
         <div class="sidebar-content">
-          <!-- Здесь будет история ходов -->
+          <div id="moveHistory">
+            <div class="history-header">
+              <span data-i18n="pname_white">White</span>
+              <span data-i18n="pname_black">Black</span>
+            </div>
+            <div class="history-list" id="historyList"></div>
+            <!-- Future keys: <div class="history-controls">...</div> -->
+          </div>
         </div>
         <div class="menu-actions">
           <button class="secondary-btn" onclick="UI.handleSurrender()" data-i18n="btn_surrender">Сдаться</button>

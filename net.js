@@ -71,7 +71,12 @@ const Net = {
             Game.draw();
             Game.updateTurnDisplay();
             Game.updateTimerDisplay();
+            Game.updateTurnDisplay();
+            Game.updateTimerDisplay();
             Game.startTimer();
+            if (Game.state.history && UI.renderHistory) {
+                UI.renderHistory(Game.state.history);
+            }
         });
 
         this.socket.on('opponentDisconnected', () => {

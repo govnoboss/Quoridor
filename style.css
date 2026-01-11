@@ -1949,3 +1949,49 @@ kbd {
     padding: 10px 0 5px;
     width: 100%;
 }
+
+/* --- MOVE HISTORY --- */
+#moveHistory {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.history-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    font-weight: bold;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    color: var(--text-muted);
+    font-size: 0.9em;
+    text-align: center;
+}
+
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    font-family: monospace;
+}
+
+.history-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 4px 0;
+    font-size: 0.95rem;
+}
+
+.history-row:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.history-cell {
+    text-align: center;
+    padding: 0 5px;
+    color: var(--text);
+}

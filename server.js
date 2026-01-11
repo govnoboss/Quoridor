@@ -108,7 +108,8 @@ function createInitialState(timeControl) {
         disconnectTimer: null,      // New: Timer for grace period
         timers: [base, base],
         increment: inc,
-        lastMoveTimestamp: Date.now()
+        lastMoveTimestamp: Date.now(),
+        history: [] // Store list of moves
     };
 }
 function checkVictory(state) {
@@ -498,6 +499,13 @@ io.on('connection', (socket) => {
 
         if (valid) {
             console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
+
+            // Record move to history
+            game.history.push({
+                playerIdx,
+                move,
+                timestamp: Date.now()
+            });
 
             // --- НОВАЯ ЛОГИКА: ПРОВЕРКА ПОБЕДЫ ---
             const winnerIdx = checkVictory(game);

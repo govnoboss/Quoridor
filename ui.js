@@ -411,6 +411,35 @@ const UI = {
     }
   },
 
+  renderHistory(history) {
+    const list = document.getElementById('historyList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    for (let i = 0; i < history.length; i += 2) {
+      const moveW = history[i];
+      const moveB = history[i + 1];
+
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const cellW = document.createElement('div');
+      cellW.className = 'history-cell';
+      cellW.textContent = (moveW.notation || '?');
+      row.appendChild(cellW);
+
+      if (moveB) {
+        const cellB = document.createElement('div');
+        cellB.className = 'history-cell';
+        cellB.textContent = (moveB.notation || '?');
+        row.appendChild(cellB);
+      }
+
+      list.appendChild(row);
+    }
+    list.scrollTop = list.scrollHeight;
+  },
+
   handleSurrender() {
     UI.showConfirm(
       this.translate('confirm_surrender_title'),

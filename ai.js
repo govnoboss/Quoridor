@@ -283,6 +283,12 @@ const AI = {
 
         this.applyMove(Game.state, bestMove, botPlayer);
 
+        // Normalize vertical key for Game history
+        if (bestMove.type === 'wall' && bestMove.isVertical === undefined) {
+            bestMove.isVertical = bestMove.vertical;
+        }
+        Game.addToHistory(bestMove);
+
         // Озвучка хода бота
         UI.AudioManager.play(bestMove.type === 'pawn' ? 'move' : 'wall');
 

@@ -57,7 +57,34 @@ const Game = {
     currentPlayer: 0,
     drag: null,
     hoverWall: null, // { r, c, isVertical, isValid }
-    botDifficulty: 'none'
+    botDifficulty: 'none',
+    history: []
+  },
+
+  addToHistory(move) {
+    if (!this.state.history) this.state.history = [];
+    const notation = this.getNotation(move);
+    this.state.history.push({
+      playerIdx: this.state.currentPlayer,
+      move: { ...move },
+      notation,
+      timestamp: Date.now()
+    });
+    if (typeof UI !== 'undefined' && UI.renderHistory) {
+      UI.renderHistory(this.state.history);
+    }
+  },
+
+  getNotation(move) {
+    if (move.type === 'pawn') {
+      const col = String.fromCharCode('a'.charCodeAt(0) + move.c);
+      const row = 9 - move.r;
+      return `${col}${row}`;
+    } else {
+      const col = String.fromCharCode('a'.charCodeAt(0) + move.c);
+      const row = 9 - move.r;
+      return `${col}${row}${move.isVertical ? 'v' : 'h'}`;
+    }
   },
 
 
@@ -193,6 +220,13 @@ const Game = {
     this.state.drag = null;
     this.stopTimer();
     this.timers = [this.initialTime, this.initialTime];
+
+    // Clear history
+    this.state.history = [];
+    if (typeof UI !== 'undefined' && UI.renderHistory) {
+      UI.renderHistory(this.state.history);
+    }
+
     this.updateTimerDisplay();
     this.updateTurnDisplay();
   },
@@ -800,8 +834,11 @@ const Game = {
   // ====================================================================
 
   applyServerMove(data) {
-    console.log('[GAME] Сервер подтвердил ход:', data);
     const { playerIdx, move, nextPlayer } = data;
+    // Update history first
+    this.addToHistory({ ...move, playerIdx });
+
+    console.log('[GAME] Сервер подтвердил ход:', data);
     // 1. Применяем изменения к локальному State
     if (move.type === 'pawn') {
       this.state.players[playerIdx].pos = { r: move.r, c: move.c };
@@ -1123,6 +1160,7 @@ const Game = {
         Net.sendMove(move);
       } else {
         if (this.placeWall(r, c, isVertical)) {
+          this.addToHistory(move);
           this.nextTurn();
         }
       }
@@ -1171,6 +1209,7 @@ const Game = {
             if (Shared.canMovePawn(this.state, player.pos.r, player.pos.c, tr, tc)) {
               Game.state.players[playerIdx].pos = { r: potentialMove.r, c: potentialMove.c };
               UI.AudioManager.play('move');
+              this.addToHistory(potentialMove);
               if (!this.checkVictory()) this.nextTurn();
             } else {
               UI.AudioManager.play('error');
@@ -1182,6 +1221,7 @@ const Game = {
             if (this.state.players[playerIdx].wallsLeft > 0 &&
               this.placeWall(wr, wc, isVertical)) {
               // Логика placeWall уже уменьшила wallsLeft и проверила победу (не блокирует ли путь)
+              this.addToHistory(potentialMove);
               this.nextTurn();
             }
           }
