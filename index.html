@@ -12,8 +12,8 @@
 <body>
 
   <div id="mainMenu" class="screen active">
-    <!-- Заголовок вынесен наверх -->
-    <h1 class="main-title">Quoridor</h1>
+    <!-- Заголовок для мобильных (над полем) -->
+    <h1 class="main-title mobile-only">Quoridor</h1>
 
     <div class="menu-layout">
       <!-- Декоративная доска с демо-партией -->
@@ -43,6 +43,8 @@
 
       <!-- Панель меню -->
       <div class="menu-panel">
+        <h1 class="main-title desktop-only">Quoridor</h1>
+
         <div class="menu-buttons">
           <div id="playOnlineContainer">
             <button id="playOnlineBtn" onclick="UI.showTimeSelection()" data-i18n="menu_play_online">⚡ Играть
@@ -312,17 +314,19 @@
             <div class="player-name-row">
               <span class="player-name" id="topPlayerName" data-i18n="pname_opponent">Оппонент</span>
             </div>
-            <div class="player-material">
-              <span class="wall-icon">▐</span>
-              <span id="topPlayerWalls">10</span>
-            </div>
           </div>
           <div class="timer" id="topPlayerTimer">10:00</div>
         </div>
 
+        <!-- Контейнер стен оппонента -->
+        <div class="wall-inventory" id="topWallInventory"></div>
+
         <div id="game-container">
           <canvas id="board" width="1080" height="1080"></canvas>
         </div>
+
+        <!-- Контейнер моих стен (интерактивные) -->
+        <div class="wall-inventory" id="bottomWallInventory"></div>
 
         <div class="player-bar" id="bottomPlayerBar">
           <div class="avatar-container">
@@ -332,25 +336,17 @@
             <div class="player-name-row">
               <span class="player-name" id="bottomPlayerName" data-i18n="pname_you">Вы</span>
             </div>
-            <div class="player-material">
-              <span class="wall-icon">▐</span>
-              <span id="bottomPlayerWalls">10</span>
-            </div>
           </div>
           <div class="timer" id="bottomPlayerTimer">10:00</div>
         </div>
 
       </div>
 
+      <!-- Сайдбар для будущей истории ходов -->
       <div class="sidebar">
-        <div class="controls-panel">
-          <div class="wall-selector">
-            <div id="hTpl" class="template h" title="Горизонтальная стена">H</div>
-            <div id="vTpl" class="template v" title="Вертикальная стена">V</div>
-          </div>
-
+        <div class="sidebar-content">
+          <!-- Здесь будет история ходов -->
         </div>
-
         <div class="menu-actions">
           <button class="secondary-btn" onclick="UI.handleSurrender()" data-i18n="btn_surrender">Сдаться</button>
         </div>

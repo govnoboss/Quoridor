@@ -10,6 +10,8 @@ const Game = {
   initialTime: 600,
   pendingBotDifficulty: 'medium',
   debugControl: false, // Режим отладки зон наведения
+  isTouchDevice: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0), // Детектирование мобильных
+  wasDragging: false, // Флаг для предотвращения click после drag
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -110,7 +112,6 @@ const Game = {
       'Opponent disconnected': UI.translate('reason_disconnected')
     };
 
-    // ИСПРАВЛЕННАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ
     let isWinner = false;
     let statusMessage = "";
 
@@ -201,7 +202,7 @@ const Game = {
    */
   startPvP() {
     this.state.botDifficulty = 'none';
-    this.initialTime = 600; // Сброс к дефолту для локальной игры
+    this.initialTime = 600;
     this.reset();
     UI.showScreen('gameScreen');
     this.startTimer();
@@ -317,9 +318,9 @@ const Game = {
     this.drawPossibleMoves();
     this.drawPlacedWalls();
     this.drawPawns();
-    this.drawHoverWall(); // Рисуем призрак стены
+    this.drawHoverWall();
     this.drawDragPreview();
-    this.drawDebugZones(); // Отрисовка отладочной информации
+    this.drawDebugZones();
   },
 
   /**
@@ -328,10 +329,10 @@ const Game = {
   drawGrid() {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
-        const x = c * this.CONFIG.cellSize + 4; // было 2
-        const y = this.transformRow(r) * this.CONFIG.cellSize + 4; // было 2
+        const x = c * this.CONFIG.cellSize + 4;
+        const y = this.transformRow(r) * this.CONFIG.cellSize + 4;
         this.ctx.fillStyle = '#2a2a2a';
-        this.ctx.fillRect(x, y, this.CONFIG.cellSize - 8, this.CONFIG.cellSize - 8); // было -4
+        this.ctx.fillRect(x, y, this.CONFIG.cellSize - 8, this.CONFIG.cellSize - 8);
       }
     }
   },
@@ -363,17 +364,8 @@ const Game = {
     this.ctx.textAlign = "right";
 
     for (let c = 0; c < 9; c++) {
-      // Вычисляем визуальную позицию клетки (8, c)
-      // ВАЖНО: Нам нужно рисовать буквы всегда "внизу" визуально?
-      // ТЗ: "цифры в верхних левых... буквы в нижнем правом".
-      // Если мы перевернуты (Black), r=8 становится верхом.
-      // Обычно координаты привязаны к клеткам. Т.е. клетка (8,0) это 'a1'.
-      // Если мы Black, 'a1' вверху слева.
-      // Значит рисуем в клетках r=8 (это Rank 1).
-
       const r = 8;
-      const x = (c + 1) * this.CONFIG.cellSize - 4; // Правый край клетки. (c+1)*size - board_padding(4)? no, just (c+1)*size - 4? 
-      // x = c*size + size - 4? -> c*size + size - 4.
+      const x = (c + 1) * this.CONFIG.cellSize - 4;
       const y = (this.transformRow(r) + 1) * this.CONFIG.cellSize - 4; // Нижний край клетки
 
       const label = letters[c];
@@ -589,6 +581,12 @@ const Game = {
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
   updateHoverWall(x, y) {
+    // На мобильных устройствах призраки не нужны — только перетаскивание
+    if (this.isTouchDevice) {
+      this.state.hoverWall = null;
+      return;
+    }
+
     if (this.state.drag || this.isGameOver) {
       this.state.hoverWall = null;
       return;
@@ -654,18 +652,20 @@ const Game = {
       Shared.isValidWallPlacement(this.state); // Внимание: BFS может быть тяжелым, но для 9x9 ок
 
     this.state.hoverWall = { r: slotR_absolute, c: slotC, isVertical, isValid };
-    this.canvas.style.cursor = isValid ? 'pointer' : 'not-allowed';
+    this.canvas.style.cursor = isValid ? 'pointer' : 'default';
   },
 
   drawHoverWall() {
     if (!this.state.hoverWall) return;
 
     const { r, c, isVertical, isValid } = this.state.hoverWall;
-    if (!isValid && !this.state.drag) return; // Если невалидно и не тащим - не рисуем (или можно красным)
+    // Always draw ghost (Red if invalid, Green if valid)
+    // if (!isValid && !this.state.drag) return; <--- REMOVED check
 
     this.ctx.save();
-    this.ctx.globalAlpha = 0.4;
-    this.ctx.fillStyle = isValid ? '#e09f3e' : '#ff4444';
+    this.ctx.globalAlpha = 0.6;
+    // Green (Valid) vs Red (Invalid)
+    this.ctx.fillStyle = isValid ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)';
 
     const len = this.CONFIG.cellSize * 2;
     const displayR = this.myPlayerIndex === 1 ? 7 - r : r;
@@ -910,18 +910,81 @@ const Game = {
       topBar.classList.add('active-turn');
     }
 
-    // 5. Управляем прозрачностью кнопок выбора стен
-    // Если сейчас ход "Меня" (нижнего), и у меня есть стены — кнопки активны
-    const isMyTurn = (this.state.currentPlayer === bottomIdx);
-    // Если локальная игра - всегда активны, если есть стены у текущего
+    // 5. Обновляем визуальный инвентарь стен
+    this.renderWallInventory();
+  },
+
+  /**
+   * Рендерит визуальные стенки в инвентарях игроков.
+   */
+  renderWallInventory() {
+    const bottomInv = document.getElementById('bottomWallInventory');
+    const topInv = document.getElementById('topWallInventory');
+
+    if (!bottomInv || !topInv) return;
+
+    const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
+    const topIdx = 1 - bottomIdx;
+
+    // Определяем, чей сейчас ход
     const localPlay = (this.myPlayerIndex === -1);
 
-    const currentWalls = this.state.players[this.state.currentPlayer].wallsLeft;
-    const canBuild = (localPlay || isMyTurn) && currentWalls > 0;
+    // Генерируем стенки для обоих игроков
+    const inventories = [
+      { el: bottomInv, playerIdx: bottomIdx },
+      { el: topInv, playerIdx: topIdx }
+    ];
 
-    const opacity = canBuild ? '1' : '0.3';
-    document.getElementById('hTpl').style.opacity = opacity;
-    document.getElementById('vTpl').style.opacity = opacity;
+    inventories.forEach(({ el, playerIdx }) => {
+      // Логика интерактивности:
+      // 1. Сейчас должен быть ход этого игрока
+      // 2. ИГРА НЕ окончена
+      // 3. Либо это локальная игра (можно за всех), либо это "мой" игрок (онлайн)
+      const isCurrentPlayerTurn = (this.state.currentPlayer === playerIdx);
+      const isMyPlayer = (this.myPlayerIndex === playerIdx);
+      const interactive = isCurrentPlayerTurn && (localPlay || isMyPlayer) && !this.isGameOver;
+
+      const wallsLeft = this.state.players[playerIdx].wallsLeft;
+      el.innerHTML = '';
+
+      for (let w = 0; w < 10; w++) {
+        const piece = document.createElement('div');
+        piece.className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
+        piece.dataset.wallIndex = w;
+
+        // Интерактивность
+        if (interactive && w < wallsLeft) {
+          piece.classList.add('interactive');
+          piece.onpointerdown = (e) => this.startWallDragFromInventory(e);
+        }
+
+        el.appendChild(piece);
+      }
+    });
+  },
+
+  /**
+   * Инициализирует перетаскивание стены из инвентаря.
+   * @param {PointerEvent} e Событие указателя.
+   */
+  startWallDragFromInventory(e) {
+    if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
+    e.preventDefault();
+
+    const rect = this.canvas.getBoundingClientRect();
+    const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
+    const scaleX = logicalSize / rect.width;
+    const scaleY = logicalSize / rect.height;
+
+    // Стенки в инвентаре горизонтальные, но при перетаскивании можно будет повернуть
+    this.state.drag = {
+      type: 'wall',
+      isVertical: false, // Начинаем с горизонтальной
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+    this.state.hoverWall = null;
+    this.draw();
   },
 
   /**
@@ -993,6 +1056,7 @@ const Game = {
 
       if (dist < hitRadius) {
         e.preventDefault(); // Предотвращаем только если захватили фишку
+        this.state.hoverWall = null; // Убираем призрак при взятии фишки
         this.state.drag = { type: 'pawn', playerIdx: this.state.currentPlayer, x, y };
         this.canvas.style.cursor = 'grabbing';
         this.draw();
@@ -1006,18 +1070,14 @@ const Game = {
         console.log('[DEBUG] Режим отладки:', this.debugControl ? 'ВКЛ' : 'ВЫКЛ');
         this.draw();
       }
+
+      // Rotate wall: R key
+      if (e.code === 'KeyR' && this.state.drag && this.state.drag.type === 'wall') {
+        this.state.drag.isVertical = !this.state.drag.isVertical;
+        this.draw();
+      }
     });
 
-    // Обработчики для начала перетаскивания шаблонов стен
-    // Примечание: Убран дубликат, добавлен общий обработчик для проверки хода бота
-    const wallDragHandler = (vertical) => (e) => {
-      if (this.state.currentPlayer !== this.myPlayerIndex && this.state.botDifficulty !== 'none') return;
-      e.preventDefault();
-      this.startWallDrag(vertical, e);
-    };
-
-    document.getElementById('hTpl').onpointerdown = wallDragHandler(false);
-    document.getElementById('vTpl').onpointerdown = wallDragHandler(true);
 
 
     // === 7.2. Перемещение (pointermove) ===
@@ -1047,6 +1107,11 @@ const Game = {
     });
 
     this.canvas.addEventListener('click', e => {
+      // Если только что отпустили drag — игнорируем click
+      if (this.wasDragging) {
+        this.wasDragging = false;
+        return;
+      }
       // Клик работает только если мы НЕ перетаскивали (drag был null)
       if (this.state.drag) return;
       if (!this.state.hoverWall || !this.state.hoverWall.isValid) return;
@@ -1124,6 +1189,7 @@ const Game = {
       }
 
       // Сбрасываем перетаскивание визуально
+      this.wasDragging = true; // Флаг чтобы click не сработал после drag
       this.state.drag = null;
       this.canvas.style.cursor = 'default';
       this.draw(); // Перерисует фишку на СТАРОМ месте, пока сервер не ответит

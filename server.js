@@ -43,14 +43,14 @@ app.use(helmet.contentSecurityPolicy({
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'file://' // For local testing without server if needed, though usually not recommended for production
+    'file://'
 ];
 
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || process.env.NODE_ENV === 'production') {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -63,11 +63,15 @@ app.use(cors({
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            // In production, we might want to restrict this, but for simple "play with friend", allowing all or self is easier.
+            // If serving static content from same domain, origin might be same.
+            callback(null, true);
+        },
         methods: ['GET', 'POST'],
         credentials: true
     },
-    transports: ['polling', 'websocket'], // 👈 важно
+    transports: ['polling', 'websocket'],
     allowUpgrades: true,
     pingTimeout: 60000
 });
@@ -216,8 +220,14 @@ io.on('connection', (socket) => {
         console.log(`[QUEUE] Player ${socket.id} joined queue [${tcKey}]`);
 
         if (queue.length >= 2) {
-            const p1 = queue.shift();
-            const p2 = queue.shift();
+            const pA = queue.shift();
+            const pB = queue.shift();
+
+            // Randomize White/Black
+            const swap = Math.random() > 0.5;
+            const p1 = swap ? pB : pA;
+            const p2 = swap ? pA : pB;
+
             const lobbyId = `lobby-${lobbyCounter++}`;
 
             const s1 = io.sockets.sockets.get(p1.socketId);
@@ -234,7 +244,7 @@ io.on('connection', (socket) => {
                 s2.join(lobbyId);
                 s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2.token, initialTime: activeGames[lobbyId].timers[0] });
                 s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1.token, initialTime: activeGames[lobbyId].timers[1] });
-                console.log(`[GAME START] Lobby ${lobbyId} created for ${tcKey}`);
+                console.log(`[GAME START] Lobby ${lobbyId} created for ${tcKey}. Random Swap: ${swap}`);
             } else {
                 if (s1) queue.unshift(p1);
                 if (s2) queue.unshift(p2);
@@ -308,31 +318,38 @@ io.on('connection', (socket) => {
         console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
 
         if (room.players.length === 2) {
-            const p1Data = room.players[0];
-            const p2Data = room.players[1];
+            // Randomize who goes first
+            const isSwap = Math.random() > 0.5;
+            const whitePlayer = isSwap ? room.players[1] : room.players[0];
+            const blackPlayer = isSwap ? room.players[0] : room.players[1];
+
             const lobbyId = `lobby-${lobbyCounter++}`;
 
-            const s1 = io.sockets.sockets.get(p1Data.socketId);
-            const s2 = io.sockets.sockets.get(p2Data.socketId);
+            const sWhite = io.sockets.sockets.get(whitePlayer.socketId);
+            const sBlack = io.sockets.sockets.get(blackPlayer.socketId);
 
-            if (s1 && s2) {
-                s1.join(lobbyId);
-                s2.join(lobbyId);
+            if (sWhite && sBlack) {
+                sWhite.join(lobbyId);
+                sBlack.join(lobbyId);
 
                 activeGames[lobbyId] = createInitialState({ base: 600, inc: 0 }); // Default for private rooms
-                activeGames[lobbyId].playerSockets[0] = p1Data.socketId;
-                activeGames[lobbyId].playerSockets[1] = p2Data.socketId;
-                activeGames[lobbyId].playerTokens[0] = p1Data.token;
-                activeGames[lobbyId].playerTokens[1] = p2Data.token;
+                activeGames[lobbyId].playerSockets[0] = whitePlayer.socketId;
+                activeGames[lobbyId].playerSockets[1] = blackPlayer.socketId;
+                activeGames[lobbyId].playerTokens[0] = whitePlayer.token;
+                activeGames[lobbyId].playerTokens[1] = blackPlayer.token;
 
-                s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2Data.token });
-                s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1Data.token });
+                sWhite.emit('gameStart', { lobbyId, color: 'white', opponent: blackPlayer.token });
+                sBlack.emit('gameStart', { lobbyId, color: 'black', opponent: whitePlayer.token });
 
-                console.log(`[GAME START] Лобби ${lobbyId} создано из приватной комнаты ${normalizedCode}.`);
+                console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
                 delete privateRooms[normalizedCode];
             } else {
                 delete privateRooms[normalizedCode];
-                socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
+                if (sWhite) sWhite.emit('joinRoomFailed', { reason: 'Противник отключился' });
+                else if (socket.id === whitePlayer.socketId) socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
+
+                // Fallback catch-all
+                socket.emit('joinRoomFailed', { reason: 'Ошибка подключения' });
             }
         }
     });
@@ -651,6 +668,7 @@ setInterval(() => {
     }
 }, 1000);
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+const port = process.env.PORT || 3000;
+server.listen(port, '0.0.0.0', () => {
+    console.log(`Сервер запущен на порту ${port}`);
 });

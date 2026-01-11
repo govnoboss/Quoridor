@@ -245,21 +245,22 @@ body.light canvas {
 .board-area {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    /* Р’С‹СЃРѕС‚Р° Р·Р°РІРёСЃРёС‚ РѕС‚ РІС‹СЃРѕС‚С‹ СЌРєСЂР°РЅР°, С‡С‚РѕР±С‹ РІР»РµР·Р°Р»Рѕ */
-    height: 95vh;
-    aspect-ratio: 9/11;
-    /* РџСЂРёРјРµСЂРЅРѕ: РґРѕСЃРєР° РєРІР°РґСЂР°С‚ + РїР»Р°С€РєРё */
+    gap: 6px;
+    /* Уменьшаем высоту, чтобы вместить доску + плашки + инвентари стен */
+    max-height: 98vh;
     justify-content: center;
+    align-items: center;
 }
 
 #game-container {
     position: relative;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    flex-grow: 1;
-    /* Р—Р°РЅРёРјР°РµС‚ РІСЃС‘ РґРѕСЃС‚СѓРїРЅРѕРµ РјРµСЃС‚Рѕ РјРµР¶РґСѓ РїР»Р°С€РєР°РјРё */
+    /* Контейнер должен быть квадратным для корректного масштабирования координат */
+    aspect-ratio: 1 / 1;
+    /* Уменьшаем размер: 2 player-bar (~100px) + 2 wall-inventory (~84px) + gaps (~24px) = ~210px */
+    max-height: calc(98vh - 220px);
+    max-width: calc(98vh - 220px);
     width: 100%;
-    /* display: flex; align-items: center; justify-content: center; */
 }
 
 canvas {
@@ -268,24 +269,46 @@ canvas {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    /* РЎРѕС…СЂР°РЅСЏРµРј РїСЂРѕРїРѕСЂС†РёРё */
 }
 
 /* РЎР°Р№РґР±Р°СЂ СЃРїСЂР°РІР° */
+/* Сайдбар справа */
 .sidebar {
-    width: 300px;
-    /* Р§СѓС‚СЊ С€РёСЂРµ */
-    min-width: 250px;
+    width: 280px;
+    min-width: 220px;
     background: #262421;
     border-radius: 8px;
-    padding: 20px;
+    padding: 15px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    height: 50vh;
-    /* РќРµ РЅР° РІРµСЃСЊ СЌРєСЂР°РЅ */
+    max-height: 60vh;
     box-sizing: border-box;
+}
+
+.sidebar-content {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.menu-actions {
+    margin-top: 10px;
+}
+
+.secondary-btn {
+    width: 100%;
+    background: #333;
+    color: #aaa;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.secondary-btn:hover {
+    background: #444;
+    color: #fff;
 }
 
 /* --- РџР›РђРЁРљР РР“Р РћРљРћР’ --- */
@@ -293,24 +316,27 @@ canvas {
     display: flex;
     align-items: center;
     background: #262421;
-    padding: 5px 10px;
+    padding: 8px 16px;
+    /* Увеличенные отступы */
     border-radius: 4px;
     color: #fff;
     height: 50px;
+    width: 100%;
     position: relative;
     transition: background 0.3s;
 }
 
-/* РџРѕРґСЃРІРµС‚РєР° Р°РєС‚РёРІРЅРѕРіРѕ РёРіСЂРѕРєР° */
+/* Подсветка активного игрока */
 .player-bar.active-turn {
     background: #3c3a37;
-    /* Р§СѓС‚СЊ СЃРІРµС‚Р»РµРµ */
+    /* Чуть светлее */
     box-shadow: inset 0 -2px 0 0 #e09f3e;
-    /* РћСЂР°РЅР¶РµРІР°СЏ РїРѕР»РѕСЃРєР° СЃРЅРёР·Сѓ */
+    /* Оранжевая полоска снизу */
 }
 
 .avatar-container {
-    margin-right: 10px;
+    margin-right: 14px;
+    /* Увеличенный отступ от аватара */
 }
 
 .avatar {
@@ -364,44 +390,62 @@ canvas {
     color: #111;
 }
 
-/* --- РЎРђР™Р”Р‘РђР  Р­Р›Р•РњР•РќРўР« --- */
-.controls-panel {
+/* --- WALL INVENTORY (Контейнеры стен над/под доской) --- */
+.wall-inventory {
     display: flex;
-    flex-direction: column;
-    gap: 15px;
+    gap: 6px;
+    justify-content: center;
     align-items: center;
-}
-
-.wall-selector {
-    display: flex;
-    gap: 10px;
-}
-
-/* РџРµСЂРµРѕРїСЂРµРґРµР»СЏРµРј СЃС‚Р°СЂС‹Рµ СЃС‚РёР»Рё С€Р°Р±Р»РѕРЅРѕРІ РґР»СЏ СЃР°Р№РґР±Р°СЂР° */
-.template.h {
-    width: 120px;
-    height: 20px;
-}
-
-.template.v {
-    width: 20px;
-    height: 120px;
-}
-
-.control-btn {
+    background: #333;
+    border-radius: 4px;
+    padding: 8px 12px;
     width: 100%;
-    background: #444;
-    font-weight: bold;
+    min-height: 26px;
 }
 
-.secondary-btn {
-    width: 100%;
+/* Отдельная стенка в инвентаре */
+.wall-piece {
+    width: 36px;
+    height: 10px;
+    background: var(--wall);
+    border-radius: 2px;
+    cursor: default;
+    transition: opacity 0.2s, transform 0.1s;
+    touch-action: none;
+}
+
+.wall-piece.interactive {
+    cursor: grab;
+}
+
+.wall-piece.interactive:hover {
+    transform: scale(1.15);
+}
+
+.wall-piece.interactive:active {
+    cursor: grabbing;
+}
+
+.wall-piece.used {
+    opacity: 0.15;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Кнопка сдаться */
+.surrender-btn {
+    margin-top: 10px;
+    padding: 8px 20px;
     background: #333;
     color: #aaa;
-    border: none;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
 }
 
-.secondary-btn:hover {
+.surrender-btn:hover {
     background: #444;
     color: #fff;
 }
@@ -1805,4 +1849,103 @@ kbd {
     opacity: 0.5;
     cursor: not-allowed;
     filter: grayscale(1);
+}
+
+/* --- MOBILE STYLES --- */
+@media (max-width: 768px) {
+    .game-layout {
+        flex-direction: column;
+        padding: 4px;
+        gap: 10px;
+    }
+
+    .board-area {
+        width: 100%;
+        height: auto;
+        /* На мобильных меньше вертикального места из-за баров браузера */
+        max-height: 85vh;
+    }
+
+    #game-container {
+        /* Уменьшаем ширину доски, чтобы были отступы */
+        max-width: calc(100vw - 32px);
+        max-height: calc(100vw - 32px);
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: none;
+        margin-top: 10px;
+    }
+
+    .wall-inventory {
+        padding: 4px 8px;
+        min-height: 20px;
+        gap: 4px;
+    }
+
+    .wall-piece {
+        width: 8vw;
+        /* Адаптивная ширина стенок */
+        max-width: 30px;
+        height: 8px;
+    }
+
+    .player-bar {
+        height: 40px;
+        font-size: 0.9em;
+    }
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+/* --- UTILITY CLASSES --- */
+.mobile-only {
+    display: none;
+}
+
+.desktop-only {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .mobile-only {
+        display: block;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+/* --- MAIN TITLE STYLING --- */
+.main-title {
+    color: #e09f3e;
+    /* Gold styling as requested */
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-shadow: 0 2px 15px rgba(224, 159, 62, 0.3);
+    margin: 0;
+    text-align: center;
+    line-height: 1.2;
+}
+
+/* Desktop: Title inside menu panel */
+.menu-panel .main-title {
+    font-size: 3.5rem;
+    margin-bottom: 25px;
+    display: block;
+    /* Ensure it is visible on desktop */
+}
+
+/* Mobile: Title above board */
+.main-title.mobile-only {
+    font-size: 2.2rem;
+    padding: 10px 0 5px;
+    width: 100%;
 }
