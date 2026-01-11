@@ -171,5 +171,67 @@ runTest('Get Jump Targets - Returns Array', () => {
     assert.ok(targets.length > 0, 'Should have moves');
 });
 
+// ============================================================================
+// 4. INPUT VALIDATION TESTS (New)
+// ============================================================================
+
+runTest('Validation - isValidLobbyId', () => {
+    assert.strictEqual(Shared.isValidLobbyId('lobby-123'), true, 'Valid lobby ID');
+    assert.strictEqual(Shared.isValidLobbyId('lobby-abc'), false, 'Invalid lobby ID (letters)');
+    assert.strictEqual(Shared.isValidLobbyId('lobby-'), false, 'Invalid lobby ID (empty number)');
+    assert.strictEqual(Shared.isValidLobbyId(123), false, 'Invalid lobby ID (not a string)');
+});
+
+runTest('Validation - isValidPawnMove', () => {
+    assert.strictEqual(Shared.isValidPawnMove({ type: 'pawn', r: 5, c: 5 }), true, 'Valid pawn move');
+    assert.strictEqual(Shared.isValidPawnMove({ type: 'pawn', r: 9, c: 5 }), false, 'Row out of bounds');
+    assert.strictEqual(Shared.isValidPawnMove({ type: 'wall', r: 5, c: 5 }), false, 'Wrong type');
+    assert.strictEqual(Shared.isValidPawnMove({ type: 'pawn', r: 5, c: '5' }), false, 'Not an integer');
+});
+
+runTest('Validation - isValidWallMove', () => {
+    assert.strictEqual(Shared.isValidWallMove({ type: 'wall', r: 0, c: 0, isVertical: true }), true, 'Valid wall move');
+    assert.strictEqual(Shared.isValidWallMove({ type: 'wall', r: 7, c: 7, isVertical: false }), true, 'Valid corner wall move');
+    assert.strictEqual(Shared.isValidWallMove({ type: 'wall', r: 8, c: 0, isVertical: true }), false, 'Row 8 out of bounds for wall');
+    assert.strictEqual(Shared.isValidWallMove({ type: 'wall', r: 0, c: 0 }), false, 'Missing isVertical');
+});
+
+// ============================================================================
+// 5. LOCALIZATION CONSISTENCY
+// ============================================================================
+
+runTest('Localization - Key Match (RU vs EN from ui.js)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const uiContent = fs.readFileSync(path.join(__dirname, 'ui.js'), 'utf8');
+
+    const extractKeys = (lang) => {
+        const regex = new RegExp(`${lang}: \\{([\\s\\S]*?)\\},`, 'g');
+        const match = regex.exec(uiContent);
+        if (!match) return [];
+        const block = match[1];
+        const keys = [];
+        const keyRegex = /^\s*([a-z0-9_]+):/gm;
+        let keyMatch;
+        while ((keyMatch = keyRegex.exec(block)) !== null) {
+            keys.push(keyMatch[1]);
+        }
+        return keys;
+    };
+
+    const ruKeys = extractKeys('ru');
+    const enKeys = extractKeys('en');
+
+    assert.ok(ruKeys.length > 0, 'Should find RU keys');
+    assert.ok(enKeys.length > 0, 'Should find EN keys');
+
+    const missingInEn = ruKeys.filter(k => !enKeys.includes(k));
+    const missingInRu = enKeys.filter(k => !ruKeys.includes(k));
+
+    assert.strictEqual(missingInEn.length, 0, `Missing EN keys: ${missingInEn.join(', ')}`);
+    assert.strictEqual(missingInRu.length, 0, `Missing RU keys: ${missingInRu.join(', ')}`);
+});
+
+
 console.log(`\n\nTest Summary: ${GREEN}${passed} Passed${RESET}, ${failed > 0 ? RED : GREEN}${failed} Failed${RESET}`);
 if (failed > 0) process.exit(1);

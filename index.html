@@ -1,17 +1,20 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" id="htmlTag">
 
 <head>
 
   <meta charset="utf-8" />
   <title>Quoridor</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css?v=1.0.1" type="text/css" />
 </head>
 
 <body>
 
   <div id="mainMenu" class="screen active">
+    <!-- Заголовок вынесен наверх -->
+    <h1 class="main-title">Quoridor</h1>
+
     <div class="menu-layout">
       <!-- Декоративная доска с демо-партией -->
       <div class="board-preview">
@@ -21,7 +24,7 @@
               <div class="avatar"></div>
             </div>
             <div class="player-info">
-              <span class="player-name">Оппонент</span>
+              <span class="player-name" data-i18n="pname_opponent">Оппонент</span>
             </div>
           </div>
 
@@ -32,7 +35,7 @@
               <div class="avatar"></div>
             </div>
             <div class="player-info">
-              <span class="player-name">Вы</span>
+              <span class="player-name" data-i18n="pname_you">Вы</span>
             </div>
           </div>
         </div>
@@ -40,53 +43,261 @@
 
       <!-- Панель меню -->
       <div class="menu-panel">
-        <h1>Quoridor</h1>
         <div class="menu-buttons">
           <div id="playOnlineContainer">
-            <button id="playOnlineBtn" onclick="UI.showSearch()">⚡ Играть онлайн</button>
-            <div id="searchTimer" class="hidden">0:00</div>
-            <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(); Net.cancelFindGame()">Отменить
-              поиск</button>
+            <button id="playOnlineBtn" onclick="UI.showTimeSelection()" data-i18n="menu_play_online">⚡ Играть
+              онлайн</button>
+            <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(); Net.cancelFindGame()">
+              <span data-i18n="menu_cancel_search">Отменить поиск</span>
+              <span id="searchTimer">0:00</span>
+            </button>
           </div>
-          <button onclick="UI.showModeSelect()">🎮 Локальная игра</button>
-          <button onclick="UI.showRules()">📖 Правила</button>
-          <button onclick="UI.showSettings()">⚙️ Настройки</button>
-          <button onclick="UI.showAbout()">ℹ️ Об игре</button>
+          <button id="playFriendBtn" onclick="UI.showDynamicPanel('panelRoom')" data-i18n="menu_play_friend">👥 Играть с
+            другом</button>
+          <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="menu_local_game">🎮 Локальная игра</button>
+          <button onclick="UI.showDynamicPanel('panelRules')" data-i18n="menu_rules">📖 Правила</button>
+          <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">⚙️ Настройки</button>
+        </div>
+      </div>
+
+      <!-- Динамическая панель (между кнопками и инфо) -->
+      <div class="dynamic-panel empty" id="dynamicPanel">
+        <button class="close-panel-btn" onclick="UI.hideDynamicPanel()">×</button>
+        <!-- Оверлей поиска игры -->
+        <div id="searchOverlay" class="search-overlay hidden">
+          <div class="search-spinner"></div>
+          <p data-i18n="menu_searching">Поиск игры...</p>
+        </div>
+
+        <!-- Панель: Выбор контроля времени -->
+        <div id="panelTimeSelect" class="dynamic-content hidden">
+          <h3 data-i18n="time_select_title">Контроль времени</h3>
+          <div class="time-categories">
+            <div class="time-category">
+              <span class="cat-label" data-i18n="time_cat_bullet">Пуля</span>
+              <div class="time-options">
+                <button class="time-opt" onclick="UI.selectTime(60, 0, this)">1 мин.</button>
+                <button class="time-opt" onclick="UI.selectTime(60, 1, this)">1|1</button>
+                <button class="time-opt" onclick="UI.selectTime(120, 1, this)">2|1</button>
+              </div>
+            </div>
+            <div class="time-category">
+              <span class="cat-label" data-i18n="time_cat_blitz">Блиц</span>
+              <div class="time-options">
+                <button class="time-opt" onclick="UI.selectTime(180, 0, this)">3 мин.</button>
+                <button class="time-opt" onclick="UI.selectTime(180, 2, this)">3|2</button>
+                <button class="time-opt" onclick="UI.selectTime(300, 0, this)">5 мин.</button>
+              </div>
+            </div>
+            <div class="time-category">
+              <span class="cat-label" data-i18n="time_cat_rapid">Рапид</span>
+              <div class="time-options">
+                <button class="time-opt" onclick="UI.selectTime(600, 0, this)">10 мин.</button>
+                <button class="time-opt" onclick="UI.selectTime(900, 10, this)">15|10</button>
+                <button class="time-opt" onclick="UI.selectTime(1800, 0, this)">30 мин.</button>
+              </div>
+            </div>
+          </div>
+          <button id="startSearchBtn" class="primary-btn disabled" onclick="UI.startOnlineSearch()"
+            data-i18n="btn_start_search" disabled>Найти игру</button>
+        </div>
+
+        <!-- Панель: Игра с другом -->
+        <div id="panelRoom" class="dynamic-content hidden">
+          <h3 data-i18n="screen_room_title">Игра с другом</h3>
+          <div class="room-section">
+            <!-- Кнопка скрыта, создание происходит автоматически -->
+            <button class="primary-btn hidden" id="createRoomBtn" onclick="UI.createPrivateRoom()"
+              data-i18n="btn_create_room">Создать комнату</button>
+
+            <div id="roomCodeDisplay" class="hidden">
+              <p data-i18n="room_created_msg">Код комнаты создан! Отправьте его другу:</p>
+              <div class="code-box">
+                <span id="roomCodeValue">XXXXX</span>
+                <button class="copy-btn" onclick="UI.copyRoomCode()" title="Скопировать">📋</button>
+              </div>
+
+              <div class="link-box">
+                <p class="link-label" data-i18n="label_copy_link">Нажмите на ссылку, чтобы скопировать:</p>
+                <div class="link-value" id="roomLinkDisplay" onclick="UI.copyRoomLink()">http://...</div>
+              </div>
+
+              <p class="room-hint" data-i18n="room_waiting">Ожидание подключения противника...</p>
+            </div>
+          </div>
+          <div class="separator-line" data-i18n="label_or">или</div>
+          <div class="room-section">
+            <div class="room-join-group">
+              <input type="text" id="roomCodeInput" maxlength="5" placeholder="CODE" class="room-code-input"
+                oninput="UI.validateRoomInput(this)">
+              <button class="secondary-btn disabled" id="joinRoomBtn" onclick="UI.joinPrivateRoom()"
+                data-i18n="btn_join_room" disabled>Войти</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Панель: Локальная игра -->
+        <div id="panelMode" class="dynamic-content hidden">
+          <h3 data-i18n="screen_mode_title">Выберите режим</h3>
+          <div class="panel-buttons">
+            <button onclick="Game.startPvP()" data-i18n="mode_pvp">Два игрока (PvP)</button>
+            <div class="separator-line" data-i18n="mode_bot_title">Игра с ботом</div>
+            <button onclick="UI.selectBotDifficulty('easy')" data-i18n="mode_bot_easy">Легкий бот</button>
+            <button onclick="UI.selectBotDifficulty('medium')" data-i18n="mode_bot_medium">Средний бот</button>
+            <button onclick="UI.selectBotDifficulty('hard')" data-i18n="mode_bot_hard">Сильный бот</button>
+            <button onclick="UI.selectBotDifficulty('impossible')" data-i18n="mode_bot_impossible">Непобедимый
+              бот</button>
+          </div>
+        </div>
+
+        <!-- Панель: Правила -->
+        <div id="panelRules" class="dynamic-content hidden">
+          <h3 data-i18n="screen_rules_title">Правила</h3>
+          <div class="rules-content-inline">
+            <div class="rules-section">
+              <h4 data-i18n="rules_goal_title">🎯 Цель</h4>
+              <p data-i18n="rules_goal_text">Первым доведите свою фишку до противоположного края доски.</p>
+            </div>
+            <div class="rules-section">
+              <h4 data-i18n="rules_turn_title">🎲 Ход</h4>
+              <p data-i18n="rules_turn_text">За ход можно: передвинуть фишку на 1 клетку или поставить стену.</p>
+            </div>
+            <div class="rules-section">
+              <h4 data-i18n="rules_jump_title">🚶 Прыжки</h4>
+              <p data-i18n="rules_jump_text">Если соперник рядом — можно перепрыгнуть через него.</p>
+            </div>
+            <div class="rules-section">
+              <h4 data-i18n="rules_wall_title">🧱 Стены</h4>
+              <p data-i18n="rules_wall_text">Стена занимает 2 клетки. Нельзя полностью блокировать путь к цели.</p>
+            </div>
+            <div class="rules-section">
+              <h4 data-i18n="rules_controls_title">⌨️ Управление</h4>
+              <p data-i18n="rules_controls_text"><kbd>H</kbd> — горизонтальная стена, <kbd>V</kbd> — вертикальная,
+                <kbd>R</kbd> — повернуть.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Панель: Настройки -->
+        <div id="panelSettings" class="dynamic-content hidden">
+          <h3 data-i18n="screen_settings_title">Настройки</h3>
+          <div class="settings-grid-inline">
+            <label data-i18n="label_theme">Тема:</label>
+            <select id="themeSelectInline">
+              <option value="dark" data-i18n="theme_dark">Тёмная</option>
+              <option value="light" data-i18n="theme_light">Светлая</option>
+            </select>
+            <label data-i18n="label_lang">Язык:</label>
+            <select id="langSelectInline">
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+            <label data-i18n="label_sound">Звук:</label>
+            <select id="soundSelectInline">
+              <option value="on" data-i18n="sound_on">Вкл</option>
+              <option value="off" data-i18n="sound_off">Выкл</option>
+            </select>
+          </div>
+          <button class="primary-btn" onclick="UI.saveSettingsInline()" data-i18n="btn_save">Сохранить</button>
+        </div>
+      </div>
+
+      <!-- Инфо-панель справа (Советы и лидерборд) -->
+      <div class="info-panel" id="infoPanel">
+        <div class="info-card">
+          <div class="info-card-header">
+            <span class="info-icon">💡</span>
+            <h3 data-i18n="info_tip_title">Совет дня</h3>
+          </div>
+          <p id="dailyTip" data-i18n="info_tip_text">Стены — ваше главное оружие. Используйте их, чтобы удлинить путь
+            соперника, но не блокируйте себя!</p>
+        </div>
+        <div class="info-card">
+          <div class="info-card-header">
+            <span class="info-icon">🏆</span>
+            <h3 data-i18n="info_leaderboard_title">Лидерборд</h3>
+          </div>
+          <div class="leaderboard">
+            <div class="leaderboard-row"><span class="rank">1</span><span class="name">GrandMaster42</span><span
+                class="score">1850</span></div>
+            <div class="leaderboard-row"><span class="rank">2</span><span class="name">WallBuilder</span><span
+                class="score">1720</span></div>
+            <div class="leaderboard-row"><span class="rank">3</span><span class="name">QuoridorPro</span><span
+                class="score">1695</span></div>
+            <div class="leaderboard-row"><span class="rank">4</span><span class="name">StrategyKing</span><span
+                class="score">1640</span></div>
+            <div class="leaderboard-row"><span class="rank">5</span><span class="name">PawnRunner</span><span
+                class="score">1580</span></div>
+          </div>
+          <p class="info-hint" data-i18n="info_hint">Рейтинг обновляется в реальном времени</p>
         </div>
       </div>
     </div>
   </div>
 
+
   <div id="modeScreen" class="screen">
-    <h2>Выберите режим</h2>
+    <h2 data-i18n="screen_mode_title">Выберите режим</h2>
     <div class="mode-buttons">
-      <button onclick="Game.startPvP()">Два игрока (PvP)</button>
+      <button onclick="Game.startPvP()" data-i18n="mode_pvp">Два игрока (PvP)</button>
 
-      <div class="separator-line">Игра с ботом</div>
+      <div class="separator-line" data-i18n="mode_bot_title">Игра с ботом</div>
 
-      <button onclick="UI.selectBotDifficulty('easy')">Легкий бот</button>
-      <button onclick="UI.selectBotDifficulty('medium')">Средний бот</button>
-      <button onclick="UI.selectBotDifficulty('hard')">Сильный бот</button>
-      <button onclick="UI.selectBotDifficulty('impossible')">Непобедимый бот</button>
+      <button onclick="UI.selectBotDifficulty('easy')" data-i18n="mode_bot_easy">Легкий бот</button>
+      <button onclick="UI.selectBotDifficulty('medium')" data-i18n="mode_bot_medium">Средний бот</button>
+      <button onclick="UI.selectBotDifficulty('hard')" data-i18n="mode_bot_hard">Сильный бот</button>
+      <button onclick="UI.selectBotDifficulty('impossible')" data-i18n="mode_bot_impossible">Непобедимый бот</button>
     </div>
-    <button onclick="UI.backToMenu()">Назад</button>
+    <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
   </div>
 
   <div id="colorSelectScreen" class="screen">
-    <h2>Выберите сторону</h2>
-    <p>Белые всегда ходят первыми</p>
+    <h2 data-i18n="screen_color_title">Выберите сторону</h2>
+    <p data-i18n="color_white_hint">Белые всегда ходят первыми</p>
     <div class="menu-buttons horizontal">
-      <button onclick="Game.startVsBot('white')">
+      <button onclick="Game.startVsBot('white')" data-i18n="btn_play_white">
         ⚪ Играть за Белых<br>(Вы ходите первым)
       </button>
-      <button onclick="Game.startVsBot('black')">
+      <button onclick="Game.startVsBot('black')" data-i18n="btn_play_black">
         ⚫ Играть за Чёрных<br>(Бот ходит первым)
       </button>
     </div>
-    <button onclick="UI.showModeSelect()">Назад</button>
+    <button onclick="UI.showModeSelect()" data-i18n="btn_back">Назад</button>
   </div>
 
-  <button onclick="UI.showModeSelect()">Назад к режимам</button>
+  <div id="roomScreen" class="screen">
+    <h2 data-i18n="screen_room_title">Игра с другом</h2>
+    <div class="mode-buttons">
+      <!-- Блок создания -->
+      <div class="room-section">
+        <button class="primary-btn" id="createRoomBtn" onclick="UI.createPrivateRoom()"
+          data-i18n="btn_create_room">Создать
+          комнату</button>
+        <div id="roomCodeDisplay" class="hidden">
+          <p data-i18n="room_created_msg">Код комнаты создан! Отправьте его другу:</p>
+          <div class="code-box">
+            <span id="roomCodeValue">XXXXX</span>
+            <button class="copy-btn" onclick="UI.copyRoomCode()" title="Скопировать">📋</button>
+          </div>
+          <p class="room-hint" data-i18n="room_waiting">Ожидание подключения противника...</p>
+        </div>
+      </div>
+
+      <div class="separator-line" data-i18n="label_or">или</div>
+
+      <!-- Блок входа -->
+      <div class="room-section">
+        <div class="room-join-group">
+          <input type="text" id="roomCodeInput" maxlength="5" placeholder="CODE"
+            style="text-transform: uppercase; text-align: center; font-size: 1.5rem; width: 140px; margin-right: 10px; border-radius: 8px; border: 2px solid #444; background: #222; color: #fff; padding: 10px;">
+          <button class="secondary-btn" id="joinRoomBtn" onclick="UI.joinPrivateRoom()"
+            data-i18n="btn_join_room">Войти</button>
+        </div>
+      </div>
+
+      <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
+    </div>
   </div>
   <div id="gameScreen" class="screen">
     <div class="game-layout">
@@ -99,7 +310,7 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
-              <span class="player-name" id="topPlayerName">Оппонент</span>
+              <span class="player-name" id="topPlayerName" data-i18n="pname_opponent">Оппонент</span>
             </div>
             <div class="player-material">
               <span class="wall-icon">▐</span>
@@ -119,7 +330,7 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
-              <span class="player-name" id="bottomPlayerName">Вы</span>
+              <span class="player-name" id="bottomPlayerName" data-i18n="pname_you">Вы</span>
             </div>
             <div class="player-material">
               <span class="wall-icon">▐</span>
@@ -141,7 +352,7 @@
         </div>
 
         <div class="menu-actions">
-          <button class="secondary-btn" onclick="UI.handleSurrender()">Сдаться</button>
+          <button class="secondary-btn" onclick="UI.handleSurrender()" data-i18n="btn_surrender">Сдаться</button>
         </div>
       </div>
 
@@ -149,26 +360,34 @@
   </div>
 
   <div id="settingsScreen" class="screen">
-    <h2>Настройки</h2>
-    <label>Тема:
+    <h2 data-i18n="screen_settings_title">Настройки</h2>
+    <div class="settings-grid">
+      <label data-i18n="label_theme">Тема:</label>
       <select id="themeSelect">
-        <option value="dark">Тёмная</option>
-        <option value="light">Светлая</option>
+        <option value="dark" data-i18n="theme_dark">Тёмная</option>
+        <option value="light" data-i18n="theme_light">Светлая</option>
       </select>
-    </label>
-    <br><br>
-    <button onclick="UI.saveSettings()">Сохранить</button>
 
-    <button onclick="UI.backToMenu()">Назад</button>
+      <label data-i18n="label_lang">Язык:</label>
+      <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+      </select>
+
+      <label data-i18n="label_sound">Звук:</label>
+      <select id="soundSelect">
+        <option value="on" data-i18n="sound_on">Вкл</option>
+        <option value="off" data-i18n="sound_off">Выкл</option>
+      </select>
+    </div>
+    <br>
+    <button onclick="UI.saveSettings()" data-i18n="btn_save">Сохранить</button>
+    <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
   </div>
 
   <div id="rulesScreen" class="screen">
     <div class="rules-header">
-      <h2>Правила</h2>
-      <div class="lang-toggle">
-        <button id="langRu" class="lang-btn active" onclick="UI.setRulesLang('ru')">RU</button>
-        <button id="langEn" class="lang-btn" onclick="UI.setRulesLang('en')">EN</button>
-      </div>
+      <h2 data-i18n="screen_rules_title">Правила</h2>
     </div>
 
     <div class="rules-content" id="rulesContentRu">
@@ -243,44 +462,41 @@
       </div>
     </div>
 
-    <button onclick="UI.backToMenu()">Назад</button>
+    <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
   </div>
 
-  <div id="aboutScreen" class="screen">
-    <h2>Об игре</h2>
-    <p>Открытая веб-реализация настольной игры Quoridor<br>
-      <button onclick="UI.backToMenu()">Назад</button>
-  </div>
+
 
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
-      <h2 id="resultStatus">ПОБЕДА</h2>
+      <h2 id="resultStatus" data-i18n="modal_win">ПОБЕДА</h2>
       <div class="result-divider"></div>
-      <p id="resultReason">Причина: Противник сдался</p>
-      <button class="primary-btn" onclick="Game.goToMainMenu()">В меню</button>
+      <p id="resultReason"><span data-i18n="modal_reason">Причина: </span><span id="resultReasonText"></span></p>
+      <button class="primary-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">В меню</button>
     </div>
   </div>
 
   <!-- Disconnect Overlay -->
   <div id="disconnectModal" class="disconnect-overlay hidden">
     <div class="disconnect-content">
-      <div class="disconnect-title">Соединение разорвано</div>
-      <div class="disconnect-msg">
+      <div class="disconnect-title" data-i18n="disconnect_title">Соединение разорвано</div>
+      <div class="disconnect-msg" data-i18n="disconnect_msg">
         Вы открыли игру в другой вкладке или окне.
         <br>Эта сессия была завершена.
       </div>
-      <button class="primary-btn" onclick="location.reload()">Вернуться в игру (Reconnect)</button>
+      <button class="primary-btn" onclick="location.reload()" data-i18n="btn_reconnect">Вернуться в игру
+        (Reconnect)</button>
     </div>
   </div>
 
   <!-- Confirmation Modal -->
   <div id="confirmModal" class="confirm-overlay" style="display: none;">
     <div class="confirm-box">
-      <div class="confirm-title" id="confirmTitle">Подтверждение</div>
-      <div class="confirm-msg" id="confirmMessage">Вы уверены?</div>
+      <div class="confirm-title" id="confirmTitle" data-i18n="confirm_title">Подтверждение</div>
+      <div class="confirm-msg" id="confirmMessage" data-i18n="confirm_msg">Вы уверены?</div>
       <div class="confirm-actions">
-        <button class="primary-btn" id="confirmYes">Да</button>
-        <button class="secondary-btn" id="confirmNo">Отмена</button>
+        <button class="primary-btn" id="confirmYes" data-i18n="btn_yes">Да</button>
+        <button class="secondary-btn" id="confirmNo" data-i18n="btn_no">Отмена</button>
       </div>
     </div>
   </div>
@@ -288,13 +504,14 @@
   <!-- Toasts Container -->
   <div id="notificationContainer" class="notification-container"></div>
 
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="ui.js"></script>
-  <script src="net.js"></script>
-  <script src="shared.js"></script>
-  <script src="ai.js"></script>
-  <script src="game.js"></script>
-  <script src="main.js"></script>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/ui.js?v=1.0.1"></script>
+  <script src="/net.js?v=1.0.1"></script>
+  <script src="/shared.js?v=1.0.1"></script>
+  <script src="/ai.js?v=1.0.1"></script>
+  <script src="/game.js?v=1.0.1"></script>
+  <script src="/main.js?v=1.0.1"></script>
 </body>
 
 </html>

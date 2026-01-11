@@ -1,29 +1,96 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const Shared = require('./shared.js'); // Подключаем общую логику
+const helmet = require('helmet');
+const cors = require('cors');
+const Shared = require('./shared.js');
 
 const app = express();
+app.set('trust proxy', 1); // Доверяем заголовкам от Nginx ( Cloudflare)
+
+// Request Logger (Optional: keep for debugging, or remove for prod)
+app.use((req, res, next) => {
+    // console.log(`[REQ] ${req.method} ${req.url} from ${req.ip}`);
+    next();
+});
+
+// --- SECURITY MIDDLEWARE ---
+
+app.disable('x-powered-by');
+
+// LAN-friendly Helmet Configuration
+app.use(helmet({
+    generateContentSecurityPolicy: false, // We customize it below
+    hsts: false, // Disable HSTS to allow HTTP on LAN
+}));
+
+app.use(helmet.contentSecurityPolicy({
+    useDefaults: false,
+    directives: {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+        "script-src-attr": ["'unsafe-inline'"],
+        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        "font-src": ["'self'", "https://fonts.gstatic.com"],
+        "img-src": ["'self'", "data:"],
+        "media-src": ["'self'", "data:"],
+        "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io"]
+    }
+}));
+
+
+
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'file://' // For local testing without server if needed, though usually not recommended for production
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
 
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
+        origin: allowedOrigins,
+        methods: ['GET', 'POST'],
+        credentials: true
     },
     transports: ['polling', 'websocket'], // 👈 важно
     allowUpgrades: true,
     pingTimeout: 60000
 });
 
-let searchQueue = []; // Array of { socketId, token }
+let searchQueues = {}; // key: "base+inc" -> array players
 let lobbyCounter = 1;
 let activeGames = {}; // lobbyId -> GameState
+let privateRooms = {}; // roomCode -> { players: [{ socketId, token }], createdAt }
+
+/**
+ * Генерирует короткий уникальный код комнаты.
+ */
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
 
 app.use(express.static(__dirname));
 
 
-function createInitialState() {
+function createInitialState(timeControl) {
+    const base = timeControl?.base || 600;
+    const inc = timeControl?.inc || 0;
     return {
         hWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
         vWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
@@ -35,7 +102,8 @@ function createInitialState() {
         playerSockets: [null, null],
         playerTokens: [null, null], // New: Store tokens
         disconnectTimer: null,      // New: Timer for grace period
-        timers: [600, 600],
+        timers: [base, base],
+        increment: inc,
         lastMoveTimestamp: Date.now()
     };
 }
@@ -46,70 +114,240 @@ function checkVictory(state) {
     return -1;
 }
 
+// ============================================================
+// INPUT VALIDATION UTILITIES
+// ============================================================
+
+/**
+ * Проверяет, что токен — непустая строка.
+ */
+function isValidToken(token) {
+    return typeof token === 'string' && token.length > 0;
+}
+
+/**
+ * Проверяет формат lobbyId: 'lobby-<number>'.
+ */
+// Валидация типов данных и границ перенесена в Shared.js для консистентности.
+
+const rateLimits = new Map(); // socketId -> { type: { count, resetTime } }
+
+/**
+ * Проверяет лимиты запросов.
+ * @param {string} socketId - ID сокета
+ * @param {string} type - Тип действия ('findGame', 'move')
+ * @param {number} limit - Максимум запросов
+ * @param {number} windowMs - Окно времени в мс
+ * @returns {boolean} true если лимит не превышен
+ */
+function checkRateLimit(socketId, type, limit, windowMs) {
+    const now = Date.now();
+
+    // Инициализация хранилища для сокета
+    if (!rateLimits.has(socketId)) {
+        rateLimits.set(socketId, {});
+    }
+
+    const socketLimits = rateLimits.get(socketId);
+
+    // Инициализация/сброс окна для конкретного типа действия
+    if (!socketLimits[type] || now > socketLimits[type].resetTime) {
+        socketLimits[type] = {
+            count: 1,
+            resetTime: now + windowMs
+        };
+        return true;
+    }
+
+    // Инкремент и проверка
+    socketLimits[type].count++;
+    return socketLimits[type].count <= limit;
+}
+
+const crypto = require('crypto');
+
 io.on('connection', (socket) => {
+    // 1. Получаем токен из handshake (если есть)
+    let token = socket.handshake.auth.token;
+
+    // 2. Если токена нет или он невалидный (слишком короткий/старый формат) — генерируем новый
+    if (!token || typeof token !== 'string' || token.length < 10) {
+        token = crypto.randomUUID(); // Генерируем надежный UUID
+        socket.emit('assignToken', { token: token }); // Отправляем клиенту
+        console.log(`[AUTH] New player assigned token: ${token.substr(0, 8)}...`);
+    } else {
+        console.log(`[AUTH] Player returned with token: ${token.substr(0, 8)}...`);
+    }
+
+    // Сохраняем токен в сокете для удобства
+    socket.playerToken = token;
+
+    // Очистка памяти при отключении
+    socket.on('disconnect', () => {
+        rateLimits.delete(socket.id);
+    });
+
     console.log(`Пользователь подключен: ${socket.id}`);
 
     // --- ПОИСК ИГРЫ ---
     socket.on('findGame', (data) => {
-        const token = data ? data.token : null;
-        if (!token) {
-            console.log(`[QUEUE REJECT] Игрок ${socket.id} без токена.`);
+        if (!checkRateLimit(socket.id, 'findGame', 2, 5000)) {
+            socket.emit('findGameFailed', { reason: 'Too many requests. Please wait.' });
             return;
         }
 
-        // Check if already in queue
-        if (!searchQueue.some(p => p.token === token)) {
-            searchQueue.push({ socketId: socket.id, token: token });
-            const shortToken = token.length > 4 ? '...' + token.substr(-4) : token;
-            console.log(`[QUEUE] Игрок ${socket.id} (Token: ${shortToken}) в очереди.`);
+        const token = data?.token;
+        const tc = data?.timeControl || { base: 600, inc: 0 };
+        const tcKey = `${tc.base}+${tc.inc}`;
 
-            if (searchQueue.length >= 2) {
-                const p1Data = searchQueue.shift();
-                const p2Data = searchQueue.shift();
-                const lobbyId = `lobby-${lobbyCounter++}`;
+        if (!isValidToken(token)) return;
 
-                const s1 = io.sockets.sockets.get(p1Data.socketId);
-                const s2 = io.sockets.sockets.get(p2Data.socketId);
+        // Инициализируем очередь для этого контроля, если её нет
+        if (!searchQueues[tcKey]) searchQueues[tcKey] = [];
+        const queue = searchQueues[tcKey];
 
-                if (s1 && s2) {
-                    s1.join(lobbyId);
-                    s2.join(lobbyId);
+        // Удаляем из других очередей, если он там был (защита от дублей)
+        for (const key in searchQueues) {
+            const idx = searchQueues[key].findIndex(p => p.token === token);
+            if (idx > -1) searchQueues[key].splice(idx, 1);
+        }
 
-                    // 1. Инициализируем состояние на сервере
-                    activeGames[lobbyId] = createInitialState();
-                    activeGames[lobbyId].playerSockets[0] = p1Data.socketId;
-                    activeGames[lobbyId].playerSockets[1] = p2Data.socketId;
-                    activeGames[lobbyId].playerTokens[0] = p1Data.token;
-                    activeGames[lobbyId].playerTokens[1] = p2Data.token;
+        queue.push({ socketId: socket.id, token: token, timeControl: tc });
+        console.log(`[QUEUE] Player ${socket.id} joined queue [${tcKey}]`);
 
-                    console.log(`[GAME START] Лобби ${lobbyId} создано.`);
+        if (queue.length >= 2) {
+            const p1 = queue.shift();
+            const p2 = queue.shift();
+            const lobbyId = `lobby-${lobbyCounter++}`;
 
-                    s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2Data.token });
-                    s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1Data.token });
-                } else {
-                    // One socket is dead? Put valid one back?
-                    // Simple retry logic:
-                    if (s1) searchQueue.unshift(p1Data);
-                    if (s2) searchQueue.unshift(p2Data);
-                }
+            const s1 = io.sockets.sockets.get(p1.socketId);
+            const s2 = io.sockets.sockets.get(p2.socketId);
+
+            if (s1 && s2) {
+                activeGames[lobbyId] = createInitialState(p1.timeControl);
+                activeGames[lobbyId].playerSockets[0] = p1.socketId;
+                activeGames[lobbyId].playerSockets[1] = p2.socketId;
+                activeGames[lobbyId].playerTokens[0] = p1.token;
+                activeGames[lobbyId].playerTokens[1] = p2.token;
+
+                s1.join(lobbyId);
+                s2.join(lobbyId);
+                s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2.token, initialTime: activeGames[lobbyId].timers[0] });
+                s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1.token, initialTime: activeGames[lobbyId].timers[1] });
+                console.log(`[GAME START] Lobby ${lobbyId} created for ${tcKey}`);
+            } else {
+                if (s1) queue.unshift(p1);
+                if (s2) queue.unshift(p2);
             }
         }
     });
 
     socket.on('cancelSearch', () => {
-        const index = searchQueue.findIndex(p => p.socketId === socket.id);
-        if (index > -1) {
-            searchQueue.splice(index, 1);
-            console.log(`[QUEUE] Игрок ${socket.id} покинул очередь.`);
+        for (const key in searchQueues) {
+            const index = searchQueues[key].findIndex(p => p.socketId === socket.id);
+            if (index > -1) {
+                searchQueues[key].splice(index, 1);
+                console.log(`[QUEUE] Player ${socket.id} left queue [${key}]`);
+            }
+        }
+    });
+
+    // --- ПРИВАТНЫЕ КОМНАТЫ ---
+    socket.on('createRoom', (data) => {
+        const token = data?.token || socket.playerToken;
+        if (!isValidToken(token)) return;
+
+        // Удаляем игрока из ВСЕХ очередей поиска, если он там был
+        for (const key in searchQueues) {
+            const idx = searchQueues[key].findIndex(p => p.socketId === socket.id);
+            if (idx > -1) searchQueues[key].splice(idx, 1);
+        }
+
+        const roomCode = generateRoomCode();
+        privateRooms[roomCode] = {
+            players: [{ socketId: socket.id, token: token }],
+            createdAt: Date.now()
+        };
+
+        socket.join(roomCode);
+        socket.emit('roomCreated', { roomCode });
+        console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
+    });
+
+    socket.on('joinRoom', (data) => {
+        const { roomCode, token } = data;
+        const playerToken = token || socket.playerToken;
+
+        if (!isValidToken(playerToken) || !roomCode) {
+            socket.emit('joinRoomFailed', { reason: 'Некорректные данные' });
+            return;
+        }
+
+        const normalizedCode = roomCode.toUpperCase().trim();
+        const room = privateRooms[normalizedCode];
+
+        if (!room) {
+            socket.emit('joinRoomFailed', { reason: 'Комната не найдена' });
+            return;
+        }
+
+        if (room.players.length >= 2) {
+            socket.emit('joinRoomFailed', { reason: 'Комната полна' });
+            return;
+        }
+
+        // Проверяем, не пытается ли игрок войти в свою же комнату с тем же токеном
+        if (room.players[0].token === playerToken) {
+            socket.emit('joinRoomFailed', { reason: 'Вы уже в этой комнате' });
+            return;
+        }
+
+        room.players.push({ socketId: socket.id, token: playerToken });
+        socket.join(normalizedCode);
+
+        console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
+
+        if (room.players.length === 2) {
+            const p1Data = room.players[0];
+            const p2Data = room.players[1];
+            const lobbyId = `lobby-${lobbyCounter++}`;
+
+            const s1 = io.sockets.sockets.get(p1Data.socketId);
+            const s2 = io.sockets.sockets.get(p2Data.socketId);
+
+            if (s1 && s2) {
+                s1.join(lobbyId);
+                s2.join(lobbyId);
+
+                activeGames[lobbyId] = createInitialState({ base: 600, inc: 0 }); // Default for private rooms
+                activeGames[lobbyId].playerSockets[0] = p1Data.socketId;
+                activeGames[lobbyId].playerSockets[1] = p2Data.socketId;
+                activeGames[lobbyId].playerTokens[0] = p1Data.token;
+                activeGames[lobbyId].playerTokens[1] = p2Data.token;
+
+                s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2Data.token });
+                s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1Data.token });
+
+                console.log(`[GAME START] Лобби ${lobbyId} создано из приватной комнаты ${normalizedCode}.`);
+                delete privateRooms[normalizedCode];
+            } else {
+                delete privateRooms[normalizedCode];
+                socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
+            }
         }
     });
 
     // --- REJOIN GAME ---
     socket.on('rejoinGame', (data) => {
-        const { token } = data;
-        if (!token) return;
+        const token = data?.token;
 
-        const shortToken = token.length > 4 ? '...' + token.substr(-4) : token;
+        // Валидация входных данных
+        if (!isValidToken(token)) {
+            console.log(`[VALIDATION] rejoinGame: invalid token from ${socket.id}`);
+            return;
+        }
+
+        const shortToken = '...' + token.substr(-4);
         console.log(`[REJOIN] Attempting rejoin for token ${shortToken}`);
 
         // Find game with this token
@@ -155,11 +393,36 @@ io.on('connection', (socket) => {
 
     // --- ОБРАБОТКА ХОДА (SERVER AUTHORITATIVE) ---
     socket.on('playerMove', (data) => {
+        // Rate Limiting: 5 moves per 1 second
+        if (!checkRateLimit(socket.id, 'move', 5, 1000)) {
+            socket.emit('moveRejected', { reason: 'Too many moves' });
+            return;
+        }
+
+        // Валидация структуры запроса
+        if (!data || typeof data !== 'object') {
+            console.log(`[VALIDATION] playerMove: invalid data from ${socket.id}`);
+            socket.emit('moveRejected', { reason: 'Invalid request' });
+            return;
+        }
+
         const { lobbyId, move } = data;
+
+        // Валидация lobbyId и хода через Shared логику
+        if (!Shared.isValidLobbyId(lobbyId)) {
+            socket.emit('moveRejected', { reason: 'Invalid lobby format' });
+            return;
+        }
+
+        if (!Shared.isValidMove(move)) {
+            socket.emit('moveRejected', { reason: 'Invalid move format' });
+            return;
+        }
+
         const game = activeGames[lobbyId];
 
         if (!game) {
-            // console.error(`[ERROR] Игра ${lobbyId} не найдена!`);
+            socket.emit('moveRejected', { reason: 'Game not found' });
             return;
         }
 
@@ -171,6 +434,7 @@ io.on('connection', (socket) => {
         game.lastMoveTimestamp = now;
 
         if (game.timers[playerIdx] < 0) {
+            if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
             io.to(lobbyId).emit('gameOver', {
                 winnerIdx: 1 - playerIdx,
                 reason: 'Time out'
@@ -223,6 +487,7 @@ io.on('connection', (socket) => {
             if (winnerIdx !== -1) {
                 console.log(`[GAME OVER] Лобби ${lobbyId}: Игрок ${winnerIdx} победил, достигнув цели.`);
 
+                if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
                 io.to(lobbyId).emit('gameOver', {
                     winnerIdx: winnerIdx,
                     reason: 'Goal reached'
@@ -234,6 +499,11 @@ io.on('connection', (socket) => {
 
             // Переключаем ход (если игра не окончена)
             game.currentPlayer = 1 - game.currentPlayer;
+
+            // Добавляем инкремент (Fisher)
+            if (game.increment > 0) {
+                game.timers[playerIdx] += game.increment;
+            }
 
             // Отправляем подтверждение всем
             io.to(lobbyId).emit('serverMove', {
@@ -250,7 +520,19 @@ io.on('connection', (socket) => {
     });
 
     socket.on('surrender', (data) => {
+        // Валидация входных данных
+        if (!data || typeof data !== 'object') {
+            console.log(`[VALIDATION] surrender: invalid data from ${socket.id}`);
+            return;
+        }
+
         const { lobbyId } = data;
+
+        if (!Shared.isValidLobbyId(lobbyId)) {
+            socket.emit('error', { message: 'Invalid lobby format' });
+            return;
+        }
+
         const game = activeGames[lobbyId];
 
         if (game) {
@@ -258,6 +540,8 @@ io.on('connection', (socket) => {
 
             if (surrenderingIdx !== -1) {
                 const winnerIdx = 1 - surrenderingIdx;
+
+                if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
 
                 console.log(`[SURRENDER] Лобби ${lobbyId}: Игрок ${surrenderingIdx} сдался.`);
 
@@ -276,9 +560,11 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`[DISCONNECT] Пользователь отключен: ${socket.id}`);
 
-        // Remove from search queue if there
-        const index = searchQueue.findIndex(p => p.socketId === socket.id);
-        if (index > -1) searchQueue.splice(index, 1);
+        // Remove from search queues
+        for (const key in searchQueues) {
+            const index = searchQueues[key].findIndex(p => p.socketId === socket.id);
+            if (index > -1) searchQueues[key].splice(index, 1);
+        }
 
         // Check active games for disconnects
         for (const lobbyId in activeGames) {
@@ -340,6 +626,7 @@ setInterval(() => {
         const timeLeft = game.timers[activeIdx] - elapsedSinceLastMove;
 
         if (timeLeft <= 0) {
+            if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
             console.log(`[TIMEOUT] Лобби ${lobbyId}: Игрок ${activeIdx} проиграл по времени.`);
             io.to(lobbyId).emit('gameOver', {
                 winnerIdx: 1 - activeIdx,
@@ -353,7 +640,16 @@ setInterval(() => {
             io.to(lobbyId).emit('timerUpdate', { timers: currentTimers });
         }
     }
-}, 2000);
+
+    // Очистка старых приватных комнат (старше 30 минут)
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    for (const code in privateRooms) {
+        if (privateRooms[code].createdAt < thirtyMinutesAgo) {
+            console.log(`[ROOM CLEANUP] Deleting stale room: ${code}`);
+            delete privateRooms[code];
+        }
+    }
+}, 1000);
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Сервер запущен на порту ${PORT}`);

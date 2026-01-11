@@ -145,4 +145,36 @@
         return exports.hasPathToGoal(state, 0) && exports.hasPathToGoal(state, 1);
     };
 
+    // --- VALIDATION HELPERS (for server and client) ---
+
+    exports.isValidLobbyId = function (lobbyId) {
+        return typeof lobbyId === 'string' && /^lobby-\d+$/.test(lobbyId);
+    };
+
+    exports.isValidPawnMove = function (move) {
+        return move &&
+            move.type === 'pawn' &&
+            Number.isInteger(move.r) &&
+            Number.isInteger(move.c) &&
+            move.r >= 0 && move.r <= 8 &&
+            move.c >= 0 && move.c <= 8;
+    };
+
+    exports.isValidWallMove = function (move) {
+        return move &&
+            move.type === 'wall' &&
+            Number.isInteger(move.r) &&
+            Number.isInteger(move.c) &&
+            move.r >= 0 && move.r <= 7 &&
+            move.c >= 0 && move.c <= 7 &&
+            typeof move.isVertical === 'boolean';
+    };
+
+    exports.isValidMove = function (move) {
+        if (!move || typeof move !== 'object') return false;
+        if (move.type === 'pawn') return exports.isValidPawnMove(move);
+        if (move.type === 'wall') return exports.isValidWallMove(move);
+        return false;
+    };
+
 }(typeof exports === 'undefined' ? this.Shared = {} : exports));

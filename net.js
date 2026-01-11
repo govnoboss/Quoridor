@@ -7,23 +7,28 @@ const Net = {
     playerToken: null, // Токен игрока для переподключения
 
     init() {
-        // 1. Получаем или генерируем токен
+        // 1. Пытаемся получить сохраненный токен
         this.playerToken = localStorage.getItem('quoridor_token');
-        if (!this.playerToken) {
-            this.playerToken = 'player_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('quoridor_token', this.playerToken);
-            console.log('[NET] New token generated:', this.playerToken);
-        } else {
-            console.log('[NET] Token exists:', this.playerToken);
-        }
+        console.log('[NET] Local token:', this.playerToken || 'none');
 
+        // 2. Подключаемся, передавая токен (если есть)
         this.socket = io({
             extraHeaders: {
                 "ngrok-skip-browser-warning": "any-value"
             },
             auth: {
-                token: this.playerToken // Отправляем токен при подключении
+                token: this.playerToken
             }
+        });
+
+        // 3. Слушаем назначение нового токена от сервера
+        this.socket.on('assignToken', (data) => {
+            this.playerToken = data.token;
+            localStorage.setItem('quoridor_token', this.playerToken);
+            console.log('[NET] Server assigned NEW token:', this.playerToken);
+
+            // Если нужно - обновляем auth для будущих реконнектов сокета
+            this.socket.auth.token = this.playerToken;
         });
 
 
@@ -41,9 +46,10 @@ const Net = {
             this.myColor = data.color;
             this.lobbyId = data.lobbyId;
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
-            UI.hideSearch();
+            UI.hideSearch(false);
+            UI.currentRoomCode = null; // Сбрасываем код, так как он использован
 
-            Game.startOnline(data.color, this.myPlayerIndex);
+            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime);
         });
 
         // Обработка восстановления игры
@@ -54,7 +60,7 @@ const Net = {
             this.lobbyId = data.lobbyId;
             this.myPlayerIndex = data.myPlayerIndex;
 
-            UI.hideSearch();
+            UI.hideSearch(false);
             UI.showScreen('gameScreen');
 
             // Восстанавливаем состояние локально
@@ -70,18 +76,22 @@ const Net = {
 
         this.socket.on('opponentDisconnected', () => {
             console.log('[NET] Противник отключился. Ждем...');
-            UI.showToast('Противник отключился. Ожидаем возвращения... (30сек)', 'warning', 30000);
+            UI.showToast(UI.translate('toast_opponent_disconnected'), 'warning', 30000);
         });
 
         this.socket.on('opponentReconnected', () => {
             console.log('[NET] Противник вернулся!');
             // Очищаем предыдущие тосты можно бы было, но пока просто кинем новый
             // Лучше было бы иметь ID тоста, но для простоты - просто новое сообщение поверх
-            UI.showToast('Противник вернулся в игру!', 'info', 2000);
+            UI.showToast(UI.translate('toast_opponent_returned'), 'info', 2000);
         });
 
         this.socket.on('gameOver', (data) => {
             console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);
+
+            // Если мы уже не в игре или в главном меню, игнорируем (защита от поздних событий)
+            if (!this.lobbyId && !Game.isOnlineGame) return;
+
             this.isOnline = false;
             this.lobbyId = null;
             this.myColor = null;
@@ -94,7 +104,7 @@ const Net = {
 
         this.socket.on('moveRejected', (data) => {
             console.warn('[NET] Ход отклонен сервером:', data.reason);
-            UI.showToast('Недопустимый ход!', 'error');
+            UI.showToast(UI.translate('toast_invalid_move'), 'error');
         });
 
         this.socket.on('timerUpdate', (data) => {
@@ -112,10 +122,20 @@ const Net = {
 
         this.socket.on('findGameFailed', (data) => {
             console.log('[NET] Find Game Failed:', data.reason);
-            const reasonMsg = data.reason === 'Already in game' ? 'Вы уже в игре!' : data.reason;
-            // alert('Ошибка поиска: ' + reasonMsg);
-            UI.showToast('Ошибка поиска: ' + reasonMsg, 'error');
+            const reasonMsg = data.reason === 'Already in game' ? UI.translate('toast_already_in_game') : data.reason;
+            UI.showToast(UI.translate('toast_search_error') + ': ' + reasonMsg, 'error');
             UI.hideSearch();
+        });
+
+        this.socket.on('roomCreated', (data) => {
+            console.log('[NET] Room created:', data.roomCode);
+            UI.onRoomCreated(data.roomCode);
+        });
+
+        this.socket.on('joinRoomFailed', (data) => {
+            console.log('[NET] Join Room Failed:', data.reason);
+            UI.showToast(UI.translate('toast_join_error') + ': ' + data.reason, 'error');
+            UI.hideRoomJoining();
         });
     },
 
@@ -126,9 +146,12 @@ const Net = {
         }
     },
 
-    findGame() {
-        this.socket.emit('findGame', { token: this.playerToken }); // Отправляем токен тоже
-        console.log('[NET] Ищу игру...');
+    findGame(timeData) {
+        this.socket.emit('findGame', {
+            token: this.playerToken,
+            timeControl: timeData // { base: seconds, inc: seconds }
+        });
+        console.log('[NET] Ищу игру с контролем:', timeData);
     },
 
     cancelFindGame() {
@@ -142,6 +165,16 @@ const Net = {
             lobbyId: this.lobbyId,
             move: moveData
         });
+    },
+
+    createRoom() {
+        this.socket.emit('createRoom', { token: this.playerToken });
+        console.log('[NET] Creating room...');
+    },
+
+    joinRoom(roomCode) {
+        this.socket.emit('joinRoom', { roomCode, token: this.playerToken });
+        console.log('[NET] Joining room:', roomCode);
     }
 };
 

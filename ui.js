@@ -2,39 +2,338 @@ const UI = {
   // Добавленные переменные для таймера
   searchTimerInterval: null,
   searchTime: 0,
+  currentLang: 'ru',
+  currentRoomCode: null, // Храним код комнаты для сессии
+  selectedTime: null,
+
+  translations: {
+    ru: {
+      menu_play_online: "⚡ Играть онлайн",
+      menu_cancel_search: "Отменить поиск",
+      menu_local_game: "🎮 Локальная игра",
+      menu_rules: "📖 Правила",
+      menu_settings: "⚙️ Настройки",
+      pname_opponent: "Оппонент",
+      pname_you: "Вы",
+      pname_white: "Белый",
+      pname_black: "Черный",
+      info_tip_title: "Совет дня",
+      info_tip_text: "Стены — ваше главное оружие. Используйте их, чтобы удлинить путь соперника, но не блокируйте себя!",
+      info_leaderboard_title: "Лидерборд",
+      info_hint: "Рейтинг обновляется в реальном времени",
+      screen_mode_title: "Выберите режим",
+      mode_pvp: "Два игрока (PvP)",
+      mode_bot_title: "Игра с ботом",
+      mode_bot_easy: "Легкий бот",
+      mode_bot_medium: "Средний бот",
+      mode_bot_hard: "Сильный бот",
+      mode_bot_impossible: "Непобедимый бот",
+      btn_back: "Назад",
+      screen_color_title: "Выберите сторону",
+      color_white_hint: "Белые всегда ходят первыми",
+      btn_play_white: "⚪ Играть за Белых<br>(Вы ходите первым)",
+      btn_play_black: "⚫ Играть за Чёрных<br>(Бот ходит первым)",
+      btn_surrender: "Сдаться",
+      screen_settings_title: "Настройки",
+      label_theme: "Тема:",
+      theme_dark: "Тёмная",
+      theme_light: "Светлая",
+      label_lang: "Язык:",
+      label_sound: "Звук:",
+      sound_on: "Вкл",
+      sound_off: "Выкл",
+      btn_save: "Сохранить",
+      screen_rules_title: "Правила",
+      modal_win: "ПОБЕДА 🎉",
+      modal_lose: "ПОРАЖЕНИЕ 💀",
+      modal_win_local: "ПОБЕДИЛИ {color}!",
+      modal_reason: "Причина: ",
+      reason_goal: "Цель достигнута",
+      reason_timeout: "Время истекло",
+      reason_surrender: "Противник сдался",
+      reason_disconnected: "Противник покинул игру",
+      btn_to_menu: "В меню",
+      disconnect_title: "Соединение разорвано",
+      disconnect_msg: "Вы открыли игру в другой вкладке или окне.<br>Эта сессия была завершена.",
+      btn_reconnect: "Вернуться в игру (Reconnect)",
+      confirm_title: "Подтверждение",
+      confirm_msg: "Вы уверены?",
+      confirm_surrender_title: "Подтверждение сдачи",
+      confirm_surrender_msg: "Вы уверены, что хотите сдаться?",
+      btn_yes: "Да",
+      btn_no: "Отмена",
+      toast_not_your_turn: "Сейчас не ваш ход!",
+      menu_play_friend: "👥 Играть с другом",
+      screen_room_title: "Игра с другом",
+      btn_create_room: "Создать комнату",
+      btn_join_room: "Войти",
+      room_created_msg: "Код комнаты создан! Отправьте его другу:",
+      room_waiting: "Ожидание подключения противника...",
+      label_or: "или",
+      menu_searching: "Поиск игры...",
+      rules_goal_title: "🎯 Цель",
+      rules_goal_text: "Первым доведите свою фишку до противоположного края доски.",
+      rules_turn_title: "🎲 Ход",
+      rules_turn_text: "За ход можно: передвинуть фишку на 1 клетку или поставить стену.",
+      rules_jump_title: "🚶 Прыжки",
+      rules_jump_text: "Если соперник рядом — можно перепрыгнуть через него.",
+      rules_wall_title: "🧱 Стены",
+      rules_wall_text: "Стена занимает 2 клетки. Нельзя полностью блокировать путь к цели.",
+      rules_controls_title: "⌨️ Управление",
+      rules_controls_text: "H — горизонтальная стена, V — вертикальная, R — повернуть.",
+      toast_settings_saved: "Настройки сохранены!",
+      toast_link_copied: "Ссылка скопирована!",
+      toast_room_code_from_link: "Код комнаты получен из ссылки",
+      toast_opponent_disconnected: "Противник отключился. Ожидаем возвращения... (30сек)",
+      toast_opponent_returned: "Противник вернулся в игру!",
+      toast_invalid_move: "Недопустимый ход!",
+      toast_search_error: "Ошибка поиска",
+      toast_join_error: "Ошибка входа",
+      toast_already_in_game: "Вы уже в игре!",
+      toast_code_copied: "Код скопирован!",
+      label_copy_link: "Нажмите на ссылку, чтобы скопировать:",
+      toast_copy_error: "Не удалось скопировать",
+      toast_copy_not_supported: "Копирование не поддерживается браузером",
+      time_select_title: "Контроль времени",
+      time_cat_bullet: "Пуля",
+      time_cat_blitz: "Блиц",
+      time_cat_rapid: "Рапид",
+      btn_start_search: "Найти игру"
+    },
+    en: {
+      menu_play_online: "⚡ Play Online",
+      menu_cancel_search: "Cancel Search",
+      menu_local_game: "🎮 Local Game",
+      menu_rules: "📖 Rules",
+      menu_settings: "⚙️ Settings",
+      pname_opponent: "Opponent",
+      pname_you: "You",
+      pname_white: "White",
+      pname_black: "Black",
+      info_tip_title: "Tip of the Day",
+      info_tip_text: "Walls are your main weapon. Use them to lengthen your opponent's path, but don't block yourself!",
+      info_leaderboard_title: "Leaderboard",
+      info_hint: "Ratings update in real-time",
+      screen_mode_title: "Choose Mode",
+      mode_pvp: "Two Players (PvP)",
+      mode_bot_title: "Play with Bot",
+      mode_bot_easy: "Easy Bot",
+      mode_bot_medium: "Medium Bot",
+      mode_bot_hard: "Strong Bot",
+      mode_bot_impossible: "Impossible Bot",
+      btn_back: "Back",
+      screen_color_title: "Choose Side",
+      color_white_hint: "White always moves first",
+      btn_play_white: "⚪ Play as White<br>(You move first)",
+      btn_play_black: "⚫ Play as Black<br>(Bot moves first)",
+      btn_surrender: "Surrender",
+      screen_settings_title: "Settings",
+      label_theme: "Theme:",
+      theme_dark: "Dark",
+      theme_light: "Light",
+      label_lang: "Language:",
+      label_sound: "Sound:",
+      sound_on: "On",
+      sound_off: "Off",
+      btn_save: "Save",
+      screen_rules_title: "Rules",
+      modal_win: "VICTORY 🎉",
+      modal_lose: "DEFEAT 💀",
+      modal_win_local: "{color} WON!",
+      modal_reason: "Reason: ",
+      reason_goal: "Goal reached",
+      reason_timeout: "Time out",
+      reason_surrender: "Opponent surrendered",
+      reason_disconnected: "Opponent disconnected",
+      btn_to_menu: "To Menu",
+      disconnect_title: "Connection Lost",
+      disconnect_msg: "You opened the game in another tab or window.<br>This session has ended.",
+      btn_reconnect: "Return to Game (Reconnect)",
+      confirm_title: "Confirmation",
+      confirm_msg: "Are you sure?",
+      confirm_surrender_title: "Confirm Surrender",
+      confirm_surrender_msg: "Are you sure you want to surrender?",
+      btn_yes: "Yes",
+      btn_no: "Cancel",
+      toast_not_your_turn: "It's not your turn!",
+      menu_play_friend: "👥 Play with Friend",
+      screen_room_title: "Play with Friend",
+      btn_create_room: "Create Room",
+      btn_join_room: "Join",
+      room_created_msg: "Room code created! Send it to your friend:",
+      room_waiting: "Waiting for opponent to connect...",
+      label_or: "or",
+      menu_searching: "Searching for game...",
+      rules_goal_title: "🎯 Goal",
+      rules_goal_text: "Be the first to reach the opposite edge of the board.",
+      rules_turn_title: "🎲 Turn",
+      rules_turn_text: "On your turn: move your pawn 1 square or place a wall.",
+      rules_jump_title: "🚶 Jumps",
+      rules_jump_text: "If opponent is adjacent — you can jump over them.",
+      rules_wall_title: "🧱 Walls",
+      rules_wall_text: "Wall covers 2 squares. Cannot completely block path to goal.",
+      rules_controls_title: "⌨️ Controls",
+      rules_controls_text: "H — horizontal wall, V — vertical, R — rotate.",
+      toast_settings_saved: "Settings saved!",
+      toast_link_copied: "Link copied!",
+      toast_room_code_from_link: "Room code received from link",
+      toast_opponent_disconnected: "Opponent disconnected. Waiting for return... (30sec)",
+      toast_opponent_returned: "Opponent has returned!",
+      toast_invalid_move: "Invalid move!",
+      toast_search_error: "Search error",
+      toast_join_error: "Join error",
+      toast_already_in_game: "You are already in a game!",
+      toast_code_copied: "Code copied!",
+      label_copy_link: "Click link to copy:",
+      toast_copy_error: "Failed to copy",
+      toast_copy_not_supported: "Clipboard not supported",
+      time_select_title: "Time Control",
+      time_cat_bullet: "Bullet",
+      time_cat_blitz: "Blitz",
+      time_cat_rapid: "Rapid",
+      btn_start_search: "Find Game"
+    }
+  },
 
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   },
   showModeSelect() { this.showScreen('modeScreen'); },
-  backToMenu() { this.showScreen('mainMenu'); },
-  showSettings() { this.showScreen('settingsScreen'); },
-  showRules() { this.showScreen('rulesScreen'); },
-  showAbout() { this.showScreen('aboutScreen'); },
+  showRoomScreen() {
+    this.showInfoPanel('panelRoom');
+    document.getElementById('roomCodeDisplay').classList.add('hidden');
+    document.getElementById('createRoomBtn').classList.remove('hidden');
+    document.getElementById('roomCodeInput').value = '';
+  },
+  backToMenu() {
+    this.showScreen('mainMenu');
+    this.hideDynamicPanel();
+  },
+  showTimeSelection() {
+    this.showDynamicPanel('panelTimeSelect');
+    this.selectedTime = null;
+    const startBtn = document.getElementById('startSearchBtn');
+    if (startBtn) {
+      startBtn.classList.add('disabled');
+      startBtn.disabled = true;
+    }
+    document.querySelectorAll('.time-opt').forEach(opt => opt.classList.remove('selected'));
+  },
+  selectTime(base, inc, el) {
+    this.selectedTime = { base, inc };
+    document.querySelectorAll('.time-opt').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
 
-  setRulesLang(lang) {
+    const startBtn = document.getElementById('startSearchBtn');
+    if (startBtn) {
+      startBtn.classList.remove('disabled');
+      startBtn.disabled = false;
+    }
+  },
+  startOnlineSearch() {
+    if (!this.selectedTime) return;
+    this.showSearch(this.selectedTime);
+  },
+  showSettings() { this.showDynamicPanel('panelSettings'); },
+  showRules() { this.showDynamicPanel('panelRules'); },
+
+  showInfoPanel(panelId) {
+    document.querySelectorAll('.info-content').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active');
+  },
+
+  showDynamicPanel(panelId, autoCreate = true) {
+    const container = document.getElementById('dynamicPanel');
+    document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      panel.classList.remove('hidden');
+      container.classList.remove('empty');
+
+      // Auto-create room when opening panelRoom (only if autoCreate is true and no code exists)
+      if (panelId === 'panelRoom' && autoCreate && !this.currentRoomCode) {
+        this.createPrivateRoom();
+      }
+    }
+  },
+
+  hideDynamicPanel() {
+    const container = document.getElementById('dynamicPanel');
+
+    // Если поиск активен - отменяем его
+    if (container.classList.contains('searching')) {
+      if (typeof Net !== 'undefined' && Net.cancelFindGame) {
+        Net.cancelFindGame();
+      }
+      this.hideSearch();
+      return;
+    }
+
+    // В остальных случаях просто очищаем классы и скрываем контент
+    document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
+    container.classList.add('empty');
+  },
+
+  setLanguage(lang) {
+    this.currentLang = lang;
+    const dict = this.translations[lang];
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (dict[key]) {
+        el.innerHTML = dict[key];
+      }
+    });
+
+    // Специальная логика для правил (показ нужного блока)
     const ruContent = document.getElementById('rulesContentRu');
     const enContent = document.getElementById('rulesContentEn');
-    const ruBtn = document.getElementById('langRu');
-    const enBtn = document.getElementById('langEn');
-
     if (lang === 'en') {
       ruContent.classList.add('hidden');
       enContent.classList.remove('hidden');
-      ruBtn.classList.remove('active');
-      enBtn.classList.add('active');
     } else {
       enContent.classList.add('hidden');
       ruContent.classList.remove('hidden');
-      enBtn.classList.remove('active');
-      ruBtn.classList.add('active');
     }
+
+    // Обновляем атрибут lang у html
+    document.getElementById('htmlTag').lang = lang;
   },
+
   saveSettings() {
     const theme = document.getElementById('themeSelect').value;
+    const lang = document.getElementById('langSelect').value;
+    const sound = document.getElementById('soundSelect').value;
+
     document.body.className = theme;
+    this.setLanguage(lang);
+    this.AudioManager.enabled = (sound === 'on');
+
     localStorage.setItem('quoridor-theme', theme);
+    localStorage.setItem('quoridor-lang', lang);
+    localStorage.setItem('quoridor-sound', sound);
+  },
+
+  saveSettingsInline() {
+    const theme = document.getElementById('themeSelectInline').value;
+    const lang = document.getElementById('langSelectInline').value;
+    const sound = document.getElementById('soundSelectInline').value;
+
+    document.body.className = theme;
+    this.setLanguage(lang);
+    this.AudioManager.enabled = (sound === 'on');
+
+    localStorage.setItem('quoridor-theme', theme);
+    localStorage.setItem('quoridor-lang', lang);
+    localStorage.setItem('quoridor-sound', sound);
+
+    this.showToast(this.translate('toast_settings_saved'), 'info');
+  },
+
+  translate(key) {
+    return this.translations[this.currentLang][key] || key;
   },
 
   // Отключает все кнопки, кроме тех, что в контейнере поиска
@@ -60,29 +359,62 @@ const UI = {
     document.getElementById('searchTimer').textContent = timeString;
   },
 
-  showSearch() {
+  showSearch(timeData) {
     // 1. Изменение UI
     this.disableAll();
     document.getElementById('playOnlineBtn').classList.add('hidden');
     document.getElementById('cancelSearchBtn').classList.remove('hidden');
-    document.getElementById('searchTimer').classList.remove('hidden');
     document.getElementById('cancelSearchBtn').disabled = false;
 
-    // 2. Запуск таймера
+    // 2. Показываем оверлей поиска в динамической панели
+    const container = document.getElementById('dynamicPanel');
+    const overlay = document.getElementById('searchOverlay');
+    document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
+    if (overlay) overlay.classList.remove('hidden');
+    container.classList.remove('empty');
+    container.classList.add('searching');
+
+    // 3. Запуск таймера
     this.searchTime = 0;
     this.updateSearchTimer();
+    if (this.searchTimerInterval) clearInterval(this.searchTimerInterval);
     this.searchTimerInterval = setInterval(() => this.updateSearchTimer(), 1000);
 
-    // 3. Сетевой запрос на поиск игры
+    // 4. Сетевой запрос на поиск игры
     if (typeof Net !== 'undefined') {
-      Net.findGame();
+      Net.findGame(timeData);
+    }
+  },
+
+  hideSearch(returnToTimeSelect = true) {
+    // Останавливаем таймер
+    if (this.searchTimerInterval) {
+      clearInterval(this.searchTimerInterval);
+      this.searchTimerInterval = null;
+    }
+
+    // Возвращаем кнопки в исходное состояние
+    this.enableAll();
+    document.getElementById('playOnlineBtn').classList.remove('hidden');
+    document.getElementById('cancelSearchBtn').classList.add('hidden');
+
+    const container = document.getElementById('dynamicPanel');
+    const overlay = document.getElementById('searchOverlay');
+    if (overlay) overlay.classList.add('hidden');
+    container.classList.remove('searching');
+
+    // Возвращаемся в меню выбора времени или просто закрываем панель
+    if (returnToTimeSelect) {
+      this.showTimeSelection();
+    } else {
+      this.hideDynamicPanel();
     }
   },
 
   handleSurrender() {
     UI.showConfirm(
-      'Подтверждение сдачи',
-      'Вы уверены, что хотите сдаться?',
+      this.translate('confirm_surrender_title'),
+      this.translate('confirm_surrender_msg'),
       () => {
         // Пользователь подтвердил сдачу
         if (Net.isOnline) {
@@ -129,21 +461,14 @@ const UI = {
     };
 
     modal.style.display = 'flex';
+    this.updateLanguage(); // Обновить текст кнопок Да/Нет
   },
 
-  hideSearch() {
-    // 1. Остановка таймера
-    if (this.searchTimerInterval) {
-      clearInterval(this.searchTimerInterval);
-      this.searchTimerInterval = null;
-    }
-
-    // 2. Изменение UI
-    this.enableAll();
-    document.getElementById('playOnlineBtn').classList.remove('hidden');
-    document.getElementById('cancelSearchBtn').classList.add('hidden');
-    document.getElementById('searchTimer').classList.add('hidden');
+  // Force update current screen language
+  updateLanguage() {
+    this.setLanguage(this.currentLang);
   },
+
 
   // --- NOTIFICATIONS (Toasts) ---
   showToast(msg, type = 'info', duration = 3000) {
@@ -172,6 +497,190 @@ const UI = {
   hideDisconnectOverlay() {
     const el = document.getElementById('disconnectModal');
     el.classList.add('hidden');
+  },
+
+  // --- PRIVATE ROOMS ---
+  createPrivateRoom() {
+    Net.createRoom();
+  },
+
+  onRoomCreated(code) {
+    this.currentRoomCode = code;
+    document.getElementById('createRoomBtn').classList.add('hidden');
+    document.getElementById('roomCodeDisplay').classList.remove('hidden');
+    document.getElementById('roomCodeValue').textContent = code;
+
+    // Update link display
+    const link = window.location.origin + window.location.pathname + '?room=' + code;
+    const linkDisplay = document.getElementById('roomLinkDisplay');
+    if (linkDisplay) {
+      linkDisplay.textContent = link;
+      linkDisplay.title = link;
+    }
+  },
+
+  copyRoomCode() {
+    const code = document.getElementById('roomCodeValue').textContent;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(() => {
+        this.showToast(this.translate('toast_code_copied'), 'info');
+      }).catch(err => {
+        console.error('Clipboard error:', err);
+        this.showToast(this.translate('toast_copy_error'), 'error');
+      });
+    } else {
+      this.showToast(this.translate('toast_copy_not_supported'), 'warning');
+    }
+  },
+
+  copyRoomLink() {
+    const code = document.getElementById('roomCodeValue').textContent;
+    const url = window.location.origin + window.location.pathname + '?room=' + code;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.showToast(this.translate('toast_link_copied'), 'info');
+      }).catch(err => {
+        console.error('Clipboard error:', err);
+        this.showToast(this.translate('toast_copy_error'), 'error');
+      });
+    } else {
+      this.showToast(this.translate('toast_copy_not_supported'), 'warning');
+    }
+  },
+
+  validateRoomInput(input) {
+    // 1. Force Uppercase
+    input.value = input.value.toUpperCase();
+
+    // 2. Validate length to enable/disable button
+    const btn = document.getElementById('joinRoomBtn');
+    if (input.value.length === 5) {
+      btn.disabled = false;
+      btn.classList.remove('disabled'); // Optional styling
+    } else {
+      btn.disabled = true;
+      btn.classList.add('disabled');
+    }
+  },
+
+  joinPrivateRoom() {
+    const code = document.getElementById('roomCodeInput').value.trim();
+    if (!code) return;
+    document.getElementById('joinRoomBtn').disabled = true;
+    Net.joinRoom(code);
+  },
+
+  hideRoomJoining() {
+    document.getElementById('joinRoomBtn').disabled = false;
+  },
+
+  // --- AUDIO MANAGER (Web Audio API) ---
+  AudioManager: {
+    ctx: null,
+    enabled: true,
+
+    init() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+      } catch (e) {
+        console.warn('Web Audio API not supported', e);
+      }
+    },
+
+    resume() {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    },
+
+    play(type) {
+      if (!this.ctx || !this.enabled) return;
+      this.resume();
+
+      const now = this.ctx.currentTime;
+
+      if (type === 'move') {
+        // Мягкий "click" (пластик о дерево)
+        this.playSoftClick(now, 400, 0.1);
+      } else if (type === 'wall') {
+        // Двойной звук для фиксации (клик + глухой тук)
+        this.playSoftClick(now, 300, 0.05);
+        this.playThud(now + 0.03, 150, 0.15);
+      } else if (type === 'error') {
+        // Тихий и вежливый "tuk"
+        this.playThud(now, 100, 0.1, 0.15);
+      } else if (type === 'win') {
+        // Минималистичный chime из 2 нот (маримба-стайл)
+        this.playChime([659.25, 783.99], 0.15); // E5, G5
+      } else if (type === 'lose') {
+        // Мягкий нисходящий тон
+        this.playThud(now, 150, 0.5, 0.2, true);
+      }
+    },
+
+    playSoftClick(time, freq, duration) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.exponentialRampToValueAtTime(freq / 2, time + duration);
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 1000; // Обрезаем высокие для мягкости
+
+      gain.gain.setValueAtTime(0.2, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(time);
+      osc.stop(time + duration);
+    },
+
+    playThud(time, freq, duration, vol = 0.2, slide = false) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      if (slide) osc.frequency.linearRampToValueAtTime(freq / 3, time + duration);
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 400;
+
+      gain.gain.setValueAtTime(vol, time);
+      gain.gain.linearRampToValueAtTime(0.01, time + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(time);
+      osc.stop(time + duration);
+    },
+
+    playChime(freqs, duration) {
+      const now = this.ctx.currentTime;
+      freqs.forEach((f, i) => {
+        const time = now + (i * 0.1);
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.15, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(time);
+        osc.stop(time + duration);
+      });
+    }
   }
 
 };
@@ -182,8 +691,51 @@ UI.selectBotDifficulty = function (diff) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('quoridor-theme') || 'dark';
-  document.body.className = saved;
-  document.getElementById('themeSelect').value = saved;
+  const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';
+  const savedLang = localStorage.getItem('quoridor-lang') || 'ru';
+  const savedSound = localStorage.getItem('quoridor-sound') || 'on';
+
+  document.body.className = savedTheme;
+
+  // Sync old settings screen (if exists)
+  const themeSelect = document.getElementById('themeSelect');
+  if (themeSelect) themeSelect.value = savedTheme;
+  const langSelect = document.getElementById('langSelect');
+  if (langSelect) langSelect.value = savedLang;
+  const soundSelect = document.getElementById('soundSelect');
+  if (soundSelect) soundSelect.value = savedSound;
+
+  // Sync inline settings panel
+  const themeSelectInline = document.getElementById('themeSelectInline');
+  if (themeSelectInline) themeSelectInline.value = savedTheme;
+  const langSelectInline = document.getElementById('langSelectInline');
+  if (langSelectInline) langSelectInline.value = savedLang;
+  const soundSelectInline = document.getElementById('soundSelectInline');
+  if (soundSelectInline) soundSelectInline.value = savedSound;
+
+  UI.setLanguage(savedLang);
+  UI.AudioManager.enabled = (savedSound === 'on');
+
+  // Инициализация звука
+  UI.AudioManager.init();
+
+  // Проверка URL на наличие комнаты
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomCode = urlParams.get('room');
+  if (roomCode) {
+    // Показываем панель, но НЕ создаем новую комнату
+    UI.showDynamicPanel('panelRoom', false);
+
+    // Заполняем поле ввода
+    document.getElementById('roomCodeInput').value = roomCode.toUpperCase();
+
+    // Пытаемся сразу войти
+    // Небольшая задержка, чтобы сокет успел инициализироваться, если это первый запуск
+    setTimeout(() => {
+      Net.joinRoom(roomCode.toUpperCase());
+    }, 500);
+
+    UI.showToast(UI.translate('toast_room_code_from_link'), 'info');
+  }
 });
 

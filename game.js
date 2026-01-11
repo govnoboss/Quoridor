@@ -9,6 +9,7 @@ const Game = {
   timerInterval: null,
   initialTime: 600,
   pendingBotDifficulty: 'medium',
+  debugControl: false, // Режим отладки зон наведения
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -53,8 +54,11 @@ const Game = {
     ],
     currentPlayer: 0,
     drag: null,
+    hoverWall: null, // { r, c, isVertical, isValid }
     botDifficulty: 'none'
   },
+
+
 
   // ====================================================================
   // 1. МЕТОДЫ ЗАПУСКА И ИНИЦИАЛИЗАЦИИ
@@ -63,15 +67,21 @@ const Game = {
    * Запускает сетевую игру.
    * @param {'white'|'black'} color Цвет игрока
    */
-  startOnline(color, playerIdx) {
+  startOnline(color, playerIdx, initialTime = 600) {
+    this.initialTime = initialTime; // Устанавливаем ДО reset или обновляем после
     this.reset();
     this.state.botDifficulty = 'none';
 
     this.myPlayerIndex = playerIdx;
+    this.initialTime = initialTime;
+    this.timers = [initialTime, initialTime];
 
-    console.log(`[GAME] Старт Онлайн. Я играю за: ${color} (Индекс: ${this.myPlayerIndex})`);
+    console.log(`[GAME] Старт Онлайн. Я играю за: ${color} (Индекс: ${this.myPlayerIndex}), время: ${initialTime}s`);
 
     UI.showScreen('gameScreen');
+    this.updateTimerDisplay();
+    this.updateTurnDisplay();
+    this.startTimer(); // Запускаем локальный таймер
     this.draw();
   },
 
@@ -94,10 +104,10 @@ const Game = {
     const reasonText = document.getElementById('resultReason');
 
     const reasons = {
-      'Goal reached': 'Цель достигнута!',
-      'Time out': 'Время вышло',
-      'Surrender': 'Сдача',
-      'Opponent disconnected': 'Противник покинул игру'
+      'Goal reached': UI.translate('reason_goal'),
+      'Time out': UI.translate('reason_timeout'),
+      'Surrender': UI.translate('reason_surrender'),
+      'Opponent disconnected': UI.translate('reason_disconnected')
     };
 
     // ИСПРАВЛЕННАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ПОБЕДИТЕЛЯ
@@ -107,13 +117,13 @@ const Game = {
     if (this.myPlayerIndex !== -1) {
       // Сетевая игра: сравниваем с нашим индексом
       isWinner = (winnerIdx === this.myPlayerIndex);
-      statusMessage = isWinner ? "ПОБЕДА 🎉" : "ПОРАЖЕНИЕ 💀";
+      statusMessage = isWinner ? UI.translate('modal_win') : UI.translate('modal_lose');
     } else {
       // Локальная игра: в PvP кто-то один всегда побеждает
-      // Для красоты в локалке всегда используем зеленый фон (win-state)
       isWinner = true;
-      const colorName = (winnerIdx === 0) ? "БЕЛЫЕ" : "ЧЕРНЫЕ";
-      statusMessage = `ПОБЕДИЛИ ${colorName}!`;
+      const colorKey = (winnerIdx === 0) ? 'pname_white' : 'pname_black';
+      const colorName = UI.translate(colorKey);
+      statusMessage = UI.translate('modal_win_local').replace('{color}', colorName);
     }
 
     // Применяем стили
@@ -121,7 +131,19 @@ const Game = {
     contentBox.className = 'modal-content ' + (isWinner ? 'win-state' : 'lose-state');
 
     statusText.innerText = statusMessage;
-    reasonText.innerText = reasons[reason] || reason;
+
+    // Вставляем причину отдельно, так как заголовок "Причина:" уже в HTML ( i18n )
+    const reasonDetail = document.getElementById('resultReasonText');
+    if (reasonDetail) {
+      reasonDetail.innerText = reasons[reason] || reason;
+    }
+
+    // Озвучка результата
+    if (isWinner) {
+      UI.AudioManager.play('win');
+    } else {
+      UI.AudioManager.play('lose');
+    }
 
     modal.classList.remove('hidden');
   },
@@ -147,10 +169,10 @@ const Game = {
   // Вспомогательный метод для красивого вывода причины
   translateReason(reason) {
     const reasons = {
-      'Goal reached': 'Цель достигнута',
-      'Time out': 'Время истекло',
-      'Surrender': 'Противник сдался',
-      'Opponent disconnected': 'Противник покинул игру'
+      'Goal reached': UI.translate('reason_goal'),
+      'Time out': UI.translate('reason_timeout'),
+      'Surrender': UI.translate('reason_surrender'),
+      'Opponent disconnected': UI.translate('reason_disconnected')
     };
     return reasons[reason] || reason;
   },
@@ -179,6 +201,7 @@ const Game = {
    */
   startPvP() {
     this.state.botDifficulty = 'none';
+    this.initialTime = 600; // Сброс к дефолту для локальной игры
     this.reset();
     UI.showScreen('gameScreen');
     this.startTimer();
@@ -206,10 +229,12 @@ const Game = {
       this.myPlayerIndex = 1;
     }
 
+    this.initialTime = 600; // Сброс к дефолту для локальной игры
     this.reset();
     UI.showScreen('gameScreen');
     this.startTimer();
     this.draw();
+    this.updateTimerDisplay();
     this.updateTurnDisplay();
 
     if (this.myPlayerIndex === 1) {
@@ -238,11 +263,24 @@ const Game = {
 
   stopTimer() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+    this.timerInterval = null;
   },
 
   syncTimers(serverTimers) {
-    this.timers = serverTimers;
-    this.updateTimerDisplay();
+    // Чтобы избежать "прыжков" из-за сетевых задержек,
+    // синхронизируем только если разница более 1.5 секунд
+    let needsSync = false;
+    for (let i = 0; i < 2; i++) {
+      if (Math.abs(this.timers[i] - serverTimers[i]) > 1.5) {
+        needsSync = true;
+        break;
+      }
+    }
+
+    if (needsSync) {
+      this.timers = [...serverTimers];
+      this.updateTimerDisplay();
+    }
   },
 
   updateTimerDisplay() {
@@ -279,7 +317,9 @@ const Game = {
     this.drawPossibleMoves();
     this.drawPlacedWalls();
     this.drawPawns();
+    this.drawHoverWall(); // Рисуем призрак стены
     this.drawDragPreview();
+    this.drawDebugZones(); // Отрисовка отладочной информации
   },
 
   /**
@@ -548,6 +588,151 @@ const Game = {
    * @param {number} y Координата Y.
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
+  updateHoverWall(x, y) {
+    if (this.state.drag || this.isGameOver) {
+      this.state.hoverWall = null;
+      return;
+    }
+
+    // Если онлайн и не мой ход — не показываем призрак
+    if (Net.isOnline) {
+      const myIdx = Net.myColor === 'white' ? 0 : 1;
+      if (this.state.currentPlayer !== myIdx) {
+        this.state.hoverWall = null;
+        return;
+      }
+    } else if (this.state.botDifficulty !== 'none' && this.state.currentPlayer !== this.myPlayerIndex) {
+      // В игре с ботом показываем только в наш ход
+      this.state.hoverWall = null;
+      return;
+    }
+
+    // Проверяем, в какой ячейке мы находимся
+    const c = Math.floor(x / this.CONFIG.cellSize);
+    const r_display = Math.floor(y / this.CONFIG.cellSize);
+
+    if (c < 0 || c >= 9 || r_display < 0 || r_display >= 9) {
+      this.state.hoverWall = null;
+      return;
+    }
+
+    const relX = x % this.CONFIG.cellSize;
+    const relY = y % this.CONFIG.cellSize;
+    const margin = this.CONFIG.cellSize * 0.25; // 25% от размера клетки - зона "активности" у края
+
+    let isNearVertical = (relX > this.CONFIG.cellSize - margin || relX < margin);
+    let isNearHorizontal = (relY > this.CONFIG.cellSize - margin || relY < margin);
+
+    // Если мы в центре клетки (не у краев) — призрака нет
+    if (!isNearVertical && !isNearHorizontal) {
+      this.state.hoverWall = null;
+      this.canvas.style.cursor = 'default';
+      return;
+    }
+
+    // Определяем ближайший слот (перекресток)
+    const slotC = Math.round(x / this.CONFIG.cellSize) - 1;
+    const slotR_display = Math.round(y / this.CONFIG.cellSize) - 1;
+
+    if (slotC < 0 || slotC >= 8 || slotR_display < 0 || slotR_display >= 8) {
+      this.state.hoverWall = null;
+      this.canvas.style.cursor = 'default';
+      return;
+    }
+
+    // Ориентация: если клик ближе к вертикальному зазору, чем к горизонтальному
+    const distX = Math.min(relX, this.CONFIG.cellSize - relX);
+    const distY = Math.min(relY, this.CONFIG.cellSize - relY);
+    const isVertical = distX < distY;
+
+    // Трансформируем отображаемую строку в абсолютную
+    const slotR_absolute = this.myPlayerIndex === 1 ? 7 - slotR_display : slotR_display;
+
+    // Проверяем валидность
+    const isValid = this.state.players[this.state.currentPlayer].wallsLeft > 0 &&
+      Shared.checkWallPlacement(this.state, slotR_absolute, slotC, isVertical) &&
+      Shared.isValidWallPlacement(this.state); // Внимание: BFS может быть тяжелым, но для 9x9 ок
+
+    this.state.hoverWall = { r: slotR_absolute, c: slotC, isVertical, isValid };
+    this.canvas.style.cursor = isValid ? 'pointer' : 'not-allowed';
+  },
+
+  drawHoverWall() {
+    if (!this.state.hoverWall) return;
+
+    const { r, c, isVertical, isValid } = this.state.hoverWall;
+    if (!isValid && !this.state.drag) return; // Если невалидно и не тащим - не рисуем (или можно красным)
+
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.4;
+    this.ctx.fillStyle = isValid ? '#e09f3e' : '#ff4444';
+
+    const len = this.CONFIG.cellSize * 2;
+    const displayR = this.myPlayerIndex === 1 ? 7 - r : r;
+
+    if (isVertical) {
+      const x = (c + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+      const y = displayR * this.CONFIG.cellSize + this.CONFIG.gap;
+      this.ctx.fillRect(x, y, this.CONFIG.wallThick, len - this.CONFIG.gap * 2);
+    } else {
+      const x = c * this.CONFIG.cellSize + this.CONFIG.gap;
+      const y = (displayR + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+      this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
+    }
+    this.ctx.restore();
+  },
+
+  drawDebugZones() {
+    if (!this.debugControl) return;
+
+    this.ctx.save();
+    const margin = this.CONFIG.cellSize * 0.25;
+
+    // 1. Отрисовка зон "активности" в каждой ячейке
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const x = c * this.CONFIG.cellSize;
+        const y = this.transformRow(r) * this.CONFIG.cellSize;
+
+        this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.2)';
+        this.ctx.lineWidth = 1;
+
+        // Рисуем границы зон (margin)
+        this.ctx.strokeRect(x, y, margin, this.CONFIG.cellSize); // лево
+        this.ctx.strokeRect(x + this.CONFIG.cellSize - margin, y, margin, this.CONFIG.cellSize); // право
+        this.ctx.strokeRect(x, y, this.CONFIG.cellSize, margin); // верх
+        this.ctx.strokeRect(x, y + this.CONFIG.cellSize - margin, this.CONFIG.cellSize, margin); // низ
+      }
+    }
+
+    // 2. Отрисовка точек-перекрестков (слотов)
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const displayR = this.myPlayerIndex === 1 ? 7 - r : r;
+        const sx = (c + 1) * this.CONFIG.cellSize;
+        const sy = (displayR + 1) * this.CONFIG.cellSize;
+
+        this.ctx.fillStyle = 'cyan';
+        this.ctx.beginPath();
+        this.ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.fillText(`${r},${c}`, sx + 6, sy + 6);
+      }
+    }
+
+    // 3. Координаты мыши (логические)
+    if (window.lastPointerX !== undefined) {
+      this.ctx.fillStyle = 'yellow';
+      this.ctx.font = 'bold 24px Inter, sans-serif';
+      this.ctx.fillText(`X: ${Math.round(window.lastPointerX)} Y: ${Math.round(window.lastPointerY)}`, 20, 50);
+    }
+
+    this.ctx.restore();
+  },
+
   getNearestSlot(x, y) {
     const c = Math.round(x / this.CONFIG.cellSize) - 1;
     const r_display = Math.round(y / this.CONFIG.cellSize) - 1;
@@ -584,7 +769,10 @@ const Game = {
    * @returns {boolean} True, если стена успешно размещена и ход завершен.
    */
   placeWall(r, c, vertical) {
-    if (!Shared.checkWallPlacement(this.state, r, c, vertical)) return false;
+    if (!Shared.checkWallPlacement(this.state, r, c, vertical)) {
+      UI.AudioManager.play('error');
+      return false;
+    }
 
     // Временно ставим стену
     if (vertical) this.state.vWalls[r][c] = true;
@@ -595,11 +783,13 @@ const Game = {
       // Откатываем, если путь заблокирован
       if (vertical) this.state.vWalls[r][c] = false;
       else this.state.hWalls[r][c] = false;
+      UI.AudioManager.play('error');
       return false;
     }
 
     // Если все OK, уменьшаем счетчик стен
     this.state.players[this.state.currentPlayer].wallsLeft--;
+    UI.AudioManager.play('wall');
     return true;
   },
 
@@ -632,6 +822,9 @@ const Game = {
     this.updateTimerDisplay();
     this.startTimer();
     this.draw();
+
+    // 4. Озвучка хода
+    UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
   },
 
   /**
@@ -700,14 +893,8 @@ const Game = {
     const elBottomName = document.getElementById('bottomPlayerName');
     const elTopName = document.getElementById('topPlayerName');
 
-    if (elBottomName) elBottomName.textContent = (this.myPlayerIndex === -1) ? "Игрок 1 (Белый)" : "Вы";
-    if (elTopName) elTopName.textContent = (this.myPlayerIndex === -1) ? "Игрок 2 (Черный)" : "Оппонент";
-
-    // В локальном PvP можно писать "Белый" / "Черный"
-    if (this.myPlayerIndex === -1) {
-      if (elBottomName) elBottomName.textContent = "Белый";
-      if (elTopName) elTopName.textContent = "Черный";
-    }
+    if (elBottomName) elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
+    if (elTopName) elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
 
     // 4. Подсветка активного хода (CSS класс .active-turn)
     const bottomBar = document.getElementById('bottomPlayerBar');
@@ -745,8 +932,9 @@ const Game = {
   startWallDrag(vertical, e) {
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
+    const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount; // 1080
+    const scaleX = logicalSize / rect.width;
+    const scaleY = logicalSize / rect.height;
 
     this.state.drag = {
       type: 'wall',
@@ -786,10 +974,11 @@ const Game = {
       if (this.state.drag) return; // Игнорируем, если уже что-то перетаскивается
 
       const rect = this.canvas.getBoundingClientRect();
-      // SCALING FIX: account for CSS resizing
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount; // 1080
+      const scaleX = logicalSize / rect.width;
+      const scaleY = logicalSize / rect.height;
 
+      // Используем clientX/Y для pointer events (они работают и для touch)
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
 
@@ -798,9 +987,23 @@ const Game = {
       // Проверяем, находится ли нажатие в пределах радиуса фишки
       const px = (player.pos.c + 0.5) * this.CONFIG.cellSize;
       const py = (this.transformRow(player.pos.r) + 0.5) * this.CONFIG.cellSize;
-      if ((x - px) ** 2 + (y - py) ** 2 < (this.CONFIG.cellSize * 0.4) ** 2) {
+
+      const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
+      const hitRadius = this.CONFIG.cellSize * 0.6;
+
+      if (dist < hitRadius) {
+        e.preventDefault(); // Предотвращаем только если захватили фишку
         this.state.drag = { type: 'pawn', playerIdx: this.state.currentPlayer, x, y };
         this.canvas.style.cursor = 'grabbing';
+        this.draw();
+      }
+    });
+
+    window.addEventListener('keydown', e => {
+      // Toggle Debug Mode: Shift + D
+      if (e.shiftKey && e.code === 'KeyD') {
+        this.debugControl = !this.debugControl;
+        console.log('[DEBUG] Режим отладки:', this.debugControl ? 'ВКЛ' : 'ВЫКЛ');
         this.draw();
       }
     });
@@ -820,20 +1023,45 @@ const Game = {
     // === 7.2. Перемещение (pointermove) ===
     window.addEventListener('pointermove', e => {
       const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
+      const scaleX = logicalSize / rect.width;
+      const scaleY = logicalSize / rect.height;
 
       // Store raw client coords if needed, but for logic use scaled
       window.lastPointerX = (e.clientX - rect.left) * scaleX;
       window.lastPointerY = (e.clientY - rect.top) * scaleY;
 
-      if (Net.isOnline) {
-        const myIdx = Net.myColor === 'white' ? 0 : 1;
-        if (this.state.currentPlayer !== myIdx) return;
+      if (!this.state.drag) {
+        this.updateHoverWall(window.lastPointerX, window.lastPointerY);
+      } else {
+        this.state.drag.x = (e.clientX - rect.left) * scaleX;
+        this.state.drag.y = (e.clientY - rect.top) * scaleY;
+        this.state.hoverWall = null; // Убираем призрак при перетаскивании
       }
-      if (!this.state.drag) return;
-      this.state.drag.x = (e.clientX - rect.left) * scaleX;
-      this.state.drag.y = (e.clientY - rect.top) * scaleY;
+      this.draw();
+    });
+
+    this.canvas.addEventListener('pointerleave', () => {
+      this.state.hoverWall = null;
+      this.draw();
+    });
+
+    this.canvas.addEventListener('click', e => {
+      // Клик работает только если мы НЕ перетаскивали (drag был null)
+      if (this.state.drag) return;
+      if (!this.state.hoverWall || !this.state.hoverWall.isValid) return;
+
+      const { r, c, isVertical } = this.state.hoverWall;
+      const move = { type: 'wall', r, c, isVertical };
+
+      if (Net.isOnline) {
+        Net.sendMove(move);
+      } else {
+        if (this.placeWall(r, c, isVertical)) {
+          this.nextTurn();
+        }
+      }
+      this.state.hoverWall = null;
       this.draw();
     });
 
@@ -842,8 +1070,9 @@ const Game = {
       if (!this.state.drag) return;
 
       const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
+      const scaleX = logicalSize / rect.width;
+      const scaleY = logicalSize / rect.height;
 
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
@@ -875,8 +1104,11 @@ const Game = {
             const player = this.state.players[playerIdx];
             // Проверяем, что ход допустим (нужна реальная проверка, а не только потенциальный ход)
             if (Shared.canMovePawn(this.state, player.pos.r, player.pos.c, tr, tc)) {
-              player.pos = { r: tr, c: tc };
+              Game.state.players[playerIdx].pos = { r: potentialMove.r, c: potentialMove.c };
+              UI.AudioManager.play('move');
               if (!this.checkVictory()) this.nextTurn();
+            } else {
+              UI.AudioManager.play('error');
             }
 
           } else if (potentialMove.type === 'wall') {
@@ -1069,7 +1301,6 @@ const DemoBoard = {
       this.ctx.fillText(label, x + padding, y + padding);
     }
 
-    // Буквы a-i в нижней строке (правый нижний угол клетки)
     const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
     this.ctx.textBaseline = "bottom";
     this.ctx.textAlign = "right";

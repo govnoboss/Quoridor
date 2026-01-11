@@ -282,6 +282,10 @@ const AI = {
         }
 
         this.applyMove(Game.state, bestMove, botPlayer);
+
+        // Озвучка хода бота
+        UI.AudioManager.play(bestMove.type === 'pawn' ? 'move' : 'wall');
+
         Game.draw();
         if (Game.checkVictory()) return;
         Game.nextTurn();
