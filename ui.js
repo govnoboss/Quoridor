@@ -198,6 +198,7 @@ const UI = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    this.updateProfileBarVisibility();
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
@@ -257,6 +258,7 @@ const UI = {
         this.createPrivateRoom();
       }
     }
+    this.updateProfileBarVisibility();
   },
 
   hideDynamicPanel() {
@@ -274,6 +276,42 @@ const UI = {
     // В остальных случаях просто очищаем классы и скрываем контент
     document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
     container.classList.add('empty');
+    this.updateProfileBarVisibility();
+  },
+
+  updateProfileBarVisibility() {
+    const profileBar = document.getElementById('userProfileArea');
+    if (!profileBar) return;
+
+    const dynamicPanel = document.getElementById('dynamicPanel');
+    const isPanelOpen = dynamicPanel && !dynamicPanel.classList.contains('empty');
+    const activeScreen = document.querySelector('.screen.active');
+    const isMainMenu = activeScreen && activeScreen.id === 'mainMenu';
+    const isProfileModalOpen = document.getElementById('profileModal') && !document.getElementById('profileModal').classList.contains('hidden');
+
+    const isMobile = window.innerWidth <= 768;
+
+    // Rules:
+    // 1. If Profile Modal (User profile itself) is open - ALWAYS hide the small bar
+    if (isProfileModalOpen) {
+      profileBar.classList.add('hidden');
+      return;
+    }
+
+    // 2. If not in Main Menu (e.g. in Game or Room screen) - ALWAYS hide
+    if (!isMainMenu) {
+      profileBar.classList.add('hidden');
+      return;
+    }
+
+    // 3. If in Main Menu:
+    //    - On Mobile: Hide if a dynamic sub-panel (Rules, Settings) is open
+    //    - On PC: Stay visible even if a panel is open
+    if (isMobile && isPanelOpen) {
+      profileBar.classList.add('hidden');
+    } else {
+      profileBar.classList.remove('hidden');
+    }
   },
 
   setLanguage(lang) {
@@ -751,6 +789,248 @@ UI.selectBotDifficulty = function (diff) {
   UI.showScreen('colorSelectScreen');
 };
 
+// --- AUTHENTICATION ---
+UI.currentUser = null;
+
+UI.openAuthModal = function () {
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.remove('hidden');
+  this.switchAuthTab('login');
+};
+
+UI.closeAuthModal = function () {
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.add('hidden');
+};
+
+UI.switchAuthTab = function (tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.auth-tab[onclick*="${tab}"]`).classList.add('active');
+
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
+  document.getElementById(tab + 'Form').classList.remove('hidden');
+};
+
+UI.submitLogin = async function () {
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      this.handleAuthSuccess(data.user);
+      this.closeAuthModal();
+      this.showToast('Login successful!', 'info');
+      // Reload to re-establish socket with new session
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      this.showToast(data.error || 'Login failed', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    this.showToast('Network error', 'error');
+  }
+};
+
+UI.submitRegister = async function () {
+  const username = document.getElementById('regUsername').value;
+  const password = document.getElementById('regPassword').value;
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      this.handleAuthSuccess(data.user);
+      this.closeAuthModal();
+      this.showToast('Registration successful!', 'info');
+      // Reload to re-establish socket with new session
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      this.showToast(data.error || 'Registration failed', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    this.showToast('Network error', 'error');
+  }
+};
+
+UI.logout = async function () {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  this.currentUser = null;
+  this.updateAuthUI();
+  this.showToast('Logged out', 'info');
+  window.location.reload();
+};
+
+UI.checkSession = async function () {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if (data.isAuthenticated) {
+      this.handleAuthSuccess(data.user);
+    } else {
+      this.updateAuthUI();
+    }
+  } catch (e) {
+    console.error('Session check failed', e);
+  }
+};
+
+UI.handleAuthSuccess = function (user) {
+  this.currentUser = user;
+  this.updateAuthUI();
+};
+
+UI.updateAuthUI = function () {
+  const authBtn = document.getElementById('authBtn');
+  const userInfo = document.getElementById('userInfo');
+  const nameDisplay = document.getElementById('userNameDisplay');
+
+  if (authBtn && userInfo && nameDisplay) {
+    if (this.currentUser) {
+      authBtn.classList.add('hidden');
+      userInfo.classList.remove('hidden');
+      nameDisplay.textContent = this.currentUser.username;
+
+      // Update global avatar
+      const avatarImg = document.getElementById('userAvatarImg');
+      if (avatarImg && this.currentUser.avatarUrl) {
+        avatarImg.src = this.currentUser.avatarUrl;
+      }
+    } else {
+      authBtn.classList.remove('hidden');
+      userInfo.classList.add('hidden');
+    }
+  }
+};
+
+UI.showProfile = async function () {
+  try {
+    const res = await fetch('/api/user/profile');
+    const user = await res.json();
+    if (user.error) throw new Error(user.error);
+
+    // Fill Header
+    document.getElementById('profileUsername').textContent = user.username;
+    document.getElementById('profileAvatarLarge').src = user.avatarUrl || 'https://ui-avatars.com/api/?name=' + user.username + '&background=333&color=fff';
+    document.getElementById('profileStatusInput').value = user.status || '';
+
+    const regDate = new Date(user.createdAt).toLocaleDateString();
+    document.getElementById('profileRegDate').textContent = regDate;
+
+    // Fill Ratings
+    document.getElementById('ratingBullet').textContent = user.ratings?.bullet || 1200;
+    document.getElementById('ratingBlitz').textContent = user.ratings?.blitz || 1200;
+    document.getElementById('ratingRapid').textContent = user.ratings?.rapid || 1200;
+
+    // Load History
+    this.loadGameHistory();
+
+    // Open Modal
+    document.getElementById('profileModal').classList.remove('hidden');
+    // Call visibility update
+    this.updateProfileBarVisibility();
+  } catch (err) {
+    console.error('[PROFILE ERROR]', err);
+    this.showToast('Ошибка загрузки профиля', 'error');
+  }
+};
+
+UI.closeProfileModal = function () {
+  const modal = document.getElementById('profileModal');
+  if (modal) modal.classList.add('hidden');
+  // Call visibility update
+  UI.updateProfileBarVisibility();
+};
+
+UI.updateUserStatus = async function () {
+  const status = document.getElementById('profileStatusInput').value;
+  try {
+    const res = await fetch('/api/user/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (res.ok) {
+      this.showToast('Статус обновлен', 'success');
+    }
+  } catch (err) {
+    console.error('[STATUS UPDATE ERROR]', err);
+  }
+};
+
+UI.openAvatarPicker = async function () {
+  const newUrl = prompt('Введите URL новой аватарки (прямая ссылка на .png/.jpg):', this.currentUser?.avatarUrl || '');
+  if (newUrl && newUrl.startsWith('http')) {
+    try {
+      const res = await fetch('/api/user/update-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarUrl: newUrl })
+      });
+      if (res.ok) {
+        document.getElementById('profileAvatarLarge').src = newUrl;
+        document.getElementById('userAvatarImg').src = newUrl;
+        this.currentUser.avatarUrl = newUrl;
+        this.showToast('Аватарка обновлена', 'success');
+      }
+    } catch (err) {
+      console.error('[AVATAR UPDATE ERROR]', err);
+    }
+  }
+};
+
+UI.loadGameHistory = async function () {
+  try {
+    const res = await fetch('/api/user/history');
+    const games = await res.json();
+    const tbody = document.getElementById('archiveBody');
+    tbody.innerHTML = '';
+
+    if (games.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Партий еще нет</td></tr>';
+      return;
+    }
+
+    games.forEach(game => {
+      const isWhite = game.playerWhite.id === this.currentUser._id;
+      const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
+
+      let resultText = 'Ничья';
+      let resultClass = '';
+      if (game.winner !== -1) {
+        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
+        resultText = iWon ? 'Победа' : 'Поражение';
+        resultClass = iWon ? 'archive-result-win' : 'archive-result-loss';
+      }
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${game.gameType.toUpperCase()}</td>
+        <td>${this.currentUser.username} vs ${opponent}</td>
+        <td class="${resultClass}">${resultText}</td>
+        <td>${game.turns}</td>
+        <td>${new Date(game.date).toLocaleDateString()}</td>
+        <td><button class="mini-btn disabled">👁️</button></td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    console.error('[HISTORY ERROR]', err);
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';
   const savedLang = localStorage.getItem('quoridor-lang') || 'ru';
@@ -780,6 +1060,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Инициализация звука
   UI.AudioManager.init();
 
+  // Проверка сессии пользователя
+  UI.checkSession();
+
   // Проверка URL на наличие комнаты
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
@@ -798,5 +1081,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     UI.showToast(UI.translate('toast_room_code_from_link'), 'info');
   }
+
+  // Close modals on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      UI.closeProfileModal();
+      UI.closeAuthModal();
+      UI.hideDisconnectOverlay();
+      const confirmModal = document.getElementById('confirmModal');
+      if (confirmModal) confirmModal.style.display = 'none';
+    }
+  });
+
 });
 
