@@ -158,7 +158,16 @@ button:hover {
     align-items: center;
     justify-content: center;
     background: var(--bg);
-    transition: opacity .3s
+    transition: opacity .3s;
+    overflow-y: auto;
+    /* Allow scroll if content is tall */
+}
+
+@media (max-width: 900px) {
+    .screen {
+        justify-content: flex-start;
+        padding-top: env(safe-area-inset-top, 20px);
+    }
 }
 
 .screen:not(.active) {
@@ -1198,21 +1207,57 @@ kbd {
     }
 
     /* Ensure content fits on mobile screen */
+    .dynamic-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        max-width: none;
+        backdrop-filter: blur(5px);
+    }
+
+    .dynamic-panel:not(.empty) {
+        display: flex;
+    }
+
     .dynamic-content {
         width: 90%;
-        max-width: 280px;
+        max-width: 320px;
         max-height: 80vh;
         overflow-y: auto;
-
-        /* Center content itself */
-        margin: 0 auto;
-        background: rgba(40, 40, 40, 0.8);
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 0;
+        background: #2a2a2a;
+        padding: 25px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
         display: flex;
         flex-direction: column;
         align-items: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .close-panel-btn {
+        display: flex !important;
     }
 
     .room-join-group button,
@@ -1232,10 +1277,15 @@ kbd {
         #mainMenu .main-title {
             font-size: 1.8rem;
             margin-bottom: 10px;
+            padding-top: 10px;
         }
 
         #mainMenu .menu-layout {
-            gap: 5px;
+            flex-direction: column;
+            gap: 15px;
+            height: auto;
+            justify-content: flex-start;
+            align-items: center;
         }
 
         .board-preview {
