@@ -1137,21 +1137,18 @@ kbd {
     }
 
     #mainMenu .main-title {
-        margin-top: auto;
-        /* Pull to center on iPad */
-        margin-bottom: 25px;
+        margin-top: 10px;
+        margin-bottom: 15px;
         font-size: 2.2rem;
     }
 
-    /* === Main Menu === */
     #mainMenu .menu-layout {
         flex-direction: column;
         align-items: center;
         height: auto;
-        gap: 20px;
+        gap: 15px;
         width: 100%;
-        margin-bottom: auto;
-        /* Keep centered on iPad */
+        margin-bottom: 0;
     }
 
     .board-preview {
@@ -1271,45 +1268,24 @@ kbd {
         margin-bottom: 0px;
     }
 
-    /* --- SMARTPHONE & TABLET (Portrait) --- */
-    @media (max-width: 900px),
-    (max-height: 800px) {
+    /* --- SMALL MOBILE --- */
+    @media (max-width: 600px) {
         #mainMenu .main-title {
             font-size: 1.8rem;
-            margin-bottom: 10px;
-            padding-top: 10px;
-        }
-
-        #mainMenu .menu-layout {
-            flex-direction: column;
-            gap: 15px;
-            height: auto;
-            justify-content: flex-start;
-            align-items: center;
-        }
-
-        .board-preview {
-            align-items: center;
-            padding-left: 20px;
-            /* Reset desktop fixed padding */
         }
 
         #demoBoard {
-            max-width: 210px;
+            max-width: 180px;
             max-height: 25vh;
         }
 
         .menu-panel {
-            padding: 5px 20px;
-        }
-
-        .menu-panel .menu-buttons {
-            gap: 5px;
+            padding: 10px;
         }
 
         .menu-panel button {
-            padding: 10px 15px;
-            font-size: 1.1rem;
+            padding: 12px 15px;
+            font-size: 0.95rem;
         }
     }
 
