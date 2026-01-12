@@ -12,6 +12,7 @@ const Game = {
   debugControl: false, // Режим отладки зон наведения
   isTouchDevice: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0), // Детектирование мобильных
   wasDragging: false, // Флаг для предотвращения click после drag
+  viewHistoryIndex: -1, // Индекс просматриваемого хода из истории (-1 = текущая игра)
   /**
    * @typedef {object} GameConfig
    * @property {number} cellSize Размер одной ячейки в пикселях (60).
@@ -58,20 +59,100 @@ const Game = {
     drag: null,
     hoverWall: null, // { r, c, isVertical, isValid }
     botDifficulty: 'none',
-    history: []
+    history: [],
+    currentScreen: 'menu',
+    gameResult: null,
+    gameId: null // Уникальный ID сессии для localStorage
   },
+  isInputBlocked: false, // New: Block input flag
+
+  // Bind methods
+  // Assuming these binds would be in an init method, but placing them here as per diff.
+  // This might cause issues if Game is not instantiated as an object.
+  // For now, I'll place them as properties.
+  // If Game is a singleton object literal, these binds won't work as intended.
+  // If Game is a class, these would be in the constructor.
+  // Given the current structure, it's likely meant to be an object literal.
+  // I will interpret the instruction as adding these properties to the Game object.
+  // However, binding `this` in an object literal context like this is unusual.
+  // I will add them as properties, but note this might not be the intended use.
+  // The original code does not have `this.draw = this.draw.bind(this);` etc.
+  // I will add them as new properties to the Game object.
+  // The diff also seems to indicate a change to the `state` property itself,
+  // not just adding new properties.
+  // The diff provided for `this.state` is problematic as it includes `tory = [];`
+  // and `const notation = this.getNotation(move);` which are from `addToHistory`.
+  // I will assume the intent was to add `currentScreen` and `gameResult` to the `state` object,
+  // and `isInputBlocked`, `draw`, `loop`, `AI.init()` to the `Game` object itself.
+
+  // Re-evaluating the diff: it seems to be a partial diff from a larger refactor.
+  // The `this.state = { ... }` implies `Game` is a class or factory function,
+  // but the current code is an object literal.
+  // I will apply the changes to the `state` object literal directly,
+  // and add `isInputBlocked` as a new property to `Game`.
+  // The `bind` and `AI.init` lines are out of context for an object literal.
+  // I will skip the `bind` and `AI.init` lines as they don't fit the current code structure
+  // and the diff is clearly malformed there.
+  // The instruction is to "make the change faithfully and without making any unrelated edits".
+  // The provided diff for `this.state` is syntactically incorrect and out of place.
+  // I will only apply the `currentScreen` and `gameResult` to the `state` object,
+  // and `isInputBlocked` to the `Game` object.
+  // The `AI.makeMove` change is clear.
 
   addToHistory(move) {
     if (!this.state.history) this.state.history = [];
     const notation = this.getNotation(move);
+
+    // [New] Всегда сбрасываем режим просмотра при новом ходе
+    this.viewHistoryIndex = -1;
+
+    // Создаем снэпшот ТЕКУЩЕГО состояния ПОСЛЕ применения хода.
+    const snapshot = Shared.cloneState({
+      hWalls: this.state.hWalls,
+      vWalls: this.state.vWalls,
+      players: this.state.players,
+      currentPlayer: this.state.currentPlayer
+    });
+
     this.state.history.push({
       playerIdx: this.state.currentPlayer,
       move: { ...move },
       notation,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      snapshot: snapshot // Сохраняем состояние доски ПОСЛЕ хода
     });
+
+    // Сохраняем в LocalStorage для персистентности
+    this.saveHistoryLocal();
+
     if (typeof UI !== 'undefined' && UI.renderHistory) {
-      UI.renderHistory(this.state.history);
+      UI.renderHistory(this.state.history, this.viewHistoryIndex);
+    }
+  },
+
+  saveHistoryLocal() {
+    try {
+      if (this.state.gameId) {
+        localStorage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
+      }
+    } catch (e) {
+      console.error("[GAME] Failed to save history to localStorage", e);
+    }
+  },
+
+  loadHistoryLocal() {
+    try {
+      if (this.state.gameId) {
+        const saved = localStorage.getItem(`quoridor_hist_${this.state.gameId}`);
+        if (saved) {
+          this.state.history = JSON.parse(saved);
+          if (typeof UI !== 'undefined' && UI.renderHistory) {
+            UI.renderHistory(this.state.history, this.viewHistoryIndex);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[GAME] Failed to load history from localStorage", e);
     }
   },
 
@@ -105,12 +186,16 @@ const Game = {
     this.initialTime = initialTime;
     this.timers = [initialTime, initialTime];
 
+    // Генерируем ID игры для истории (например, из времени или серверного ID)
+    this.state.gameId = "online_" + (Net.roomCode || Date.now());
+
     console.log(`[GAME] Старт Онлайн. Я играю за: ${color} (Индекс: ${this.myPlayerIndex}), время: ${initialTime}s`);
 
     UI.showScreen('gameScreen');
     this.updateTimerDisplay();
     this.updateTurnDisplay();
     this.startTimer(); // Запускаем локальный таймер
+    this.loadHistoryLocal(); // Пробуем загрузить, если это реконнект
     this.draw();
   },
 
@@ -223,8 +308,14 @@ const Game = {
 
     // Clear history
     this.state.history = [];
+    this.viewHistoryIndex = -1; // Сброс просмотра при ресете
+    if (this.state.gameId) {
+      localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+    }
+    this.state.gameId = "local_" + Date.now();
+
     if (typeof UI !== 'undefined' && UI.renderHistory) {
-      UI.renderHistory(this.state.history);
+      UI.renderHistory(this.state.history, -1);
     }
 
     this.updateTimerDisplay();
@@ -347,20 +438,70 @@ const Game = {
   draw() {
     const size = this.CONFIG.cellSize * this.CONFIG.gridCount;
     this.ctx.clearRect(0, 0, size, size);
-    this.drawGrid();
+
+    // Если мы в режиме просмотра истории
+    const activeState = (this.viewHistoryIndex !== -1 && this.state.history[this.viewHistoryIndex])
+      ? this.state.history[this.viewHistoryIndex].snapshot
+      : this.state;
+
+    // Важно: drawGrid, drawCoordinates и другие должны использовать pos/walls из activeState
+    this.drawGrid(activeState);
     this.drawCoordinates();
-    this.drawPossibleMoves();
-    this.drawPlacedWalls();
-    this.drawPawns();
-    this.drawHoverWall();
-    this.drawDragPreview();
+    this.drawPossibleMoves(activeState);
+    this.drawPlacedWalls(activeState);
+    this.drawPawns(activeState);
+
+    // В режиме истории не рисуем призраки и превью
+    if (this.viewHistoryIndex === -1) {
+      this.drawHoverWall();
+      this.drawDragPreview();
+    }
+
     this.drawDebugZones();
+  },
+
+  setHistoryView(index) {
+    if (index < -1 || index >= this.state.history.length) return;
+    this.viewHistoryIndex = index;
+
+    if (typeof UI !== 'undefined' && UI.renderHistory) {
+      UI.renderHistory(this.state.history, this.viewHistoryIndex);
+    }
+    this.draw();
+  },
+
+  /**
+   * Перемещает индекс просмотра истории на указанное смещение.
+   * @param {number} direction Смещение (-1 назад, 1 вперед).
+   */
+  navigateHistory(direction) {
+    const histLen = this.state.history.length;
+    if (histLen === 0) return;
+
+    let nextIndex = this.viewHistoryIndex;
+
+    // Если мы в "живой" игре (-1)
+    if (nextIndex === -1) {
+      if (direction === -1) nextIndex = histLen - 1;
+      else return; // "Вперед" из живой игры нельзя
+    } else {
+      nextIndex += direction;
+    }
+
+    // Проверка границ:
+    // Если ушли за 0 (в начало), остаемся на 0
+    if (nextIndex < 0) nextIndex = 0;
+    // Если ушли за конец истории, возвращаемся в живую игру (-1)
+    if (nextIndex >= histLen) nextIndex = -1;
+
+    this.setHistoryView(nextIndex);
   },
 
   /**
    * Рисует сетку игрового поля 9x9 (темные квадраты).
    */
-  drawGrid() {
+  drawGrid(state) {
+    state = state || this.state;
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         const x = c * this.CONFIG.cellSize + 4;
@@ -410,9 +551,10 @@ const Game = {
   /**
    * Рисует фишки игроков в их текущих позициях.
    */
-  drawPawns() {
+  drawPawns(state) {
+    state = state || this.state;
     const radius = this.CONFIG.cellSize * 0.35;
-    this.state.players.forEach((p) => {
+    state.players.forEach((p) => {
       const x = (p.pos.c + 0.5) * this.CONFIG.cellSize;
       const y = (this.transformRow(p.pos.r) + 0.5) * this.CONFIG.cellSize;
       this.ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
@@ -428,7 +570,8 @@ const Game = {
   /**
    * Рисует все размещенные стены (горизонтальные и вертикальные).
    */
-  drawPlacedWalls() {
+  drawPlacedWalls(state) {
+    state = state || this.state;
     this.ctx.fillStyle = '#e09f3e';
     const len = this.CONFIG.cellSize * 2;
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
@@ -437,14 +580,14 @@ const Game = {
       const displayRWall = this.myPlayerIndex === 1 ? 7 - r : r;
 
       // Горизонтальные стены
-      if (this.state.hWalls[r][c]) {
+      if (state.hWalls[r][c]) {
         const x = c * this.CONFIG.cellSize + this.CONFIG.gap;
         // ИСПОЛЬЗУЕМ displayRWall (по сути, это отображаемая строка r-ячейки, над которой стена)
         const y = (displayRWall + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
         this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
       }
       // Вертикальные стены
-      if (this.state.vWalls[r][c]) {
+      if (state.vWalls[r][c]) {
         // Стена находится между столбцом c и c+1
         const x = (c + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
         // ИСПОЛЬЗУЕМ displayRWall
@@ -458,12 +601,13 @@ const Game = {
    * Рисует подсказки (зеленые круги) для возможных ходов фишки текущего игрока,
    * если он перетаскивает свою фишку.
    */
-  drawPossibleMoves() {
-    if (!this.state.drag || this.state.drag.type !== 'pawn' || this.state.drag.playerIdx !== this.state.currentPlayer) return;
-    const { r, c } = this.state.players[this.state.currentPlayer].pos;
+  drawPossibleMoves(state) {
+    state = state || this.state;
+    if (!state.drag || state.drag.type !== 'pawn' || state.drag.playerIdx !== state.currentPlayer) return;
+    const { r, c } = state.players[state.currentPlayer].pos;
 
     // Получаем все возможные целевые позиции
-    const moves = Shared.getJumpTargets(this.state, r, c);
+    const moves = Shared.getJumpTargets(state, r, c);
     for (const { r: nr, c: nc } of moves) {
       this.drawMoveHint(nr, nc, '#4ade80');
     }
@@ -615,11 +759,14 @@ const Game = {
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
   updateHoverWall(x, y) {
-    // На мобильных устройствах призраки не нужны — только перетаскивание
-    if (this.isTouchDevice) {
+    if (this.isInputBlocked || this.viewHistoryIndex !== -1) {
       this.state.hoverWall = null;
       return;
     }
+
+    // На мобильных устройствах (touch) призраки обычно не нужны, но на гибридных (ноутбуки с тачем) мешают.
+    // Мы полагаемся на то, что pointermove вызывается в основном мышью.
+    // if (this.isTouchDevice) { ... } // Удаляем жесткую блокировку
 
     if (this.state.drag || this.isGameOver) {
       this.state.hoverWall = null;
@@ -631,11 +778,13 @@ const Game = {
       const myIdx = Net.myColor === 'white' ? 0 : 1;
       if (this.state.currentPlayer !== myIdx) {
         this.state.hoverWall = null;
+        this.canvas.style.cursor = 'default';
         return;
       }
     } else if (this.state.botDifficulty !== 'none' && this.state.currentPlayer !== this.myPlayerIndex) {
       // В игре с ботом показываем только в наш ход
       this.state.hoverWall = null;
+      this.canvas.style.cursor = 'default';
       return;
     }
 
@@ -848,8 +997,6 @@ const Game = {
 
   applyServerMove(data) {
     const { playerIdx, move, nextPlayer } = data;
-    // Update history first
-    this.addToHistory({ ...move, playerIdx });
 
     console.log('[GAME] Сервер подтвердил ход:', data);
     // 1. Применяем изменения к локальному State
@@ -867,14 +1014,45 @@ const Game = {
     // 2. Обновляем текущего игрока
     this.state.currentPlayer = nextPlayer;
 
-    // 3. Обновляем UI
+    // 3. Добавляем в историю (теперь, когда state уже обновлен)
+    this.addToHistory({ ...move, playerIdx });
+
+    // 4. Обновляем UI
     this.updateTurnDisplay();
     this.updateTimerDisplay();
     this.startTimer();
     this.draw();
 
-    // 4. Озвучка хода
+    // 5. Озвучка хода
     UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
+  },
+
+  /**
+   * Применяет ход бота к состоянию игры.
+   * @param {object} move Ход бота.
+   */
+  applyBotMove(move) {
+    const playerIdx = this.state.currentPlayer;
+
+    if (move.type === 'pawn') {
+      this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+    } else if (move.type === 'wall') {
+      if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
+      else this.state.hWalls[move.r][move.c] = true;
+      this.state.players[playerIdx].wallsLeft--;
+    }
+
+    UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
+
+    // Добавляем в историю (снимите снэпшот ПОСЛЕ изменения позиций)
+    this.addToHistory({ ...move, playerIdx });
+
+    if (!this.checkVictory()) {
+      this.nextTurn();
+    }
+    this.isInputBlocked = false; // Разблокируем ввод после хода бота
+    this.canvas.style.cursor = 'default';
+    this.draw();
   },
 
   /**
@@ -903,9 +1081,10 @@ const Game = {
     if (this.state.botDifficulty !== 'none') {
       if (this.state.currentPlayer !== this.myPlayerIndex) {
         // Если текущий игрок — не мы, значит это бот
+        this.isInputBlocked = true; // Блокируем ввод пока бот думает
         setTimeout(() => {
           AI.makeMove(this.state.botDifficulty);
-        }, 100); // Небольшая задержка для естественности
+        }, 300); // 300ms delay for visual clarity
       }
     }
 
@@ -992,7 +1171,7 @@ const Game = {
       // 3. Либо это локальная игра (можно за всех), либо это "мой" игрок (онлайн)
       const isCurrentPlayerTurn = (this.state.currentPlayer === playerIdx);
       const isMyPlayer = (this.myPlayerIndex === playerIdx);
-      const interactive = isCurrentPlayerTurn && (localPlay || isMyPlayer) && !this.isGameOver;
+      const interactive = isCurrentPlayerTurn && (localPlay || isMyPlayer) && !this.isGameOver && !this.isInputBlocked;
 
       const wallsLeft = this.state.players[playerIdx].wallsLeft;
       el.innerHTML = '';
@@ -1003,9 +1182,15 @@ const Game = {
         piece.dataset.wallIndex = w;
 
         // Интерактивность
-        if (interactive && w < wallsLeft) {
+        if (w < wallsLeft) {
           piece.classList.add('interactive');
-          piece.onpointerdown = (e) => this.startWallDragFromInventory(e);
+          piece.onpointerdown = (e) => {
+            if (this.viewHistoryIndex !== -1) {
+              this.setHistoryView(-1);
+              return;
+            }
+            this.startWallDragFromInventory(e);
+          };
         }
 
         el.appendChild(piece);
@@ -1018,6 +1203,7 @@ const Game = {
    * @param {PointerEvent} e Событие указателя.
    */
   startWallDragFromInventory(e) {
+    if (this.isInputBlocked) return;
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     e.preventDefault();
 
@@ -1033,6 +1219,7 @@ const Game = {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY
     };
+    this.canvas.style.cursor = 'grabbing';
     this.state.hoverWall = null;
     this.draw();
   },
@@ -1043,6 +1230,7 @@ const Game = {
    * @param {PointerEvent} e Событие указателя.
    */
   startWallDrag(vertical, e) {
+    if (this.isInputBlocked) return;
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     const rect = this.canvas.getBoundingClientRect();
     const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount; // 1080
@@ -1055,6 +1243,7 @@ const Game = {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY
     };
+    this.canvas.style.cursor = 'grabbing';
     this.draw();
   },
 
@@ -1069,7 +1258,18 @@ const Game = {
   initEvents() {
     // === 7.1. Начало перетаскивания (pointerdown) ===
     this.canvas.addEventListener('pointerdown', e => {
-      // 1. Если онлайн и сейчас НЕ мой ход — запрещаем трогать
+      // [Advanced UX] Если мы в режиме просмотра истории — клик выбрасывает нас в игру
+      if (this.viewHistoryIndex !== -1) {
+        this.setHistoryView(-1);
+        this.ignoreNextClick = true; // Flag to skip the subsequent 'click' event
+        // Поглощаем событие, чтобы этот клик не стал сразу ходом в реальной игре
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return;
+      }
+
+      if (this.isGameOver) return;
+      // Если онлайн и сейчас НЕ мой ход — запрещаем трогать
       if (Net.isOnline) {
         const myIdx = Net.myColor === 'white' ? 0 : 1;
         if (this.state.currentPlayer !== myIdx) {
@@ -1082,7 +1282,9 @@ const Game = {
         // Но технически мы можем кликнуть по фишке врага. 
         // Добавьте проверку playerIdx в логике drag, чтобы drag создавался только для playerIdx === myIdx
       }
-      // Игнорируем нажатия, если ходит бот
+      // Игнорируем нажатия, если ходит бот или инпут заблокирован
+      if (this.isInputBlocked) return;
+      if (this.viewHistoryIndex !== -1) return; // Блокировка при просмотре истории
       if (this.state.currentPlayer !== this.myPlayerIndex && this.state.botDifficulty !== 'none') return;
       if (this.state.drag) return; // Игнорируем, если уже что-то перетаскивается
 
@@ -1104,7 +1306,10 @@ const Game = {
       const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
       const hitRadius = this.CONFIG.cellSize * 0.6;
 
-      if (dist < hitRadius) {
+      // Приоритет стене: если наведён валидный призрак стены, фишку не берём
+      const isWallHovered = this.state.hoverWall && this.state.hoverWall.isValid;
+
+      if (dist < hitRadius && !isWallHovered) {
         e.preventDefault(); // Предотвращаем только если захватили фишку
         this.state.hoverWall = null; // Убираем призрак при взятии фишки
         this.state.drag = { type: 'pawn', playerIdx: this.state.currentPlayer, x, y };
@@ -1114,6 +1319,14 @@ const Game = {
     });
 
     window.addEventListener('keydown', e => {
+      // Exit history mode on Escape
+      if (e.key === 'Escape' && this.viewHistoryIndex !== -1) {
+        this.setHistoryView(-1);
+        return;
+      }
+
+      if (this.isInputBlocked || this.viewHistoryIndex !== -1) return;
+      if (this.isGameOver) return;
       // Toggle Debug Mode: Shift + D
       if (e.shiftKey && e.code === 'KeyD') {
         this.debugControl = !this.debugControl;
@@ -1121,9 +1334,45 @@ const Game = {
         this.draw();
       }
 
+      // Игнорируем нажатия, если инпут заблокирован
+      if (this.isInputBlocked) return;
+
+      // Escape: Отмена перетаскивания
+      if (e.key === 'Escape' && this.state.drag) {
+        this.state.drag = null;
+        this.canvas.style.cursor = 'default';
+        this.draw();
+      }
+
       // Rotate wall: R key
       if (e.code === 'KeyR' && this.state.drag && this.state.drag.type === 'wall') {
         this.state.drag.isVertical = !this.state.drag.isVertical;
+        this.draw();
+      }
+
+      // H/V keys: Взять стену прямо под курсор
+      if (e.key === 'h' || e.key === 'H' || e.key === 'v' || e.key === 'V') {
+        const p = this.state.players[this.state.currentPlayer];
+        if (p.wallsLeft <= 0) return;
+
+        if (Net.isOnline) {
+          const myIdx = Net.myColor === 'white' ? 0 : 1;
+          if (this.state.currentPlayer !== myIdx) return;
+        }
+
+        const isVertical = (e.key === 'v' || e.key === 'V');
+        const rect = this.canvas.getBoundingClientRect();
+        const cursorX = window.lastPointerX ?? (rect.width / 2);
+        const cursorY = window.lastPointerY ?? (rect.height / 2);
+
+        this.state.drag = {
+          type: 'wall',
+          isVertical,
+          x: cursorX,
+          y: cursorY
+        };
+
+        this.canvas.style.cursor = 'grabbing';
         this.draw();
       }
     });
@@ -1147,6 +1396,7 @@ const Game = {
         this.state.drag.x = (e.clientX - rect.left) * scaleX;
         this.state.drag.y = (e.clientY - rect.top) * scaleY;
         this.state.hoverWall = null; // Убираем призрак при перетаскивании
+        this.wasDragging = true;
       }
       this.draw();
     });
@@ -1157,12 +1407,19 @@ const Game = {
     });
 
     this.canvas.addEventListener('click', e => {
+      // Skip click if it was used just to exit history mode
+      if (this.ignoreNextClick) {
+        this.ignoreNextClick = false;
+        return;
+      }
+
       // Если только что отпустили drag — игнорируем click
       if (this.wasDragging) {
         this.wasDragging = false;
         return;
       }
       // Клик работает только если мы НЕ перетаскивали (drag был null)
+      if (this.isInputBlocked) return;
       if (this.state.drag) return;
       if (!this.state.hoverWall || !this.state.hoverWall.isValid) return;
 
@@ -1233,74 +1490,32 @@ const Game = {
             // Проверяем, что есть стены и размещение прошло успешно
             if (this.state.players[playerIdx].wallsLeft > 0 &&
               this.placeWall(wr, wc, isVertical)) {
-              // Логика placeWall уже уменьшила wallsLeft и проверила победу (не блокирует ли путь)
               this.addToHistory(potentialMove);
               this.nextTurn();
+            } else {
+              // ...
             }
           }
         }
+      } else {
+        // Local play fail sound
+        UI.AudioManager.play('error');
       }
 
-      // Сбрасываем перетаскивание визуально
-      this.wasDragging = true; // Флаг чтобы click не сработал после drag
       this.state.drag = null;
       this.canvas.style.cursor = 'default';
-      this.draw(); // Перерисует фишку на СТАРОМ месте, пока сервер не ответит
+      this.draw();
     });
-
-    // === 7.4. Клавиатура и UI ===
-    window.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && this.state.drag) {
-        this.state.drag = null;
-        this.canvas.style.cursor = 'default';
-        this.draw();
-      }
-      if ((e.key === 'r' || e.key === 'R') && this.state.drag?.type === 'wall') {
-        this.state.drag.isVertical = !this.state.drag.isVertical;
-        this.draw();
-      }
-      if (e.key === 'h' || e.key === 'H' || e.key === 'v' || e.key === 'V') {
-
-        // 1. Проверка: есть ли стены у игрока
-        const p = this.state.players[this.state.currentPlayer];
-        if (p.wallsLeft <= 0) return;
-
-        // 2. Проверка: если онлайн — только если мой ход
-        if (Net.isOnline) {
-          const myIdx = Net.myColor === 'white' ? 0 : 1;
-          if (this.state.currentPlayer !== myIdx) return;
-        }
-
-        // 3. Определяем ориентацию по клавише
-        const isVertical = (e.key === 'v' || e.key === 'V');
-
-        // 4. Берём координаты курсора
-        const rect = this.canvas.getBoundingClientRect();
-        const cursorX = window.lastPointerX ?? (rect.width / 2);
-        const cursorY = window.lastPointerY ?? (rect.height / 2);
-
-        // 5. Создаём drag-объект стены прямо в руку
-        this.state.drag = {
-          type: 'wall',
-          isVertical,
-          x: cursorX,
-          y: cursorY
-        };
-
-        this.canvas.style.cursor = 'grabbing';
-        this.draw();
-        return;
-      }
-    });
-
-
   },
+
+
+
   surrender() {
     const loserIdx = (this.myPlayerIndex !== -1) ? this.myPlayerIndex : this.state.currentPlayer;
     const winnerIdx = 1 - loserIdx;
 
     this.stopTimer();
-    this.goToMainMenu();
+    this.handleGameOver(winnerIdx, 'surrender');
   },
 };
 

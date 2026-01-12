@@ -16,6 +16,16 @@
         return -1;
     };
 
+    /**
+     * Создает глубокую копию состояния игры для истории (snapshots).
+     * @param {object} state - Состояние для клонирования.
+     * @returns {object} Глубокая копия состояния.
+     */
+    exports.cloneState = function (state) {
+        // Простой и надежный способ глубокого клонирования для POJO
+        return JSON.parse(JSON.stringify(state));
+    };
+
     exports.isWallBetween = function (state, fr, fc, tr, tc) {
         const dr = tr - fr, dc = tc - fc;
         if (Math.abs(dr) + Math.abs(dc) !== 1) return true;

@@ -2,8 +2,8 @@ const UI = {
   // Добавленные переменные для таймера
   searchTimerInterval: null,
   searchTime: 0,
-  currentLang: 'ru',
-  currentRoomCode: null, // Храним код комнаты для сессии
+  currentLang: 'en',
+  currentRoomCode: null,
   selectedTime: null,
 
   translations: {
@@ -11,7 +11,7 @@ const UI = {
       menu_play_online: "⚡ Играть онлайн",
       menu_cancel_search: "Отменить поиск",
       menu_local_game: "🎮 Локальная игра",
-      menu_rules: "📖 Правила",
+      menu_rules: "📖 Как играть?",
       menu_settings: "⚙️ Настройки",
       pname_opponent: "Оппонент",
       pname_you: "Вы",
@@ -31,8 +31,8 @@ const UI = {
       btn_back: "Назад",
       screen_color_title: "Выберите сторону",
       color_white_hint: "Белые всегда ходят первыми",
-      btn_play_white: "⚪ Играть за Белых<br>(Вы ходите первым)",
-      btn_play_black: "⚫ Играть за Чёрных<br>(Бот ходит первым)",
+      btn_play_white: "⚪ Играть за Белых",
+      btn_play_black: "⚫ Играть за Чёрных",
       btn_surrender: "Сдаться",
       screen_settings_title: "Настройки",
       label_theme: "Тема:",
@@ -104,7 +104,7 @@ const UI = {
       menu_play_online: "⚡ Play Online",
       menu_cancel_search: "Cancel Search",
       menu_local_game: "🎮 Local Game",
-      menu_rules: "📖 Rules",
+      menu_rules: "📖 How to play?",
       menu_settings: "⚙️ Settings",
       pname_opponent: "Opponent",
       pname_you: "You",
@@ -124,8 +124,8 @@ const UI = {
       btn_back: "Back",
       screen_color_title: "Choose Side",
       color_white_hint: "White always moves first",
-      btn_play_white: "⚪ Play as White<br>(You move first)",
-      btn_play_black: "⚫ Play as Black<br>(Bot moves first)",
+      btn_play_white: "⚪ Play as White",
+      btn_play_black: "⚫ Play as Black",
       btn_surrender: "Surrender",
       screen_settings_title: "Settings",
       label_theme: "Theme:",
@@ -411,7 +411,7 @@ const UI = {
     }
   },
 
-  renderHistory(history) {
+  renderHistory(history, currentViewIndex = -1) {
     const list = document.getElementById('historyList');
     if (!list) return;
     list.innerHTML = '';
@@ -423,21 +423,41 @@ const UI = {
       const row = document.createElement('div');
       row.className = 'history-row';
 
+      // Белые
       const cellW = document.createElement('div');
       cellW.className = 'history-cell';
+      if (i === currentViewIndex) cellW.classList.add('active');
       cellW.textContent = (moveW.notation || '?');
+      cellW.onclick = () => Game.setHistoryView(i);
       row.appendChild(cellW);
 
+      // Черные
       if (moveB) {
         const cellB = document.createElement('div');
         cellB.className = 'history-cell';
+        if ((i + 1) === currentViewIndex) cellB.classList.add('active');
         cellB.textContent = (moveB.notation || '?');
+        cellB.onclick = () => Game.setHistoryView(i + 1);
         row.appendChild(cellB);
       }
 
       list.appendChild(row);
     }
     list.scrollTop = list.scrollHeight;
+
+    // Обновляем состояние кнопок управления историей
+    const btnFirst = document.getElementById('histFirst');
+    const btnPrev = document.getElementById('histPrev');
+    const btnNext = document.getElementById('histNext');
+    const btnLast = document.getElementById('histLast');
+
+    if (btnFirst && btnPrev && btnNext && btnLast) {
+      const histLen = history.length;
+      btnFirst.disabled = (histLen === 0 || currentViewIndex === 0);
+      btnPrev.disabled = (histLen === 0 || currentViewIndex === 0);
+      btnNext.disabled = (histLen === 0 || currentViewIndex === -1);
+      btnLast.disabled = (histLen === 0 || currentViewIndex === -1);
+    }
   },
 
   handleSurrender() {

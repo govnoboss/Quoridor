@@ -351,7 +351,12 @@
               <span data-i18n="pname_black">Black</span>
             </div>
             <div class="history-list" id="historyList"></div>
-            <!-- Future keys: <div class="history-controls">...</div> -->
+            <div class="history-controls">
+              <button id="histFirst" title="В начало" onclick="Game.setHistoryView(0)">«</button>
+              <button id="histPrev" title="Назад" onclick="Game.navigateHistory(-1)">‹</button>
+              <button id="histNext" title="Вперед" onclick="Game.navigateHistory(1)">›</button>
+              <button id="histLast" title="В конец" onclick="Game.setHistoryView(-1)">»</button>
+            </div>
           </div>
         </div>
         <div class="menu-actions">
