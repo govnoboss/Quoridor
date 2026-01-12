@@ -234,7 +234,7 @@ body.light canvas {
     /* Р¦РµРЅС‚СЂРёСЂСѓРµРј РїРѕ РІРµСЂС‚РёРєР°Р»Рё */
     justify-content: center;
     gap: 30px;
-    height: 100vh;
+    height: 100dvh;
     padding: 20px;
     box-sizing: border-box;
     overflow: hidden;
@@ -841,12 +841,12 @@ kbd {
 }
 
 .main-title {
-    font-size: 4rem;
+    font-size: 3rem;
     font-weight: 800;
     color: #e09f3e;
     text-align: center;
     margin: 0;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     z-index: 10;
     width: 100%;
     text-shadow: 0 4px 15px rgba(224, 159, 62, 0.2);
@@ -933,7 +933,7 @@ kbd {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 40px 30px;
+    padding: 20px 30px;
 }
 
 
@@ -1028,14 +1028,14 @@ kbd {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 20px;
-    padding: 30px 25px;
+    gap: 12px;
+    padding: 15px 25px;
 }
 
 .info-card {
     background: #262421;
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px;
     text-align: center;
 }
 
@@ -1043,12 +1043,12 @@ kbd {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 8px;
+    margin-bottom: 10px;
 }
 
 .info-card-header .info-icon {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
 }
 
 .info-card-header h3 {
@@ -1058,14 +1058,14 @@ kbd {
 }
 
 .info-card p {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-dim);
-    line-height: 1.5;
+    line-height: 1.4;
     margin: 0;
 }
 
 .info-hint {
-    margin-top: 15px !important;
+    margin-top: 10px !important;
     font-size: 0.75rem !important;
     opacity: 0.6;
     text-align: center;
@@ -1075,30 +1075,30 @@ kbd {
 .leaderboard {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
 
 .leaderboard-row {
     display: flex;
     align-items: center;
-    padding: 8px 10px;
+    padding: 6px 10px;
     background: #1a1a1a;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .leaderboard-row .rank {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #3a3a3a;
     border-radius: 50%;
     font-weight: bold;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: var(--accent);
-    margin-right: 12px;
+    margin-right: 10px;
 }
 
 .leaderboard-row:first-child .rank {
@@ -1128,8 +1128,8 @@ kbd {
     }
 
     #mainMenu .main-title {
-        margin-top: auto;
-        /* Pull to center on iPad */
+        margin-top: 15px;
+        /* Fixed top margin */
         margin-bottom: 25px;
         font-size: 2.2rem;
     }
@@ -1141,8 +1141,7 @@ kbd {
         height: auto;
         gap: 20px;
         width: 100%;
-        margin-bottom: auto;
-        /* Keep centered on iPad */
+        margin-bottom: 0px;
     }
 
     .board-preview {
@@ -1180,16 +1179,16 @@ kbd {
         top: 0;
         left: 0;
         width: 100vw;
-        height: 100vh;
+        height: 100dvh;
         max-width: none;
         background: rgba(0, 0, 0, 0.96);
         z-index: 9999;
-        padding: 60px 20px 20px;
+        padding: 80px 20px 20px;
         /* Top padding for close button space */
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         backdrop-filter: blur(10px);
     }
 
@@ -1280,7 +1279,7 @@ kbd {
         /* Minimal padding */
         gap: 0;
         justify-content: flex-start;
-        height: 100vh;
+        height: 100dvh;
         overflow: hidden;
     }
 
@@ -2061,4 +2060,87 @@ kbd {
 .history-controls button:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+/* --- AUTH STYLES --- */
+.auth-tabs {
+    display: flex;
+    background: #333;
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 20px;
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.auth-tab.active {
+    background: #555;
+    color: #fff;
+    font-weight: bold;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.auth-form input {
+    background: #222;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.auth-form input:focus {
+    border-color: #e09f3e;
+}
+
+.auth-error {
+    color: #f44336;
+    font-size: 13px;
+    text-align: center;
+    background: rgba(244, 67, 54, 0.1);
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    margin: 0;
+}
+
+.profile-card {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.5rem;
+    color: #e09f3e;
+}
+
+.profile-card p {
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+.profile-card .score {
+    font-weight: bold;
+    color: #fff;
 }

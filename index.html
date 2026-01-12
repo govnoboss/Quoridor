@@ -7,9 +7,20 @@
   <title>Quoridor</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="/style.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="/auth.css?v=1.0.1" type="text/css" />
 </head>
 
 <body>
+
+  <div id="userProfileArea" class="user-profile-bar">
+    <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 Login</button>
+    <div id="userInfo" class="user-info hidden" onclick="UI.showProfile()">
+      <div class="avatar-circle">
+        <img id="userAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
+      </div>
+      <span id="userNameDisplay">User</span>
+    </div>
+  </div>
 
   <div id="mainMenu" class="screen active">
     <!-- Заголовок для мобильных (над полем) -->
@@ -203,7 +214,7 @@
           </div>
           <button class="primary-btn" onclick="UI.saveSettingsInline()" data-i18n="btn_save">Сохранить</button>
         </div>
-      </div>
+      </div> <!-- Close dynamicPanel -->
 
       <!-- Инфо-панель справа (Советы и лидерборд) -->
       <div class="info-panel" id="infoPanel">
@@ -212,7 +223,8 @@
             <span class="info-icon">💡</span>
             <h3 data-i18n="info_tip_title">Совет дня</h3>
           </div>
-          <p id="dailyTip" data-i18n="info_tip_text">Стены — ваше главное оружие. Используйте их, чтобы удлинить путь
+          <p id="dailyTip" data-i18n="info_tip_text">Стены — ваше главное оружие. Используйте их, чтобы удлинить
+            путь
             соперника, но не блокируйте себя!</p>
         </div>
         <div class="info-card">
@@ -234,9 +246,9 @@
           </div>
           <p class="info-hint" data-i18n="info_hint">Рейтинг обновляется в реальном времени</p>
         </div>
-      </div>
-    </div>
-  </div>
+      </div> <!-- info-panel -->
+    </div> <!-- menu-layout -->
+  </div> <!-- mainMenu -->
 
 
   <div id="modeScreen" class="screen">
@@ -249,7 +261,8 @@
       <button onclick="UI.selectBotDifficulty('easy')" data-i18n="mode_bot_easy">Легкий бот</button>
       <button onclick="UI.selectBotDifficulty('medium')" data-i18n="mode_bot_medium">Средний бот</button>
       <button onclick="UI.selectBotDifficulty('hard')" data-i18n="mode_bot_hard">Сильный бот</button>
-      <button onclick="UI.selectBotDifficulty('impossible')" data-i18n="mode_bot_impossible">Непобедимый бот</button>
+      <button onclick="UI.selectBotDifficulty('impossible')" data-i18n="mode_bot_impossible">Непобедимый
+        бот</button>
     </div>
     <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
   </div>
@@ -291,7 +304,7 @@
       <!-- Блок входа -->
       <div class="room-section">
         <div class="room-join-group">
-          <input type="text" id="roomCodeInput" maxlength="5" placeholder="CODE"
+          <input type="text" id="roomCodeInputOld" maxlength="5" placeholder="CODE"
             style="text-transform: uppercase; text-align: center; font-size: 1.5rem; width: 140px; margin-right: 10px; border-radius: 8px; border: 2px solid #444; background: #222; color: #fff; padding: 10px;">
           <button class="secondary-btn" id="joinRoomBtn" onclick="UI.joinPrivateRoom()"
             data-i18n="btn_join_room">Войти</button>
@@ -505,6 +518,100 @@
       <div class="confirm-actions">
         <button class="primary-btn" id="confirmYes" data-i18n="btn_yes">Да</button>
         <button class="secondary-btn" id="confirmNo" data-i18n="btn_no">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="profileModal" class="modal-overlay hidden">
+    <div class="profile-modal-content">
+      <button class="close-panel-btn" onclick="UI.closeProfileModal()">×</button>
+
+      <div id="panelProfile">
+        <div class="profile-header">
+          <div class="profile-avatar-big" onclick="UI.openAvatarPicker()">
+            <img id="profileAvatarLarge" src="https://ui-avatars.com/api/?name=User&background=333&color=fff"
+              alt="Large Avatar">
+            <div class="avatar-edit-hint">📸</div>
+          </div>
+          <div class="profile-main-info">
+            <h2 id="profileUsername">Username</h2>
+            <div class="profile-status-wrapper">
+              <input type="text" id="profileStatusInput" placeholder="Введите статус..." maxlength="100"
+                onblur="UI.updateUserStatus()" onkeydown="if(event.key==='Enter') this.blur()">
+            </div>
+            <p class="join-date">Регистрация: <span id="profileRegDate">--.--.----</span></p>
+          </div>
+          <button class="logout-btn-profile" onclick="UI.logout()">Выйти из системы</button>
+        </div>
+
+        <div class="profile-stats-grid">
+          <div class="rating-card">
+            <span class="rating-label">Bullet</span>
+            <span class="rating-value" id="ratingBullet">1200</span>
+          </div>
+          <div class="rating-card">
+            <span class="rating-label">Blitz</span>
+            <span class="rating-value" id="ratingBlitz">1200</span>
+          </div>
+          <div class="rating-card">
+            <span class="rating-label">Rapid</span>
+            <span class="rating-value" id="ratingRapid">1200</span>
+          </div>
+        </div>
+
+        <div class="profile-archive">
+          <h3 data-api-i18n="profile_archive_title">Архив партий</h3>
+          <div class="archive-table-wrapper">
+            <table id="archiveTable">
+              <thead>
+                <tr>
+                  <th>Тип</th>
+                  <th>Игроки</th>
+                  <th>Результат</th>
+                  <th>Ходы</th>
+                  <th>Дата</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="archiveBody">
+                <!-- Заполняется динамически -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="authModal" class="modal-overlay hidden">
+    <div class="auth-content">
+      <button class="close-panel-btn" onclick="UI.closeAuthModal()">×</button>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="UI.switchAuthTab('login')" data-i18n="auth_login">Вход</button>
+        <button class="auth-tab" onclick="UI.switchAuthTab('register')" data-i18n="auth_register">Регистрация</button>
+      </div>
+
+      <div id="authFormContainer">
+        <!-- LOGIN FORM -->
+        <div id="loginForm" class="auth-form">
+          <input type="text" id="loginUsername" placeholder="Username" class="auth-input">
+          <input type="password" id="loginPassword" placeholder="Password" class="auth-input">
+          <div class="auth-actions">
+            <button class="primary-btn full-width" onclick="UI.submitLogin()"
+              data-i18n="btn_login_submit">Войти</button>
+          </div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerForm" class="auth-form hidden">
+          <input type="text" id="regUsername" placeholder="Username (min 3)" class="auth-input">
+          <input type="password" id="regPassword" placeholder="Password (min 6)" class="auth-input">
+          <div class="auth-actions">
+            <button class="primary-btn full-width" onclick="UI.submitRegister()"
+              data-i18n="btn_reg_submit">Зарегистрироваться</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -1,9 +1,12 @@
+require('dotenv').config(); // Загружаем переменные окружения из .env
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
 const Shared = require('./shared.js');
+const Redis = require('./server/redis.js'); // Redis wrapper module
 
 const app = express();
 app.set('trust proxy', 1); // Доверяем заголовкам от Nginx ( Cloudflare)
@@ -18,10 +21,171 @@ app.use((req, res, next) => {
 
 app.disable('x-powered-by');
 
+// --- DATABASE & AUTH SETUP ---
+const connectDB = require('./server/db');
+const User = require('./server/models/User');
+const GameResult = require('./server/models/GameResult'); // Архив игр
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const { RedisStore } = require('connect-redis'); // connect-redis v7+ named export
+const { createClient } = require('redis');
+
+// Подключаем MongoDB
+connectDB();
+
+const redisSessionClient = createClient({ url: process.env.REDIS_URL });
+redisSessionClient.connect().catch(console.error);
+
+// Настройка сессий
+const sessionMiddleware = session({
+    store: new RedisStore({ client: redisSessionClient, prefix: "sess:" }),
+    secret: process.env.SESSION_SECRET || 'super_secret_quoridor_key_change_me',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // ВАЖНО: false для HTTP (localhost), true для HTTPS
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 дней
+    }
+});
+
+app.use(express.json()); // Для парсинга JSON тела запросов
+app.use(sessionMiddleware);
+
+// --- AUTH API ROUTES ---
+
+// register
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: 'All fields required' });
+        if (password.length < 6) return res.status(400).json({ error: 'Password too short (min 6)' });
+
+        const existingUser = await User.findOne({ username });
+        if (existingUser) return res.status(400).json({ error: 'Username taken' });
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+
+        const newUser = new User({ username, passwordHash });
+        await newUser.save();
+
+        // Auto login
+        req.session.userId = newUser._id;
+        req.session.username = newUser.username;
+
+        res.status(201).json({ message: 'User created', user: { username: newUser.username, id: newUser._id } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
+
+        const user = await User.findOne({ username });
+        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+
+        const isMatch = await bcrypt.compare(password, user.passwordHash);
+        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+        // Create session
+        req.session.userId = user._id;
+        req.session.username = user.username;
+
+        res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// me
+app.get('/api/auth/me', async (req, res) => {
+    if (req.session && req.session.userId) {
+        try {
+            const user = await User.findById(req.session.userId).select('-passwordHash');
+            res.json({ isAuthenticated: true, user });
+        } catch (err) {
+            res.json({ isAuthenticated: false });
+        }
+    } else {
+        res.json({ isAuthenticated: false });
+    }
+});
+
+// --- PROFILE API ---
+
+// Get Profile Data
+app.get('/api/user/profile', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const user = await User.findById(req.session.userId).select('-passwordHash');
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update Status
+app.post('/api/user/update-status', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { status } = req.body;
+        if (status === undefined) return res.status(400).json({ error: 'Status required' });
+
+        await User.findByIdAndUpdate(req.session.userId, { status: status.substring(0, 100) });
+        res.json({ message: 'Status updated' });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update Avatar (By URL for now)
+app.post('/api/user/update-avatar', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { avatarUrl } = req.body;
+        if (!avatarUrl) return res.status(400).json({ error: 'Avatar URL required' });
+
+        await User.findByIdAndUpdate(req.session.userId, { avatarUrl });
+        res.json({ message: 'Avatar updated' });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get Game History
+app.get('/api/user/history', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const history = await GameResult.find({
+            $or: [{ 'playerWhite.id': req.session.userId }, { 'playerBlack.id': req.session.userId }]
+        }).sort({ date: -1 }).limit(20);
+        res.json(history);
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// logout
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) return res.status(500).json({ error: 'Could not log out' });
+        res.clearCookie('connect.sid');
+        res.json({ message: 'Logged out' });
+    });
+});
+// -----------------------
+
 // LAN-friendly Helmet Configuration
 app.use(helmet({
-    generateContentSecurityPolicy: false, // We customize it below
-    hsts: false, // Disable HSTS to allow HTTP on LAN
+    generateContentSecurityPolicy: false,
+    hsts: false,
 }));
 
 app.use(helmet.contentSecurityPolicy({
@@ -32,13 +196,11 @@ app.use(helmet.contentSecurityPolicy({
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
-        "img-src": ["'self'", "data:"],
+        "img-src": ["'self'", "https://ui-avatars.com"],
         "media-src": ["'self'", "data:"],
         "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io"]
     }
-}));
-
-
+})); // CLOSED Correctly
 
 const allowedOrigins = [
     'http://localhost:3000',
@@ -48,7 +210,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || process.env.NODE_ENV === 'production') {
             callback(null, true);
@@ -60,12 +221,15 @@ app.use(cors({
     credentials: true
 }));
 
+// Serve static files
+app.use(express.static(__dirname));
+
+// --- SERVER & SOCKET.IO INITIALIZATION ---
+// Create server instances FIRST, before using 'io'
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
         origin: (origin, callback) => {
-            // In production, we might want to restrict this, but for simple "play with friend", allowing all or self is easier.
-            // If serving static content from same domain, origin might be same.
             callback(null, true);
         },
         methods: ['GET', 'POST'],
@@ -76,10 +240,36 @@ const io = socketIo(server, {
     pingTimeout: 60000
 });
 
-let searchQueues = {}; // key: "base+inc" -> array players
-let lobbyCounter = 1;
-let activeGames = {}; // lobbyId -> GameState
-let privateRooms = {}; // roomCode -> { players: [{ socketId, token }], createdAt }
+// Share session with Socket.IO
+const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
+io.use(wrap(sessionMiddleware));
+
+// Socket Auth Middleware
+io.use((socket, next) => {
+    const session = socket.request.session;
+    if (session && session.userId) {
+        socket.userId = session.userId;
+        socket.username = session.username;
+        console.log(`[SOCKET] Authenticated user connected: ${socket.username}`);
+    } else {
+        // console.log(`[SOCKET] Guest connected: ${socket.id}`);
+        socket.username = `Guest-${socket.id.substr(0, 4)}`;
+    }
+    next();
+});
+
+// ============================================================
+// ХРАНИЛИЩЕ ДАННЫХ (Redis)
+// ============================================================
+// Все данные теперь хранятся в Redis:
+// - Игры: Redis.getGame(), Redis.saveGame()
+// - Комнаты: Redis.getRoom(), Redis.createRoom()
+// - Очереди: Redis.addToQueue(), Redis.popTwoFromQueue()
+// - Счётчик лобби: Redis.incrementLobbyCounter()
+
+// Локальный кеш для disconnect-таймеров (setTimeout нельзя сериализовать)
+// Формат: lobbyId -> { timer: setTimeout_id, disconnectedIdx: number }
+// Локальный кеш для disconnect-таймеров удален. Теперь используется Redis ZSET.
 
 /**
  * Генерирует короткий уникальный код комнаты.
@@ -187,6 +377,11 @@ io.on('connection', (socket) => {
     // Сохраняем токен в сокете для удобства
     socket.playerToken = token;
 
+    // Привязываем токен к userId, если игрок авторизован
+    if (socket.userId) {
+        Redis.setTokenUserMapping(token, socket.userId).catch(console.error);
+    }
+
     // Очистка памяти при отключении
     socket.on('disconnect', () => {
         rateLimits.delete(socket.id);
@@ -195,7 +390,7 @@ io.on('connection', (socket) => {
     console.log(`Пользователь подключен: ${socket.id}`);
 
     // --- ПОИСК ИГРЫ ---
-    socket.on('findGame', (data) => {
+    socket.on('findGame', async (data) => {
         if (!checkRateLimit(socket.id, 'findGame', 2, 5000)) {
             socket.emit('findGameFailed', { reason: 'Too many requests. Please wait.' });
             return;
@@ -203,89 +398,107 @@ io.on('connection', (socket) => {
 
         const token = data?.token;
         const tc = data?.timeControl || { base: 600, inc: 0 };
-        const tcKey = `${tc.base}+${tc.inc}`;
 
         if (!isValidToken(token)) return;
 
-        // Инициализируем очередь для этого контроля, если её нет
-        if (!searchQueues[tcKey]) searchQueues[tcKey] = [];
-        const queue = searchQueues[tcKey];
+        try {
+            // Удаляем из всех очередей, если игрок там был (защита от дублей)
+            await Redis.removeFromAllQueues(token);
 
-        // Удаляем из других очередей, если он там был (защита от дублей)
-        for (const key in searchQueues) {
-            const idx = searchQueues[key].findIndex(p => p.token === token);
-            if (idx > -1) searchQueues[key].splice(idx, 1);
-        }
+            // Добавляем в очередь
+            await Redis.addToQueue(tc.base, tc.inc, {
+                socketId: socket.id,
+                token: token,
+                timeControl: tc
+            });
+            console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}]`);
 
-        queue.push({ socketId: socket.id, token: token, timeControl: tc });
-        console.log(`[QUEUE] Player ${socket.id} joined queue [${tcKey}]`);
+            // Пробуем достать двух игроков
+            const pair = await Redis.popTwoFromQueue(tc.base, tc.inc);
 
-        if (queue.length >= 2) {
-            const pA = queue.shift();
-            const pB = queue.shift();
+            if (pair) {
+                const [pA, pB] = pair;
 
-            // Randomize White/Black
-            const swap = Math.random() > 0.5;
-            const p1 = swap ? pB : pA;
-            const p2 = swap ? pA : pB;
+                // Randomize White/Black
+                const swap = Math.random() > 0.5;
+                const p1 = swap ? pB : pA;
+                const p2 = swap ? pA : pB;
 
-            const lobbyId = `lobby-${lobbyCounter++}`;
+                const nextId = await Redis.incrementLobbyCounter();
+                const lobbyId = `lobby-${nextId}`;
 
-            const s1 = io.sockets.sockets.get(p1.socketId);
-            const s2 = io.sockets.sockets.get(p2.socketId);
+                const s1 = io.sockets.sockets.get(p1.socketId);
+                const s2 = io.sockets.sockets.get(p2.socketId);
 
-            if (s1 && s2) {
-                activeGames[lobbyId] = createInitialState(p1.timeControl);
-                activeGames[lobbyId].playerSockets[0] = p1.socketId;
-                activeGames[lobbyId].playerSockets[1] = p2.socketId;
-                activeGames[lobbyId].playerTokens[0] = p1.token;
-                activeGames[lobbyId].playerTokens[1] = p2.token;
+                if (s1 && s2) {
+                    const gameState = createInitialState(p1.timeControl);
+                    gameState.playerSockets[0] = p1.socketId;
+                    gameState.playerSockets[1] = p2.socketId;
+                    gameState.playerTokens[0] = p1.token;
+                    gameState.playerTokens[1] = p2.token;
 
-                s1.join(lobbyId);
-                s2.join(lobbyId);
-                s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2.token, initialTime: activeGames[lobbyId].timers[0] });
-                s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1.token, initialTime: activeGames[lobbyId].timers[1] });
-                console.log(`[GAME START] Lobby ${lobbyId} created for ${tcKey}. Random Swap: ${swap}`);
-            } else {
-                if (s1) queue.unshift(p1);
-                if (s2) queue.unshift(p2);
+                    // Сохраняем в Redis
+                    await Redis.saveGame(lobbyId, gameState);
+                    await Redis.addActiveGame(lobbyId);
+
+                    // Устанавливаем таймер хода
+                    const timeoutAt = Date.now() + gameState.timers[0] * 1000;
+                    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+
+                    // Сохраняем маппинг токенов для Rejoin
+                    await Redis.setTokenMapping(p1.token, lobbyId);
+                    await Redis.setTokenMapping(p2.token, lobbyId);
+
+                    s1.join(lobbyId);
+                    s2.join(lobbyId);
+                    s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2.token, initialTime: gameState.timers[0] });
+                    s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1.token, initialTime: gameState.timers[1] });
+                    console.log(`[GAME START] Lobby ${lobbyId} created for ${tc.base}+${tc.inc}. Random Swap: ${swap}`);
+                } else {
+                    // Один из игроков отключился — возвращаем в очередь
+                    if (s1) await Redis.addToQueue(tc.base, tc.inc, p1);
+                    if (s2) await Redis.addToQueue(tc.base, tc.inc, p2);
+                }
             }
+        } catch (err) {
+            console.error('[QUEUE ERROR]', err);
+            socket.emit('findGameFailed', { reason: 'Server error' });
         }
     });
 
-    socket.on('cancelSearch', () => {
-        for (const key in searchQueues) {
-            const index = searchQueues[key].findIndex(p => p.socketId === socket.id);
-            if (index > -1) {
-                searchQueues[key].splice(index, 1);
-                console.log(`[QUEUE] Player ${socket.id} left queue [${key}]`);
-            }
+    socket.on('cancelSearch', async () => {
+        try {
+            await Redis.removeFromAllQueues(socket.playerToken);
+            console.log(`[QUEUE] Player ${socket.id} left all queues`);
+        } catch (err) {
+            console.error('[CANCEL SEARCH ERROR]', err);
         }
     });
 
     // --- ПРИВАТНЫЕ КОМНАТЫ ---
-    socket.on('createRoom', (data) => {
+    socket.on('createRoom', async (data) => {
         const token = data?.token || socket.playerToken;
         if (!isValidToken(token)) return;
 
-        // Удаляем игрока из ВСЕХ очередей поиска, если он там был
-        for (const key in searchQueues) {
-            const idx = searchQueues[key].findIndex(p => p.socketId === socket.id);
-            if (idx > -1) searchQueues[key].splice(idx, 1);
+        try {
+            // Удаляем игрока из ВСЕХ очередей поиска, если он там был
+            await Redis.removeFromAllQueues(token);
+
+            const roomCode = generateRoomCode();
+            await Redis.createRoom(roomCode, {
+                players: [{ socketId: socket.id, token: token }]
+            });
+
+            socket.join(roomCode);
+            socket.emit('roomCreated', { roomCode });
+            console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
+        } catch (err) {
+            console.error('[CREATE ROOM ERROR]', err);
+            socket.emit('error', { message: 'Failed to create room' });
         }
-
-        const roomCode = generateRoomCode();
-        privateRooms[roomCode] = {
-            players: [{ socketId: socket.id, token: token }],
-            createdAt: Date.now()
-        };
-
-        socket.join(roomCode);
-        socket.emit('roomCreated', { roomCode });
-        console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
     });
 
-    socket.on('joinRoom', (data) => {
+    socket.on('joinRoom', async (data) => {
         const { roomCode, token } = data;
         const playerToken = token || socket.playerToken;
 
@@ -294,69 +507,90 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const normalizedCode = roomCode.toUpperCase().trim();
-        const room = privateRooms[normalizedCode];
+        try {
+            const normalizedCode = roomCode.toUpperCase().trim();
+            const room = await Redis.getRoom(normalizedCode);
 
-        if (!room) {
-            socket.emit('joinRoomFailed', { reason: 'Комната не найдена' });
-            return;
-        }
-
-        if (room.players.length >= 2) {
-            socket.emit('joinRoomFailed', { reason: 'Комната полна' });
-            return;
-        }
-
-        // Проверяем, не пытается ли игрок войти в свою же комнату с тем же токеном
-        if (room.players[0].token === playerToken) {
-            socket.emit('joinRoomFailed', { reason: 'Вы уже в этой комнате' });
-            return;
-        }
-
-        room.players.push({ socketId: socket.id, token: playerToken });
-        socket.join(normalizedCode);
-
-        console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
-
-        if (room.players.length === 2) {
-            // Randomize who goes first
-            const isSwap = Math.random() > 0.5;
-            const whitePlayer = isSwap ? room.players[1] : room.players[0];
-            const blackPlayer = isSwap ? room.players[0] : room.players[1];
-
-            const lobbyId = `lobby-${lobbyCounter++}`;
-
-            const sWhite = io.sockets.sockets.get(whitePlayer.socketId);
-            const sBlack = io.sockets.sockets.get(blackPlayer.socketId);
-
-            if (sWhite && sBlack) {
-                sWhite.join(lobbyId);
-                sBlack.join(lobbyId);
-
-                activeGames[lobbyId] = createInitialState({ base: 600, inc: 0 }); // Default for private rooms
-                activeGames[lobbyId].playerSockets[0] = whitePlayer.socketId;
-                activeGames[lobbyId].playerSockets[1] = blackPlayer.socketId;
-                activeGames[lobbyId].playerTokens[0] = whitePlayer.token;
-                activeGames[lobbyId].playerTokens[1] = blackPlayer.token;
-
-                sWhite.emit('gameStart', { lobbyId, color: 'white', opponent: blackPlayer.token });
-                sBlack.emit('gameStart', { lobbyId, color: 'black', opponent: whitePlayer.token });
-
-                console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
-                delete privateRooms[normalizedCode];
-            } else {
-                delete privateRooms[normalizedCode];
-                if (sWhite) sWhite.emit('joinRoomFailed', { reason: 'Противник отключился' });
-                else if (socket.id === whitePlayer.socketId) socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
-
-                // Fallback catch-all
-                socket.emit('joinRoomFailed', { reason: 'Ошибка подключения' });
+            if (!room) {
+                socket.emit('joinRoomFailed', { reason: 'Комната не найдена' });
+                return;
             }
+
+            if (room.players.length >= 2) {
+                socket.emit('joinRoomFailed', { reason: 'Комната полна' });
+                return;
+            }
+
+            // Проверяем, не пытается ли игрок войти в свою же комнату с тем же токеном
+            if (room.players[0].token === playerToken) {
+                socket.emit('joinRoomFailed', { reason: 'Вы уже в этой комнате' });
+                return;
+            }
+
+            room.players.push({ socketId: socket.id, token: playerToken });
+            socket.join(normalizedCode);
+
+            console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
+
+            if (room.players.length === 2) {
+                // Randomize who goes first
+                const isSwap = Math.random() > 0.5;
+                const whitePlayer = isSwap ? room.players[1] : room.players[0];
+                const blackPlayer = isSwap ? room.players[0] : room.players[1];
+
+                const nextId = await Redis.incrementLobbyCounter();
+                const lobbyId = `lobby-${nextId}`;
+
+                const sWhite = io.sockets.sockets.get(whitePlayer.socketId);
+                const sBlack = io.sockets.sockets.get(blackPlayer.socketId);
+
+                if (sWhite && sBlack) {
+                    sWhite.join(lobbyId);
+                    sBlack.join(lobbyId);
+
+                    const gameState = createInitialState({ base: 600, inc: 0 }); // Default for private rooms
+                    gameState.playerSockets[0] = whitePlayer.socketId;
+                    gameState.playerSockets[1] = blackPlayer.socketId;
+                    gameState.playerTokens[0] = whitePlayer.token;
+                    gameState.playerTokens[1] = blackPlayer.token;
+
+                    // Сохраняем в Redis
+                    await Redis.saveGame(lobbyId, gameState);
+                    await Redis.addActiveGame(lobbyId);
+
+                    // Устанавливаем таймер хода (по умолчанию 600 сек для приватных комнат)
+                    const timeoutAt = Date.now() + 600 * 1000;
+                    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+
+                    // Сохраняем маппинг токенов для Rejoin
+                    await Redis.setTokenMapping(whitePlayer.token, lobbyId);
+                    await Redis.setTokenMapping(blackPlayer.token, lobbyId);
+
+                    sWhite.emit('gameStart', { lobbyId, color: 'white', opponent: blackPlayer.token });
+                    sBlack.emit('gameStart', { lobbyId, color: 'black', opponent: whitePlayer.token });
+
+                    console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
+                    await Redis.deleteRoom(normalizedCode);
+                } else {
+                    await Redis.deleteRoom(normalizedCode);
+                    if (sWhite) sWhite.emit('joinRoomFailed', { reason: 'Противник отключился' });
+                    else if (socket.id === whitePlayer.socketId) socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
+
+                    // Fallback catch-all
+                    socket.emit('joinRoomFailed', { reason: 'Ошибка подключения' });
+                }
+            } else {
+                // Обновляем комнату с новым игроком
+                await Redis.updateRoom(normalizedCode, room);
+            }
+        } catch (err) {
+            console.error('[JOIN ROOM ERROR]', err);
+            socket.emit('joinRoomFailed', { reason: 'Ошибка сервера' });
         }
     });
 
     // --- REJOIN GAME ---
-    socket.on('rejoinGame', (data) => {
+    socket.on('rejoinGame', async (data) => {
         const token = data?.token;
 
         // Валидация входных данных
@@ -368,9 +602,22 @@ io.on('connection', (socket) => {
         const shortToken = '...' + token.substr(-4);
         console.log(`[REJOIN] Attempting rejoin for token ${shortToken}`);
 
-        // Find game with this token
-        for (const lobbyId in activeGames) {
-            const game = activeGames[lobbyId];
+        try {
+            // Ищем lobbyId по токену в Redis
+            const lobbyId = await Redis.getLobbyByToken(token);
+
+            if (!lobbyId) {
+                console.log(`[REJOIN] No active game found for token.`);
+                return;
+            }
+
+            const game = await Redis.getGame(lobbyId);
+
+            if (!game) {
+                console.log(`[REJOIN] Game ${lobbyId} not found in Redis.`);
+                return;
+            }
+
             const pIdx = game.playerTokens.indexOf(token);
 
             if (pIdx !== -1) {
@@ -381,14 +628,11 @@ io.on('connection', (socket) => {
                 game.playerSockets[pIdx] = socket.id;
                 socket.join(lobbyId);
 
-                // 2. Clear disconnect timer if it exists
-                if (game.disconnectTimer) {
-                    clearTimeout(game.disconnectTimer);
-                    game.disconnectTimer = null;
-                    console.log(`[REJOIN] Disconnect timer cleared for ${lobbyId}`);
-                }
+                // 2. Таймер дисконнекта теперь обрабатывается пульсом (setInterval).
+                // Мы просто обновляем сокет и помечаем игрока как присутствующего.
+                await Redis.saveGame(lobbyId, game);
 
-                // 3. Send Resume event
+                // 4. Send Resume event
                 socket.emit('gameResumed', {
                     lobbyId,
                     color: pIdx === 0 ? 'white' : 'black',
@@ -397,20 +641,20 @@ io.on('connection', (socket) => {
                     timers: game.timers
                 });
 
-                // 4. Notify opponent
+                // 5. Notify opponent
                 const opponentSocket = game.playerSockets[1 - pIdx];
                 if (opponentSocket) {
                     io.to(opponentSocket).emit('opponentReconnected');
                 }
-                return;
             }
+        } catch (err) {
+            console.error('[REJOIN ERROR]', err);
         }
-        console.log(`[REJOIN] No active game found for token.`);
     });
 
 
     // --- ОБРАБОТКА ХОДА (SERVER AUTHORITATIVE) ---
-    socket.on('playerMove', (data) => {
+    socket.on('playerMove', async (data) => {
         // Rate Limiting: 5 moves per 1 second
         if (!checkRateLimit(socket.id, 'move', 5, 1000)) {
             socket.emit('moveRejected', { reason: 'Too many moves' });
@@ -437,114 +681,145 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const game = activeGames[lobbyId];
+        try {
+            const game = await Redis.getGame(lobbyId);
 
-        if (!game) {
-            socket.emit('moveRejected', { reason: 'Game not found' });
-            return;
-        }
-
-        const now = Date.now();
-        const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
-        const playerIdx = game.playerSockets.indexOf(socket.id);
-
-        game.timers[game.currentPlayer] -= elapsed;
-        game.lastMoveTimestamp = now;
-
-        if (game.timers[playerIdx] < 0) {
-            if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
-            io.to(lobbyId).emit('gameOver', {
-                winnerIdx: 1 - playerIdx,
-                reason: 'Time out'
-            });
-            delete activeGames[lobbyId];
-            return;
-        }
-
-        // 1. Проверка очередности хода
-        if (playerIdx !== game.currentPlayer) {
-            console.log(`[WARN] Игрок ${socket.id} пытался походить не в свою очередь.`);
-            socket.emit('moveRejected', { reason: 'Not your turn' });
-            return;
-        }
-
-        let valid = false;
-
-        // 2. Валидация хода через Shared логику
-        if (move.type === 'pawn') {
-            const currentPos = game.players[playerIdx].pos;
-            if (Shared.canMovePawn(game, currentPos.r, currentPos.c, move.r, move.c)) {
-                // Применяем ход к серверному состоянию
-                game.players[playerIdx].pos = { r: move.r, c: move.c };
-                valid = true;
-            }
-        } else if (move.type === 'wall') {
-            if (game.players[playerIdx].wallsLeft > 0 &&
-                Shared.checkWallPlacement(game, move.r, move.c, move.isVertical)) {
-
-                // Временно ставим стену для проверки пути
-                if (move.isVertical) game.vWalls[move.r][move.c] = true;
-                else game.hWalls[move.r][move.c] = true;
-
-                if (Shared.isValidWallPlacement(game)) {
-                    game.players[playerIdx].wallsLeft--;
-                    valid = true;
-                } else {
-                    // Откат, если заблокировал путь
-                    if (move.isVertical) game.vWalls[move.r][move.c] = false;
-                    else game.hWalls[move.r][move.c] = false;
-                }
-            }
-        }
-
-        if (valid) {
-            console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
-
-            // Record move to history
-            game.history.push({
-                playerIdx,
-                move,
-                timestamp: Date.now()
-            });
-
-            // --- НОВАЯ ЛОГИКА: ПРОВЕРКА ПОБЕДЫ ---
-            const winnerIdx = checkVictory(game);
-            if (winnerIdx !== -1) {
-                console.log(`[GAME OVER] Лобби ${lobbyId}: Игрок ${winnerIdx} победил, достигнув цели.`);
-
-                if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
-                io.to(lobbyId).emit('gameOver', {
-                    winnerIdx: winnerIdx,
-                    reason: 'Goal reached'
-                });
-                delete activeGames[lobbyId];
+            if (!game) {
+                socket.emit('moveRejected', { reason: 'Game not found' });
                 return;
             }
-            // ----------------------------------------
 
-            // Переключаем ход (если игра не окончена)
-            game.currentPlayer = 1 - game.currentPlayer;
+            const now = Date.now();
+            const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
+            const playerIdx = game.playerSockets.indexOf(socket.id);
 
-            // Добавляем инкремент (Fisher)
-            if (game.increment > 0) {
-                game.timers[playerIdx] += game.increment;
+            game.timers[game.currentPlayer] -= elapsed;
+            game.lastMoveTimestamp = now;
+
+            if (game.timers[playerIdx] < 0) {
+                // Очищаем таймеры в Redis
+                await Redis.clearDisconnectTimer(lobbyId);
+                await Redis.clearTurnTimeout(lobbyId);
+
+                io.to(lobbyId).emit('gameOver', {
+                    winnerIdx: 1 - playerIdx,
+                    reason: 'Time out'
+                });
+
+                // Удаляем игру и маппинги токенов
+                await Redis.deleteGame(lobbyId);
+                await Redis.removeActiveGame(lobbyId);
+                await Redis.deleteTokenMapping(game.playerTokens[0]);
+                await Redis.deleteTokenMapping(game.playerTokens[1]);
+                return;
             }
 
-            // Отправляем подтверждение всем
-            io.to(lobbyId).emit('serverMove', {
-                playerIdx: playerIdx,
-                move: move,
-                nextPlayer: game.currentPlayer,
-                timers: game.timers
-            });
-        }
-        else {
-            console.log(`[MOVE INVALID] Лобби ${lobbyId}, Ход отклонен.`);
-            socket.emit('moveRejected', { reason: 'Invalid move' });
+            // 1. Проверка очередности хода
+            if (playerIdx !== game.currentPlayer) {
+                console.log(`[WARN] Игрок ${socket.id} пытался походить не в свою очередь.`);
+                socket.emit('moveRejected', { reason: 'Not your turn' });
+                return;
+            }
+
+            let valid = false;
+
+            // 2. Валидация хода через Shared логику
+            if (move.type === 'pawn') {
+                const currentPos = game.players[playerIdx].pos;
+                if (Shared.canMovePawn(game, currentPos.r, currentPos.c, move.r, move.c)) {
+                    // Применяем ход к серверному состоянию
+                    game.players[playerIdx].pos = { r: move.r, c: move.c };
+                    valid = true;
+                }
+            } else if (move.type === 'wall') {
+                if (game.players[playerIdx].wallsLeft > 0 &&
+                    Shared.checkWallPlacement(game, move.r, move.c, move.isVertical)) {
+
+                    // Временно ставим стену для проверки пути
+                    if (move.isVertical) game.vWalls[move.r][move.c] = true;
+                    else game.hWalls[move.r][move.c] = true;
+
+                    if (Shared.isValidWallPlacement(game)) {
+                        game.players[playerIdx].wallsLeft--;
+                        valid = true;
+                    } else {
+                        // Откат, если заблокировал путь
+                        if (move.isVertical) game.vWalls[move.r][move.c] = false;
+                        else game.hWalls[move.r][move.c] = false;
+                    }
+                }
+            }
+
+            if (valid) {
+                console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
+
+                // Record move to history
+                game.history.push({
+                    playerIdx,
+                    move,
+                    timestamp: Date.now()
+                });
+
+                // --- НОВАЯ ЛОГИКА: ПРОВЕРКА ПОБЕДЫ ---
+                const winnerIdx = checkVictory(game);
+                if (winnerIdx !== -1) {
+                    console.log(`[GAME OVER] Лобби ${lobbyId}: Игрок ${winnerIdx} победил, достигнув цели.`);
+
+                    // Очищаем таймеры в Redis
+                    await Redis.clearDisconnectTimer(lobbyId);
+                    await Redis.clearTurnTimeout(lobbyId);
+
+                    io.to(lobbyId).emit('gameOver', {
+                        winnerIdx: winnerIdx,
+                        reason: 'Goal reached'
+                    });
+
+                    // Сохраняем в архив
+                    await archiveGame(game, winnerIdx, 'goal', lobbyId);
+
+                    // Удаляем игру и маппинги токенов
+                    await Redis.deleteGame(lobbyId);
+                    await Redis.removeActiveGame(lobbyId);
+                    await Redis.deleteTokenMapping(game.playerTokens[0]);
+                    await Redis.deleteTokenMapping(game.playerTokens[1]);
+                    return;
+                }
+                // ----------------------------------------
+
+                // Переключаем ход (если игра не окончена)
+                game.currentPlayer = 1 - game.currentPlayer;
+
+                // Добавляем инкремент (Fisher)
+                if (game.increment > 0) {
+                    game.timers[playerIdx] += game.increment;
+                }
+
+                // Сохраняем обновлённое состояние в Redis
+                await Redis.saveGame(lobbyId, game);
+
+                // Обновляем таймер хода в Redis
+                const nextTimeoutAt = Date.now() + game.timers[game.currentPlayer] * 1000;
+                await Redis.setTurnTimeout(lobbyId, nextTimeoutAt);
+
+                // Отправляем подтверждение всем
+                io.to(lobbyId).emit('serverMove', {
+                    playerIdx: playerIdx,
+                    move: move,
+                    nextPlayer: game.currentPlayer,
+                    timers: game.timers
+                });
+            }
+            else {
+                console.log(`[MOVE INVALID] Лобби ${lobbyId}, Ход отклонен.`);
+                socket.emit('moveRejected', { reason: 'Invalid move' });
+            }
+        } catch (err) {
+            console.error('[PLAYER MOVE ERROR]', err);
+            socket.emit('moveRejected', { reason: 'Server error' });
         }
     });
 
-    socket.on('surrender', (data) => {
+    socket.on('surrender', async (data) => {
         // Валидация входных данных
         if (!data || typeof data !== 'object') {
             console.log(`[VALIDATION] surrender: invalid data from ${socket.id}`);
@@ -558,125 +833,287 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const game = activeGames[lobbyId];
+        try {
+            const game = await Redis.getGame(lobbyId);
 
-        if (game) {
-            const surrenderingIdx = game.playerSockets.indexOf(socket.id);
+            if (game) {
+                const surrenderingIdx = game.playerSockets.indexOf(socket.id);
 
-            if (surrenderingIdx !== -1) {
-                const winnerIdx = 1 - surrenderingIdx;
+                if (surrenderingIdx !== -1) {
+                    const winnerIdx = 1 - surrenderingIdx;
 
-                if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
+                    // Очищаем таймеры в Redis
+                    await Redis.clearDisconnectTimer(lobbyId);
+                    await Redis.clearTurnTimeout(lobbyId);
 
-                console.log(`[SURRENDER] Лобби ${lobbyId}: Игрок ${surrenderingIdx} сдался.`);
+                    console.log(`[SURRENDER] Лобби ${lobbyId}: Игрок ${surrenderingIdx} сдался.`);
 
-                io.to(lobbyId).emit('gameOver', {
-                    winnerIdx: winnerIdx,
-                    reason: 'Surrender'
-                });
+                    io.to(lobbyId).emit('gameOver', {
+                        winnerIdx: winnerIdx,
+                        reason: 'Surrender'
+                    });
 
-                delete activeGames[lobbyId];
+                    // Сохраняем в архив
+                    await archiveGame(game, winnerIdx, 'surrender', lobbyId);
+
+                    // Удаляем игру и маппинги токенов
+                    await Redis.deleteGame(lobbyId);
+                    await Redis.removeActiveGame(lobbyId);
+                    await Redis.deleteTokenMapping(game.playerTokens[0]);
+                    await Redis.deleteTokenMapping(game.playerTokens[1]);
+                }
             }
-        } else {
-            // console.error(`[SURRENDER ERROR] Игра ${lobbyId} не найдена.`);
+        } catch (err) {
+            console.error('[SURRENDER ERROR]', err);
         }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
         console.log(`[DISCONNECT] Пользователь отключен: ${socket.id}`);
 
-        // Remove from search queues
-        for (const key in searchQueues) {
-            const index = searchQueues[key].findIndex(p => p.socketId === socket.id);
-            if (index > -1) searchQueues[key].splice(index, 1);
-        }
-
-        // Check active games for disconnects
-        for (const lobbyId in activeGames) {
-            const game = activeGames[lobbyId];
-            const disconnectedIdx = game.playerSockets.indexOf(socket.id);
-
-            if (disconnectedIdx !== -1) {
-                console.log(`[GAME SUSPEND] Player ${disconnectedIdx} disconnected from ${lobbyId}. Starting grace period.`);
-
-                // Notify opponent
-                const opponentSocket = game.playerSockets[1 - disconnectedIdx];
-                if (opponentSocket) {
-                    io.to(opponentSocket).emit('opponentDisconnected');
-                }
-
-                // Start 30s Grace Period
-                if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
-
-                // If BOTH disconnect, kill it immediately to save resources? Or wait? 
-                // Let's just wait. If both gone, timer will kill.
-
-                game.disconnectTimer = setTimeout(() => {
-                    console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
-
-                    const winnerIdx = 1 - disconnectedIdx;
-                    const winnerSocketId = game.playerSockets[winnerIdx];
-
-                    // Notify winner if they are still there
-                    if (winnerSocketId) {
-                        io.to(winnerSocketId).emit('gameOver', {
-                            winnerIdx: winnerIdx,
-                            reason: 'Opponent disconnected'
-                        });
-                    }
-
-                    delete activeGames[lobbyId];
-                }, 30000); // 30 seconds
-
-                break;
+        try {
+            // Remove from search queues
+            if (socket.playerToken) {
+                await Redis.removeFromAllQueues(socket.playerToken);
             }
+
+            // Check active games for disconnects
+            // Нужно найти игру по токену игрока
+            if (socket.playerToken) {
+                const lobbyId = await Redis.getLobbyByToken(socket.playerToken);
+
+                if (lobbyId) {
+                    const game = await Redis.getGame(lobbyId);
+
+                    if (game) {
+                        const disconnectedIdx = game.playerSockets.indexOf(socket.id);
+
+                        if (disconnectedIdx !== -1) {
+                            // Start 30s Grace Period in Redis
+                            await Redis.setDisconnectTimer(lobbyId, 30000);
+                            // Pause turn timer
+                            await Redis.clearTurnTimeout(lobbyId);
+
+                            console.log(`[GAME SUSPEND] Player ${disconnectedIdx} disconnected from ${lobbyId}. Starting grace period.`);
+
+                            // Notify opponent
+                            const opponentSocket = game.playerSockets[1 - disconnectedIdx];
+                            if (opponentSocket) {
+                                io.to(opponentSocket).emit('opponentDisconnected');
+                            }
+
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[DISCONNECT ERROR]', err);
         }
     });
 });
+
+// Новый асинхронный хендлер для завершения игры (Disconnect Timeout)
+async function handleDisconnectTimeout(lobbyId) {
+    console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
+    const game = await Redis.getGame(lobbyId);
+    if (game) {
+        const s0 = io.sockets.sockets.get(game.playerSockets[0]);
+        const s1 = io.sockets.sockets.get(game.playerSockets[1]);
+
+        let winnerIdx = -1;
+        if (s0 && !s1) winnerIdx = 0;
+        else if (s1 && !s0) winnerIdx = 1;
+
+        if (winnerIdx !== -1) {
+            io.to(lobbyId).emit('gameOver', {
+                winnerIdx: winnerIdx,
+                reason: 'Opponent disconnected'
+            });
+
+            // Сохраняем в архив
+            await archiveGame(game, winnerIdx, 'disconnect', lobbyId);
+        }
+
+        await Redis.deleteGame(lobbyId);
+        await Redis.removeActiveGame(lobbyId);
+        await Redis.deleteTokenMapping(game.playerTokens[0]);
+        await Redis.deleteTokenMapping(game.playerTokens[1]);
+        await Redis.clearDisconnectTimer(lobbyId);
+        await Redis.clearTurnTimeout(lobbyId);
+    }
+}
+
+// Новый асинхронный хендлер для завершения игры (Turn Timeout)
+async function handleTurnTimeout(lobbyId) {
+    console.log(`[TIMEOUT] Лобби ${lobbyId}: Время истекло.`);
+    const game = await Redis.getGame(lobbyId);
+    if (game) {
+        const winnerIdx = 1 - game.currentPlayer;
+        io.to(lobbyId).emit('gameOver', {
+            winnerIdx: winnerIdx,
+            reason: 'Time out'
+        });
+
+        // Сохраняем в архив
+        await archiveGame(game, winnerIdx, 'timeout', lobbyId);
+
+        await Redis.deleteGame(lobbyId);
+        await Redis.removeActiveGame(lobbyId);
+        await Redis.deleteTokenMapping(game.playerTokens[0]);
+        await Redis.deleteTokenMapping(game.playerTokens[1]);
+        await Redis.clearDisconnectTimer(lobbyId);
+        await Redis.clearTurnTimeout(lobbyId);
+    }
+}
+
+// --- ARCHIVE HELPER ---
+async function archiveGame(game, winnerIdx, reason, lobbyId) {
+    try {
+        const whiteToken = game.playerTokens[0];
+        const blackToken = game.playerTokens[blackTokenIndex = 1];
+
+        // Пытаемся найти userId через Redis токены
+        const uid0 = await Redis.getUserIdByToken(whiteToken);
+        const uid1 = await Redis.getUserIdByToken(game.playerTokens[1]);
+
+        const playerWhite = { username: "Guest White", isGuest: true };
+        const playerBlack = { username: "Guest Black", isGuest: true };
+
+        if (uid0) {
+            const u0 = await User.findById(uid0);
+            if (u0) {
+                playerWhite.username = u0.username;
+                playerWhite.id = u0._id;
+                playerWhite.isGuest = false;
+            }
+        }
+        if (uid1) {
+            const u1 = await User.findById(uid1);
+            if (u1) {
+                playerBlack.username = u1.username;
+                playerBlack.id = u1._id;
+                playerBlack.isGuest = false;
+            }
+        }
+
+        // Опредяем тип игры
+        let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
+        if (lobbyId.startsWith('bot-')) gameType = 'bot';
+
+        const result = new GameResult({
+            gameType,
+            playerWhite,
+            playerBlack,
+            winner: winnerIdx,
+            reason,
+            turns: Math.ceil(game.history.length / 2),
+            date: new Date()
+        });
+
+        await result.save();
+        console.log(`[ARCHIVE] Game ${lobbyId} saved to database.`);
+    } catch (err) {
+        console.error('[ARCHIVE ERROR]', err);
+    }
+}
+
 
 const PORT = process.env.PORT || 3000;
 
-setInterval(() => {
-    const now = Date.now();
-    for (const lobbyId in activeGames) {
-        const game = activeGames[lobbyId];
-        // Only tick time if NO ONE is disconnected?? 
-        // Or keep ticking? Usually keep ticking or pause?
-        // Let's PAUSE timer if someone is disconnected (grace period).
-        if (game.disconnectTimer) continue;
+// Оптимизированный интервал проверки таймеров
+setInterval(async () => {
+    try {
+        // 1. Проверяем просроченные дисконнекты
+        const expiredDisconnects = await Redis.getExpiredDisconnectTimers();
+        for (const lobbyId of expiredDisconnects) {
+            await handleDisconnectTimeout(lobbyId);
+        }
 
-        const activeIdx = game.currentPlayer;
+        // 2. Проверяем просроченные ходы
+        const expiredTurns = await Redis.getExpiredTurnTimeouts();
+        for (const lobbyId of expiredTurns) {
+            await handleTurnTimeout(lobbyId);
+        }
 
-        const elapsedSinceLastMove = Math.floor((now - game.lastMoveTimestamp) / 1000);
-        const timeLeft = game.timers[activeIdx] - elapsedSinceLastMove;
+        // 3. Синхронизация таймеров и проверка коннекта
+        const now = Date.now();
+        const gameIds = await Redis.getActiveGameIds();
+        for (const lobbyId of gameIds) {
+            const game = await Redis.getGame(lobbyId);
+            if (!game) continue;
 
-        if (timeLeft <= 0) {
-            if (game.disconnectTimer) clearTimeout(game.disconnectTimer);
-            console.log(`[TIMEOUT] Лобби ${lobbyId}: Игрок ${activeIdx} проиграл по времени.`);
-            io.to(lobbyId).emit('gameOver', {
-                winnerIdx: 1 - activeIdx,
-                reason: 'Time out'
-            });
-            delete activeGames[lobbyId];
-        } else {
-            // Send sync pulse to clients
+            const s0 = io.sockets.sockets.get(game.playerSockets[0]);
+            const s1 = io.sockets.sockets.get(game.playerSockets[1]);
+
+            // Если кто-то отсутствует
+            if (!s0 || !s1) {
+                if (!(await Redis.hasDisconnectTimer(lobbyId))) {
+                    console.log(`[PULSE] Lobby ${lobbyId}: Player(s) missing. Starting grace period.`);
+                    await Redis.setDisconnectTimer(lobbyId, 30000);
+                    await Redis.clearTurnTimeout(lobbyId);
+                }
+                continue;
+            }
+
+            // Если оба на месте, но висел таймер дисконнекта - возобновляем
+            if (await Redis.hasDisconnectTimer(lobbyId)) {
+                console.log(`[PULSE] Lobby ${lobbyId}: All players reconnected. Resuming game.`);
+                await Redis.clearDisconnectTimer(lobbyId);
+
+                // Возобновляем таймер хода
+                const nextTimeoutAt = Date.now() + game.timers[game.currentPlayer] * 1000;
+                await Redis.setTurnTimeout(lobbyId, nextTimeoutAt);
+
+                // Сбрасываем метку последнего хода на "сейчас", чтобы время не "утекло" за время паузы
+                game.lastMoveTimestamp = Date.now();
+                await Redis.saveGame(lobbyId, game);
+
+                io.to(lobbyId).emit('opponentReconnected');
+            }
+
+            // Обычный пульс времени
+            const activeIdx = game.currentPlayer;
+            const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
             const currentTimers = [...game.timers];
-            currentTimers[activeIdx] = timeLeft;
+            currentTimers[activeIdx] -= elapsed;
+
             io.to(lobbyId).emit('timerUpdate', { timers: currentTimers });
         }
-    }
-
-    // Очистка старых приватных комнат (старше 30 минут)
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    for (const code in privateRooms) {
-        if (privateRooms[code].createdAt < thirtyMinutesAgo) {
-            console.log(`[ROOM CLEANUP] Deleting stale room: ${code}`);
-            delete privateRooms[code];
-        }
+    } catch (err) {
+        console.error('[TIMER TICK ERROR]', err);
     }
 }, 1000);
 
-const port = process.env.PORT || 3000;
-server.listen(port, '0.0.0.0', () => {
-    console.log(`Сервер запущен на порту ${port}`);
+// Инициализация Redis и запуск сервера
+async function startServer() {
+    try {
+        // Подключаемся к Redis
+        await Redis.connect();
+        console.log('[STARTUP] Redis connected successfully');
+
+        // Запускаем HTTP сервер
+        const port = process.env.PORT || 3000;
+        server.listen(port, '0.0.0.0', () => {
+            console.log(`Сервер запущен на порту ${port}`);
+        });
+    } catch (err) {
+        console.error('[STARTUP ERROR] Failed to connect to Redis:', err);
+        process.exit(1);
+    }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
+    await Redis.disconnect();
+    process.exit(0);
 });
+
+process.on('SIGINT', async () => {
+    console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
+    await Redis.disconnect();
+    process.exit(0);
+});
+
+// Запуск!
+startServer();
