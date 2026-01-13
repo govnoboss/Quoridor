@@ -1122,11 +1122,63 @@ setInterval(async () => {
 }, 1000);
 
 // Инициализация Redis и запуск сервера
+/**
+ * Очистка "зомби-игр" при старте сервера.
+ * Удаляет игры, у которых оба игрока offline (нет активных сокетов).
+ */
+async function cleanupStaleGames() {
+    try {
+        const activeGameIds = await Redis.getActiveGameIds();
+        console.log(`[Startup] Checking ${activeGameIds.length} active games for stale entries...`);
+
+        let cleaned = 0;
+        for (const lobbyId of activeGameIds) {
+            const game = await Redis.getGame(lobbyId);
+
+            if (!game) {
+                // Игра не существует, но есть в Set — удаляем из Set
+                await Redis.removeActiveGame(lobbyId);
+                cleaned++;
+                continue;
+            }
+
+            const whiteSock = game.playerSockets?.[0];
+            const blackSock = game.playerSockets?.[1];
+
+            // Проверяем, есть ли эти сокеты среди активных подключений
+            const whiteAlive = whiteSock && io.sockets.sockets.has(whiteSock);
+            const blackAlive = blackSock && io.sockets.sockets.has(blackSock);
+
+            if (!whiteAlive && !blackAlive) {
+                // Оба игрока offline — удаляем игру полностью
+                await Redis.deleteGame(lobbyId);
+                await Redis.removeActiveGame(lobbyId);
+                await Redis.clearDisconnectTimer(lobbyId);
+                await Redis.clearTurnTimeout(lobbyId);
+
+                // Очищаем маппинг токенов
+                if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
+                if (game.playerTokens?.[1]) await Redis.deleteTokenMapping(game.playerTokens[1]);
+
+                console.log(`[Startup] Cleaned stale game: ${lobbyId}`);
+                cleaned++;
+            }
+        }
+
+        console.log(`[Startup] Cleanup complete. Removed ${cleaned} stale games.`);
+    } catch (err) {
+        console.error('[Startup] Error during stale game cleanup:', err);
+    }
+}
+
 async function startServer() {
     try {
         // Подключаемся к Redis
         await Redis.connect();
         console.log('[STARTUP] Redis connected successfully');
+
+        // Очистка зомби-игр ПЕРЕД запуском сервера
+        await cleanupStaleGames();
 
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
