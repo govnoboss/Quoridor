@@ -21,7 +21,7 @@
      * Оптимизировано для Quoridor state structure.
      */
     exports.cloneState = function (state) {
-        return {
+        const cloned = {
             hWalls: state.hWalls.map(row => [...row]),
             vWalls: state.vWalls.map(row => [...row]),
             players: state.players.map(p => ({
@@ -29,16 +29,19 @@
                 pos: { r: p.pos.r, c: p.pos.c },
                 wallsLeft: p.wallsLeft
             })),
-            currentPlayer: state.currentPlayer,
-            playerSockets: [...state.playerSockets],
-            playerTokens: [...state.playerTokens],
-            playerProfiles: state.playerProfiles ? state.playerProfiles.map(p => ({ ...p })) : null,
-            timers: [...state.timers],
-            increment: state.increment,
-            lastMoveTimestamp: state.lastMoveTimestamp,
-            history: [...state.history],
-            disconnectTimer: state.disconnectTimer
+            currentPlayer: state.currentPlayer
         };
+
+        if (state.playerSockets) cloned.playerSockets = [...state.playerSockets];
+        if (state.playerTokens) cloned.playerTokens = [...state.playerTokens];
+        if (state.playerProfiles) cloned.playerProfiles = state.playerProfiles.map(p => p ? { ...p } : null);
+        if (state.timers) cloned.timers = [...state.timers];
+        if (state.increment !== undefined) cloned.increment = state.increment;
+        if (state.lastMoveTimestamp !== undefined) cloned.lastMoveTimestamp = state.lastMoveTimestamp;
+        if (state.history) cloned.history = [...state.history];
+        if (state.disconnectTimer !== undefined) cloned.disconnectTimer = state.disconnectTimer;
+
+        return cloned;
     };
 
     /**
