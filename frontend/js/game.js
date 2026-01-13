@@ -1224,13 +1224,14 @@ const Game = {
         // Интерактивность
         if (w < wallsLeft && interactive) {
           piece.classList.add('interactive');
-          piece.onpointerdown = (e) => {
+          // Используем addEventListener для лучшей совместимости с touch
+          piece.addEventListener('pointerdown', (e) => {
             if (this.viewHistoryIndex !== -1) {
               this.setHistoryView(-1);
               return;
             }
             this.startWallDragFromInventory(e);
-          };
+          });
         }
 
         el.appendChild(piece);
@@ -1247,7 +1248,9 @@ const Game = {
     // Защита: нельзя брать стену, если сейчас не наш ход (в онлайн или против бота)
     if (this.myPlayerIndex !== -1 && this.state.currentPlayer !== this.myPlayerIndex) return;
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
-    e.preventDefault();
+
+    // ВАЖНО: останавливаем всплытие, чтобы не сработал клик по канвасу под инвентарем (если есть)
+    e.stopPropagation();
 
     const rect = this.canvas.getBoundingClientRect();
     const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
@@ -1261,6 +1264,7 @@ const Game = {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY
     };
+
     this.canvas.style.cursor = 'grabbing';
     this.state.hoverWall = null;
     this.draw();
@@ -1298,6 +1302,24 @@ const Game = {
    * (мышь, клавиатура).
    */
   initEvents() {
+    // === 7.0. Шаблоны стен в сайдбаре ===
+    const wallTemplateV = document.getElementById('wallTemplateV');
+    const wallTemplateH = document.getElementById('wallTemplateH');
+
+    if (wallTemplateV) {
+      wallTemplateV.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.startWallDrag(true, e); // isVertical = true
+      });
+    }
+
+    if (wallTemplateH) {
+      wallTemplateH.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.startWallDrag(false, e); // isVertical = false
+      });
+    }
+
     // === 7.1. Начало перетаскивания (pointerdown) ===
     this.canvas.addEventListener('pointerdown', e => {
       // [Advanced UX] Если мы в режиме просмотра истории — клик выбрасывает нас в игру

@@ -360,18 +360,26 @@
       <!-- Сайдбар для будущей истории ходов -->
       <div class="sidebar">
         <div class="sidebar-content">
-          <div id="moveHistory">
-            <div class="history-header">
-              <span data-i18n="pname_white">White</span>
-              <span data-i18n="pname_black">Black</span>
+          <div class="history-container-wrapper">
+            <!-- Шаблон вертикальной стены -->
+            <div class="wall-template v" id="wallTemplateV" title="Вертикальная стена"></div>
+
+            <div id="moveHistory">
+              <div class="history-header">
+                <span data-i18n="pname_white">White</span>
+                <span data-i18n="pname_black">Black</span>
+              </div>
+              <div class="history-list" id="historyList"></div>
+              <div class="history-controls">
+                <button id="histFirst" title="В начало" onclick="Game.setHistoryView(0)">«</button>
+                <button id="histPrev" title="Назад" onclick="Game.navigateHistory(-1)">‹</button>
+                <button id="histNext" title="Вперед" onclick="Game.navigateHistory(1)">›</button>
+                <button id="histLast" title="В конец" onclick="Game.setHistoryView(-1)">»</button>
+              </div>
             </div>
-            <div class="history-list" id="historyList"></div>
-            <div class="history-controls">
-              <button id="histFirst" title="В начало" onclick="Game.setHistoryView(0)">«</button>
-              <button id="histPrev" title="Назад" onclick="Game.navigateHistory(-1)">‹</button>
-              <button id="histNext" title="Вперед" onclick="Game.navigateHistory(1)">›</button>
-              <button id="histLast" title="В конец" onclick="Game.setHistoryView(-1)">»</button>
-            </div>
+
+            <!-- Шаблон горизонтальной стены -->
+            <div class="wall-template h" id="wallTemplateH" title="Горизонтальная стена"></div>
           </div>
         </div>
         <div class="menu-actions">
