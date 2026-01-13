@@ -66,6 +66,7 @@ const Game = {
     playerProfiles: [null, null] // New: [{name, avatar}, {name, avatar}]
   },
   isInputBlocked: false, // New: Block input flag
+  pendingMove: null, // For optimistic updates: stores move awaiting server confirmation
 
   // Bind methods
   // Assuming these binds would be in an init method, but placing them here as per diff.
@@ -1012,13 +1013,22 @@ const Game = {
     const { playerIdx, move, nextPlayer } = data;
 
     console.log('[GAME] Сервер подтвердил ход:', data);
-    // 1. Применяем изменения к локальному State
-    if (move.type === 'pawn') {
-      this.state.players[playerIdx].pos = { r: move.r, c: move.c };
-    } else if (move.type === 'wall') {
-      if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
-      else this.state.hWalls[move.r][move.c] = true;
-      this.state.players[playerIdx].wallsLeft--;
+
+    // Проверяем, был ли это наш оптимистичный ход
+    let wasPending = false;
+    if (this.pendingMove && this.pendingMove.playerIdx === playerIdx) {
+      // Это подтверждение нашего хода — state уже применен
+      wasPending = true;
+      this.pendingMove = null;
+    } else {
+      // Это ход противника или первый sync — применяем к state
+      if (move.type === 'pawn') {
+        this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+      } else if (move.type === 'wall') {
+        if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
+        else this.state.hWalls[move.r][move.c] = true;
+        this.state.players[playerIdx].wallsLeft--;
+      }
     }
 
     if (data.timers) {
@@ -1036,9 +1046,63 @@ const Game = {
     this.startTimer();
     this.draw();
 
-    // 5. Озвучка хода
-    UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
+    // 5. Озвучка хода (только для хода противника, свой уже озвучен в optimistic)
+    if (!wasPending) {
+      UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
+    }
   },
+
+  /**
+   * Применяет ход локально СРАЗУ (оптимистично) до подтверждения сервером.
+   * Используется только для онлайн-игры.
+   * @param {object} move Ход игрока.
+   */
+  applyOptimisticMove(move) {
+    const playerIdx = this.state.currentPlayer;
+
+    // Сохраняем состояние для возможного отката
+    this.pendingMove = {
+      move: { ...move },
+      playerIdx,
+      previousPos: { ...this.state.players[playerIdx].pos },
+      previousWallsLeft: this.state.players[playerIdx].wallsLeft
+    };
+
+    // Применяем ход локально
+    if (move.type === 'pawn') {
+      this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+    } else if (move.type === 'wall') {
+      if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
+      else this.state.hWalls[move.r][move.c] = true;
+      this.state.players[playerIdx].wallsLeft--;
+    }
+
+    // Мгновенный звук и перерисовка
+    UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
+    this.draw();
+  },
+
+  /**
+   * Откатывает оптимистичный ход при отклонении сервером.
+   */
+  rollbackMove() {
+    if (!this.pendingMove) return;
+
+    const { move, playerIdx, previousPos, previousWallsLeft } = this.pendingMove;
+
+    // Восстанавливаем состояние
+    if (move.type === 'pawn') {
+      this.state.players[playerIdx].pos = previousPos;
+    } else if (move.type === 'wall') {
+      if (move.isVertical) this.state.vWalls[move.r][move.c] = false;
+      else this.state.hWalls[move.r][move.c] = false;
+      this.state.players[playerIdx].wallsLeft = previousWallsLeft;
+    }
+
+    this.pendingMove = null;
+    this.draw();
+  },
+
 
   /**
    * Применяет ход бота к состоянию игры.
@@ -1311,6 +1375,12 @@ const Game = {
       }
 
       if (this.isGameOver) return;
+
+      // На мобильных устройствах сразу убираем призраков при нажатии
+      if (e.pointerType === 'touch') {
+        this.state.hoverWall = null;
+      }
+
       // Если онлайн и сейчас НЕ мой ход — запрещаем трогать
       if (Net.isOnline) {
         const myIdx = Net.myColor === 'white' ? 0 : 1;
@@ -1433,7 +1503,12 @@ const Game = {
       window.lastPointerY = (e.clientY - rect.top) * scaleY;
 
       if (!this.state.drag) {
-        this.updateHoverWall(window.lastPointerX, window.lastPointerY);
+        // Призраки стен показываем только для мыши/пера. На тач-устройствах они мешают.
+        if (e.pointerType !== 'touch') {
+          this.updateHoverWall(window.lastPointerX, window.lastPointerY);
+        } else {
+          this.state.hoverWall = null;
+        }
       } else {
         this.state.drag.x = (e.clientX - rect.left) * scaleX;
         this.state.drag.y = (e.clientY - rect.top) * scaleY;
@@ -1469,6 +1544,7 @@ const Game = {
       const move = { type: 'wall', r, c, isVertical };
 
       if (Net.isOnline) {
+        this.applyOptimisticMove(move);
         Net.sendMove(move);
       } else {
         if (this.placeWall(r, c, isVertical)) {
@@ -1509,6 +1585,7 @@ const Game = {
       if (potentialMove) {
         if (Net.isOnline) {
           console.log('[GAME] Отправляю ход на проверку:', potentialMove);
+          this.applyOptimisticMove(potentialMove);
           Net.sendMove(potentialMove);
         } else {
           // ЛОКАЛЬНАЯ ИГРА: Восстановленная логика

@@ -385,10 +385,11 @@
 #archiveTable th {
     text-align: left;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.05);
+    background: #1e1e1e;
     color: #888;
     position: sticky;
     top: 0;
+    z-index: 10;
 }
 
 #archiveTable td {
