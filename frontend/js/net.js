@@ -118,6 +118,7 @@ const Net = {
 
         this.socket.on('moveRejected', (data) => {
             console.warn('[NET] Ход отклонен сервером:', data.reason);
+            Game.rollbackMove(); // Откатываем оптимистичный ход
             UI.showToast(UI.translate('toast_invalid_move'), 'error');
         });
 
