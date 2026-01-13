@@ -1,7 +1,7 @@
 /**
  * Quoridor AI Worker - Выполняет тяжелые расчеты в фоновом потоке.
  */
-importScripts('shared.js');
+importScripts('/shared.js');
 
 const AIWorker = {
     cloneState(state) {

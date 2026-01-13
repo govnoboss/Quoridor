@@ -6,8 +6,8 @@
   <meta charset="utf-8" />
   <title>Quoridor</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="/style.css?v=1.0.1" type="text/css" />
-  <link rel="stylesheet" href="/auth.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="css/style.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="css/auth.css?v=1.0.1" type="text/css" />
 </head>
 
 <body>
@@ -321,7 +321,8 @@
 
         <div class="player-bar" id="topPlayerBar">
           <div class="avatar-container">
-            <div class="avatar"></div>
+            <img class="avatar" id="topPlayerAvatar" src="https://ui-avatars.com/api/?name=?&background=333&color=fff"
+              alt="Avatar">
           </div>
           <div class="player-info">
             <div class="player-name-row">
@@ -343,7 +344,8 @@
 
         <div class="player-bar" id="bottomPlayerBar">
           <div class="avatar-container">
-            <div class="avatar"></div>
+            <img class="avatar" id="bottomPlayerAvatar"
+              src="https://ui-avatars.com/api/?name=?&background=333&color=fff" alt="Avatar">
           </div>
           <div class="player-info">
             <div class="player-name-row">
@@ -621,11 +623,11 @@
 
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/ui.js?v=1.0.1"></script>
-  <script src="/net.js?v=1.0.1"></script>
+  <script src="js/ui.js?v=1.0.1"></script>
+  <script src="js/net.js?v=1.0.1"></script>
   <script src="/shared.js?v=1.0.1"></script>
-  <script src="/ai.js?v=1.0.1"></script>
-  <script src="/game.js?v=1.0.1"></script>
+  <script src="js/ai.js?v=1.0.1"></script>
+  <script src="js/game.js?v=1.0.1"></script>
   <script src="/main.js?v=1.0.1"></script>
 </body>
 

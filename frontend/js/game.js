@@ -62,7 +62,8 @@ const Game = {
     history: [],
     currentScreen: 'menu',
     gameResult: null,
-    gameId: null // Уникальный ID сессии для localStorage
+    gameId: null, // Уникальный ID сессии для localStorage
+    playerProfiles: [null, null] // New: [{name, avatar}, {name, avatar}]
   },
   isInputBlocked: false, // New: Block input flag
 
@@ -177,7 +178,7 @@ const Game = {
    * Запускает сетевую игру.
    * @param {'white'|'black'} color Цвет игрока
    */
-  startOnline(color, playerIdx, initialTime = 600) {
+  startOnline(color, playerIdx, initialTime = 600, profiles = null) {
     this.initialTime = initialTime; // Устанавливаем ДО reset или обновляем после
     this.reset();
     this.state.botDifficulty = 'none';
@@ -185,6 +186,17 @@ const Game = {
     this.myPlayerIndex = playerIdx;
     this.initialTime = initialTime;
     this.timers = [initialTime, initialTime];
+
+    if (profiles) {
+      this.state.playerProfiles = [null, null];
+      if (playerIdx === 0) {
+        this.state.playerProfiles[0] = profiles.me;
+        this.state.playerProfiles[1] = profiles.opponent;
+      } else {
+        this.state.playerProfiles[1] = profiles.me;
+        this.state.playerProfiles[0] = profiles.opponent;
+      }
+    }
 
     // Генерируем ID игры для истории (например, из времени или серверного ID)
     this.state.gameId = "online_" + (Net.roomCode || Date.now());
@@ -309,6 +321,7 @@ const Game = {
     // Clear history
     this.state.history = [];
     this.viewHistoryIndex = -1; // Сброс просмотра при ресете
+    this.state.playerProfiles = [null, null];
     if (this.state.gameId) {
       localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
     }
@@ -1118,12 +1131,39 @@ const Game = {
     if (elBottomWalls) elBottomWalls.textContent = bottomPlayer.wallsLeft;
     if (elTopWalls) elTopWalls.textContent = topPlayer.wallsLeft;
 
-    // 3. Обновляем имена (Опционально, можно делать 1 раз при старте, но здесь надежнее)
     const elBottomName = document.getElementById('bottomPlayerName');
     const elTopName = document.getElementById('topPlayerName');
+    const elBottomAvatar = document.getElementById('bottomPlayerAvatar');
+    const elTopAvatar = document.getElementById('topPlayerAvatar');
 
-    if (elBottomName) elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
-    if (elTopName) elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
+    const bottomProfile = this.state.playerProfiles ? this.state.playerProfiles[bottomIdx] : null;
+    const topProfile = this.state.playerProfiles ? this.state.playerProfiles[topIdx] : null;
+
+    if (elBottomName) {
+      if (bottomProfile) {
+        elBottomName.textContent = bottomProfile.name;
+      } else {
+        elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
+      }
+    }
+
+    if (elTopName) {
+      if (topProfile) {
+        elTopName.textContent = topProfile.name;
+      } else {
+        elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
+      }
+    }
+
+    // Обновляем аватары
+    if (elBottomAvatar) {
+      if (bottomProfile) elBottomAvatar.src = bottomProfile.avatar;
+      else elBottomAvatar.src = `https://ui-avatars.com/api/?name=${bottomIdx === 0 ? 'W' : 'B'}&background=333&color=fff`;
+    }
+    if (elTopAvatar) {
+      if (topProfile) elTopAvatar.src = topProfile.avatar;
+      else elTopAvatar.src = `https://ui-avatars.com/api/?name=${topIdx === 0 ? 'W' : 'B'}&background=333&color=fff`;
+    }
 
     // 4. Подсветка активного хода (CSS класс .active-turn)
     const bottomBar = document.getElementById('bottomPlayerBar');
