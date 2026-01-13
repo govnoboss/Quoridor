@@ -192,6 +192,38 @@ async function getActiveGameIds() {
 }
 
 // ============================================================
+// МЕТОДЫ БЛОКИРОВКИ (LOCKING)
+// ============================================================
+
+/**
+ * Пытается захватить блокировку для лобби.
+ * @param {string} lobbyId 
+ * @param {number} ttlMs - время жизни блокировки
+ * @returns {boolean} - true, если заблокировано успешно
+ */
+async function acquireLock(lobbyId, ttlMs = 2000) {
+    if (!isReady()) throw new Error('[REDIS] Not connected');
+    const lockKey = `lock:${lobbyId}`;
+
+    // Используем NX (Only if Not Exists) и PX (Expiry in ms)
+    const result = await client.set(lockKey, 'locked', {
+        NX: true,
+        PX: ttlMs
+    });
+
+    return result === 'OK';
+}
+
+/**
+ * Освобождает блокировку.
+ */
+async function releaseLock(lobbyId) {
+    if (!isReady()) throw new Error('[REDIS] Not connected');
+    const lockKey = `lock:${lobbyId}`;
+    await client.del(lockKey);
+}
+
+// ============================================================
 // МЕТОДЫ ДЛЯ МАППИНГА ТОКЕН -> USER ID
 // ============================================================
 
@@ -536,6 +568,9 @@ module.exports = {
     addActiveGame,
     removeActiveGame,
     getActiveGameIds,
+    acquireLock,
+    releaseLock,
+
 
     // Токены (Rejoin)
     setTokenMapping,

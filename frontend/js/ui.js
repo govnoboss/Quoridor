@@ -1066,7 +1066,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Проверка URL на наличие комнаты
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
-  if (roomCode) {
+  if (roomCode && !Net.isOnline && !Net.lobbyId) {
     // Показываем панель, но НЕ создаем новую комнату
     UI.showDynamicPanel('panelRoom', false);
 
@@ -1080,6 +1080,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
 
     UI.showToast(UI.translate('toast_room_code_from_link'), 'info');
+
+    // Очищаем URL от параметра room, чтобы избежать повторных попыток при перезагрузке
+    const newUrl = window.location.pathname + (window.location.hash || '');
+    window.history.replaceState({}, document.title, newUrl);
   }
 
   // Close modals on Escape key

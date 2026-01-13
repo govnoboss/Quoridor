@@ -1,4 +1,4 @@
-const Shared = require('./shared.js');
+const Shared = require('../src/core/shared.js');
 const assert = require('assert');
 
 // Colors for console output
@@ -30,9 +30,16 @@ function createTestState() {
             { color: 'white', pos: { r: 8, c: 4 }, wallsLeft: 10 },
             { color: 'black', pos: { r: 0, c: 4 }, wallsLeft: 10 }
         ],
-        currentPlayer: 0
+        currentPlayer: 0,
+        playerSockets: [null, null],
+        playerTokens: ['token-p0', 'token-p1'],
+        timers: [600, 600],
+        increment: 0,
+        lastMoveTimestamp: Date.now(),
+        history: []
     };
 }
+
 
 console.log('🚀 Starting Quoridor Setup Tests...\n');
 
@@ -203,7 +210,7 @@ runTest('Validation - isValidWallMove', () => {
 runTest('Localization - Key Match (RU vs EN from ui.js)', () => {
     const fs = require('fs');
     const path = require('path');
-    const uiContent = fs.readFileSync(path.join(__dirname, 'ui.js'), 'utf8');
+    const uiContent = fs.readFileSync(path.join(__dirname, '../frontend/js/ui.js'), 'utf8');
 
     const extractKeys = (lang) => {
         const regex = new RegExp(`${lang}: \\{([\\s\\S]*?)\\},`, 'g');
@@ -233,5 +240,70 @@ runTest('Localization - Key Match (RU vs EN from ui.js)', () => {
 });
 
 
+// ============================================================================
+// 6. REDUCER TESTS (New Architecture)
+// ============================================================================
+
+runTest('Reducer - Basic Pawn Move', () => {
+    const state = createTestState();
+    state.history = [];
+    state.timers = [600, 600];
+
+    const action = { type: 'pawn', r: 7, c: 4, playerIdx: 0 };
+    const nextState = Shared.gameReducer(state, action);
+
+    assert.strictEqual(nextState.players[0].pos.r, 7, 'P0 Row should be 7');
+    assert.strictEqual(nextState.currentPlayer, 1, 'Current player should switch to 1');
+    assert.strictEqual(nextState.history.length, 1, 'History should have 1 entry');
+    assert.strictEqual(state.players[0].pos.r, 8, 'Original state must remain unchanged (Immutability)');
+});
+
+runTest('Reducer - Wall Placement', () => {
+    const state = createTestState();
+    state.history = [];
+
+    const action = { type: 'wall', r: 7, c: 4, isVertical: false, playerIdx: 0 };
+    const nextState = Shared.gameReducer(state, action);
+
+    assert.strictEqual(nextState.hWalls[7][4], true, 'hWall[7][4] should be true');
+    assert.strictEqual(nextState.players[0].wallsLeft, 9, 'P0 wallsLeft should be 9');
+    assert.strictEqual(nextState.currentPlayer, 1, 'Current player should switch');
+});
+
+runTest('Reducer - Turn Sequence Violation', () => {
+    const state = createTestState();
+
+    // Attempt move by P1 when it is P0's turn
+    const action = { type: 'pawn', r: 1, c: 4, playerIdx: 1 };
+
+    assert.throws(() => {
+        Shared.gameReducer(state, action);
+    }, /Not your turn/, 'Should throw error if moving out of turn');
+});
+
+runTest('Reducer - Trapping Violation', () => {
+    const s = createTestState();
+    // P1 is at (0,4). Goal is Row 8.
+    // Block all exits from Row 0 to Row 1 for columns 0-7:
+    s.hWalls[0][0] = true; // 0, 1
+    s.hWalls[0][2] = true; // 2, 3
+    s.hWalls[0][4] = true; // 4, 5
+    s.hWalls[0][6] = true; // 6, 7
+    // Column 8 is the only exit to Row 1. 
+    // Now block column 7|8 transition with a vertical wall.
+    const finalAction = { type: 'vwall_at_the_end', r: 0, c: 7, isVertical: true, playerIdx: 0 };
+    // Wait, the action must be a valid wall action.
+    const action = { type: 'wall', r: 0, c: 7, isVertical: true, playerIdx: 0 };
+
+    assert.throws(() => {
+        Shared.gameReducer(s, action);
+    }, /Wall blocks the only path to goal/);
+});
+
+
+
+
+
 console.log(`\n\nTest Summary: ${GREEN}${passed} Passed${RESET}, ${failed > 0 ? RED : GREEN}${failed} Failed${RESET}`);
+
 if (failed > 0) process.exit(1);

@@ -1,7 +1,7 @@
 module.exports = {
     apps: [{
         name: "quoridor",
-        script: "./server.js",
+        script: "./src/server.js",
         env: {
             NODE_ENV: "production",
             PORT: 3000

@@ -5,8 +5,11 @@ const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
-const Shared = require('./shared.js');
-const Redis = require('./server/redis.js'); // Redis wrapper module
+const Shared = require('./core/shared.js');
+const Redis = require('./storage/redis.js'); // Redis wrapper module
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 const app = express();
 app.set('trust proxy', 1); // Доверяем заголовкам от Nginx ( Cloudflare)
@@ -22,13 +25,14 @@ app.use((req, res, next) => {
 app.disable('x-powered-by');
 
 // --- DATABASE & AUTH SETUP ---
-const connectDB = require('./server/db');
-const User = require('./server/models/User');
-const GameResult = require('./server/models/GameResult'); // Архив игр
+const connectDB = require('./storage/db');
+const User = require('./models/User');
+const GameResult = require('./models/GameResult'); // Архив игр
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const { RedisStore } = require('connect-redis'); // connect-redis v7+ named export
 const { createClient } = require('redis');
+const path = require('path');
 
 // Подключаем MongoDB
 connectDB();
@@ -222,7 +226,8 @@ app.use(cors({
 }));
 
 // Serve static files
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 
 // --- SERVER & SOCKET.IO INITIALIZATION ---
 // Create server instances FIRST, before using 'io'
@@ -278,8 +283,36 @@ function generateRoomCode() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
+/**
+ * Получает профиль игрока (имя и аватар) по токену.
+ */
+async function getPlayerProfile(token) {
+    if (!token) return { name: 'Guest', avatar: 'https://ui-avatars.com/api/?name=Guest&background=random' };
 
-app.use(express.static(__dirname));
+    try {
+        const userId = await Redis.getUserIdByToken(token);
+        if (userId) {
+            const user = await User.findById(userId);
+            if (user) {
+                return {
+                    name: user.username,
+                    avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`
+                };
+            }
+        }
+    } catch (err) {
+        console.error('[PROFILE] Error fetching user profile:', err);
+    }
+
+    const guestSuffix = token.length > 5 ? token.substr(-4).toUpperCase() : Math.floor(Math.random() * 10000);
+    return {
+        name: `Guest-${guestSuffix}`,
+        avatar: `https://ui-avatars.com/api/?name=Guest&background=random`
+    };
+}
+
+
+// 
 
 
 function createInitialState(timeControl) {
@@ -295,6 +328,7 @@ function createInitialState(timeControl) {
         currentPlayer: 0,
         playerSockets: [null, null],
         playerTokens: [null, null], // New: Store tokens
+        playerProfiles: [null, null], // New: Store profiles (name, avatar)
         disconnectTimer: null,      // New: Timer for grace period
         timers: [base, base],
         increment: inc,
@@ -437,6 +471,10 @@ io.on('connection', (socket) => {
                     gameState.playerTokens[0] = p1.token;
                     gameState.playerTokens[1] = p2.token;
 
+                    // Fetch profiles
+                    gameState.playerProfiles[0] = await getPlayerProfile(p1.token);
+                    gameState.playerProfiles[1] = await getPlayerProfile(p2.token);
+
                     // Сохраняем в Redis
                     await Redis.saveGame(lobbyId, gameState);
                     await Redis.addActiveGame(lobbyId);
@@ -451,8 +489,20 @@ io.on('connection', (socket) => {
 
                     s1.join(lobbyId);
                     s2.join(lobbyId);
-                    s1.emit('gameStart', { lobbyId, color: 'white', opponent: p2.token, initialTime: gameState.timers[0] });
-                    s2.emit('gameStart', { lobbyId, color: 'black', opponent: p1.token, initialTime: gameState.timers[1] });
+                    s1.emit('gameStart', {
+                        lobbyId,
+                        color: 'white',
+                        opponent: gameState.playerProfiles[1], // Pass full profile
+                        me: gameState.playerProfiles[0],
+                        initialTime: gameState.timers[0]
+                    });
+                    s2.emit('gameStart', {
+                        lobbyId,
+                        color: 'black',
+                        opponent: gameState.playerProfiles[0], // Pass full profile
+                        me: gameState.playerProfiles[1],
+                        initialTime: gameState.timers[1]
+                    });
                     console.log(`[GAME START] Lobby ${lobbyId} created for ${tc.base}+${tc.inc}. Random Swap: ${swap}`);
                 } else {
                     // Один из игроков отключился — возвращаем в очередь
@@ -554,6 +604,10 @@ io.on('connection', (socket) => {
                     gameState.playerTokens[0] = whitePlayer.token;
                     gameState.playerTokens[1] = blackPlayer.token;
 
+                    // Fetch profiles
+                    gameState.playerProfiles[0] = await getPlayerProfile(whitePlayer.token);
+                    gameState.playerProfiles[1] = await getPlayerProfile(blackPlayer.token);
+
                     // Сохраняем в Redis
                     await Redis.saveGame(lobbyId, gameState);
                     await Redis.addActiveGame(lobbyId);
@@ -566,14 +620,24 @@ io.on('connection', (socket) => {
                     await Redis.setTokenMapping(whitePlayer.token, lobbyId);
                     await Redis.setTokenMapping(blackPlayer.token, lobbyId);
 
-                    sWhite.emit('gameStart', { lobbyId, color: 'white', opponent: blackPlayer.token });
-                    sBlack.emit('gameStart', { lobbyId, color: 'black', opponent: whitePlayer.token });
+                    sWhite.emit('gameStart', {
+                        lobbyId,
+                        color: 'white',
+                        opponent: gameState.playerProfiles[1],
+                        me: gameState.playerProfiles[0]
+                    });
+                    sBlack.emit('gameStart', {
+                        lobbyId,
+                        color: 'black',
+                        opponent: gameState.playerProfiles[0],
+                        me: gameState.playerProfiles[1]
+                    });
 
                     console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
                     await Redis.deleteRoom(normalizedCode);
                 } else {
                     await Redis.deleteRoom(normalizedCode);
-                    if (sWhite) sWhite.emit('joinRoomFailed', { reason: 'Противник отключился' });
+                    if (sWhite) sWhite.emit('gameStartFailed', { reason: 'Противник отключился' });
                     else if (socket.id === whitePlayer.socketId) socket.emit('joinRoomFailed', { reason: 'Противник отключился' });
 
                     // Fallback catch-all
@@ -638,7 +702,8 @@ io.on('connection', (socket) => {
                     color: pIdx === 0 ? 'white' : 'black',
                     myPlayerIndex: pIdx,
                     state: game,
-                    timers: game.timers
+                    timers: game.timers,
+                    profiles: game.playerProfiles // Pass saved profiles
                 });
 
                 // 5. Notify opponent
@@ -681,7 +746,23 @@ io.on('connection', (socket) => {
             return;
         }
 
+        let attempts = 0;
+        let locked = false;
+
+        while (attempts < 10) {
+            locked = await Redis.acquireLock(lobbyId);
+            if (locked) break;
+            attempts++;
+            await sleep(50);
+        }
+
+        if (!locked) {
+            socket.emit('moveRejected', { reason: 'Room busy' });
+            return;
+        }
+
         try {
+
             const game = await Redis.getGame(lobbyId);
 
             if (!game) {
@@ -689,24 +770,28 @@ io.on('connection', (socket) => {
                 return;
             }
 
+            const playerIdx = game.playerTokens.indexOf(socket.playerToken);
+            if (playerIdx === -1) {
+                socket.emit('moveRejected', { reason: 'Unauthorized' });
+                return;
+            }
+
             const now = Date.now();
             const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
-            const playerIdx = game.playerSockets.indexOf(socket.id);
 
+            // 1. Предварительное обновление таймера (уменьшаем время за раздумья)
             game.timers[game.currentPlayer] -= elapsed;
             game.lastMoveTimestamp = now;
 
-            if (game.timers[playerIdx] < 0) {
-                // Очищаем таймеры в Redis
+            if (game.timers[game.currentPlayer] < 0) {
                 await Redis.clearDisconnectTimer(lobbyId);
                 await Redis.clearTurnTimeout(lobbyId);
 
                 io.to(lobbyId).emit('gameOver', {
-                    winnerIdx: 1 - playerIdx,
+                    winnerIdx: 1 - game.currentPlayer,
                     reason: 'Time out'
                 });
 
-                // Удаляем игру и маппинги токенов
                 await Redis.deleteGame(lobbyId);
                 await Redis.removeActiveGame(lobbyId);
                 await Redis.deleteTokenMapping(game.playerTokens[0]);
@@ -714,58 +799,19 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // 1. Проверка очередности хода
-            if (playerIdx !== game.currentPlayer) {
-                console.log(`[WARN] Игрок ${socket.id} пытался походить не в свою очередь.`);
-                socket.emit('moveRejected', { reason: 'Not your turn' });
-                return;
-            }
+            // 2. Выполнение хода через Reducer
+            try {
+                const action = { ...move, playerIdx };
+                const nextState = Shared.gameReducer(game, action);
 
-            let valid = false;
-
-            // 2. Валидация хода через Shared логику
-            if (move.type === 'pawn') {
-                const currentPos = game.players[playerIdx].pos;
-                if (Shared.canMovePawn(game, currentPos.r, currentPos.c, move.r, move.c)) {
-                    // Применяем ход к серверному состоянию
-                    game.players[playerIdx].pos = { r: move.r, c: move.c };
-                    valid = true;
+                // 3. Дополнительная серверная логика (инкремент Fisher)
+                if (nextState.increment > 0) {
+                    nextState.timers[playerIdx] += nextState.increment;
                 }
-            } else if (move.type === 'wall') {
-                if (game.players[playerIdx].wallsLeft > 0 &&
-                    Shared.checkWallPlacement(game, move.r, move.c, move.isVertical)) {
 
-                    // Временно ставим стену для проверки пути
-                    if (move.isVertical) game.vWalls[move.r][move.c] = true;
-                    else game.hWalls[move.r][move.c] = true;
-
-                    if (Shared.isValidWallPlacement(game)) {
-                        game.players[playerIdx].wallsLeft--;
-                        valid = true;
-                    } else {
-                        // Откат, если заблокировал путь
-                        if (move.isVertical) game.vWalls[move.r][move.c] = false;
-                        else game.hWalls[move.r][move.c] = false;
-                    }
-                }
-            }
-
-            if (valid) {
-                console.log(`[MOVE VALID] Лобби ${lobbyId}, Игрок ${playerIdx}, Ход:`, move);
-
-                // Record move to history
-                game.history.push({
-                    playerIdx,
-                    move,
-                    timestamp: Date.now()
-                });
-
-                // --- НОВАЯ ЛОГИКА: ПРОВЕРКА ПОБЕДЫ ---
-                const winnerIdx = checkVictory(game);
+                // 4. Проверка победы (после обновления состояния)
+                const winnerIdx = checkVictory(nextState);
                 if (winnerIdx !== -1) {
-                    console.log(`[GAME OVER] Лобби ${lobbyId}: Игрок ${winnerIdx} победил, достигнув цели.`);
-
-                    // Очищаем таймеры в Redis
                     await Redis.clearDisconnectTimer(lobbyId);
                     await Redis.clearTurnTimeout(lobbyId);
 
@@ -774,50 +820,41 @@ io.on('connection', (socket) => {
                         reason: 'Goal reached'
                     });
 
-                    // Сохраняем в архив
-                    await archiveGame(game, winnerIdx, 'goal', lobbyId);
-
-                    // Удаляем игру и маппинги токенов
+                    await archiveGame(nextState, winnerIdx, 'goal', lobbyId);
                     await Redis.deleteGame(lobbyId);
                     await Redis.removeActiveGame(lobbyId);
-                    await Redis.deleteTokenMapping(game.playerTokens[0]);
-                    await Redis.deleteTokenMapping(game.playerTokens[1]);
+                    await Redis.deleteTokenMapping(nextState.playerTokens[0]);
+                    await Redis.deleteTokenMapping(nextState.playerTokens[1]);
                     return;
                 }
-                // ----------------------------------------
 
-                // Переключаем ход (если игра не окончена)
-                game.currentPlayer = 1 - game.currentPlayer;
+                // 5. Сохранение и установка новых таймеров
+                await Redis.saveGame(lobbyId, nextState);
 
-                // Добавляем инкремент (Fisher)
-                if (game.increment > 0) {
-                    game.timers[playerIdx] += game.increment;
-                }
-
-                // Сохраняем обновлённое состояние в Redis
-                await Redis.saveGame(lobbyId, game);
-
-                // Обновляем таймер хода в Redis
-                const nextTimeoutAt = Date.now() + game.timers[game.currentPlayer] * 1000;
+                const nextTimeoutAt = Date.now() + nextState.timers[nextState.currentPlayer] * 1000;
                 await Redis.setTurnTimeout(lobbyId, nextTimeoutAt);
 
-                // Отправляем подтверждение всем
                 io.to(lobbyId).emit('serverMove', {
                     playerIdx: playerIdx,
                     move: move,
-                    nextPlayer: game.currentPlayer,
-                    timers: game.timers
+                    nextPlayer: nextState.currentPlayer,
+                    timers: nextState.timers
                 });
-            }
-            else {
-                console.log(`[MOVE INVALID] Лобби ${lobbyId}, Ход отклонен.`);
-                socket.emit('moveRejected', { reason: 'Invalid move' });
+
+            } catch (reducerError) {
+                console.log(`[MOVE REJECTED] Lobby ${lobbyId}: ${reducerError.message}`);
+                socket.emit('moveRejected', { reason: reducerError.message });
             }
         } catch (err) {
             console.error('[PLAYER MOVE ERROR]', err);
             socket.emit('moveRejected', { reason: 'Server error' });
+        } finally {
+            await Redis.releaseLock(lobbyId);
         }
+
     });
+
+
 
     socket.on('surrender', async (data) => {
         // Валидация входных данных
@@ -837,7 +874,7 @@ io.on('connection', (socket) => {
             const game = await Redis.getGame(lobbyId);
 
             if (game) {
-                const surrenderingIdx = game.playerSockets.indexOf(socket.id);
+                const surrenderingIdx = game.playerTokens.indexOf(socket.playerToken);
 
                 if (surrenderingIdx !== -1) {
                     const winnerIdx = 1 - surrenderingIdx;
@@ -970,7 +1007,7 @@ async function handleTurnTimeout(lobbyId) {
 async function archiveGame(game, winnerIdx, reason, lobbyId) {
     try {
         const whiteToken = game.playerTokens[0];
-        const blackToken = game.playerTokens[blackTokenIndex = 1];
+        const blackToken = game.playerTokens[1];
 
         // Пытаемся найти userId через Redis токены
         const uid0 = await Redis.getUserIdByToken(whiteToken);

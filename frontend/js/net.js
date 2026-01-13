@@ -49,7 +49,7 @@ const Net = {
             UI.hideSearch(false);
             UI.currentRoomCode = null; // Сбрасываем код, так как он использован
 
-            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime);
+            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
         });
 
         // Обработка восстановления игры
@@ -76,6 +76,7 @@ const Net = {
             }
 
             Game.state = data.state;
+            if (data.profiles) Game.state.playerProfiles = data.profiles; // Restore profiles
             Game.timers = data.timers; // Синхронизируем таймеры
 
             Game.draw();
@@ -96,9 +97,7 @@ const Net = {
 
         this.socket.on('opponentReconnected', () => {
             console.log('[NET] Противник вернулся!');
-            // Очищаем предыдущие тосты можно бы было, но пока просто кинем новый
-            // Лучше было бы иметь ID тоста, но для простоты - просто новое сообщение поверх
-            UI.showToast(UI.translate('toast_opponent_returned'), 'info', 2000);
+            // Тост удален, чтобы избежать спама уведомлениями
         });
 
         this.socket.on('gameOver', (data) => {

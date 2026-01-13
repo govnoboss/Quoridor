@@ -17,14 +17,86 @@
     };
 
     /**
-     * Создает глубокую копию состояния игры для истории (snapshots).
-     * @param {object} state - Состояние для клонирования.
-     * @returns {object} Глубокая копия состояния.
+     * Создает глубокую копию состояния игры.
+     * Оптимизировано для Quoridor state structure.
      */
     exports.cloneState = function (state) {
-        // Простой и надежный способ глубокого клонирования для POJO
-        return JSON.parse(JSON.stringify(state));
+        return {
+            hWalls: state.hWalls.map(row => [...row]),
+            vWalls: state.vWalls.map(row => [...row]),
+            players: state.players.map(p => ({
+                color: p.color,
+                pos: { r: p.pos.r, c: p.pos.c },
+                wallsLeft: p.wallsLeft
+            })),
+            currentPlayer: state.currentPlayer,
+            playerSockets: [...state.playerSockets],
+            playerTokens: [...state.playerTokens],
+            playerProfiles: state.playerProfiles ? state.playerProfiles.map(p => ({ ...p })) : null,
+            timers: [...state.timers],
+            increment: state.increment,
+            lastMoveTimestamp: state.lastMoveTimestamp,
+            history: [...state.history],
+            disconnectTimer: state.disconnectTimer
+        };
     };
+
+    /**
+     * Основной редьюсер логики игры.
+     * Принимает текущее состояние и действие, возвращает НОВОЕ состояние или бросает ошибку.
+     * @param {object} state 
+     * @param {object} action { type, r, c, isVertical, playerIdx }
+     */
+    exports.gameReducer = function (state, action) {
+        const newState = exports.cloneState(state);
+        const { type, r, c, isVertical, playerIdx } = action;
+
+        // Валидация очередности хода
+        if (playerIdx !== newState.currentPlayer) {
+            throw new Error('Not your turn');
+        }
+
+        if (type === 'pawn') {
+            const currentPos = newState.players[playerIdx].pos;
+            if (!exports.canMovePawn(newState, currentPos.r, currentPos.c, r, c)) {
+                throw new Error('Invalid pawn move');
+            }
+            newState.players[playerIdx].pos = { r, c };
+        }
+        else if (type === 'wall') {
+            if (newState.players[playerIdx].wallsLeft <= 0) {
+                throw new Error('No walls left');
+            }
+            if (!exports.checkWallPlacement(newState, r, c, isVertical)) {
+                throw new Error('Invalid wall placement coordinate');
+            }
+
+            // Временно ставим стену
+            if (isVertical) newState.vWalls[r][c] = true;
+            else newState.hWalls[r][c] = true;
+
+            if (!exports.isValidWallPlacement(newState)) {
+                // Откат (хотя мы работаем с клоном, для ясности)
+                if (isVertical) newState.vWalls[r][c] = false;
+                else newState.hWalls[r][c] = false;
+                throw new Error('Wall blocks the only path to goal');
+            }
+            newState.players[playerIdx].wallsLeft--;
+        }
+
+        // Запись в историю
+        newState.history.push({
+            playerIdx,
+            move: action,
+            timestamp: Date.now()
+        });
+
+        // Смена игрока
+        newState.currentPlayer = 1 - newState.currentPlayer;
+
+        return newState;
+    };
+
 
     exports.isWallBetween = function (state, fr, fc, tr, tc) {
         const dr = tr - fr, dc = tc - fc;
