@@ -1222,7 +1222,7 @@ const Game = {
         piece.dataset.wallIndex = w;
 
         // Интерактивность
-        if (w < wallsLeft) {
+        if (w < wallsLeft && interactive) {
           piece.classList.add('interactive');
           piece.onpointerdown = (e) => {
             if (this.viewHistoryIndex !== -1) {
@@ -1243,7 +1243,9 @@ const Game = {
    * @param {PointerEvent} e Событие указателя.
    */
   startWallDragFromInventory(e) {
-    if (this.isInputBlocked) return;
+    if (this.isInputBlocked || this.isGameOver) return;
+    // Защита: нельзя брать стену, если сейчас не наш ход (в онлайн или против бота)
+    if (this.myPlayerIndex !== -1 && this.state.currentPlayer !== this.myPlayerIndex) return;
     if (this.state.players[this.state.currentPlayer].wallsLeft <= 0) return;
     e.preventDefault();
 
