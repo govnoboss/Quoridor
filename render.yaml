@@ -14,11 +14,11 @@ services:
         generateValue: true
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: quoridor-redis
           property: connectionString
 
-redis:
-  - name: quoridor-redis
-    plan: free # Note: Render free redis is limited or trial based. check current pricing.
+  - type: keyvalue
+    name: quoridor-redis
+    plan: free
     ipAllowList: [] # Only allow internal connections
