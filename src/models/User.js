@@ -27,6 +27,28 @@ const userSchema = new mongoose.Schema({
         blitz: { type: Number, default: 1200 },
         rapid: { type: Number, default: 1200 }
     },
+    bio: {
+        type: String,
+        maxlength: 300,
+        default: ''
+    },
+    country: {
+        type: String,
+        default: 'XX' // 'XX' = Unknown/International
+    },
+    achievements: [{
+        type: String // Achievement IDs
+    }],
+    stats: {
+        totalGames: { type: Number, default: 0 },
+        wins: { type: Number, default: 0 },
+        losses: { type: Number, default: 0 },
+        playTimeSeconds: { type: Number, default: 0 }
+    },
+    preferences: {
+        boardTheme: { type: String, default: 'default' },
+        pieceSet: { type: String, default: 'default' }
+    },
     createdAt: {
         type: Date,
         default: Date.now

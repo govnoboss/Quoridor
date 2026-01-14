@@ -124,7 +124,55 @@ app.get('/api/auth/me', async (req, res) => {
 
 // --- PROFILE API ---
 
-// Get Profile Data
+// Public Profile Data
+app.get('/api/profiles/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        const user = await User.findOne({ username }).select('-passwordHash -__v -email');
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(user);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Public Game History
+app.get('/api/profiles/:username/games', async (req, res) => {
+    try {
+        const { username } = req.params;
+        // Limit query or pagination
+        const limit = parseInt(req.query.limit) || 20;
+        const page = parseInt(req.query.page) || 1;
+        const skip = (page - 1) * limit;
+
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const history = await GameResult.find({
+            $or: [{ 'playerWhite.id': user._id }, { 'playerBlack.id': user._id }]
+        })
+            .sort({ date: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        res.json(history);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// SPA Fallback for Profiles
+app.get('/profiles/:username', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+// Deprecated or Redirected Enpoints
+// Get "My" Profile Data (Legacy support, maybe redirect to /api/profiles/me in future)
 app.get('/api/user/profile', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
@@ -163,10 +211,11 @@ app.post('/api/user/update-avatar', async (req, res) => {
     }
 });
 
-// Get Game History
+// Legacy History (Redirect logic or keep for backward compat)
 app.get('/api/user/history', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
+        // Reuse general logic
         const history = await GameResult.find({
             $or: [{ 'playerWhite.id': req.session.userId }, { 'playerBlack.id': req.session.userId }]
         }).sort({ date: -1 }).limit(20);
@@ -175,8 +224,6 @@ app.get('/api/user/history', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
-
-// logout
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) return res.status(500).json({ error: 'Could not log out' });
