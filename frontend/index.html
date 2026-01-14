@@ -13,6 +13,18 @@
 
 <body>
 
+  <!-- LOADING SCREEN -->
+  <div id="loadingScreen">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <h2 class="loading-text">Loading...</h2>
+      <div id="loadingError" class="hidden">
+        <p>Something went wrong or loading is too slow.</p>
+        <button onclick="location.reload()" class="primary-btn">Reload Page</button>
+      </div>
+    </div>
+  </div>
+
   <div id="userProfileArea" class="user-profile-bar">
     <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 Login</button>
     <div id="userInfo" class="user-info hidden" onclick="UI.openMyProfile()">
@@ -23,7 +35,7 @@
     </div>
   </div>
 
-  <div id="mainMenu" class="screen active">
+  <div id="mainMenu" class="screen">
     <!-- Заголовок для мобильных (над полем) -->
     <h1 class="main-title mobile-only">Quoridor</h1>
 
@@ -318,16 +330,8 @@
           <div class="value" id="ppWinrate">0%</div>
         </div>
         <div class="pp-stat-card rating">
-          <div class="label">Bullet</div>
-          <div class="value" id="ppRatingBullet">1200</div>
-        </div>
-        <div class="pp-stat-card rating">
-          <div class="label">Blitz</div>
-          <div class="value" id="ppRatingBlitz">1200</div>
-        </div>
-        <div class="pp-stat-card rating">
-          <div class="label">Rapid</div>
-          <div class="value" id="ppRatingRapid">1200</div>
+          <div class="label">Rating</div>
+          <div class="value" id="ppRating">1200</div>
         </div>
         <!-- Hidden internal stats for calculations -->
         <span id="ppLosses" class="hidden">0</span>
@@ -640,16 +644,8 @@
 
         <div class="profile-stats-grid">
           <div class="rating-card">
-            <span class="rating-label">Bullet</span>
-            <span class="rating-value" id="ratingBullet">1200</span>
-          </div>
-          <div class="rating-card">
-            <span class="rating-label">Blitz</span>
-            <span class="rating-value" id="ratingBlitz">1200</span>
-          </div>
-          <div class="rating-card">
-            <span class="rating-label">Rapid</span>
-            <span class="rating-value" id="ratingRapid">1200</span>
+            <span class="rating-label">Rating</span>
+            <span class="rating-value" id="modalRating">1200</span>
           </div>
         </div>
 

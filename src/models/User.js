@@ -22,10 +22,9 @@ const userSchema = new mongoose.Schema({
         default: '',
         maxlength: 100
     },
-    ratings: {
-        bullet: { type: Number, default: 1200 },
-        blitz: { type: Number, default: 1200 },
-        rapid: { type: Number, default: 1200 }
+    rating: {
+        type: Number,
+        default: 1200
     },
     bio: {
         type: String,

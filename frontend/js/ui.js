@@ -798,6 +798,62 @@ UI.openAuthModal = function () {
   this.switchAuthTab('login');
 };
 
+// --- LOADING SCREEN ---
+UI.loadingTimeout = null;
+
+// New Loading state management
+UI.appLoaded = {
+  dom: false,
+  session: false
+};
+
+UI.tryHideLoading = function () {
+  if (this.appLoaded.dom && this.appLoaded.session) {
+    this.hideLoadingScreen();
+  }
+};
+
+UI.initLoadingScreen = function () {
+  // Set 10s timeout
+  this.loadingTimeout = setTimeout(() => {
+    const spinner = document.querySelector('#loadingScreen .spinner');
+    const text = document.querySelector('#loadingScreen .loading-text');
+    const error = document.getElementById('loadingError');
+
+    // Only show error if still loading
+    const screen = document.getElementById('loadingScreen');
+    if (screen && !screen.classList.contains('hidden')) {
+      if (spinner) spinner.style.display = 'none';
+      if (text) text.textContent = 'Connection Issue';
+      if (error) {
+        error.classList.remove('hidden');
+        error.querySelector('p').textContent = 'Server took too long to respond.';
+      }
+    }
+  }, 10000);
+
+  // 1. Wait for DOM/Resources
+  window.addEventListener('load', () => {
+    this.appLoaded.dom = true;
+    this.tryHideLoading();
+  });
+};
+
+UI.hideLoadingScreen = function () {
+  if (this.loadingTimeout) clearTimeout(this.loadingTimeout);
+
+  const screen = document.getElementById('loadingScreen');
+  if (screen) {
+    screen.classList.add('hidden');
+    setTimeout(() => {
+      // cleanup if needed
+    }, 500);
+  }
+};
+
+// Start loading logic immediately
+UI.initLoadingScreen();
+
 UI.closeAuthModal = function () {
   const modal = document.getElementById('authModal');
   if (modal) modal.classList.add('hidden');
@@ -884,6 +940,10 @@ UI.checkSession = async function () {
     }
   } catch (e) {
     console.error('Session check failed', e);
+  } finally {
+    // MARK SESSION AS LOADED
+    this.appLoaded.session = true;
+    this.tryHideLoading();
   }
 };
 
@@ -929,10 +989,9 @@ UI.showProfile = async function () {
     const regDate = new Date(user.createdAt).toLocaleDateString();
     document.getElementById('profileRegDate').textContent = regDate;
 
-    // Fill Ratings
-    document.getElementById('ratingBullet').textContent = user.ratings?.bullet || 1200;
-    document.getElementById('ratingBlitz').textContent = user.ratings?.blitz || 1200;
-    document.getElementById('ratingRapid').textContent = user.ratings?.rapid || 1200;
+    // Fil Ratings
+    const ratingEl = document.getElementById('modalRating');
+    if (ratingEl) ratingEl.textContent = user.rating || 1200;
 
     // Load History
     this.loadGameHistory();
@@ -1043,6 +1102,12 @@ UI.openMyProfile = function () {
 
 UI.showProfilePage = async function (username, pushState = true) {
   try {
+    // 0. Show Screen Immediately (Skeleton / Loading State) to avoid FOUC
+    this.showScreen('profileScreen');
+
+    // Optional: Reset UI to "Loading" state if needed
+    // document.getElementById('ppUsername').textContent = 'Loading...';
+
     // 1. Fetch Profile Data
     const res = await fetch(`/api/profiles/${username}`);
     if (!res.ok) {
@@ -1071,10 +1136,8 @@ UI.showProfilePage = async function (username, pushState = true) {
     const winrate = stats.totalGames ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
     document.getElementById('ppWinrate').textContent = winrate + '%';
 
-    if (user.ratings) {
-      document.getElementById('ppRatingBullet').textContent = user.ratings.bullet;
-      document.getElementById('ppRatingBlitz').textContent = user.ratings.blitz;
-      document.getElementById('ppRatingRapid').textContent = user.ratings.rapid;
+    if (user.rating !== undefined) {
+      document.getElementById('ppRating').textContent = user.rating;
     }
 
     // Render History
@@ -1158,6 +1221,8 @@ UI.initRouting = function () {
   if (path.startsWith('/profiles/')) {
     const username = path.split('/')[2];
     this.showProfilePage(username, false);
+  } else {
+    this.showScreen('mainMenu');
   }
 };
 

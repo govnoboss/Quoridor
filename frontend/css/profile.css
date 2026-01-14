@@ -142,8 +142,16 @@
 }
 
 .pp-stat-card.rating {
-    background: linear-gradient(to bottom right, rgba(224, 159, 62, 0.05), rgba(0, 0, 0, 0.2));
-    border-color: rgba(224, 159, 62, 0.2);
+    background: linear-gradient(to bottom right, rgba(224, 159, 62, 0.1), rgba(0, 0, 0, 0.3));
+    border-color: rgba(224, 159, 62, 0.4);
+    grid-column: span 2;
+    /* Make it wider */
+}
+
+@media (max-width: 600px) {
+    .pp-stat-card.rating {
+        grid-column: span 1;
+    }
 }
 
 /* Tabs */
