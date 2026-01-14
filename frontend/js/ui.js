@@ -1031,6 +1031,136 @@ UI.loadGameHistory = async function () {
   }
 };
 
+// --- NEW PROFILE PAGE LOGIC ---
+
+UI.openMyProfile = function () {
+  if (this.currentUser && this.currentUser.username) {
+    this.showProfilePage(this.currentUser.username);
+  } else {
+    this.openAuthModal();
+  }
+};
+
+UI.showProfilePage = async function (username, pushState = true) {
+  try {
+    // 1. Fetch Profile Data
+    const res = await fetch(`/api/profiles/${username}`);
+    if (!res.ok) {
+      this.showToast('User not found', 'error');
+      return;
+    }
+    const user = await res.json();
+
+    // 2. Fetch Games History
+    const gamesRes = await fetch(`/api/profiles/${username}/games?limit=20`);
+    const history = await gamesRes.json();
+
+    // 3. Update UI
+    document.getElementById('ppUsername').textContent = user.username;
+    document.getElementById('ppBio').textContent = user.bio || 'No bio available.';
+    document.getElementById('ppJoinedDate').textContent = new Date(user.createdAt).toLocaleDateString();
+
+    const avatarImg = document.getElementById('ppAvatar');
+    avatarImg.src = user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`;
+
+    // Stats
+    const stats = user.stats || {};
+    document.getElementById('ppTotalGames').textContent = stats.totalGames || 0;
+    document.getElementById('ppWins').textContent = stats.wins || 0;
+
+    const winrate = stats.totalGames ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
+    document.getElementById('ppWinrate').textContent = winrate + '%';
+
+    if (user.ratings) {
+      document.getElementById('ppRatingBullet').textContent = user.ratings.bullet;
+      document.getElementById('ppRatingBlitz').textContent = user.ratings.blitz;
+      document.getElementById('ppRatingRapid').textContent = user.ratings.rapid;
+    }
+
+    // Render History
+    const historyBody = document.getElementById('ppHistoryBody');
+    historyBody.innerHTML = '';
+
+    if (!history || history.length === 0) {
+      historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #666;">No games played yet</td></tr>';
+    } else {
+      history.forEach(game => {
+        const row = document.createElement('tr');
+
+        const isWhite = game.playerWhite && game.playerWhite.username === user.username; // Robust check
+        // Handle missing player objects if schema changed or legacy data
+        const opponentName = isWhite ?
+          (game.playerBlack ? game.playerBlack.username : 'Unknown') :
+          (game.playerWhite ? game.playerWhite.username : 'Unknown');
+
+        let resultKey = 'draw';
+        let resultLabel = 'Draw';
+
+        if (game.winner !== -1) {
+          const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
+          resultKey = iWon ? 'win' : 'loss';
+          resultLabel = iWon ? 'WON' : 'LOST';
+        }
+
+        row.innerHTML = `
+                <td>${new Date(game.date).toLocaleDateString()}</td>
+                <td>vs ${opponentName}</td>
+                <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
+                <td>${game.turns}</td>
+            `;
+        historyBody.appendChild(row);
+      });
+    }
+
+    // 4. Show Screen
+    this.showScreen('profileScreen');
+
+    // 5. Update URL
+    if (pushState) {
+      window.history.pushState({ screen: 'profile', username: username }, '', '/profiles/' + username);
+    }
+  } catch (err) {
+    console.error('Error loading profile:', err);
+    this.showToast('Failed to load profile', 'error');
+  }
+};
+
+UI.backToMenuFromProfile = function () {
+  this.backToMenu();
+  window.history.pushState({ screen: 'menu' }, '', '/');
+};
+
+UI.switchProfileTab = function (tabName, btn) {
+  // Hide all contents
+  document.querySelectorAll('.pp-tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.pp-tab').forEach(el => el.classList.remove('active'));
+
+  // Show target
+  const targetContent = document.getElementById('ppTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+  if (targetContent) targetContent.classList.add('active');
+
+  if (btn) btn.classList.add('active');
+};
+
+UI.initRouting = function () {
+  window.addEventListener('popstate', (event) => {
+    const path = window.location.pathname;
+    if (path.startsWith('/profiles/')) {
+      const username = path.split('/')[2];
+      this.showProfilePage(username, false);
+    } else {
+      this.showScreen('mainMenu');
+    }
+  });
+
+  // Check initial load
+  const path = window.location.pathname;
+  if (path.startsWith('/profiles/')) {
+    const username = path.split('/')[2];
+    this.showProfilePage(username, false);
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';
   const savedLang = localStorage.getItem('quoridor-lang') || 'ru';
@@ -1063,6 +1193,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Проверка сессии пользователя
   UI.checkSession();
 
+  // Инициализация роутинга
+  UI.initRouting();
+
   // Проверка URL на наличие комнаты
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
@@ -1094,6 +1227,11 @@ document.addEventListener('DOMContentLoaded', () => {
       UI.hideDisconnectOverlay();
       const confirmModal = document.getElementById('confirmModal');
       if (confirmModal) confirmModal.style.display = 'none';
+
+      // If profile screen is open, go back
+      if (document.getElementById('profileScreen').classList.contains('active')) {
+        UI.backToMenuFromProfile();
+      }
     }
   });
 

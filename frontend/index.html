@@ -6,15 +6,16 @@
   <meta charset="utf-8" />
   <title>Quoridor</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="css/style.css?v=1.0.1" type="text/css" />
-  <link rel="stylesheet" href="css/auth.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="/css/auth.css?v=1.0.1" type="text/css" />
+  <link rel="stylesheet" href="/css/profile.css?v=1.0.1" type="text/css" />
 </head>
 
 <body>
 
   <div id="userProfileArea" class="user-profile-bar">
     <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 Login</button>
-    <div id="userInfo" class="user-info hidden" onclick="UI.showProfile()">
+    <div id="userInfo" class="user-info hidden" onclick="UI.openMyProfile()">
       <div class="avatar-circle">
         <img id="userAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
       </div>
@@ -279,6 +280,89 @@
       </button>
     </div>
     <button onclick="UI.showModeSelect()" data-i18n="btn_back">Назад</button>
+  </div>
+
+  <!-- PROFILE SCREEN (NEW) -->
+  <div id="profileScreen" class="screen">
+    <div class="profile-page-container">
+      <button class="btn-back-floating" onclick="UI.backToMenuFromProfile()">← Back</button>
+
+      <!-- Header -->
+      <div class="profile-page-header">
+        <div class="pp-avatar-section">
+          <img id="ppAvatar" class="pp-avatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
+          <div class="pp-country-flag" id="ppFlag" title="Country">🌍</div>
+        </div>
+        <div class="pp-info-section">
+          <h1 id="ppUsername">User</h1>
+          <p id="ppBio" class="pp-bio">No bio description yet.</p>
+          <p class="pp-joined">Joined: <span id="ppJoinedDate">--/--/----</span></p>
+        </div>
+        <div class="pp-actions" id="ppActions">
+          <!-- Buttons injected by JS (e.g. Add Friend, Edit Profile) -->
+        </div>
+      </div>
+
+      <!-- Stats Overview -->
+      <div class="pp-stats-overview">
+        <div class="pp-stat-card">
+          <div class="label">Games</div>
+          <div class="value" id="ppTotalGames">0</div>
+        </div>
+        <div class="pp-stat-card">
+          <div class="label">Wins</div>
+          <div class="value text-green" id="ppWins">0</div>
+        </div>
+        <div class="pp-stat-card">
+          <div class="label">Winrate</div>
+          <div class="value" id="ppWinrate">0%</div>
+        </div>
+        <div class="pp-stat-card rating">
+          <div class="label">Bullet</div>
+          <div class="value" id="ppRatingBullet">1200</div>
+        </div>
+        <div class="pp-stat-card rating">
+          <div class="label">Blitz</div>
+          <div class="value" id="ppRatingBlitz">1200</div>
+        </div>
+        <div class="pp-stat-card rating">
+          <div class="label">Rapid</div>
+          <div class="value" id="ppRatingRapid">1200</div>
+        </div>
+        <!-- Hidden internal stats for calculations -->
+        <span id="ppLosses" class="hidden">0</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="pp-tabs">
+        <button class="pp-tab active" onclick="UI.switchProfileTab('history', this)">History</button>
+        <button class="pp-tab" onclick="UI.switchProfileTab('friends', this)">Friends</button>
+      </div>
+
+      <!-- Tab Content: History -->
+      <div id="ppTabHistory" class="pp-tab-content active">
+        <table class="pp-history-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Opponent</th>
+              <th>Result</th>
+              <th>Moves</th>
+            </tr>
+          </thead>
+          <tbody id="ppHistoryBody">
+            <!-- Injected -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab Content: Friends -->
+      <div id="ppTabFriends" class="pp-tab-content">
+        <div style="padding: 20px; text-align: center; color: #888;">
+          <p>Friends system coming soon!</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="roomScreen" class="screen">
@@ -631,11 +715,11 @@
 
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="js/ui.js?v=1.0.1"></script>
-  <script src="js/net.js?v=1.0.1"></script>
+  <script src="/js/ui.js?v=1.0.1"></script>
+  <script src="/js/net.js?v=1.0.1"></script>
   <script src="/shared.js?v=1.0.1"></script>
-  <script src="js/ai.js?v=1.0.1"></script>
-  <script src="js/game.js?v=1.0.1"></script>
+  <script src="/js/ai.js?v=1.0.1"></script>
+  <script src="/js/game.js?v=1.0.1"></script>
   <script src="/main.js?v=1.0.1"></script>
 </body>
 
