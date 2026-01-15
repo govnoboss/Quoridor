@@ -124,6 +124,14 @@
               </div>
             </div>
           </div>
+          <div id="rankedOption" class="panel-option hidden" style="margin-top: 15px; margin-bottom: 15px;">
+            <label class="checkbox-container">
+              <input type="checkbox" id="rankedCheckbox" checked>
+              <span class="checkmark"></span>
+              <span data-i18n="label_ranked">Играть на рейтинг</span>
+              <span class="auth-hint" style="font-size: 0.8em; color: #888;">(Auth only)</span>
+            </label>
+          </div>
           <button id="startSearchBtn" class="primary-btn disabled" onclick="UI.startOnlineSearch()"
             data-i18n="btn_start_search" disabled>Найти игру</button>
         </div>
@@ -173,6 +181,7 @@
             <button onclick="UI.selectBotDifficulty('hard')" data-i18n="mode_bot_hard">Сильный бот</button>
             <button onclick="UI.selectBotDifficulty('impossible')" data-i18n="mode_bot_impossible">Непобедимый
               бот</button>
+
           </div>
         </div>
 
@@ -260,6 +269,7 @@
           <p class="info-hint" data-i18n="info_hint">Рейтинг обновляется в реальном времени</p>
         </div>
       </div> <!-- info-panel -->
+      <div class="app-version">v1.01</div>
     </div> <!-- menu-layout -->
   </div> <!-- mainMenu -->
 
@@ -589,9 +599,16 @@
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
       <h2 id="resultStatus" data-i18n="modal_win">ПОБЕДА</h2>
-      <div class="result-divider"></div>
-      <p id="resultReason"><span data-i18n="modal_reason">Причина: </span><span id="resultReasonText"></span></p>
-      <button class="primary-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">В меню</button>
+      <p class="result-reason">
+        <span data-i18n="modal_reason">Причина: </span>
+        <span id="resultReasonText"></span>
+      </p>
+
+      <div id="resultRatingChanges" class="rating-changes"></div>
+
+      <div class="result-actions">
+        <button class="primary-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">В меню</button>
+      </div>
     </div>
   </div>
 
@@ -677,29 +694,40 @@
     <div class="auth-content">
       <button class="close-panel-btn" onclick="UI.closeAuthModal()">×</button>
 
-      <div class="auth-tabs">
-        <button class="auth-tab active" onclick="UI.switchAuthTab('login')" data-i18n="auth_login">Вход</button>
-        <button class="auth-tab" onclick="UI.switchAuthTab('register')" data-i18n="auth_register">Регистрация</button>
-      </div>
+      <h2 id="authTitle" class="auth-title" data-i18n="auth_login">Вход</h2>
 
       <div id="authFormContainer">
         <!-- LOGIN FORM -->
         <div id="loginForm" class="auth-form">
           <input type="text" id="loginUsername" placeholder="Username" class="auth-input">
           <input type="password" id="loginPassword" placeholder="Password" class="auth-input">
+          <div class="auth-fp-wrapper">
+            <a href="#" class="auth-link small" onclick="return false;" style="opacity: 0.6; cursor: default;"
+              data-i18n="link_forgot_pass">Забыли пароль?</a>
+          </div>
           <div class="auth-actions">
             <button class="primary-btn full-width" onclick="UI.submitLogin()"
               data-i18n="btn_login_submit">Войти</button>
+          </div>
+          <div class="auth-footer">
+            <span class="auth-text" data-i18n="text_no_account">Нет аккаунта?</span>
+            <a href="#" class="auth-link action-link" onclick="UI.switchAuthTab('register'); return false;"
+              data-i18n="link_register">Зарегистрироваться</a>
           </div>
         </div>
 
         <!-- REGISTER FORM -->
         <div id="registerForm" class="auth-form hidden">
-          <input type="text" id="regUsername" placeholder="Username (min 3)" class="auth-input">
-          <input type="password" id="regPassword" placeholder="Password (min 6)" class="auth-input">
+          <input type="text" id="regUsername" placeholder="Username (at least 3 characters)" class="auth-input">
+          <input type="password" id="regPassword" placeholder="Password (at least 8 characters)" class="auth-input">
           <div class="auth-actions">
             <button class="primary-btn full-width" onclick="UI.submitRegister()"
               data-i18n="btn_reg_submit">Зарегистрироваться</button>
+          </div>
+          <div class="auth-footer">
+            <span class="auth-text" data-i18n="text_has_account">Уже есть аккаунт?</span>
+            <a href="#" class="auth-link action-link" onclick="UI.switchAuthTab('login'); return false;"
+              data-i18n="link_login_back">Войти</a>
           </div>
         </div>
       </div>

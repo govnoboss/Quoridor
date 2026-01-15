@@ -8,12 +8,18 @@ const gameResultSchema = new mongoose.Schema({
     playerWhite: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         username: String,
-        isGuest: { type: Boolean, default: false }
+        isGuest: { type: Boolean, default: false },
+        ratingChange: { type: Number, default: 0 }
     },
     playerBlack: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         username: String,
-        isGuest: { type: Boolean, default: false }
+        isGuest: { type: Boolean, default: false },
+        ratingChange: { type: Number, default: 0 }
+    },
+    isRanked: {
+        type: Boolean,
+        default: false
     },
     winner: {
         type: Number, // 0 for white, 1 for black, -1 for draw

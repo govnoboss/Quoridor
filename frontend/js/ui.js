@@ -548,7 +548,7 @@ const UI = {
     };
 
     modal.style.display = 'flex';
-    this.updateLanguage(); // Обновить текст кнопок Да/Нет
+    // this.updateLanguage(); // REMOVED: Resets all dynamic text (names)
   },
 
   // Force update current screen language
@@ -860,16 +860,29 @@ UI.closeAuthModal = function () {
 };
 
 UI.switchAuthTab = function (tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.auth-tab[onclick*="${tab}"]`).classList.add('active');
+  // Update header title
+  const title = document.getElementById('authTitle');
+  if (title) {
+    if (tab === 'login') {
+      title.textContent = 'Вход';
+      title.setAttribute('data-i18n', 'auth_login');
+    } else if (tab === 'register') {
+      title.textContent = 'Регистрация';
+      title.setAttribute('data-i18n', 'auth_register');
+    }
+  }
 
+  // Toggle forms
   document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
-  document.getElementById(tab + 'Form').classList.remove('hidden');
+  const targetForm = document.getElementById(tab + 'Form');
+  if (targetForm) targetForm.classList.remove('hidden');
 };
 
 UI.submitLogin = async function () {
-  const username = document.getElementById('loginUsername').value;
-  const password = document.getElementById('loginPassword').value;
+  const uInput = document.getElementById('loginUsername');
+  const pInput = document.getElementById('loginPassword');
+  const username = uInput.value;
+  const password = pInput.value;
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -886,7 +899,15 @@ UI.submitLogin = async function () {
       // Reload to re-establish socket with new session
       setTimeout(() => window.location.reload(), 500);
     } else {
-      this.showToast(data.error || 'Login failed', 'error');
+      // Show error feedback
+      uInput.classList.add('input-error');
+      pInput.classList.add('input-error');
+
+      const clearError = (e) => e.target.classList.remove('input-error');
+      uInput.addEventListener('input', clearError, { once: true });
+      pInput.addEventListener('input', clearError, { once: true });
+
+      this.showToast('Неверный логин/пароль', 'error');
     }
   } catch (e) {
     console.error(e);
@@ -897,6 +918,18 @@ UI.submitLogin = async function () {
 UI.submitRegister = async function () {
   const username = document.getElementById('regUsername').value;
   const password = document.getElementById('regPassword').value;
+
+  // Client-side validation
+  if (password.length < 8) {
+    this.showToast('Password must be at least 8 characters', 'error');
+    return;
+  }
+
+  // Check for spaces or other whitespace
+  if (/\s/.test(password)) {
+    this.showToast('Password cannot contain spaces', 'error');
+    return;
+  }
 
   try {
     const res = await fetch('/api/auth/register', {
@@ -926,7 +959,7 @@ UI.logout = async function () {
   this.currentUser = null;
   this.updateAuthUI();
   this.showToast('Logged out', 'info');
-  window.location.reload();
+  window.location.href = '/';
 };
 
 UI.checkSession = async function () {
@@ -968,10 +1001,46 @@ UI.updateAuthUI = function () {
       if (avatarImg && this.currentUser.avatarUrl) {
         avatarImg.src = this.currentUser.avatarUrl;
       }
+
+      const rankedOption = document.getElementById('rankedOption');
+      if (rankedOption) rankedOption.classList.remove('hidden');
+
     } else {
       authBtn.classList.remove('hidden');
       userInfo.classList.add('hidden');
+
+      const rankedOption = document.getElementById('rankedOption');
+      if (rankedOption) rankedOption.classList.add('hidden');
     }
+  }
+};
+
+UI.updateGameInfo = function (profiles, myIndex) {
+  if (!profiles) return;
+
+  // Calculate indices based on perspective
+  const bottomProfile = profiles[myIndex];
+  const topProfile = profiles[1 - myIndex];
+
+  const bottomName = document.getElementById('bottomPlayerName');
+  const topName = document.getElementById('topPlayerName');
+  const bottomAvatar = document.getElementById('bottomPlayerAvatar');
+  const topAvatar = document.getElementById('topPlayerAvatar');
+
+  if (bottomProfile) {
+    let text = "Вы";
+    if (bottomProfile.name) text = bottomProfile.name;
+    if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
+    if (bottomName) bottomName.textContent = text;
+    if (bottomAvatar && bottomProfile.avatar) bottomAvatar.src = bottomProfile.avatar;
+  }
+
+  if (topProfile) {
+    let text = "Оппонент";
+    if (topProfile.name) text = topProfile.name;
+    if (topProfile.rating) text += ` (${topProfile.rating})`;
+    if (topName) topName.textContent = text;
+    if (topAvatar && topProfile.avatar) topAvatar.src = topProfile.avatar;
   }
 };
 

@@ -128,29 +128,15 @@
     border-radius: 12px;
 }
 
-.auth-tabs {
-    display: flex;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #333;
-}
-
-.auth-tab {
-    flex: 1;
-    background: none;
-    border: none;
-    padding: 10px;
-    color: #888;
-    font-size: 16px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-}
-
-.auth-tab.active {
+/* Old tabs removed, replaced by title and footer nav */
+.auth-title {
+    text-align: center;
     color: var(--wall, #e09f3e);
-    border-bottom-color: var(--wall, #e09f3e);
-    font-weight: bold;
+    margin: 0 0 25px 0;
+    font-size: 24px;
+    letter-spacing: 1px;
 }
+
 
 .auth-form {
     display: flex;
@@ -172,8 +158,53 @@
     border-color: var(--wall, #e09f3e);
 }
 
+.input-error {
+    border-color: #ff4444 !important;
+    box-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+}
+
 .full-width {
     width: 100%;
+}
+
+.auth-fp-wrapper {
+    text-align: right;
+    margin-top: -10px;
+    margin-bottom: 5px;
+}
+
+.auth-footer {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #888;
+}
+
+.auth-link {
+    color: var(--wall, #e09f3e);
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+    filter: brightness(1.2);
+}
+
+.auth-link.small {
+    font-size: 13px;
+    color: #888;
+}
+
+.auth-link.small:hover {
+    color: #ccc;
+}
+
+.auth-link.action-link {
+    font-weight: bold;
+    cursor: pointer;
 }
 
 .auth-content .close-panel-btn {

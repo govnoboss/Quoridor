@@ -310,19 +310,6 @@ io.use((socket, next) => {
     next();
 });
 
-// ============================================================
-// ХРАНИЛИЩЕ ДАННЫХ (Redis)
-// ============================================================
-// Все данные теперь хранятся в Redis:
-// - Игры: Redis.getGame(), Redis.saveGame()
-// - Комнаты: Redis.getRoom(), Redis.createRoom()
-// - Очереди: Redis.addToQueue(), Redis.popTwoFromQueue()
-// - Счётчик лобби: Redis.incrementLobbyCounter()
-
-// Локальный кеш для disconnect-таймеров (setTimeout нельзя сериализовать)
-// Формат: lobbyId -> { timer: setTimeout_id, disconnectedIdx: number }
-// Локальный кеш для disconnect-таймеров удален. Теперь используется Redis ZSET.
-
 /**
  * Генерирует короткий уникальный код комнаты.
  */
@@ -343,7 +330,8 @@ async function getPlayerProfile(token) {
             if (user) {
                 return {
                     name: user.username,
-                    avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`
+                    avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`,
+                    rating: user.rating
                 };
             }
         }
@@ -362,7 +350,7 @@ async function getPlayerProfile(token) {
 // 
 
 
-function createInitialState(timeControl) {
+function createInitialState(timeControl, isRanked = false) {
     const base = timeControl?.base || 600;
     const inc = timeControl?.inc || 0;
     return {
@@ -380,8 +368,16 @@ function createInitialState(timeControl) {
         timers: [base, base],
         increment: inc,
         lastMoveTimestamp: Date.now(),
-        history: [] // Store list of moves
+        history: [], // Store list of moves
+        isRanked: isRanked // Storing Ranked Status
     };
+}
+
+// ELO Calculation Helper
+function calculateEloChange(ratingA, ratingB, scoreA) { // scoreA: 1 (win), 0 (loss), 0.5 (draw)
+    const K = 40; // Launch Strategy K-factor
+    const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+    return Math.round(K * (scoreA - expectedA));
 }
 function checkVictory(state) {
     if (state.players[0].pos.r === 0) return 0;
@@ -479,6 +475,12 @@ io.on('connection', (socket) => {
 
         const token = data?.token;
         const tc = data?.timeControl || { base: 600, inc: 0 };
+        const isRanked = Boolean(data?.isRanked);
+
+        if (isRanked && !socket.userId) {
+            socket.emit('findGameFailed', { reason: 'Ranked play requires login' });
+            return;
+        }
 
         if (!isValidToken(token)) return;
 
@@ -491,11 +493,11 @@ io.on('connection', (socket) => {
                 socketId: socket.id,
                 token: token,
                 timeControl: tc
-            });
-            console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}]`);
+            }, isRanked);
+            console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}] (Ranked: ${isRanked})`);
 
             // Пробуем достать двух игроков
-            const pair = await Redis.popTwoFromQueue(tc.base, tc.inc);
+            const pair = await Redis.popTwoFromQueue(tc.base, tc.inc, isRanked);
 
             if (pair) {
                 const [pA, pB] = pair;
@@ -512,7 +514,7 @@ io.on('connection', (socket) => {
                 const s2 = io.sockets.sockets.get(p2.socketId);
 
                 if (s1 && s2) {
-                    const gameState = createInitialState(p1.timeControl);
+                    const gameState = createInitialState(p1.timeControl, isRanked);
                     gameState.playerSockets[0] = p1.socketId;
                     gameState.playerSockets[1] = p2.socketId;
                     gameState.playerTokens[0] = p1.token;
@@ -831,18 +833,7 @@ io.on('connection', (socket) => {
             game.lastMoveTimestamp = now;
 
             if (game.timers[game.currentPlayer] < 0) {
-                await Redis.clearDisconnectTimer(lobbyId);
-                await Redis.clearTurnTimeout(lobbyId);
-
-                io.to(lobbyId).emit('gameOver', {
-                    winnerIdx: 1 - game.currentPlayer,
-                    reason: 'Time out'
-                });
-
-                await Redis.deleteGame(lobbyId);
-                await Redis.removeActiveGame(lobbyId);
-                await Redis.deleteTokenMapping(game.playerTokens[0]);
-                await Redis.deleteTokenMapping(game.playerTokens[1]);
+                await finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
                 return;
             }
 
@@ -859,19 +850,7 @@ io.on('connection', (socket) => {
                 // 4. Проверка победы (после обновления состояния)
                 const winnerIdx = checkVictory(nextState);
                 if (winnerIdx !== -1) {
-                    await Redis.clearDisconnectTimer(lobbyId);
-                    await Redis.clearTurnTimeout(lobbyId);
-
-                    io.to(lobbyId).emit('gameOver', {
-                        winnerIdx: winnerIdx,
-                        reason: 'Goal reached'
-                    });
-
-                    await archiveGame(nextState, winnerIdx, 'goal', lobbyId);
-                    await Redis.deleteGame(lobbyId);
-                    await Redis.removeActiveGame(lobbyId);
-                    await Redis.deleteTokenMapping(nextState.playerTokens[0]);
-                    await Redis.deleteTokenMapping(nextState.playerTokens[1]);
+                    await finalizeGame(lobbyId, winnerIdx, 'Goal reached', nextState);
                     return;
                 }
 
@@ -926,25 +905,7 @@ io.on('connection', (socket) => {
                 if (surrenderingIdx !== -1) {
                     const winnerIdx = 1 - surrenderingIdx;
 
-                    // Очищаем таймеры в Redis
-                    await Redis.clearDisconnectTimer(lobbyId);
-                    await Redis.clearTurnTimeout(lobbyId);
-
-                    console.log(`[SURRENDER] Лобби ${lobbyId}: Игрок ${surrenderingIdx} сдался.`);
-
-                    io.to(lobbyId).emit('gameOver', {
-                        winnerIdx: winnerIdx,
-                        reason: 'Surrender'
-                    });
-
-                    // Сохраняем в архив
-                    await archiveGame(game, winnerIdx, 'surrender', lobbyId);
-
-                    // Удаляем игру и маппинги токенов
-                    await Redis.deleteGame(lobbyId);
-                    await Redis.removeActiveGame(lobbyId);
-                    await Redis.deleteTokenMapping(game.playerTokens[0]);
-                    await Redis.deleteTokenMapping(game.playerTokens[1]);
+                    await finalizeGame(lobbyId, winnerIdx, 'Surrender');
                 }
             }
         } catch (err) {
@@ -1009,21 +970,17 @@ async function handleDisconnectTimeout(lobbyId) {
         else if (s1 && !s0) winnerIdx = 1;
 
         if (winnerIdx !== -1) {
-            io.to(lobbyId).emit('gameOver', {
-                winnerIdx: winnerIdx,
-                reason: 'Opponent disconnected'
-            });
-
-            // Сохраняем в архив
-            await archiveGame(game, winnerIdx, 'disconnect', lobbyId);
+            await finalizeGame(lobbyId, winnerIdx, 'Opponent disconnected');
+        } else {
+            // Edge case: no winner detected? Should clean up anyway.
+            // Original logic just cleaned up.
+            await Redis.deleteGame(lobbyId);
+            await Redis.removeActiveGame(lobbyId);
+            await Redis.deleteTokenMapping(game.playerTokens[0]);
+            await Redis.deleteTokenMapping(game.playerTokens[1]);
+            await Redis.clearDisconnectTimer(lobbyId);
+            await Redis.clearTurnTimeout(lobbyId);
         }
-
-        await Redis.deleteGame(lobbyId);
-        await Redis.removeActiveGame(lobbyId);
-        await Redis.deleteTokenMapping(game.playerTokens[0]);
-        await Redis.deleteTokenMapping(game.playerTokens[1]);
-        await Redis.clearDisconnectTimer(lobbyId);
-        await Redis.clearTurnTimeout(lobbyId);
     }
 }
 
@@ -1033,20 +990,7 @@ async function handleTurnTimeout(lobbyId) {
     const game = await Redis.getGame(lobbyId);
     if (game) {
         const winnerIdx = 1 - game.currentPlayer;
-        io.to(lobbyId).emit('gameOver', {
-            winnerIdx: winnerIdx,
-            reason: 'Time out'
-        });
-
-        // Сохраняем в архив
-        await archiveGame(game, winnerIdx, 'timeout', lobbyId);
-
-        await Redis.deleteGame(lobbyId);
-        await Redis.removeActiveGame(lobbyId);
-        await Redis.deleteTokenMapping(game.playerTokens[0]);
-        await Redis.deleteTokenMapping(game.playerTokens[1]);
-        await Redis.clearDisconnectTimer(lobbyId);
-        await Redis.clearTurnTimeout(lobbyId);
+        await finalizeGame(lobbyId, winnerIdx, 'Time out');
     }
 }
 
@@ -1056,48 +1000,116 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         const whiteToken = game.playerTokens[0];
         const blackToken = game.playerTokens[1];
 
-        // Пытаемся найти userId через Redis токены
         const uid0 = await Redis.getUserIdByToken(whiteToken);
-        const uid1 = await Redis.getUserIdByToken(game.playerTokens[1]);
+        const uid1 = await Redis.getUserIdByToken(blackToken);
 
         const playerWhite = { username: "Guest White", isGuest: true };
         const playerBlack = { username: "Guest Black", isGuest: true };
 
+        let u0 = null, u1 = null;
+
         if (uid0) {
-            const u0 = await User.findById(uid0);
+            u0 = await User.findById(uid0);
             if (u0) {
                 playerWhite.username = u0.username;
                 playerWhite.id = u0._id;
                 playerWhite.isGuest = false;
+                // Add current rating for history snapshot
+                playerWhite.previousRating = u0.rating;
             }
         }
         if (uid1) {
-            const u1 = await User.findById(uid1);
+            u1 = await User.findById(uid1);
             if (u1) {
                 playerBlack.username = u1.username;
                 playerBlack.id = u1._id;
                 playerBlack.isGuest = false;
+                playerBlack.previousRating = u1.rating;
             }
         }
 
-        // Опредяем тип игры
+        // --- ELO CALCULATION ---
+        if (game.isRanked && u0 && u1) {
+            let s0 = 0.5;
+            if (winnerIdx === 0) s0 = 1;
+            else if (winnerIdx === 1) s0 = 0;
+
+            const change0 = calculateEloChange(u0.rating, u1.rating, s0);
+            const change1 = calculateEloChange(u1.rating, u0.rating, 1 - s0);
+
+            u0.rating += change0;
+            u1.rating += change1;
+
+            await u0.save();
+            await u1.save();
+
+            playerWhite.ratingChange = change0;
+            playerBlack.ratingChange = change1;
+            playerWhite.newRating = u0.rating;
+            playerBlack.newRating = u1.rating;
+
+            console.log(`[ELO] ${u0.username} (${change0 > 0 ? '+' : ''}${change0}) vs ${u1.username} (${change1 > 0 ? '+' : ''}${change1})`);
+        } else {
+            // Ensure ratingChange is 0 for unranked
+            playerWhite.ratingChange = 0;
+            playerBlack.ratingChange = 0;
+        }
+
         let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
         if (lobbyId.startsWith('bot-')) gameType = 'bot';
 
         const result = new GameResult({
             gameType,
+            isRanked: !!game.isRanked,
             playerWhite,
             playerBlack,
             winner: winnerIdx,
             reason,
-            turns: Math.ceil(game.history.length / 2),
+            turns: Math.ceil((game.history?.length || 0) / 2),
             date: new Date()
         });
 
         await result.save();
-        console.log(`[ARCHIVE] Game ${lobbyId} saved to database.`);
+        console.log(`[ARCHIVE] Game ${lobbyId} saved (Ranked: ${!!game.isRanked})`);
+
+        return {
+            white: playerWhite,
+            black: playerBlack
+        };
+
     } catch (err) {
         console.error('[ARCHIVE ERROR]', err);
+        return null;
+    }
+}
+
+// Unified Game End Handler
+async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
+    const game = stateOverride || await Redis.getGame(lobbyId);
+
+    if (game) {
+        // Clear timers immediately
+        await Redis.clearDisconnectTimer(lobbyId);
+        await Redis.clearTurnTimeout(lobbyId);
+
+        // Archive and Calc Ratings
+        const resultData = await archiveGame(game, winnerIdx, reason, lobbyId);
+
+        io.to(lobbyId).emit('gameOver', {
+            winnerIdx: winnerIdx,
+            reason: reason,
+            ratingChanges: resultData ? {
+                playerWhite: resultData.white.ratingChange,
+                playerBlack: resultData.black.ratingChange,
+                newRatingWhite: resultData.white.newRating,
+                newRatingBlack: resultData.black.newRating
+            } : null
+        });
+
+        await Redis.deleteGame(lobbyId);
+        await Redis.removeActiveGame(lobbyId);
+        if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
+        if (game.playerTokens?.[1]) await Redis.deleteTokenMapping(game.playerTokens[1]);
     }
 }
 

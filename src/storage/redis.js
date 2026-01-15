@@ -27,7 +27,7 @@ const KEYS = {
     GAME: (lobbyId) => `game:${lobbyId}`,
     TOKEN: (token) => `token:${token}`,
     ROOM: (code) => `room:${code}`,
-    QUEUE: (base, inc) => `queue:${base}:${inc}`,
+    QUEUE: (base, inc, isRanked) => `queue:${isRanked ? 'ranked' : 'casual'}:${base}:${inc}`,
     LOBBY_COUNTER: 'global:lobby_id',
     ACTIVE_GAMES: 'global:active_games',
     // Timers (Sorted Sets)
@@ -392,24 +392,24 @@ async function deleteRoom(code) {
 /**
  * Добавляет игрока в очередь поиска.
  */
-async function addToQueue(base, inc, playerData) {
+async function addToQueue(base, inc, playerData, isRanked = false) {
     if (!isReady()) {
         throw new Error('[REDIS] Not connected');
     }
 
-    const key = KEYS.QUEUE(base, inc);
+    const key = KEYS.QUEUE(base, inc, isRanked);
     await client.rPush(key, JSON.stringify(playerData));
 }
 
 /**
  * Удаляет игрока из очереди по токену.
  */
-async function removeFromQueue(base, inc, token) {
+async function removeFromQueue(base, inc, token, isRanked = false) {
     if (!isReady()) {
         throw new Error('[REDIS] Not connected');
     }
 
-    const key = KEYS.QUEUE(base, inc);
+    const key = KEYS.QUEUE(base, inc, isRanked);
     const items = await client.lRange(key, 0, -1);
 
     for (const item of items) {
@@ -426,12 +426,12 @@ async function removeFromQueue(base, inc, token) {
  * Получает и удаляет двух игроков из очереди (для матчмейкинга).
  * @returns {[object, object]|null} - Пара игроков или null
  */
-async function popTwoFromQueue(base, inc) {
+async function popTwoFromQueue(base, inc, isRanked = false) {
     if (!isReady()) {
         throw new Error('[REDIS] Not connected');
     }
 
-    const key = KEYS.QUEUE(base, inc);
+    const key = KEYS.QUEUE(base, inc, isRanked);
 
     // Проверяем длину очереди
     const length = await client.lLen(key);
