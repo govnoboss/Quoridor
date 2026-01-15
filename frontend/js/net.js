@@ -110,7 +110,7 @@ const Net = {
             this.lobbyId = null;
             this.myColor = null;
 
-            Game.handleGameOver(data.winnerIdx, data.reason);
+            Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
         });
         this.socket.on('serverMove', (data) => {
             Game.applyServerMove(data);
@@ -161,11 +161,14 @@ const Net = {
     },
 
     findGame(timeData) {
+        // Read isRanked from UI (dependency injection would be better, but strict separation is hard here)
+        const isRanked = document.getElementById('rankedCheckbox')?.checked;
         this.socket.emit('findGame', {
             token: this.playerToken,
-            timeControl: timeData // { base: seconds, inc: seconds }
+            timeControl: timeData, // { base: seconds, inc: seconds }
+            isRanked: isRanked
         });
-        console.log('[NET] Ищу игру с контролем:', timeData);
+        console.log('[NET] Ищу игру с контролем:', timeData, 'Ranked:', isRanked);
     },
 
     cancelFindGame() {

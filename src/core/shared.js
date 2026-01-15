@@ -40,6 +40,7 @@
         if (state.lastMoveTimestamp !== undefined) cloned.lastMoveTimestamp = state.lastMoveTimestamp;
         if (state.history) cloned.history = [...state.history];
         if (state.disconnectTimer !== undefined) cloned.disconnectTimer = state.disconnectTimer;
+        if (state.isRanked !== undefined) cloned.isRanked = state.isRanked;
 
         return cloned;
     };

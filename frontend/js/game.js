@@ -209,6 +209,10 @@ const Game = {
     this.startTimer(); // Запускаем локальный таймер
     this.loadHistoryLocal(); // Пробуем загрузить, если это реконнект
     this.draw();
+
+    if (typeof UI !== 'undefined' && UI.updateGameInfo) {
+      UI.updateGameInfo(this.state.playerProfiles, this.myPlayerIndex);
+    }
   },
 
   setupCanvas() {
@@ -221,7 +225,7 @@ const Game = {
     // this.canvas.style.height = size + 'px';// <--- REMOVED
     this.ctx.scale(dpr, dpr);
   },
-  handleGameOver(winnerIdx, reason) {
+  handleGameOver(winnerIdx, reason, ratingChanges) {
     this.stopTimer();
     this.isGameOver = true;
 
@@ -271,6 +275,42 @@ const Game = {
     }
 
     modal.classList.remove('hidden');
+
+    // Rating changes display
+    const ratingContainer = document.getElementById('resultRatingChanges');
+    if (ratingContainer) {
+      ratingContainer.innerHTML = '';
+      if (ratingChanges) {
+        const isWhite = this.myPlayerIndex === 0;
+        const isBlack = this.myPlayerIndex === 1;
+
+        let myChange = null, oppChange = null;
+        let myNew = null, oppNew = null;
+
+        if (isWhite) {
+          myChange = ratingChanges.playerWhite;
+          myNew = ratingChanges.newRatingWhite;
+          oppChange = ratingChanges.playerBlack;
+          oppNew = ratingChanges.newRatingBlack;
+        } else if (isBlack) {
+          myChange = ratingChanges.playerBlack;
+          myNew = ratingChanges.newRatingBlack;
+          oppChange = ratingChanges.playerWhite;
+          oppNew = ratingChanges.newRatingWhite;
+        }
+
+        if (myChange !== undefined && myChange !== null) {
+          const row = document.createElement('div');
+          row.className = 'rating-row';
+          const sign = myChange >= 0 ? '+' : '';
+          const cls = myChange >= 0 ? 'text-green' : 'text-red';
+          row.innerHTML = `<span class="${cls}">${myNew} (${sign}${myChange})</span>`;
+          ratingContainer.appendChild(row);
+        }
+
+
+      }
+    }
   },
 
   goToMainMenu() {
@@ -1142,7 +1182,7 @@ const Game = {
     if (elBottomName) {
       if (bottomProfile) {
         elBottomName.textContent = bottomProfile.name;
-      } else {
+      } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
         elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
       }
     }
@@ -1150,7 +1190,7 @@ const Game = {
     if (elTopName) {
       if (topProfile) {
         elTopName.textContent = topProfile.name;
-      } else {
+      } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
         elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
       }
     }
