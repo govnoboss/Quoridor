@@ -1140,6 +1140,19 @@ UI.showProfilePage = async function (username, pushState = true) {
       document.getElementById('ppRating').textContent = user.rating;
     }
 
+    // Setup action buttons (logout only for own profile)
+    const actionsContainer = document.getElementById('ppActions');
+    actionsContainer.innerHTML = '';
+
+    const isOwnProfile = this.currentUser && this.currentUser.username === username;
+    if (isOwnProfile) {
+      const logoutBtn = document.createElement('button');
+      logoutBtn.className = 'pp-logout-btn';
+      logoutBtn.textContent = 'Выйти';
+      logoutBtn.onclick = () => this.logout();
+      actionsContainer.appendChild(logoutBtn);
+    }
+
     // Render History
     const historyBody = document.getElementById('ppHistoryBody');
     historyBody.innerHTML = '';

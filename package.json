@@ -89,7 +89,11 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node tests/tests.js"
+    "test": "node tests/tests.js",
+    "load-test": "node tests/load-test.js"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
   },
   "repository": {
     "type": "git",
