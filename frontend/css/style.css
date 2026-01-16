@@ -2469,3 +2469,10 @@ kbd {
     backdrop-filter: blur(5px);
     z-index: 1;
 }
+
+/* Hide wall templates near history on PC */
+@media (min-width: 769px) {
+    .wall-template {
+        display: none !important;
+    }
+}

@@ -26,7 +26,7 @@
   </div>
 
   <div id="userProfileArea" class="user-profile-bar">
-    <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 Login</button>
+    <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 <span class="btn-text">Login</span></button>
     <div id="userInfo" class="user-info hidden" onclick="UI.openMyProfile()">
       <div class="avatar-circle">
         <img id="userAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
@@ -71,9 +71,12 @@
 
         <div class="menu-buttons">
           <div id="playOnlineContainer">
-            <button id="playOnlineBtn" onclick="UI.showTimeSelection()" data-i18n="menu_play_online">⚡ Играть
-              онлайн</button>
-            <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(); Net.cancelFindGame()">
+            <button id="playRankedBtn" onclick="UI.quickMatch(true)" data-i18n="menu_play_ranked" class="primary-btn"
+              style="margin-bottom: 10px; background-color: #e09f3e; color: #000;">🏆 Играть на рейтинг</button>
+            <button id="playOnlineBtn" onclick="UI.quickMatch(false)" data-i18n="menu_play_online">⚡ Быстрый
+              поиск</button>
+
+            <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(false); Net.cancelFindGame()">
               <span data-i18n="menu_cancel_search">Отменить поиск</span>
               <span id="searchTimer">0:00</span>
             </button>
@@ -95,46 +98,7 @@
           <p data-i18n="menu_searching">Поиск игры...</p>
         </div>
 
-        <!-- Панель: Выбор контроля времени -->
-        <div id="panelTimeSelect" class="dynamic-content hidden">
-          <h3 data-i18n="time_select_title">Контроль времени</h3>
-          <div class="time-categories">
-            <div class="time-category">
-              <span class="cat-label" data-i18n="time_cat_bullet">Пуля</span>
-              <div class="time-options">
-                <button class="time-opt" onclick="UI.selectTime(60, 0, this)">1 мин.</button>
-                <button class="time-opt" onclick="UI.selectTime(60, 1, this)">1|1</button>
-                <button class="time-opt" onclick="UI.selectTime(120, 1, this)">2|1</button>
-              </div>
-            </div>
-            <div class="time-category">
-              <span class="cat-label" data-i18n="time_cat_blitz">Блиц</span>
-              <div class="time-options">
-                <button class="time-opt" onclick="UI.selectTime(180, 0, this)">3 мин.</button>
-                <button class="time-opt" onclick="UI.selectTime(180, 2, this)">3|2</button>
-                <button class="time-opt" onclick="UI.selectTime(300, 0, this)">5 мин.</button>
-              </div>
-            </div>
-            <div class="time-category">
-              <span class="cat-label" data-i18n="time_cat_rapid">Рапид</span>
-              <div class="time-options">
-                <button class="time-opt" onclick="UI.selectTime(600, 0, this)">10 мин.</button>
-                <button class="time-opt" onclick="UI.selectTime(900, 10, this)">15|10</button>
-                <button class="time-opt" onclick="UI.selectTime(1800, 0, this)">30 мин.</button>
-              </div>
-            </div>
-          </div>
-          <div id="rankedOption" class="panel-option hidden" style="margin-top: 15px; margin-bottom: 15px;">
-            <label class="checkbox-container">
-              <input type="checkbox" id="rankedCheckbox" checked>
-              <span class="checkmark"></span>
-              <span data-i18n="label_ranked">Играть на рейтинг</span>
-              <span class="auth-hint" style="font-size: 0.8em; color: #888;">(Auth only)</span>
-            </label>
-          </div>
-          <button id="startSearchBtn" class="primary-btn disabled" onclick="UI.startOnlineSearch()"
-            data-i18n="btn_start_search" disabled>Найти игру</button>
-        </div>
+
 
         <!-- Панель: Игра с другом -->
         <div id="panelRoom" class="dynamic-content hidden">
@@ -254,17 +218,8 @@
             <span class="info-icon">🏆</span>
             <h3 data-i18n="info_leaderboard_title">Лидерборд</h3>
           </div>
-          <div class="leaderboard">
-            <div class="leaderboard-row"><span class="rank">1</span><span class="name">GrandMaster42</span><span
-                class="score">1850</span></div>
-            <div class="leaderboard-row"><span class="rank">2</span><span class="name">WallBuilder</span><span
-                class="score">1720</span></div>
-            <div class="leaderboard-row"><span class="rank">3</span><span class="name">QuoridorPro</span><span
-                class="score">1695</span></div>
-            <div class="leaderboard-row"><span class="rank">4</span><span class="name">StrategyKing</span><span
-                class="score">1640</span></div>
-            <div class="leaderboard-row"><span class="rank">5</span><span class="name">PawnRunner</span><span
-                class="score">1580</span></div>
+          <div class="leaderboard" id="leaderboard">
+            <div class="leaderboard-row loading">Loading...</div>
           </div>
           <p class="info-hint" data-i18n="info_hint">Рейтинг обновляется в реальном времени</p>
         </div>
@@ -332,8 +287,8 @@
           <div class="value" id="ppTotalGames">0</div>
         </div>
         <div class="pp-stat-card">
-          <div class="label">Wins</div>
-          <div class="value text-green" id="ppWins">0</div>
+          <div class="label">W/L</div>
+          <div class="value" id="ppWins">0</div>
         </div>
         <div class="pp-stat-card">
           <div class="label">Winrate</div>
@@ -355,19 +310,22 @@
 
       <!-- Tab Content: History -->
       <div id="ppTabHistory" class="pp-tab-content active">
-        <table class="pp-history-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Opponent</th>
-              <th>Result</th>
-              <th>Moves</th>
-            </tr>
-          </thead>
-          <tbody id="ppHistoryBody">
-            <!-- Injected -->
-          </tbody>
-        </table>
+        <div class="pp-history-scroll-area">
+          <table class="pp-history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Opponent</th>
+                <th>Result</th>
+                <th>Rating</th>
+                <th>Moves</th>
+              </tr>
+            </thead>
+            <tbody id="ppHistoryBody">
+              <!-- Injected -->
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Tab Content: Friends -->

@@ -1181,7 +1181,9 @@ const Game = {
 
     if (elBottomName) {
       if (bottomProfile) {
-        elBottomName.textContent = bottomProfile.name;
+        let text = bottomProfile.name;
+        if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
+        elBottomName.textContent = text;
       } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
         elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
       }
@@ -1189,7 +1191,9 @@ const Game = {
 
     if (elTopName) {
       if (topProfile) {
-        elTopName.textContent = topProfile.name;
+        let text = topProfile.name;
+        if (topProfile.rating) text += ` (${topProfile.rating})`;
+        elTopName.textContent = text;
       } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
         elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
       }
