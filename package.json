@@ -47,6 +47,7 @@
     "inherits": "^2.0.4",
     "ipaddr.js": "^1.9.1",
     "is-promise": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
     "math-intrinsics": "^1.1.0",
     "media-typer": "^1.1.0",
     "merge-descriptors": "^2.0.0",
@@ -85,16 +86,15 @@
     "unpipe": "^1.0.0",
     "vary": "^1.1.2",
     "wrappy": "^1.0.2",
-    "ws": "^8.17.1"
+    "ws": "^8.17.1",
+    "socket.io-client": "^4.8.1"
   },
   "scripts": {
     "start": "node src/server.js",
     "test": "node tests/tests.js",
     "load-test": "node tests/load-test.js"
   },
-  "devDependencies": {
-    "socket.io-client": "^4.8.1"
-  },
+  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/govnoboss/Quoridor.git"

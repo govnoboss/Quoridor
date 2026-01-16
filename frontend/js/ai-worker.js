@@ -200,6 +200,20 @@ const AIWorker = {
         const startTime = Date.now();
         const initialBotDist = this.shortestPathDistance(state, botIdx);
 
+        // --- Loop Detection ---
+        let avoidPos = null;
+        if (state.history) {
+            const myMoves = state.history.filter(h => h.playerIdx === botIdx);
+            if (myMoves.length > 0) {
+                if (myMoves.length === 1) {
+                    avoidPos = (botIdx === 0) ? { r: 8, c: 4 } : { r: 0, c: 4 };
+                } else {
+                    const prev = myMoves[myMoves.length - 2].move;
+                    if (prev.type === 'pawn') avoidPos = { r: prev.r, c: prev.c };
+                }
+            }
+        }
+
         for (const move of moves) {
             if (Date.now() - startTime > 2500) break;
             this.applyMove(state, move, botIdx);
@@ -211,6 +225,12 @@ const AIWorker = {
             if (newDist < initialBotDist) {
                 score += (initialBotDist - newDist) * 50;
             }
+
+            // Penalty for repetition
+            if (avoidPos && move.type === 'pawn' && move.r === avoidPos.r && move.c === avoidPos.c) {
+                score -= 1000; // Strong penalty
+            }
+
             score += Math.random() * 40 - 20; // Случайность
 
             if (score > bestScore) {
