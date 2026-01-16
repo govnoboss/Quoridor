@@ -63,6 +63,7 @@ app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) return res.status(400).json({ error: 'All fields required' });
+        if (username.length < 3 || username.length > 20) return res.status(400).json({ error: 'Username must be 3-20 chars' });
         if (password.length < 6) return res.status(400).json({ error: 'Password too short (min 6)' });
 
         const existingUser = await User.findOne({ username });
@@ -163,6 +164,20 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Leaderboard API - returns top players by rating
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const topPlayers = await User.find({})
+            .select('username rating avatarUrl')
+            .sort({ rating: -1 })
+            .limit(5);
+        res.json(topPlayers);
+    } catch (err) {
+        console.error('[LEADERBOARD] Error:', err);
+        res.status(500).json([]);
     }
 });
 
@@ -439,6 +454,16 @@ function checkRateLimit(socketId, type, limit, windowMs) {
 const crypto = require('crypto');
 
 io.on('connection', (socket) => {
+    // --- SINGLE SESSION ENFORCEMENT ---
+    if (socket.userId) {
+        io.sockets.sockets.forEach((s) => {
+            if (s.id !== socket.id && s.userId === socket.userId) {
+                console.log(`[AUTH] Kicking old socket ${s.id} for user ${socket.username}`);
+                s.emit('forceDisconnect', { reason: 'Logged in from another tab' });
+                s.disconnect(true);
+            }
+        });
+    }
     // 1. Получаем токен из handshake (если есть)
     let token = socket.handshake.auth.token;
 
@@ -446,9 +471,9 @@ io.on('connection', (socket) => {
     if (!token || typeof token !== 'string' || token.length < 10) {
         token = crypto.randomUUID(); // Генерируем надежный UUID
         socket.emit('assignToken', { token: token }); // Отправляем клиенту
-        console.log(`[AUTH] New player assigned token: ${token.substr(0, 8)}...`);
+        // console.log(`[AUTH] New player assigned token: ${token.substr(0, 8)}...`);
     } else {
-        console.log(`[AUTH] Player returned with token: ${token.substr(0, 8)}...`);
+        // console.log(`[AUTH] Player returned with token: ${token.substr(0, 8)}...`);
     }
 
     // Сохраняем токен в сокете для удобства
@@ -464,7 +489,7 @@ io.on('connection', (socket) => {
         rateLimits.delete(socket.id);
     });
 
-    console.log(`Пользователь подключен: ${socket.id}`);
+    // console.log(`[SOCKET] User connected: ${socket.id}`);
 
     // --- ПОИСК ИГРЫ ---
     socket.on('findGame', async (data) => {
@@ -476,6 +501,24 @@ io.on('connection', (socket) => {
         const token = data?.token;
         const tc = data?.timeControl || { base: 600, inc: 0 };
         const isRanked = Boolean(data?.isRanked);
+
+        // Input Validation (Security & Sanity Check)
+        const MIN_BASE_SEC = 60;
+        const MAX_BASE_SEC = 1800;
+        const MAX_INC_SEC = 60;
+
+        if (
+            typeof tc.base !== 'number' ||
+            typeof tc.inc !== 'number' ||
+            tc.base < MIN_BASE_SEC ||
+            tc.base > MAX_BASE_SEC ||
+            tc.inc < 0 ||
+            tc.inc > MAX_INC_SEC
+        ) {
+            console.warn(`[SECURITY] Invalid time control from ${socket.id}:`, tc);
+            socket.emit('findGameFailed', { reason: 'Invalid time limits (60-1800s)' });
+            return;
+        }
 
         if (isRanked && !socket.userId) {
             socket.emit('findGameFailed', { reason: 'Ranked play requires login' });
@@ -494,7 +537,7 @@ io.on('connection', (socket) => {
                 token: token,
                 timeControl: tc
             }, isRanked);
-            console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}] (Ranked: ${isRanked})`);
+            // console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}] (Ranked: ${isRanked})`);
 
             // Пробуем достать двух игроков
             const pair = await Redis.popTwoFromQueue(tc.base, tc.inc, isRanked);
@@ -514,6 +557,16 @@ io.on('connection', (socket) => {
                 const s2 = io.sockets.sockets.get(p2.socketId);
 
                 if (s1 && s2) {
+                    // Self-match prevention: reject if same authenticated user
+                    if (s1.userId && s2.userId && s1.userId.toString() === s2.userId.toString()) {
+                        console.log(`[MATCHMAKING] Rejected self-match: userId=${s1.userId}`);
+                        // Return both to queue but notify second socket
+                        await Redis.addToQueue(tc.base, tc.inc, p1, isRanked);
+                        await Redis.addToQueue(tc.base, tc.inc, p2, isRanked);
+                        s2.emit('findGameFailed', { reason: 'Already in a queue' });
+                        return;
+                    }
+
                     const gameState = createInitialState(p1.timeControl, isRanked);
                     gameState.playerSockets[0] = p1.socketId;
                     gameState.playerSockets[1] = p2.socketId;
@@ -565,10 +618,13 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('cancelSearch', async () => {
+    socket.on('cancelSearch', async (data) => {
         try {
-            await Redis.removeFromAllQueues(socket.playerToken);
-            console.log(`[QUEUE] Player ${socket.id} left all queues`);
+            const token = data?.token || socket.playerToken;
+            if (token) {
+                await Redis.removeFromAllQueues(token);
+                // console.log(`[QUEUE] Player ${socket.id} left all queues`);
+            }
         } catch (err) {
             console.error('[CANCEL SEARCH ERROR]', err);
         }
@@ -590,7 +646,7 @@ io.on('connection', (socket) => {
 
             socket.join(roomCode);
             socket.emit('roomCreated', { roomCode });
-            console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
+            // console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
         } catch (err) {
             console.error('[CREATE ROOM ERROR]', err);
             socket.emit('error', { message: 'Failed to create room' });
@@ -626,10 +682,18 @@ io.on('connection', (socket) => {
                 return;
             }
 
+            // Self-match prevention: check if same authenticated user
+            const creatorSocket = io.sockets.sockets.get(room.players[0].socketId);
+            if (socket.userId && creatorSocket?.userId && socket.userId.toString() === creatorSocket.userId.toString()) {
+                socket.emit('joinRoomFailed', { reason: 'Нельзя играть с самим собой' });
+                console.log(`[ROOM] Rejected self-join: userId=${socket.userId}, room=${normalizedCode}`);
+                return;
+            }
+
             room.players.push({ socketId: socket.id, token: playerToken });
             socket.join(normalizedCode);
 
-            console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
+            // console.log(`[ROOM] Player ${socket.id} joined room ${normalizedCode}`);
 
             if (room.players.length === 2) {
                 // Randomize who goes first
@@ -708,26 +772,26 @@ io.on('connection', (socket) => {
 
         // Валидация входных данных
         if (!isValidToken(token)) {
-            console.log(`[VALIDATION] rejoinGame: invalid token from ${socket.id}`);
+            // console.log(`[VALIDATION] rejoinGame: invalid token from ${socket.id}`);
             return;
         }
 
         const shortToken = '...' + token.substr(-4);
-        console.log(`[REJOIN] Attempting rejoin for token ${shortToken}`);
+        // console.log(`[REJOIN] Attempting rejoin for token ${shortToken}`);
 
         try {
             // Ищем lobbyId по токену в Redis
             const lobbyId = await Redis.getLobbyByToken(token);
 
             if (!lobbyId) {
-                console.log(`[REJOIN] No active game found for token.`);
+                // console.log(`[REJOIN] No active game found for token.`);
                 return;
             }
 
             const game = await Redis.getGame(lobbyId);
 
             if (!game) {
-                console.log(`[REJOIN] Game ${lobbyId} not found in Redis.`);
+                // console.log(`[REJOIN] Game ${lobbyId} not found in Redis.`);
                 return;
             }
 
@@ -735,7 +799,7 @@ io.on('connection', (socket) => {
 
             if (pIdx !== -1) {
                 // Found the game!
-                console.log(`[REJOIN] Found active game ${lobbyId} for player ${pIdx}`);
+                console.log(`[RECONNECT] Player ${pIdx} returned to ${lobbyId}`);
 
                 // 1. Update socket
                 game.playerSockets[pIdx] = socket.id;
@@ -914,7 +978,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', async () => {
-        console.log(`[DISCONNECT] Пользователь отключен: ${socket.id}`);
+        // console.log(`[SOCKET] User disconnected: ${socket.id}`);
 
         try {
             // Remove from search queues
@@ -1028,6 +1092,20 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
             }
         }
 
+        // --- STATS UPDATE ---
+        if (u0) {
+            u0.stats = u0.stats || {};
+            u0.stats.totalGames = (u0.stats.totalGames || 0) + 1;
+            if (winnerIdx === 0) u0.stats.wins = (u0.stats.wins || 0) + 1;
+            else if (winnerIdx === 1) u0.stats.losses = (u0.stats.losses || 0) + 1;
+        }
+        if (u1) {
+            u1.stats = u1.stats || {};
+            u1.stats.totalGames = (u1.stats.totalGames || 0) + 1;
+            if (winnerIdx === 1) u1.stats.wins = (u1.stats.wins || 0) + 1;
+            else if (winnerIdx === 0) u1.stats.losses = (u1.stats.losses || 0) + 1;
+        }
+
         // --- ELO CALCULATION ---
         if (game.isRanked && u0 && u1) {
             let s0 = 0.5;
@@ -1040,9 +1118,6 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
             u0.rating += change0;
             u1.rating += change1;
 
-            await u0.save();
-            await u1.save();
-
             playerWhite.ratingChange = change0;
             playerBlack.ratingChange = change1;
             playerWhite.newRating = u0.rating;
@@ -1054,6 +1129,11 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
             playerWhite.ratingChange = 0;
             playerBlack.ratingChange = 0;
         }
+
+        // Save updated users (stats + rating)
+        if (u0) await u0.save();
+        if (u1) await u1.save();
+
 
         let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
         if (lobbyId.startsWith('bot-')) gameType = 'bot';
@@ -1095,10 +1175,13 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
         // Archive and Calc Ratings
         const resultData = await archiveGame(game, winnerIdx, reason, lobbyId);
 
+        const winnerName = winnerIdx === -1 ? 'Draw' : (winnerIdx === 0 ? 'White' : 'Black');
+        console.log(`[GAME END] ${lobbyId}: Winner=${winnerName}, Reason=${reason}`);
+
         io.to(lobbyId).emit('gameOver', {
             winnerIdx: winnerIdx,
             reason: reason,
-            ratingChanges: resultData ? {
+            ratingChanges: (resultData && game.isRanked) ? {
                 playerWhite: resultData.white.ratingChange,
                 playerBlack: resultData.black.ratingChange,
                 newRatingWhite: resultData.white.newRating,
@@ -1241,8 +1324,9 @@ async function startServer() {
 
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
+        const env = process.env.NODE_ENV || 'development';
         server.listen(port, '0.0.0.0', () => {
-            console.log(`Сервер запущен на порту ${port}`);
+            console.log(`[SERVER] Started on port ${port} (env=${env})`);
         });
     } catch (err) {
         console.error('[STARTUP ERROR] Failed to connect to Redis:', err);

@@ -8,7 +8,8 @@ const UI = {
 
   translations: {
     ru: {
-      menu_play_online: "⚡ Играть онлайн",
+      menu_play_online: "⚡ Быстрый поиск",
+      menu_play_ranked: "🏆 Играть на рейтинг",
       menu_cancel_search: "Отменить поиск",
       menu_local_game: "🎮 Локальная игра",
       menu_rules: "📖 Как играть?",
@@ -98,10 +99,36 @@ const UI = {
       time_cat_bullet: "Пуля",
       time_cat_blitz: "Блиц",
       time_cat_rapid: "Рапид",
-      btn_start_search: "Найти игру"
+      btn_start_search: "Найти игру",
+      // Auth & Profile
+      toast_login_success: "Вход выполнен!",
+      toast_invalid_credentials: "Неверный логин или пароль",
+      toast_network_error: "Ошибка сети",
+      toast_password_too_short: "Пароль должен быть не менее 8 символов",
+      toast_password_no_spaces: "Пароль не должен содержать пробелы",
+      toast_username_length_error: "Имя пользователя должно быть от 3 до 20 символов",
+      toast_register_success: "Регистрация успешна!",
+      toast_register_failed: "Ошибка регистрации",
+      toast_logged_out: "Вы вышли из аккаунта",
+      toast_profile_load_error: "Ошибка загрузки профиля",
+      toast_status_updated: "Статус обновлен",
+      toast_avatar_updated: "Аватар обновлен",
+      toast_user_not_found: "Пользователь не найден",
+      toast_profile_error: "Не удалось загрузить профиль",
+      toast_ranked_requires_login: "Для рейтинговых игр нужна регистрация",
+      label_ranked: "Играть на рейтинг",
+      auth_login: "Вход",
+      link_forgot_pass: "Забыли пароль?",
+      btn_login_submit: "Войти",
+      text_no_account: "Нет аккаунта?",
+      link_register: "Зарегистрироваться",
+      btn_reg_submit: "Зарегистрироваться",
+      text_has_account: "Уже есть аккаунт?",
+      link_login_back: "Войти"
     },
     en: {
-      menu_play_online: "⚡ Play Online",
+      menu_play_online: "⚡ Quick Match",
+      menu_play_ranked: "🏆 Play Ranked",
       menu_cancel_search: "Cancel Search",
       menu_local_game: "🎮 Local Game",
       menu_rules: "📖 How to play?",
@@ -191,7 +218,32 @@ const UI = {
       time_cat_bullet: "Bullet",
       time_cat_blitz: "Blitz",
       time_cat_rapid: "Rapid",
-      btn_start_search: "Find Game"
+      btn_start_search: "Find Game",
+      // Auth & Profile
+      toast_login_success: "Login successful!",
+      toast_invalid_credentials: "Invalid username or password",
+      toast_network_error: "Network error",
+      toast_password_too_short: "Password must be at least 8 characters",
+      toast_password_no_spaces: "Password must not contain spaces",
+      toast_username_length_error: "Username must be between 3 and 20 characters",
+      toast_register_success: "Registration successful!",
+      toast_register_failed: "Registration failed",
+      toast_logged_out: "Logged out",
+      toast_profile_load_error: "Failed to load profile",
+      toast_status_updated: "Status updated",
+      toast_avatar_updated: "Avatar updated",
+      toast_user_not_found: "User not found",
+      toast_profile_error: "Failed to load profile",
+      toast_ranked_requires_login: "Registration required for ranked games",
+      label_ranked: "Play Ranked",
+      auth_login: "Login",
+      link_forgot_pass: "Forgot Password?",
+      btn_login_submit: "Login",
+      text_no_account: "No account?",
+      link_register: "Register",
+      btn_reg_submit: "Register",
+      text_has_account: "Already have an account?",
+      link_login_back: "Login"
     }
   },
 
@@ -211,16 +263,7 @@ const UI = {
     this.showScreen('mainMenu');
     this.hideDynamicPanel();
   },
-  showTimeSelection() {
-    this.showDynamicPanel('panelTimeSelect');
-    this.selectedTime = null;
-    const startBtn = document.getElementById('startSearchBtn');
-    if (startBtn) {
-      startBtn.classList.add('disabled');
-      startBtn.disabled = true;
-    }
-    document.querySelectorAll('.time-opt').forEach(opt => opt.classList.remove('selected'));
-  },
+  // showTimeSelection deleted
   selectTime(base, inc, el) {
     this.selectedTime = { base, inc };
     document.querySelectorAll('.time-opt').forEach(opt => opt.classList.remove('selected'));
@@ -235,6 +278,18 @@ const UI = {
   startOnlineSearch() {
     if (!this.selectedTime) return;
     this.showSearch(this.selectedTime);
+  },
+
+  quickMatch(isRanked = false) {
+    // Check auth for ranked
+    if (isRanked && (typeof Net === 'undefined' || !Net.playerToken || Net.playerToken === 'null')) {
+      this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
+      this.openAuthModal();
+      return;
+    }
+
+    // 5 minutes (300s) + 0 increment
+    this.showSearch({ base: 300, inc: 0 }, isRanked);
   },
   showSettings() { this.showDynamicPanel('panelSettings'); },
   showRules() { this.showDynamicPanel('panelRules'); },
@@ -397,12 +452,16 @@ const UI = {
     document.getElementById('searchTimer').textContent = timeString;
   },
 
-  showSearch(timeData) {
+  showSearch(timeData, isRanked = false) {
     // 1. Изменение UI
     this.disableAll();
-    document.getElementById('playOnlineBtn').classList.add('hidden');
+    const btnOnline = document.getElementById('playOnlineBtn');
+    const btnRanked = document.getElementById('playRankedBtn'); // New button
+    if (btnOnline) btnOnline.classList.add('hidden');
+    if (btnRanked) btnRanked.classList.add('hidden');
     document.getElementById('cancelSearchBtn').classList.remove('hidden');
     document.getElementById('cancelSearchBtn').disabled = false;
+    document.getElementById('userProfileArea').classList.add('hidden');
 
     // 2. Показываем оверлей поиска в динамической панели
     const container = document.getElementById('dynamicPanel');
@@ -420,7 +479,7 @@ const UI = {
 
     // 4. Сетевой запрос на поиск игры
     if (typeof Net !== 'undefined') {
-      Net.findGame(timeData);
+      Net.findGame(timeData, isRanked);
     }
   },
 
@@ -433,8 +492,13 @@ const UI = {
 
     // Возвращаем кнопки в исходное состояние
     this.enableAll();
-    document.getElementById('playOnlineBtn').classList.remove('hidden');
+    this.enableAll();
+    const btnOnline = document.getElementById('playOnlineBtn');
+    const btnRanked = document.getElementById('playRankedBtn');
+    if (btnOnline) btnOnline.classList.remove('hidden');
+    if (btnRanked) btnRanked.classList.remove('hidden');
     document.getElementById('cancelSearchBtn').classList.add('hidden');
+    document.getElementById('userProfileArea').classList.remove('hidden');
 
     const container = document.getElementById('dynamicPanel');
     const overlay = document.getElementById('searchOverlay');
@@ -442,11 +506,8 @@ const UI = {
     container.classList.remove('searching');
 
     // Возвращаемся в меню выбора времени или просто закрываем панель
-    if (returnToTimeSelect) {
-      this.showTimeSelection();
-    } else {
-      this.hideDynamicPanel();
-    }
+    // Всегда закрываем панель поиска и возвращаемся в меню
+    this.hideDynamicPanel();
   },
 
   renderHistory(history, currentViewIndex = -1) {
@@ -895,7 +956,7 @@ UI.submitLogin = async function () {
     if (res.ok) {
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
-      this.showToast('Login successful!', 'info');
+      this.showToast(this.translate('toast_login_success'), 'info');
       // Reload to re-establish socket with new session
       setTimeout(() => window.location.reload(), 500);
     } else {
@@ -907,11 +968,11 @@ UI.submitLogin = async function () {
       uInput.addEventListener('input', clearError, { once: true });
       pInput.addEventListener('input', clearError, { once: true });
 
-      this.showToast('Неверный логин/пароль', 'error');
+      this.showToast(this.translate('toast_invalid_credentials'), 'error');
     }
   } catch (e) {
     console.error(e);
-    this.showToast('Network error', 'error');
+    this.showToast(this.translate('toast_network_error'), 'error');
   }
 };
 
@@ -920,14 +981,18 @@ UI.submitRegister = async function () {
   const password = document.getElementById('regPassword').value;
 
   // Client-side validation
+  if (username.length < 3 || username.length > 20) {
+    this.showToast(this.translate('toast_username_length_error'), 'error');
+    return;
+  }
   if (password.length < 8) {
-    this.showToast('Password must be at least 8 characters', 'error');
+    this.showToast(this.translate('toast_password_too_short'), 'error');
     return;
   }
 
   // Check for spaces or other whitespace
   if (/\s/.test(password)) {
-    this.showToast('Password cannot contain spaces', 'error');
+    this.showToast(this.translate('toast_password_no_spaces'), 'error');
     return;
   }
 
@@ -942,15 +1007,15 @@ UI.submitRegister = async function () {
     if (res.ok) {
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
-      this.showToast('Registration successful!', 'info');
+      this.showToast(this.translate('toast_register_success'), 'info');
       // Reload to re-establish socket with new session
       setTimeout(() => window.location.reload(), 500);
     } else {
-      this.showToast(data.error || 'Registration failed', 'error');
+      this.showToast(data.error || this.translate('toast_register_failed'), 'error');
     }
   } catch (e) {
     console.error(e);
-    this.showToast('Network error', 'error');
+    this.showToast(this.translate('toast_network_error'), 'error');
   }
 };
 
@@ -958,7 +1023,7 @@ UI.logout = async function () {
   await fetch('/api/auth/logout', { method: 'POST' });
   this.currentUser = null;
   this.updateAuthUI();
-  this.showToast('Logged out', 'info');
+  this.showToast(this.translate('toast_logged_out'), 'info');
   window.location.href = '/';
 };
 
@@ -1009,8 +1074,9 @@ UI.updateAuthUI = function () {
       authBtn.classList.remove('hidden');
       userInfo.classList.add('hidden');
 
+      // Keep ranked option visible for guests - click handler will show toast
       const rankedOption = document.getElementById('rankedOption');
-      if (rankedOption) rankedOption.classList.add('hidden');
+      if (rankedOption) rankedOption.classList.remove('hidden');
     }
   }
 };
@@ -1071,7 +1137,7 @@ UI.showProfile = async function () {
     this.updateProfileBarVisibility();
   } catch (err) {
     console.error('[PROFILE ERROR]', err);
-    this.showToast('Ошибка загрузки профиля', 'error');
+    this.showToast(this.translate('toast_profile_load_error'), 'error');
   }
 };
 
@@ -1091,7 +1157,7 @@ UI.updateUserStatus = async function () {
       body: JSON.stringify({ status })
     });
     if (res.ok) {
-      this.showToast('Статус обновлен', 'success');
+      this.showToast(this.translate('toast_status_updated'), 'success');
     }
   } catch (err) {
     console.error('[STATUS UPDATE ERROR]', err);
@@ -1111,7 +1177,7 @@ UI.openAvatarPicker = async function () {
         document.getElementById('profileAvatarLarge').src = newUrl;
         document.getElementById('userAvatarImg').src = newUrl;
         this.currentUser.avatarUrl = newUrl;
-        this.showToast('Аватарка обновлена', 'success');
+        this.showToast(this.translate('toast_avatar_updated'), 'success');
       }
     } catch (err) {
       console.error('[AVATAR UPDATE ERROR]', err);
@@ -1180,7 +1246,7 @@ UI.showProfilePage = async function (username, pushState = true) {
     // 1. Fetch Profile Data
     const res = await fetch(`/api/profiles/${username}`);
     if (!res.ok) {
-      this.showToast('User not found', 'error');
+      this.showToast(this.translate('toast_user_not_found'), 'error');
       return;
     }
     const user = await res.json();
@@ -1200,7 +1266,9 @@ UI.showProfilePage = async function (username, pushState = true) {
     // Stats
     const stats = user.stats || {};
     document.getElementById('ppTotalGames').textContent = stats.totalGames || 0;
-    document.getElementById('ppWins').textContent = stats.wins || 0;
+    const wins = stats.wins || 0;
+    const losses = stats.losses || 0;
+    document.getElementById('ppWins').innerHTML = `<span class="text-green">${wins}</span>/<span class="text-red">${losses}</span>`;
 
     const winrate = stats.totalGames ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
     document.getElementById('ppWinrate').textContent = winrate + '%';
@@ -1227,7 +1295,7 @@ UI.showProfilePage = async function (username, pushState = true) {
     historyBody.innerHTML = '';
 
     if (!history || history.length === 0) {
-      historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #666;">No games played yet</td></tr>';
+      historyBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #666;">No games played yet</td></tr>';
     } else {
       history.forEach(game => {
         const row = document.createElement('tr');
@@ -1247,10 +1315,37 @@ UI.showProfilePage = async function (username, pushState = true) {
           resultLabel = iWon ? 'WON' : 'LOST';
         }
 
+        // Calculate rating change for the profile owner
+        let ratingChangeDisplay = '—';
+        let ratingClass = 'neutral';
+
+        if (game.isRanked) {
+          const myRatingChange = isWhite
+            ? (game.playerWhite?.ratingChange || 0)
+            : (game.playerBlack?.ratingChange || 0);
+
+          if (myRatingChange > 0) {
+            ratingChangeDisplay = `+${myRatingChange}`;
+            ratingClass = 'positive';
+          } else if (myRatingChange < 0) {
+            ratingChangeDisplay = `${myRatingChange}`;
+            ratingClass = 'negative';
+          } else {
+            ratingChangeDisplay = '0';
+            ratingClass = 'neutral';
+          }
+        }
+
+        // Create clickable link for opponent (skip if Unknown)
+        const opponentLink = opponentName !== 'Unknown'
+          ? `<a href="javascript:void(0)" class="opponent-link" onclick="UI.showProfilePage('${opponentName}')">${opponentName}</a>`
+          : opponentName;
+
         row.innerHTML = `
                 <td>${new Date(game.date).toLocaleDateString()}</td>
-                <td>vs ${opponentName}</td>
+                <td>vs ${opponentLink}</td>
                 <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
+                <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
                 <td>${game.turns}</td>
             `;
         historyBody.appendChild(row);
@@ -1266,7 +1361,7 @@ UI.showProfilePage = async function (username, pushState = true) {
     }
   } catch (err) {
     console.error('Error loading profile:', err);
-    this.showToast('Failed to load profile', 'error');
+    this.showToast(this.translate('toast_profile_error'), 'error');
   }
 };
 
@@ -1308,6 +1403,31 @@ UI.initRouting = function () {
   }
 };
 
+// Leaderboard loader - fetches top players from API
+UI.loadLeaderboard = async function () {
+  try {
+    const res = await fetch('/api/leaderboard');
+    const players = await res.json();
+    const container = document.getElementById('leaderboard');
+    if (!container) return;
+
+    if (players.length === 0) {
+      container.innerHTML = '<div class="leaderboard-row" style="justify-content: center; color: #888;">No players yet</div>';
+      return;
+    }
+
+    container.innerHTML = players.map((p, i) => `
+            <div class="leaderboard-row">
+                <span class="rank">${i + 1}</span>
+                <span class="name">${p.username}</span>
+                <span class="score">${p.rating}</span>
+            </div>
+        `).join('');
+  } catch (err) {
+    console.error('[LEADERBOARD] Failed to load:', err);
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';
   const savedLang = localStorage.getItem('quoridor-lang') || 'ru';
@@ -1343,6 +1463,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Инициализация роутинга
   UI.initRouting();
 
+  // Load leaderboard data
+  UI.loadLeaderboard();
+
   // Проверка URL на наличие комнаты
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
@@ -1364,6 +1487,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Очищаем URL от параметра room, чтобы избежать повторных попыток при перезагрузке
     const newUrl = window.location.pathname + (window.location.hash || '');
     window.history.replaceState({}, document.title, newUrl);
+  }
+
+  // Ranked option click handler for guests
+  const rankedCheckbox = document.getElementById('rankedCheckbox');
+  const rankedOption = document.getElementById('rankedOption');
+  if (rankedOption) {
+    rankedOption.addEventListener('click', (e) => {
+      if (!UI.currentUser) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (rankedCheckbox) rankedCheckbox.checked = false;
+        UI.showToast(UI.translate('toast_ranked_requires_login'), 'warning');
+      }
+    });
   }
 
   // Close modals on Escape key

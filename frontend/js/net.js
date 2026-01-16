@@ -138,7 +138,7 @@ const Net = {
             console.log('[NET] Find Game Failed:', data.reason);
             const reasonMsg = data.reason === 'Already in game' ? UI.translate('toast_already_in_game') : data.reason;
             UI.showToast(UI.translate('toast_search_error') + ': ' + reasonMsg, 'error');
-            UI.hideSearch();
+            UI.hideSearch(false);
         });
 
         this.socket.on('roomCreated', (data) => {
@@ -160,19 +160,18 @@ const Net = {
         }
     },
 
-    findGame(timeData) {
-        // Read isRanked from UI (dependency injection would be better, but strict separation is hard here)
-        const isRanked = document.getElementById('rankedCheckbox')?.checked;
+    findGame(timeData, isRanked) {
+        // isRanked passed from UI
         this.socket.emit('findGame', {
             token: this.playerToken,
             timeControl: timeData, // { base: seconds, inc: seconds }
-            isRanked: isRanked
+            isRanked: !!isRanked
         });
         console.log('[NET] Ищу игру с контролем:', timeData, 'Ranked:', isRanked);
     },
 
     cancelFindGame() {
-        this.socket.emit('cancelSearch');
+        this.socket.emit('cancelSearch', { token: this.playerToken });
         console.log('[NET] Поиск отменен.');
     },
 
