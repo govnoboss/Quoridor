@@ -1382,6 +1382,70 @@ UI.switchProfileTab = function (tabName, btn) {
   if (btn) btn.classList.add('active');
 };
 
+// --- ADMIN UI (Bots) ---
+UI.spawnBot = function () {
+  const diffElem = document.getElementById('botDifficulty');
+  const rankedElem = document.getElementById('botRanked');
+  if (!diffElem || !rankedElem) return;
+
+  this.showToast('Spawning bot...');
+  fetch('/api/admin/bots/spawn', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      difficulty: diffElem.value,
+      isRanked: rankedElem.checked
+    })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        this.showToast(`Bot Spawned: ${res.username}`, 'info');
+        this.refreshBotList();
+      } else {
+        this.showToast('Spawn Failed: ' + res.error, 'error');
+      }
+    })
+    .catch(err => this.showToast('Error: ' + err.message, 'error'));
+};
+
+UI.refreshBotList = function () {
+  fetch('/api/admin/bots')
+    .then(r => r.json())
+    .then(bots => {
+      const list = document.getElementById('activeBotList');
+      if (!list) return;
+
+      if (bots.length === 0) {
+        list.innerHTML = '<div style="color:#888; padding:5px;">No active bots</div>';
+        return;
+      }
+
+      list.innerHTML = bots.map(b => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); margin-bottom:4px; padding:5px; border-radius:4px;">
+                <span style="font-size:12px; font-family:monospace;">${b.username}</span>
+                <button onclick="UI.killBot('${b.id}')" style="background:red; color:white; border:none; border-radius:3px; cursor:pointer;">X</button>
+            </div>
+        `).join('');
+    })
+    .catch(console.error);
+};
+
+UI.killBot = function (id) {
+  if (!confirm('Kill this bot?')) return;
+  fetch(`/api/admin/bots/${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) this.refreshBotList();
+      else this.showToast('Failed to kill bot');
+    });
+};
+
+UI.toggleAdmin = function () {
+  this.showDynamicPanel('panelAdmin');
+  this.refreshBotList();
+};
+
 UI.initRouting = function () {
   window.addEventListener('popstate', (event) => {
     const path = window.location.pathname;

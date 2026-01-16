@@ -9,6 +9,10 @@ const userSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 20
     },
+    isBot: {
+        type: Boolean,
+        default: false
+    },
     passwordHash: {
         type: String,
         required: true

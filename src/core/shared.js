@@ -263,4 +263,27 @@
         return false;
     };
 
+    exports.createInitialState = function (timeControl, isRanked = false) {
+        const base = timeControl?.base || 600;
+        const inc = timeControl?.inc || 0;
+        return {
+            hWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
+            vWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
+            players: [
+                { color: 'white', pos: { r: 8, c: 4 }, wallsLeft: 10 },
+                { color: 'black', pos: { r: 0, c: 4 }, wallsLeft: 10 }
+            ],
+            currentPlayer: 0,
+            playerSockets: [null, null],
+            playerTokens: [null, null],
+            playerProfiles: [null, null],
+            disconnectTimer: null,
+            timers: [base, base],
+            increment: inc,
+            lastMoveTimestamp: Date.now(),
+            history: [],
+            isRanked: isRanked
+        };
+    };
+
 }(typeof exports === 'undefined' ? this.Shared = {} : exports));

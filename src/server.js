@@ -28,7 +28,9 @@ app.disable('x-powered-by');
 const connectDB = require('./storage/db');
 const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
+const BotManager = require('./services/BotManager'); // Bot Manager
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const session = require('express-session');
 const { RedisStore } = require('connect-redis'); // connect-redis v7+ named export
 const { createClient } = require('redis');
@@ -291,6 +293,22 @@ app.use(cors({
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 
+// --- ADMIN API (Bots) ---
+app.get('/api/admin/bots', (req, res) => {
+    res.json(BotManager.getActiveBots());
+});
+
+app.post('/api/admin/bots/spawn', async (req, res) => {
+    const { difficulty, isRanked } = req.body;
+    const result = await BotManager.spawnBot(difficulty, isRanked);
+    res.json(result);
+});
+
+app.delete('/api/admin/bots/:id', (req, res) => {
+    const success = BotManager.killBot(req.params.id);
+    res.json({ success });
+});
+
 // --- SERVER & SOCKET.IO INITIALIZATION ---
 // Create server instances FIRST, before using 'io'
 const server = http.createServer(app);
@@ -312,6 +330,7 @@ const wrap = middleware => (socket, next) => middleware(socket.request, {}, next
 io.use(wrap(sessionMiddleware));
 
 // Socket Auth Middleware
+// Socket Auth Middleware
 io.use((socket, next) => {
     const session = socket.request.session;
     if (session && session.userId) {
@@ -319,8 +338,24 @@ io.use((socket, next) => {
         socket.username = session.username;
         console.log(`[SOCKET] Authenticated user connected: ${socket.username}`);
     } else {
-        // console.log(`[SOCKET] Guest connected: ${socket.id}`);
-        socket.username = `Guest-${socket.id.substr(0, 4)}`;
+        // Check JWT in handshake (for Bots)
+        const token = socket.handshake.auth.token;
+        if (token && typeof token === 'string' && token.length > 30) {
+            try {
+                const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'super_secret_quoridor_key_change_me');
+                if (decoded.id && decoded.username) {
+                    socket.userId = decoded.id;
+                    socket.username = decoded.username;
+                    console.log(`[SOCKET] Bot authenticated: ${socket.username}`);
+                }
+            } catch (e) {
+                // Ignore invalid JWT, treat as Guest
+            }
+        }
+
+        if (!socket.userId) {
+            socket.username = `Guest-${socket.id.substr(0, 4)}`;
+        }
     }
     next();
 });
@@ -365,28 +400,7 @@ async function getPlayerProfile(token) {
 // 
 
 
-function createInitialState(timeControl, isRanked = false) {
-    const base = timeControl?.base || 600;
-    const inc = timeControl?.inc || 0;
-    return {
-        hWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
-        vWalls: Array.from({ length: 8 }, () => Array(8).fill(false)),
-        players: [
-            { color: 'white', pos: { r: 8, c: 4 }, wallsLeft: 10 },
-            { color: 'black', pos: { r: 0, c: 4 }, wallsLeft: 10 }
-        ],
-        currentPlayer: 0,
-        playerSockets: [null, null],
-        playerTokens: [null, null], // New: Store tokens
-        playerProfiles: [null, null], // New: Store profiles (name, avatar)
-        disconnectTimer: null,      // New: Timer for grace period
-        timers: [base, base],
-        increment: inc,
-        lastMoveTimestamp: Date.now(),
-        history: [], // Store list of moves
-        isRanked: isRanked // Storing Ranked Status
-    };
-}
+
 
 // ELO Calculation Helper
 function calculateEloChange(ratingA, ratingB, scoreA) { // scoreA: 1 (win), 0 (loss), 0.5 (draw)
@@ -498,7 +512,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        const token = data?.token;
+        const token = data?.token || socket.playerToken;
         const tc = data?.timeControl || { base: 600, inc: 0 };
         const isRanked = Boolean(data?.isRanked);
 
@@ -567,7 +581,7 @@ io.on('connection', (socket) => {
                         return;
                     }
 
-                    const gameState = createInitialState(p1.timeControl, isRanked);
+                    const gameState = Shared.createInitialState(p1.timeControl, isRanked);
                     gameState.playerSockets[0] = p1.socketId;
                     gameState.playerSockets[1] = p2.socketId;
                     gameState.playerTokens[0] = p1.token;
@@ -1319,8 +1333,9 @@ async function startServer() {
         await Redis.connect();
         console.log('[STARTUP] Redis connected successfully');
 
-        // Очистка зомби-игр ПЕРЕД запуском сервера
-        await cleanupStaleGames();
+        // Очистка зомби-игр ПЕРЕД запуском сервера ОТКЛЮЧЕНА для персистентности
+        // await cleanupStaleGames(); 
+        console.log('[STARTUP] Persistence mode: Preserving active games from Redis.');
 
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;

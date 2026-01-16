@@ -1,11 +1,11 @@
-/**
- * Quoridor AI Worker - Выполняет тяжелые расчеты в фоновом потоке.
- */
-importScripts('/shared.js');
+const Shared = require('../core/shared');
 
-const AIWorker = {
+/**
+ * Quoridor Bot AI logic (Ported from frontend/ai-worker.js)
+ */
+const BotAI = {
     cloneState(state) {
-        return JSON.parse(JSON.stringify(state));
+        return Shared.cloneState(state);
     },
 
     shortestPathDistance(state, playerIdx) {
@@ -186,7 +186,8 @@ const AIWorker = {
     },
 
     think(state, botIdx, difficulty) {
-        let depth = { easy: 2, medium: 3, hard: 5, impossible: 6 }[difficulty] || 3;
+        let depth = { easy: 2, medium: 3, hard: 4, impossible: 5 }[difficulty] || 3;
+        // Reduced max depth slighty for NodeJS safety (single threaded blockage)
         const moves = this.generateMoves(state, botIdx);
         if (moves.length === 0) return null;
 
@@ -214,24 +215,30 @@ const AIWorker = {
             }
         }
 
+        console.log(`[BOT-AI] Loop Check: HistoryLen=${state.history?.length}, AvoidPos=${JSON.stringify(avoidPos)}`);
+
         for (const move of moves) {
-            if (Date.now() - startTime > 2500) break;
+            if (Date.now() - startTime > 3000) break; // 3 sec timeout
             this.applyMove(state, move, botIdx);
             let score = this.minimax(state, depth - 1, -Infinity, Infinity, false, botIdx);
 
-            // Позиционные бонусы
             const newDist = this.shortestPathDistance(state, botIdx);
-            // Сравниваем с дистанцией ДО хода
             if (newDist < initialBotDist) {
                 score += (initialBotDist - newDist) * 50;
             }
 
             // Penalty for repetition
             if (avoidPos && move.type === 'pawn' && move.r === avoidPos.r && move.c === avoidPos.c) {
-                score -= 1000; // Strong penalty
+                console.log(`[BOT-AI] Penalizing Repetition: ${move.r},${move.c} (-1000)`);
+                score -= 1000; // Increased penalty to be sure
             }
 
-            score += Math.random() * 40 - 20; // Случайность
+            // Debug top moves
+            if (score > -500000 && difficulty === 'medium') {
+                // console.log(`[BOT-AI] Move ${move.type} ${move.r},${move.c} Score: ${score}`);
+            }
+
+            score += Math.random() * 40 - 20;
 
             if (score > bestScore) {
                 bestScore = score;
@@ -243,8 +250,4 @@ const AIWorker = {
     }
 };
 
-onmessage = function (e) {
-    const { state, botIdx, difficulty } = e.data;
-    const bestMove = AIWorker.think(state, botIdx, difficulty);
-    postMessage(bestMove);
-};
+module.exports = BotAI;

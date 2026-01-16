@@ -134,6 +134,32 @@
           </div>
         </div>
 
+        <!-- Panel Admin (Bots) -->
+        <div id="panelAdmin" class="dynamic-content hidden" style="text-align: left;">
+          <h3 style="color:red;">🤖 Admin Bot Control</h3>
+          <div class="admin-controls"
+            style="display:flex; flex-direction:column; gap:10px; padding:10px; background:rgba(0,0,0,0.3); border-radius:8px;">
+            <label>Difficulty:
+              <select id="botDifficulty" style="background:#333; color:#fff; padding:5px;">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+                <option value="impossible">Impossible</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="botRanked"> Ranked Match</label>
+            <button onclick="UI.spawnBot()" class="primary-btn" style="background: #e09f3e; color: #000;">Spawn
+              Bot</button>
+          </div>
+          <div class="bot-list-container" style="margin-top:15px;">
+            <h4>Active Bots</h4>
+            <div id="activeBotList" style="max-height:150px; overflow-y:auto; background:rgba(0,0,0,0.2); padding:5px;">
+              Loading...</div>
+            <button onclick="UI.refreshBotList()" class="secondary-btn" style="margin-top:5px; font-size:12px;">Refresh
+              List</button>
+          </div>
+        </div>
+
         <!-- Панель: Локальная игра -->
         <div id="panelMode" class="dynamic-content hidden">
           <h3 data-i18n="screen_mode_title">Выберите режим</h3>
