@@ -287,8 +287,12 @@ canvas {
 }
 
 .sidebar-content {
-    flex-grow: 1;
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    /* Critical for flex overflow */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .menu-actions {
@@ -1797,6 +1801,96 @@ kbd {
     color: #aaa;
 }
 
+/* --- REPLAY MODAL --- */
+.replay-modal-content {
+    background: var(--bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    max-width: 95vw;
+    max-height: 95vh;
+}
+
+.replay-header {
+    width: 100%;
+    text-align: center;
+}
+
+.replay-header h2 {
+    margin: 0 0 5px 0;
+    color: var(--text);
+    font-size: 1.5rem;
+}
+
+.replay-players {
+    color: var(--text-dim);
+    font-size: 1rem;
+}
+
+.replay-board-container {
+    background: var(--board);
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    max-width: 100%;
+    max-height: 60vh;
+    aspect-ratio: 1/1;
+}
+
+#replayBoard {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 8px;
+}
+
+.replay-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px 20px;
+    border-radius: 30px;
+}
+
+.replay-controls button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.2s;
+}
+
+.replay-controls button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #fff;
+    transform: scale(1.1);
+}
+
+.replay-controls button:active {
+    transform: scale(0.9);
+}
+
+#replayMoveCounter {
+    font-family: monospace;
+    font-size: 1.2rem;
+    min-width: 60px;
+    text-align: center;
+}
+
 .settings-grid-inline select {
     background: #333;
     color: #fff;
@@ -2019,10 +2113,20 @@ kbd {
 }
 
 /* --- MOVE HISTORY --- */
+.history-container-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 #moveHistory {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    /* Critical for nested flex overflow */
     overflow: hidden;
     padding: 10px;
     background: rgba(0, 0, 0, 0.2);
@@ -2045,6 +2149,8 @@ kbd {
     flex: 1;
     overflow-y: auto;
     font-family: monospace;
+    min-height: 0;
+    /* Required for flex overflow to work */
 }
 
 .history-row {
@@ -2083,7 +2189,10 @@ kbd {
     justify-content: space-around;
     padding: 10px 5px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.4);
+    /* Stay at bottom - don't shrink */
+    flex-shrink: 0;
+    margin-top: auto;
 }
 
 .history-controls button {
@@ -2108,6 +2217,27 @@ kbd {
 .history-controls button:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+/* Move notation in history */
+.history-row .move {
+    text-align: center;
+    padding: 2px 5px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.history-row .move:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.history-row .move.active {
+    background: #e09f3e;
+    color: #000;
+    font-weight: bold;
 }
 
 /* --- AUTH STYLES --- */
@@ -2475,4 +2605,37 @@ kbd {
     .wall-template {
         display: none !important;
     }
+}
+
+/* --- LEADERBOARD --- */
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.leaderboard-row:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(2px);
+}
+
+.leaderboard-row .rank {
+    width: 30px;
+    font-weight: bold;
+    color: var(--wall);
+}
+
+.leaderboard-row .name {
+    flex-grow: 1;
+    text-align: left;
+}
+
+.leaderboard-row .score {
+    font-weight: bold;
+    color: #aaa;
 }

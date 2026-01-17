@@ -183,6 +183,21 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
+// Single Game Details (for Replay)
+app.get('/api/games/:id', async (req, res) => {
+    try {
+        const gameId = req.params.id;
+        const game = await GameResult.findById(gameId);
+        if (!game) {
+            return res.status(404).json({ error: 'Game not found' });
+        }
+        res.json(game);
+    } catch (err) {
+        console.error('[GAME DETAILS] Error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // SPA Fallback for Profiles
 app.get('/profiles/:username', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
@@ -309,6 +324,18 @@ app.delete('/api/admin/bots/:id', (req, res) => {
     res.json({ success });
 });
 
+app.post('/api/admin/bots/:id/toggle', (req, res) => {
+    const result = BotManager.toggleBot(req.params.id);
+    if (result.success) {
+        // Find and notify bot
+        const botSocket = Array.from(io.sockets.sockets.values()).find(s => s.userId === req.params.id);
+        if (botSocket) {
+            botSocket.emit('botStateUpdate', { isPaused: result.isPaused });
+        }
+    }
+    res.json(result);
+});
+
 // --- SERVER & SOCKET.IO INITIALIZATION ---
 // Create server instances FIRST, before using 'io'
 const server = http.createServer(app);
@@ -330,7 +357,6 @@ const wrap = middleware => (socket, next) => middleware(socket.request, {}, next
 io.use(wrap(sessionMiddleware));
 
 // Socket Auth Middleware
-// Socket Auth Middleware
 io.use((socket, next) => {
     const session = socket.request.session;
     if (session && session.userId) {
@@ -346,17 +372,27 @@ io.use((socket, next) => {
                 if (decoded.id && decoded.username) {
                     socket.userId = decoded.id;
                     socket.username = decoded.username;
+
+                    // Check if I am an active bot and get my state
+                    const bots = BotManager.getActiveBots();
+                    const me = bots.find(b => b.id === socket.userId);
+                    if (me && me.isPaused) {
+                        // Delay slightly to ensure client is ready
+                        setTimeout(() => socket.emit('botStateUpdate', { isPaused: true }), 500);
+                    }
+
                     console.log(`[SOCKET] Bot authenticated: ${socket.username}`);
                 }
             } catch (e) {
                 // Ignore invalid JWT, treat as Guest
             }
         }
-
-        if (!socket.userId) {
-            socket.username = `Guest-${socket.id.substr(0, 4)}`;
-        }
     }
+
+    if (!socket.userId) {
+        socket.username = `Guest-${socket.id.substr(0, 4)}`;
+    }
+
     next();
 });
 
@@ -504,6 +540,16 @@ io.on('connection', (socket) => {
     });
 
     // console.log(`[SOCKET] User connected: ${socket.id}`);
+
+    // Send current online stats to newly connected client
+    Redis.getActiveGameIds().then(gameIds => {
+        socket.emit('onlineStats', {
+            online: io.sockets.sockets.size,
+            playing: gameIds.length * 2 // Each game has 2 players
+        });
+    }).catch(() => {
+        socket.emit('onlineStats', { online: io.sockets.sockets.size, playing: 0 });
+    });
 
     // --- ПОИСК ИГРЫ ---
     socket.on('findGame', async (data) => {
@@ -1066,10 +1112,18 @@ async function handleDisconnectTimeout(lobbyId) {
 async function handleTurnTimeout(lobbyId) {
     console.log(`[TIMEOUT] Лобби ${lobbyId}: Время истекло.`);
     const game = await Redis.getGame(lobbyId);
-    if (game) {
-        const winnerIdx = 1 - game.currentPlayer;
-        await finalizeGame(lobbyId, winnerIdx, 'Time out');
+
+    if (!game) {
+        // Game data expired or missing - cleanup stale references
+        await Redis.removeActiveGame(lobbyId);
+        await Redis.clearTurnTimeout(lobbyId);
+        await Redis.clearDisconnectTimer(lobbyId);
+        console.log(`[TIMEOUT] Cleaned stale lobby ${lobbyId}`);
+        return;
     }
+
+    const winnerIdx = 1 - game.currentPlayer;
+    await finalizeGame(lobbyId, winnerIdx, 'Time out');
 }
 
 // --- ARCHIVE HELPER ---
@@ -1152,14 +1206,24 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
         if (lobbyId.startsWith('bot-')) gameType = 'bot';
 
+        // --- NEW LOGIC: Only save RANKED games ---
+        if (!game.isRanked) {
+            console.log(`[ARCHIVE] Skipped unranked game ${lobbyId}`);
+            return {
+                white: playerWhite,
+                black: playerBlack
+            };
+        }
+
         const result = new GameResult({
             gameType,
-            isRanked: !!game.isRanked,
+            isRanked: true, // We checked it above
             playerWhite,
             playerBlack,
             winner: winnerIdx,
             reason,
             turns: Math.ceil((game.history?.length || 0) / 2),
+            history: game.history || [], // Save history
             date: new Date()
         });
 
@@ -1277,6 +1341,19 @@ setInterval(async () => {
     }
 }, 1000);
 
+// Broadcast online stats to all clients every 5 seconds
+setInterval(async () => {
+    try {
+        const gameIds = await Redis.getActiveGameIds();
+        io.emit('onlineStats', {
+            online: io.sockets.sockets.size,
+            playing: gameIds.length * 2 // Each game has 2 players
+        });
+    } catch (err) {
+        // Silent fail - non-critical feature
+    }
+}, 5000);
+
 // Инициализация Redis и запуск сервера
 /**
  * Очистка "зомби-игр" при старте сервера.
@@ -1333,9 +1410,12 @@ async function startServer() {
         await Redis.connect();
         console.log('[STARTUP] Redis connected successfully');
 
-        // Очистка зомби-игр ПЕРЕД запуском сервера ОТКЛЮЧЕНА для персистентности
-        // await cleanupStaleGames(); 
-        console.log('[STARTUP] Persistence mode: Preserving active games from Redis.');
+        // Очистка зомби-игр при старте (удаляет только игры с обоими offline игроками)
+        await cleanupStaleGames();
+        console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
+
+        // Restore Persistent Bots
+        await BotManager.restoreBots();
 
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;

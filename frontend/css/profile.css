@@ -359,6 +359,16 @@
         text-align: center;
         gap: 15px;
     }
+}
 
+.mini-btn-view {
+    font-size: 1.2rem;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    transition: transform 0.2s;
+}
 
+.mini-btn-view:hover {
+    transform: scale(1.2);
 }

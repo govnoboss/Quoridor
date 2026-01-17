@@ -215,7 +215,7 @@ const BotAI = {
             }
         }
 
-        console.log(`[BOT-AI] Loop Check: HistoryLen=${state.history?.length}, AvoidPos=${JSON.stringify(avoidPos)}`);
+        // console.log(`[BOT-AI] Loop Check: HistoryLen=${state.history?.length}, AvoidPos=${JSON.stringify(avoidPos)}`);
 
         for (const move of moves) {
             if (Date.now() - startTime > 3000) break; // 3 sec timeout
@@ -229,7 +229,7 @@ const BotAI = {
 
             // Penalty for repetition
             if (avoidPos && move.type === 'pawn' && move.r === avoidPos.r && move.c === avoidPos.c) {
-                console.log(`[BOT-AI] Penalizing Repetition: ${move.r},${move.c} (-1000)`);
+                // console.log(`[BOT-AI] Penalizing Repetition: ${move.r},${move.c} (-1000)`);
                 score -= 1000; // Increased penalty to be sure
             }
 

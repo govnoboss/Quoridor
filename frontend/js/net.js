@@ -151,6 +151,11 @@ const Net = {
             UI.showToast(UI.translate('toast_join_error') + ': ' + data.reason, 'error');
             UI.hideRoomJoining();
         });
+
+        // Online stats update (users online, games in progress)
+        this.socket.on('onlineStats', (data) => {
+            UI.updateOnlineStats(data.online, data.playing);
+        });
     },
 
     surrender() {
