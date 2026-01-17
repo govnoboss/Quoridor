@@ -124,7 +124,9 @@ const UI = {
       link_register: "Зарегистрироваться",
       btn_reg_submit: "Зарегистрироваться",
       text_has_account: "Уже есть аккаунт?",
-      link_login_back: "Войти"
+      link_login_back: "Войти",
+      info_online: "Онлайн",
+      info_playing: "В матче"
     },
     en: {
       menu_play_online: "⚡ Quick Match",
@@ -243,8 +245,18 @@ const UI = {
       link_register: "Register",
       btn_reg_submit: "Register",
       text_has_account: "Already have an account?",
-      link_login_back: "Login"
+      link_login_back: "Login",
+      info_online: "Online",
+      info_playing: "In Game"
     }
+  },
+
+  // Function to update online stats display
+  updateOnlineStats(online, playing) {
+    const onlineEl = document.getElementById('statsOnlineCount');
+    const playingEl = document.getElementById('statsPlayingCount');
+    if (onlineEl) onlineEl.textContent = online || 0;
+    if (playingEl) playingEl.textContent = playing || 0;
   },
 
   showScreen(id) {
@@ -1216,7 +1228,7 @@ UI.loadGameHistory = async function () {
         <td class="${resultClass}">${resultText}</td>
         <td>${game.turns}</td>
         <td>${new Date(game.date).toLocaleDateString()}</td>
-        <td><button class="mini-btn disabled">👁️</button></td>
+        <td><button class="mini-btn" onclick="UI.openReplayModal('${game._id}')">👁️</button></td>
       `;
       tbody.appendChild(row);
     });
@@ -1239,6 +1251,9 @@ UI.showProfilePage = async function (username, pushState = true) {
   try {
     // 0. Show Screen Immediately (Skeleton / Loading State) to avoid FOUC
     this.showScreen('profileScreen');
+
+    // Track current profile for replay return
+    this._currentViewingProfile = username;
 
     // Optional: Reset UI to "Loading" state if needed
     // document.getElementById('ppUsername').textContent = 'Loading...';
@@ -1347,6 +1362,7 @@ UI.showProfilePage = async function (username, pushState = true) {
                 <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
                 <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
                 <td>${game.turns}</td>
+                <td><button class="mini-btn-view" onclick="UI.openReplayModal('${game._id}')" title="View Replay">👁️</button></td>
             `;
         historyBody.appendChild(row);
       });
@@ -1423,8 +1439,16 @@ UI.refreshBotList = function () {
 
       list.innerHTML = bots.map(b => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); margin-bottom:4px; padding:5px; border-radius:4px;">
-                <span style="font-size:12px; font-family:monospace;">${b.username}</span>
-                <button onclick="UI.killBot('${b.id}')" style="background:red; color:white; border:none; border-radius:3px; cursor:pointer;">X</button>
+                <span style="font-size:12px; font-family:monospace;">
+                    ${b.username} 
+                    ${b.isPaused ? '<span style="color:orange">[PAUSED]</span>' : '<span style="color:lightgreen">[ACTIVE]</span>'}
+                </span>
+                <div>
+                    <button onclick="UI.toggleBot('${b.id}')" style="background:${b.isPaused ? 'green' : 'orange'}; color:white; border:none; border-radius:3px; cursor:pointer; margin-right:5px; width:60px;">
+                        ${b.isPaused ? 'START' : 'STOP'}
+                    </button>
+                    <button onclick="UI.killBot('${b.id}')" style="background:red; color:white; border:none; border-radius:3px; cursor:pointer;">X</button>
+                </div>
             </div>
         `).join('');
     })
@@ -1438,6 +1462,19 @@ UI.killBot = function (id) {
     .then(res => {
       if (res.success) this.refreshBotList();
       else this.showToast('Failed to kill bot');
+    });
+};
+
+UI.toggleBot = function (id) {
+  fetch(`/api/admin/bots/${id}/toggle`, { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        this.refreshBotList();
+        this.showToast(res.isPaused ? 'Bot Paused' : 'Bot Resumed', 'info');
+      } else {
+        this.showToast('Failed to toggle bot', 'error');
+      }
     });
 };
 
@@ -1481,7 +1518,7 @@ UI.loadLeaderboard = async function () {
     }
 
     container.innerHTML = players.map((p, i) => `
-            <div class="leaderboard-row">
+            <div class="leaderboard-row" onclick="UI.showProfilePage('${p.username}')">
                 <span class="rank">${i + 1}</span>
                 <span class="name">${p.username}</span>
                 <span class="score">${p.rating}</span>
@@ -1489,6 +1526,74 @@ UI.loadLeaderboard = async function () {
         `).join('');
   } catch (err) {
     console.error('[LEADERBOARD] Failed to load:', err);
+  }
+};
+
+
+// --- REPLAY SYSTEM (Fullscreen) ---
+// Old modal-based replay replaced with Game.startReplay()
+
+// Track current profile being viewed (for replay return)
+UI._currentViewingProfile = null;
+
+/**
+ * Open Fullscreen Replay for a specific game.
+ * Replaces old modal-based replay.
+ */
+UI.openReplayModal = async function (gameId) {
+  try {
+    this.showToast('Загрузка повтора...', 'info');
+
+    const res = await fetch(`/api/games/${gameId}`);
+    if (!res.ok) throw new Error('Game not found');
+
+    const gameData = await res.json();
+
+    if (!gameData.history || gameData.history.length === 0) {
+      this.showToast('Replay unavailable for this game (no history).', 'error');
+      return;
+    }
+
+    // Get current profile username for return navigation
+    const returnProfile = this._currentViewingProfile || null;
+
+    // Use new fullscreen replay system
+    Game.startReplay(gameData, returnProfile);
+
+    // Setup keyboard handler for ESC and arrow keys
+    this._replayEscHandler = (e) => {
+      if (!Game.isReplayMode) return;
+
+      if (e.key === 'Escape') {
+        Game.exitReplay();
+      } else if (e.key === 'ArrowLeft') {
+        Game.replayNavigate(-1);
+      } else if (e.key === 'ArrowRight') {
+        Game.replayNavigate(1);
+      } else if (e.key === 'Home') {
+        Game.replayGoToStart();
+      } else if (e.key === 'End') {
+        Game.replayGoToEnd();
+      }
+    };
+    document.addEventListener('keydown', this._replayEscHandler);
+
+  } catch (err) {
+    console.error('[REPLAY] Error:', err);
+    this.showToast('Ошибка загрузки повтора', 'error');
+  }
+};
+
+// Legacy close function - now delegates to Game
+UI.closeReplayModal = function () {
+  if (Game.isReplayMode) {
+    Game.exitReplay();
+  }
+
+  // Clean up ESC handler
+  if (this._replayEscHandler) {
+    document.removeEventListener('keydown', this._replayEscHandler);
+    this._replayEscHandler = null;
   }
 };
 

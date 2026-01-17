@@ -1,0 +1,72 @@
+[
+  {
+    "id": "696a6e7920e6ebb48a307b16",
+    "username": "Bot_medium_6835",
+    "difficulty": "medium",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8342a4509c6da346d2bb",
+    "username": "Bot_medium_3406",
+    "difficulty": "medium",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8343a4509c6da346d2bd",
+    "username": "Bot_medium_7075",
+    "difficulty": "medium",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8343a4509c6da346d2c1",
+    "username": "Bot_medium_556",
+    "difficulty": "medium",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8345a4509c6da346d2c3",
+    "username": "Bot_hard_2084",
+    "difficulty": "hard",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8346a4509c6da346d2c9",
+    "username": "Bot_hard_564",
+    "difficulty": "hard",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8347a4509c6da346d2cd",
+    "username": "Bot_impossible_709",
+    "difficulty": "impossible",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8347a4509c6da346d2cf",
+    "username": "Bot_impossible_4969",
+    "difficulty": "impossible",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696a8353a4509c6da346d2d9",
+    "username": "Bot_easy_6924",
+    "difficulty": "easy",
+    "isRanked": true,
+    "isPaused": false
+  },
+  {
+    "id": "696b8384c52ede7d9241645a",
+    "username": "Bot_hard_5563",
+    "difficulty": "hard",
+    "isRanked": true,
+    "isPaused": false
+  }
+]

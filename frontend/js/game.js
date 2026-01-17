@@ -66,6 +66,8 @@ const Game = {
     playerProfiles: [null, null] // New: [{name, avatar}, {name, avatar}]
   },
   isInputBlocked: false, // New: Block input flag
+  isReplayMode: false, // Replay mode flag - disables input and timers
+  replayReturnProfile: null, // Username to return to after exiting replay
 
   // Bind methods
   // Assuming these binds would be in an init method, but placing them here as per diff.
@@ -343,6 +345,259 @@ const Game = {
   },
 
   /**
+   * Starts fullscreen replay mode for a game.
+   * @param {object} gameData - Game data from API including history, players, etc.
+   * @param {string} returnToProfile - Username to return to after exiting replay
+   */
+  startReplay(gameData, returnToProfile) {
+    console.log('[REPLAY] Starting fullscreen replay for game:', gameData._id);
+
+    // Save return destination
+    this.replayReturnProfile = returnToProfile || null;
+    this.isReplayMode = true;
+
+    // Reset game state for replay
+    this.stopTimer();
+    this.myPlayerIndex = 0; // Default to white perspective
+
+    // Create initial state
+    this.state = Shared.createInitialState({ base: 600 }, gameData.isRanked || false);
+    this.state.history = [];
+    this.state.playerProfiles = [
+      { name: gameData.playerWhite?.username || 'White', avatar: gameData.playerWhite?.avatarUrl },
+      { name: gameData.playerBlack?.username || 'Black', avatar: gameData.playerBlack?.avatarUrl }
+    ];
+
+    // Store full history for navigation
+    this._replayHistory = gameData.history || [];
+    this._replayMoveIndex = 0;
+    this._replayGameData = gameData;
+
+    // Build state snapshots for each move (for navigation)
+    this._replaySnapshots = [Shared.cloneState(this.state)];
+    let tempState = Shared.cloneState(this.state);
+    for (const record of this._replayHistory) {
+      try {
+        tempState = Shared.gameReducer(tempState, record.move);
+        this._replaySnapshots.push(Shared.cloneState(tempState));
+      } catch (e) {
+        console.error('[REPLAY] Error applying move:', e);
+        break;
+      }
+    }
+
+    // Set static timers (don't tick in replay)
+    this.timers = [600, 600];
+
+    // Update UI
+    UI.showScreen('gameScreen');
+    this.setupReplayUI();
+    this.updateTimerDisplay();
+    this.draw();
+
+    if (typeof UI !== 'undefined' && UI.updateGameInfo) {
+      UI.updateGameInfo(this.state.playerProfiles, this.myPlayerIndex);
+    }
+
+    // Render history panel
+    this.renderReplayHistory();
+  },
+
+  /**
+   * Exits replay mode and returns to player profile.
+   */
+  exitReplay() {
+    if (!this.isReplayMode) return;
+
+    console.log('[REPLAY] Exiting replay mode');
+
+    this.isReplayMode = false;
+    this._replayHistory = null;
+    this._replaySnapshots = null;
+    this._replayMoveIndex = 0;
+    this._replayGameData = null;
+
+    // Restore surrender button
+    this.restoreGameUI();
+
+    // Return to profile
+    const profileToReturn = this.replayReturnProfile;
+    this.replayReturnProfile = null;
+
+    if (profileToReturn && typeof UI !== 'undefined' && UI.showProfilePage) {
+      UI.showProfilePage(profileToReturn);
+    } else if (typeof UI !== 'undefined') {
+      UI.backToMenu();
+    }
+  },
+
+  /**
+   * Sets up UI for replay mode (replaces Surrender button with Exit).
+   */
+  setupReplayUI() {
+    const surrenderBtn = document.querySelector('.menu-actions .secondary-btn[onclick*="handleSurrender"]');
+    if (surrenderBtn) {
+      surrenderBtn._originalOnClick = surrenderBtn.getAttribute('onclick');
+      surrenderBtn._originalText = surrenderBtn.textContent;
+      surrenderBtn.setAttribute('onclick', 'Game.exitReplay()');
+      surrenderBtn.textContent = '← ' + (UI.translate('btn_back') || 'Exit');
+    }
+
+    // Update history controls for replay navigation
+    this.updateReplayCounter();
+  },
+
+  /**
+   * Restores original game UI after exiting replay.
+   */
+  restoreGameUI() {
+    const surrenderBtn = document.querySelector('.menu-actions .secondary-btn');
+    if (surrenderBtn && surrenderBtn._originalOnClick) {
+      surrenderBtn.setAttribute('onclick', surrenderBtn._originalOnClick);
+      surrenderBtn.textContent = surrenderBtn._originalText || UI.translate('btn_surrender');
+      delete surrenderBtn._originalOnClick;
+      delete surrenderBtn._originalText;
+    }
+  },
+
+  /**
+   * Navigates replay to a specific move index.
+   * @param {number} index - Move index (0 = initial state)
+   */
+  replayGoToMove(index) {
+    if (!this.isReplayMode || !this._replaySnapshots) {
+      console.log('[REPLAY] Navigation blocked: isReplayMode=', this.isReplayMode, 'snapshots=', !!this._replaySnapshots);
+      return;
+    }
+
+    console.log('[REPLAY] GoToMove:', index, 'of', this._replaySnapshots.length, 'snapshots');
+    index = Math.max(0, Math.min(index, this._replaySnapshots.length - 1));
+    this._replayMoveIndex = index;
+
+    // Restore state from snapshot
+    const snapshot = this._replaySnapshots[index];
+    this.state.hWalls = snapshot.hWalls.map(row => [...row]);
+    this.state.vWalls = snapshot.vWalls.map(row => [...row]);
+    this.state.players = snapshot.players.map(p => ({ ...p, pos: { ...p.pos } }));
+    this.state.currentPlayer = snapshot.currentPlayer;
+
+    // Reconstruct timers from history timestamps
+    this.reconstructReplayTimers(index);
+
+    this.updateReplayCounter();
+    this.renderReplayHistory();
+    this.updateTimerDisplay();
+    this.draw();
+  },
+
+  /**
+   * Reconstructs timer values at a specific move index from history.
+   * @param {number} moveIndex - Current move index
+   */
+  reconstructReplayTimers(moveIndex) {
+    if (!this._replayGameData || !this._replayHistory) return;
+
+    // Get initial time from game data
+    const initialTime = this._replayGameData.timeControl?.base || 600;
+    this.timers = [initialTime, initialTime];
+
+    // Calculate elapsed time for each move
+    for (let i = 0; i < moveIndex && i < this._replayHistory.length; i++) {
+      const move = this._replayHistory[i];
+      const nextMove = this._replayHistory[i + 1];
+
+      if (move && nextMove && move.timestamp && nextMove.timestamp) {
+        // Time spent = next move timestamp - this move timestamp
+        const elapsed = Math.floor((nextMove.timestamp - move.timestamp) / 1000);
+        const playerIdx = i % 2; // White = 0, Black = 1
+        this.timers[playerIdx] = Math.max(0, this.timers[playerIdx] - elapsed);
+      } else if (move && move.timestamp && i === moveIndex - 1) {
+        // For the last move before current, estimate from game end or current
+        // Just use what we have
+      }
+    }
+  },
+
+  /**
+   * Navigate replay by direction.
+   * @param {number} direction - -1 for prev, 1 for next
+   */
+  replayNavigate(direction) {
+    this.replayGoToMove(this._replayMoveIndex + direction);
+  },
+
+  /**
+   * Go to start of replay.
+   */
+  replayGoToStart() {
+    this.replayGoToMove(0);
+  },
+
+  /**
+   * Go to end of replay.
+   */
+  replayGoToEnd() {
+    if (this._replaySnapshots) {
+      this.replayGoToMove(this._replaySnapshots.length - 1);
+    }
+  },
+
+  /**
+   * Updates the replay move counter in the history panel.
+   */
+  updateReplayCounter() {
+    if (!this.isReplayMode) return;
+    const total = this._replayHistory?.length || 0;
+    const current = this._replayMoveIndex || 0;
+
+    // Update history header or create indicator
+    const historyList = document.getElementById('historyList');
+    if (historyList) {
+      // Counter is shown via history highlighting
+    }
+  },
+
+  /**
+   * Renders the replay history in the sidebar.
+   */
+  renderReplayHistory() {
+    if (!this.isReplayMode || !this._replayHistory) return;
+
+    const historyList = document.getElementById('historyList');
+    if (!historyList) return;
+
+    historyList.innerHTML = '';
+
+    // Build history rows (pair moves like chess notation)
+    for (let i = 0; i < this._replayHistory.length; i += 2) {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const move1 = this._replayHistory[i];
+      const move2 = this._replayHistory[i + 1];
+
+      const notation1 = move1?.notation || this.getNotation(move1?.move);
+      const notation2 = move2 ? (move2.notation || this.getNotation(move2.move)) : '';
+
+      const isActive1 = (this._replayMoveIndex === i + 1);
+      const isActive2 = (this._replayMoveIndex === i + 2);
+
+      row.innerHTML = `
+        <span class="move ${isActive1 ? 'active' : ''}" onclick="Game.replayGoToMove(${i + 1})">${notation1}</span>
+        <span class="move ${isActive2 ? 'active' : ''}" onclick="Game.replayGoToMove(${i + 2})">${notation2}</span>
+      `;
+
+      historyList.appendChild(row);
+    }
+
+    // Scroll to active move
+    const activeMove = historyList.querySelector('.move.active');
+    if (activeMove) {
+      activeMove.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  },
+
+  /**
    * Сбрасывает состояние игры к начальным параметрам.
    * Вызывается при старте новой игры или нажатии кнопки "Сброс".
    */
@@ -514,6 +769,14 @@ const Game = {
   },
 
   setHistoryView(index) {
+    // In replay mode, delegate to replay navigation
+    if (this.isReplayMode) {
+      if (index === 0) this.replayGoToStart();
+      else if (index === -1) this.replayGoToEnd();
+      else this.replayGoToMove(index);
+      return;
+    }
+
     if (index < -1 || index >= this.state.history.length) return;
     this.viewHistoryIndex = index;
 
@@ -528,6 +791,12 @@ const Game = {
    * @param {number} direction Смещение (-1 назад, 1 вперед).
    */
   navigateHistory(direction) {
+    // In replay mode, delegate to replay navigation
+    if (this.isReplayMode) {
+      this.replayNavigate(direction);
+      return;
+    }
+
     const histLen = this.state.history.length;
     if (histLen === 0) return;
 
@@ -1352,6 +1621,7 @@ const Game = {
 
     if (wallTemplateV) {
       wallTemplateV.addEventListener('pointerdown', (e) => {
+        if (this.isReplayMode) return; // Block during replay
         e.preventDefault();
         this.startWallDrag(true, e); // isVertical = true
       });
@@ -1359,6 +1629,7 @@ const Game = {
 
     if (wallTemplateH) {
       wallTemplateH.addEventListener('pointerdown', (e) => {
+        if (this.isReplayMode) return; // Block during replay
         e.preventDefault();
         this.startWallDrag(false, e); // isVertical = false
       });
@@ -1366,6 +1637,11 @@ const Game = {
 
     // === 7.1. Начало перетаскивания (pointerdown) ===
     this.canvas.addEventListener('pointerdown', e => {
+      // [Replay Mode] Block all game interactions during replay
+      if (this.isReplayMode) {
+        return;
+      }
+
       // [Advanced UX] Если мы в режиме просмотра истории — клик выбрасывает нас в игру
       if (this.viewHistoryIndex !== -1) {
         this.setHistoryView(-1);

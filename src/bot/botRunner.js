@@ -33,9 +33,34 @@ socket.on('connect', () => {
     startSearch();
 });
 
-socket.on('disconnect', () => {
-    console.log('[BOT] Disconnected from server.');
+socket.on('disconnect', (reason) => {
+    console.log(`[BOT] Disconnected: ${reason}`);
     clearTimeout(botTimeout);
+});
+
+socket.on('connect_error', (err) => {
+    console.error(`[BOT] Connection Error: ${err.message}`, err);
+});
+
+socket.on('connect_timeout', () => {
+    console.error('[BOT] Connection Custom Timeout');
+});
+
+socket.on('botStateUpdate', (data) => {
+    console.log(`[BOT] State Updated: Paused=${data.isPaused}`);
+    isPaused = data.isPaused;
+
+    if (isPaused) {
+        // We are now paused.
+        // If searching, we should cancel.
+        socket.emit('cancelSearch', { token: PLAYER_TOKEN });
+    } else {
+        // We are currently resumed.
+        // If not in game, start searching.
+        if (!gameState) {
+            startSearch();
+        }
+    }
 });
 
 socket.on('findGameFailed', (data) => {
@@ -87,7 +112,16 @@ socket.on('error', (err) => {
 
 // --- Logic ---
 
+const IS_PAUSED_ENV = process.env.IS_PAUSED === 'true';
+let isPaused = IS_PAUSED_ENV;
+
+// ...
+
 function startSearch() {
+    if (isPaused) {
+        console.log('[BOT] State is PAUSED. Skipping search.');
+        return;
+    }
     console.log('[BOT] Searching for game...');
     socket.emit('findGame', {
         token: PLAYER_TOKEN,
@@ -98,11 +132,11 @@ function startSearch() {
 
 function checkTurn() {
     if (!gameState) {
-        console.log('[BOT-DEBUG] checkTurn: No gameState');
+        // console.log('[BOT-DEBUG] checkTurn: No gameState');
         return;
     }
 
-    console.log(`[BOT-DEBUG] checkTurn: Turn=${gameState.currentPlayer}, MyIdx=${myPlayerIdx}`);
+    // console.log(`[BOT-DEBUG] checkTurn: Turn=${gameState.currentPlayer}, MyIdx=${myPlayerIdx}`);
 
     if (gameState.currentPlayer === myPlayerIdx) {
         // Bot's Turn
@@ -118,11 +152,11 @@ function checkTurn() {
 
 function makeMove() {
     if (!gameState) return;
-    console.log('[BOT-DEBUG] makeMove: Thinking...');
+    // console.log('[BOT-DEBUG] makeMove: Thinking...');
 
     try {
         const bestMove = BotAI.think(gameState, myPlayerIdx, DIFFICULTY);
-        console.log(`[BOT-DEBUG] Think Result:`, bestMove);
+        // console.log(`[BOT-DEBUG] Think Result:`, bestMove);
 
         if (bestMove) {
             const movePayload = {
@@ -134,7 +168,7 @@ function makeMove() {
                 movePayload.isVertical = bestMove.isVertical;
             }
 
-            console.log(`[BOT] Moving: ${JSON.stringify(movePayload)}`);
+            // console.log(`[BOT] Moving: ${JSON.stringify(movePayload)}`);
             socket.emit('playerMove', {
                 lobbyId: currentLobbyId,
                 move: movePayload

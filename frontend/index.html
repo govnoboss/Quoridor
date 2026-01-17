@@ -230,6 +230,22 @@
 
       <!-- Инфо-панель справа (Советы и лидерборд) -->
       <div class="info-panel" id="infoPanel">
+        <!-- Online Stats Card -->
+        <div class="info-card" style="padding: 12px 16px;">
+          <div style="display: flex; justify-content: space-around; align-items: center; gap: 20px;">
+            <div style="text-align: center;">
+              <span style="font-size: 1.5rem;">👥</span>
+              <div style="font-size: 1.2rem; font-weight: bold; color: #4ade80;" id="statsOnlineCount">0</div>
+              <div style="font-size: 0.75rem; color: #888;" data-i18n="info_online">Онлайн</div>
+            </div>
+            <div style="width: 1px; height: 40px; background: #444;"></div>
+            <div style="text-align: center;">
+              <span style="font-size: 1.5rem;">⚔️</span>
+              <div style="font-size: 1.2rem; font-weight: bold; color: #f59e0b;" id="statsPlayingCount">0</div>
+              <div style="font-size: 0.75rem; color: #888;" data-i18n="info_playing">В матче</div>
+            </div>
+          </div>
+        </div>
         <div class="info-card">
           <div class="info-card-header">
             <span class="info-icon">💡</span>
@@ -670,6 +686,35 @@
             </table>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- REPLAY MODAL -->
+  <div id="replayModal" class="modal-overlay hidden">
+    <div class="replay-modal-content">
+      <button class="close-panel-btn" onclick="UI.closeReplayModal()">×</button>
+      <div class="replay-header">
+        <h2 data-i18n="replay_title">Replay</h2>
+        <div class="replay-players">
+          <span id="replayWhitePlayer">White</span> vs <span id="replayBlackPlayer">Black</span>
+        </div>
+      </div>
+
+      <div class="replay-board-container">
+        <canvas id="replayBoard" width="720" height="720"></canvas>
+      </div>
+
+      <div class="replay-controls">
+        <button onclick="UI.replayNavigate('start')">«</button>
+        <button onclick="UI.replayNavigate('prev')">‹</button>
+        <span id="replayMoveCounter">0 / 0</span>
+        <button onclick="UI.replayNavigate('next')">›</button>
+        <button onclick="UI.replayNavigate('end')">»</button>
+        <button onclick="UI.closeReplayModal()"
+          style="margin-left: 10px; border-radius: 5px; width: auto; padding: 0 15px; font-size: 0.9rem;">Exit</button>
       </div>
     </div>
   </div>
