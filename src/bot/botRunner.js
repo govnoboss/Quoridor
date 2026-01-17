@@ -139,24 +139,41 @@ function checkTurn() {
     // console.log(`[BOT-DEBUG] checkTurn: Turn=${gameState.currentPlayer}, MyIdx=${myPlayerIdx}`);
 
     if (gameState.currentPlayer === myPlayerIdx) {
-        // Bot's Turn
-        const thinkTime = Math.random() * 2000 + 1000;
-
-        if (botTimeout) clearTimeout(botTimeout);
-
-        botTimeout = setTimeout(() => {
-            makeMove();
-        }, thinkTime);
+        // Bot's Turn - Start thinking
+        makeMove();
     }
 }
 
-function makeMove() {
+async function makeMove() {
     if (!gameState) return;
-    // console.log('[BOT-DEBUG] makeMove: Thinking...');
 
     try {
+        const startThink = Date.now();
         const bestMove = BotAI.think(gameState, myPlayerIdx, DIFFICULTY);
-        // console.log(`[BOT-DEBUG] Think Result:`, bestMove);
+        const thinkDuration = Date.now() - startThink;
+
+        // Humanize Timer
+        // Impossible/Hard: Minimal delay if think was long. Artificial delay if think was instant (cache).
+        // Easy/Medium: More random delays.
+
+        let targetDelay = 1000; // Minimum time a human takes
+        if (DIFFICULTY === 'hard' || DIFFICULTY === 'impossible') {
+            targetDelay = 1500;
+        } else {
+            targetDelay = 2000; // Slower for easier bots
+        }
+
+        // If we thought for 2000ms, and target is 1500, we wait 0 extra.
+        // If we thought for 2ms, and target is 1500, we wait 1498ms.
+        let waitTime = targetDelay - thinkDuration;
+
+        // Add Randomness
+        waitTime += Math.random() * 500;
+
+        if (waitTime < 500) waitTime = 500; // Always at least slight pause after decision
+
+        // Wait
+        await new Promise(resolve => setTimeout(resolve, waitTime));
 
         if (bestMove) {
             const movePayload = {
@@ -167,24 +184,10 @@ function makeMove() {
             if (bestMove.type === 'wall') {
                 movePayload.isVertical = bestMove.isVertical;
             }
-
-            // console.log(`[BOT] Moving: ${JSON.stringify(movePayload)}`);
             socket.emit('playerMove', {
                 lobbyId: currentLobbyId,
                 move: movePayload
             });
-
-            // Apply locally to prevent double-think before server response
-            // (Assuming server accepts it. If not, we desync. Ideally we wait for 'move' event)
-            // But gameReducer checks turn.
-            // We should NOT update state here, waiting for server 'move' event is safer for sync.
-            // BUT we should prevent 'checkTurn' from firing again.
-            // Using a flag 'isThinking' or just relying on 'currentPlayer' not changing until event.
-            // Since we set timeout only when currentPlayer == myIndex, and we don't change state here,
-            // we will re-enter checkTurn only if logic calls it.
-            // Logic calls checkTurn on 'move' event.
-            // So we are safe.
-
         } else {
             console.error('[BOT] No valid moves found inside AI? Resigning...');
             socket.emit('surrender');

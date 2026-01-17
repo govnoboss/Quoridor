@@ -92,6 +92,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node tests/tests.js",
+    "test:ai": "node tests/ai-core.test.js",
     "load-test": "node tests/load-test.js"
   },
   "devDependencies": {},
