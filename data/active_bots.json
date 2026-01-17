@@ -56,16 +56,9 @@
     "isPaused": false
   },
   {
-    "id": "696a8353a4509c6da346d2d9",
-    "username": "Bot_easy_6924",
-    "difficulty": "easy",
-    "isRanked": true,
-    "isPaused": false
-  },
-  {
-    "id": "696b8384c52ede7d9241645a",
-    "username": "Bot_hard_5563",
-    "difficulty": "hard",
+    "id": "696be65982d73f278e77f0bc",
+    "username": "Bot_medium_6423",
+    "difficulty": "medium",
     "isRanked": true,
     "isPaused": false
   }

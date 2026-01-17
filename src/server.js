@@ -58,6 +58,15 @@ const sessionMiddleware = session({
 app.use(express.json()); // Для парсинга JSON тела запросов
 app.use(sessionMiddleware);
 
+// Serve Core Modules for Frontend
+app.get('/js/ai-core.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'core', 'ai-core.js'));
+});
+// Also serve shared.js if not served otherwise (backup)
+app.get('/shared.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'core', 'shared.js'));
+});
+
 // --- AUTH API ROUTES ---
 
 // register
