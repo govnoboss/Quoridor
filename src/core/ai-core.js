@@ -12,36 +12,125 @@
         tt: null, // Transposition Table
         killerMoves: null, // [depth] -> [move1, move2]
 
+        // Debug mode for detailed logging
+        DEBUG: false,
+        logger: null, // Custom logger function
+
+        // Helper: log only if DEBUG is enabled
+        debugLog(...args) {
+            if (this.DEBUG) {
+                if (this.logger) {
+                    this.logger(...args);
+                } else {
+                    console.log('[AI-DEBUG]', ...args);
+                }
+            }
+        },
+
+        // Helper: format move for logging
+        formatMove(m) {
+            if (!m) return 'none';
+            if (m.type === 'pawn') return `pawn(${m.r},${m.c})`;
+            return `wall(${m.r},${m.c},${m.isVertical ? 'V' : 'H'})`;
+        },
+
         // Search Stats
         nodesVisited: 0,
         deadline: 0,
+
+        // Zobrist Hashing Tables
+        zobristTable: {
+            pawn: null, // [playerIdx][r][c] -> {high, low}
+            vWalls: null, // [r][c] -> {high, low}
+            hWalls: null, // [r][c] -> {high, low}
+            turn: null, // [playerIdx] -> {high, low}
+            wallsLeft: null // [playerIdx][count] -> {high, low}
+        },
 
         init(SharedLibrary) {
             this.Shared = SharedLibrary;
             this.tt = new Map();
             this.killerMoves = Array(30).fill(null).map(() => []);
+            this.initZobrist();
         },
 
-        cloneState(state) {
-            return this.Shared.cloneState(state);
+        // Initialize Zobrist tables with random 64-bit values (split into high/low 32-bit)
+        initZobrist() {
+            const rand32 = () => (Math.random() * 0xFFFFFFFF) | 0;
+            const rand64 = () => ({ high: rand32(), low: rand32() });
+
+            this.zobristTable.pawn = Array.from({ length: 2 }, () =>
+                Array.from({ length: 9 }, () =>
+                    Array.from({ length: 9 }, () => rand64())
+                )
+            );
+
+            this.zobristTable.vWalls = Array.from({ length: 8 }, () =>
+                Array.from({ length: 8 }, () => rand64())
+            );
+
+            this.zobristTable.hWalls = Array.from({ length: 8 }, () =>
+                Array.from({ length: 8 }, () => rand64())
+            );
+
+            this.zobristTable.turn = [rand64(), rand64()];
+
+            this.zobristTable.wallsLeft = Array.from({ length: 2 }, () =>
+                Array.from({ length: 11 }, () => rand64()) // 0 to 10 walls
+            );
         },
 
-        computeStateKey(state) {
-            let vLow = 0, vHigh = 0;
-            let hLow = 0, hHigh = 0;
-            let idx = 0;
+        // Compute full hash from scratch (for initial state)
+        computeZobristHash(state) {
+            let h = 0, l = 0;
+
+            // Turn
+            const zTurn = this.zobristTable.turn[state.currentPlayer];
+            h ^= zTurn.high; l ^= zTurn.low;
+
+            // Pawns & Walls Left
+            for (let i = 0; i < 2; i++) {
+                const p = state.players[i];
+                const zPawn = this.zobristTable.pawn[i][p.pos.r][p.pos.c];
+                h ^= zPawn.high; l ^= zPawn.low;
+
+                const zWalls = this.zobristTable.wallsLeft[i][p.wallsLeft];
+                h ^= zWalls.high; l ^= zWalls.low;
+            }
+
+            // Walls
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
                     if (state.vWalls[r][c]) {
-                        if (idx < 32) vLow |= (1 << idx); else vHigh |= (1 << (idx - 32));
+                        const z = this.zobristTable.vWalls[r][c];
+                        h ^= z.high; l ^= z.low;
                     }
                     if (state.hWalls[r][c]) {
-                        if (idx < 32) hLow |= (1 << idx); else hHigh |= (1 << (idx - 32));
+                        const z = this.zobristTable.hWalls[r][c];
+                        h ^= z.high; l ^= z.low;
                     }
-                    idx++;
                 }
             }
-            return `${state.currentPlayer},${state.players[0].pos.r},${state.players[0].pos.c},${state.players[0].wallsLeft},${state.players[1].pos.r},${state.players[1].pos.c},${state.players[1].wallsLeft},${vLow},${vHigh},${hLow},${hHigh}`;
+
+            return { hashHigh: h, hashLow: l }; // Integers
+        },
+
+        cloneState(state) {
+            const cloned = this.Shared.cloneState(state);
+            // Manually copy hash since Shared doesn't know about it
+            if (state.hashHigh !== undefined) {
+                cloned.hashHigh = state.hashHigh;
+                cloned.hashLow = state.hashLow;
+            }
+            return cloned;
+        },
+
+        // O(1) Key generation using calculated hash
+        computeStateKey(state) {
+            // Convert signed 32-bit ints to unsigned hex strings for consistency
+            const h = (state.hashHigh >>> 0).toString(16);
+            const l = (state.hashLow >>> 0).toString(16);
+            return h + "-" + l;
         },
 
         shortestPathDistance(state, playerIdx) {
@@ -49,10 +138,11 @@
             const start = state.players[playerIdx].pos;
             const visited = Array(9).fill().map(() => Array(9).fill(false));
             const queue = [{ r: start.r, c: start.c, dist: 0 }];
+            let head = 0; // Index-based dequeue: O(1) instead of shift()'s O(n)
             visited[start.r][start.c] = true;
 
-            while (queue.length) {
-                const { r, c, dist } = queue.shift();
+            while (head < queue.length) {
+                const { r, c, dist } = queue[head++]; // O(1) dequeue
                 if (r === targetRow) return dist;
 
                 for (const { dr, dc } of this.Shared.DIRECTIONS) {
@@ -96,8 +186,8 @@
             // Examples:
             // Dist 8 (Start): (9-8)^1.5 * 10 = 10 pts bonus.
             // Dist 1 (Win soon): (9-1)^1.5 * 10 = ~220 pts bonus.
-            score += Math.pow(9 - dBot, 1.5) * 10;
-            score -= Math.pow(9 - dHuman, 1.5) * 10;
+            score += Math.pow(Math.max(0, 9 - dBot), 1.5) * 10;
+            score -= Math.pow(Math.max(0, 9 - dHuman), 1.5) * 10;
 
             // 4. Dynamic Wall Scoring
             // Walls are more precious when the opponent is close to winning.
@@ -121,7 +211,12 @@
             const centerDist = Math.abs(4 - botPos.c);
             score -= centerDist * 4;
 
-            // Tempo Bonus (if we are ahead, push harder)
+            // Tempo Bonus (Turn Advantage)
+            // Being to move is worth ~0.6 step. Stabilizes even/odd depth oscillation.
+            if (state.currentPlayer === botIdx) score += 60;
+            else score -= 60;
+
+            // Ahead Bonus (Push harder if winning)
             if (dBot < dHuman) score += 50;
 
             return score;
@@ -132,31 +227,31 @@
             const oppPlayer = 1 - forPlayer;
             const myPos = state.players[forPlayer].pos;
             const oppPos = state.players[oppPlayer].pos;
-            // Optimization: Reuse candidates array or Set?
-            // For now, keep logic but limit range.
             const candidates = new Set();
 
-            // Check walls near players
-            for (let r = -2; r <= 1; r++) {
-                for (let c = -2; c <= 1; c++) {
+            // Reduced range: -1 to 1 instead of -2 to 1 (cuts candidates by ~40%)
+            for (let r = -1; r <= 1; r++) {
+                for (let c = -1; c <= 1; c++) {
                     candidates.add(`${myPos.r + r},${myPos.c + c}`);
-                    const or = oppPos.r + r;
-                    const oc = oppPos.c + c;
-                    // Bias towards blocking opponent specifically in front of them
-                    candidates.add(`${or},${oc}`);
+                    candidates.add(`${oppPos.r + r},${oppPos.c + c}`);
                 }
             }
-            // Always check center for early game dominance
-            candidates.add('3,3'); candidates.add('3,4'); candidates.add('4,3'); candidates.add('4,4');
+            // Center walls for early game
+            candidates.add('3,4'); candidates.add('4,4');
 
             const oldOppDist = this.shortestPathDistance(state, oppPlayer);
+            const MAX_WALL_MOVES = 8; // Limit wall moves to reduce BFS calls
 
             for (const posStr of candidates) {
+                if (moves.length >= MAX_WALL_MOVES) break; // Early exit when enough found
+
                 const [rStr, cStr] = posStr.split(',');
                 const r = parseInt(rStr), c = parseInt(cStr);
                 if (r < 0 || r >= 8 || c < 0 || c >= 8) continue;
 
                 const checkAndAddWall = (r, c, isVertical) => {
+                    if (moves.length >= MAX_WALL_MOVES) return; // Early exit
+
                     if (this.Shared.checkWallPlacement(state, r, c, isVertical)) {
                         state.players[forPlayer].wallsLeft--;
                         if (isVertical) state.vWalls[r][c] = true;
@@ -169,7 +264,7 @@
                             if (newOppDist > oldOppDist) {
                                 let priority = 50;
                                 const distGain = newOppDist - oldOppDist;
-                                priority += distGain * 200; // 1 step = +200, 2 steps = +400
+                                priority += distGain * 80;
 
                                 moves.push({
                                     type: 'wall', r, c, isVertical,
@@ -210,40 +305,28 @@
             const moves = [];
             const { r, c } = state.players[forPlayer].pos;
 
-            // Pawn Moves
-            for (const { dr, dc } of this.Shared.DIRECTIONS) {
-                const nr = r + dr, nc = c + dc;
-                if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 &&
-                    !this.Shared.hasPawnAt(state, nr, nc) && !this.Shared.isWallBetween(state, r, c, nr, nc)) {
-                    moves.push({ type: 'pawn', r: nr, c: nc, priority: 100 });
-                }
-                // Jump logic
-                const jr = r + dr * 2, jc = c + dc * 2;
-                if (jr >= 0 && jr < 9 && jc >= 0 && jc < 9 &&
-                    this.Shared.hasPawnAt(state, r + dr, c + dc) &&
-                    this.Shared.getPlayerAt(state, r + dr, c + dc) !== forPlayer &&
-                    !this.Shared.hasPawnAt(state, jr, jc) &&
-                    !this.Shared.isWallBetween(state, r + dr, c + dc, jr, jc)) {
-                    moves.push({ type: 'pawn', r: jr, c: jc, priority: 150 });
-                }
-                // Diagonal jumps... (assuming Shared logic handles complex jumps, here we use simplified generation for speed or need full?)
-                // Actually 'Shared.getJumpTargets' exists! Use it?
-                // BotAI.js used manual generation. Let's stick to manual for speed if it matches logic.
+            // Pawn Moves - use Shared.getJumpTargets for full correctness
+            // This handles simple moves, straight jumps, AND diagonal jumps
+            const pawnTargets = this.Shared.getJumpTargets(state, r, c);
+
+            // Urgency bonus: if bot is close to winning, strongly prefer pawn moves
+            const dBot = this.shortestPathDistance(state, forPlayer);
+            const urgencyBonus = dBot <= 3 ? (4 - dBot) * 100 : 0; // dist 1 → +300, dist 2 → +200, dist 3 → +100
+
+            for (const target of pawnTargets) {
+                // Higher priority for straight-line jumps (moving towards goal)
+                const isJump = Math.abs(target.r - r) === 2 || Math.abs(target.c - c) === 2 ||
+                    (Math.abs(target.r - r) === 1 && Math.abs(target.c - c) === 1);
+                const basePriority = isJump ? 150 : 100;
+
+                // Direction-aware priority: forward moves first, backward moves last
+                const goalRow = forPlayer === 0 ? 0 : 8;
+                const currentDist = Math.abs(r - goalRow);
+                const newDist = Math.abs(target.r - goalRow);
+                const directionBonus = currentDist > newDist ? 50 : (currentDist < newDist ? -30 : 0);
+
+                moves.push({ type: 'pawn', r: target.r, c: target.c, priority: basePriority + urgencyBonus + directionBonus });
             }
-            // Use Shared for jumps if complex (diagonal)
-            // But for performance, let's keep custom logic if possible.
-            // Wait, previous BotAI logic missed diagonal jumps? 
-            // Shared.getJumpTargets is robust. Let's use it for correctness!
-            const targets = this.Shared.getJumpTargets(state, r, c);
-            // Replace manual pawn logic with Shared logic to catch all diagonal jumps
-            // Reset moves
-            /* 
-            moves.length = 0;
-            targets.forEach(t => moves.push({ type: 'pawn', r: t.r, c: t.c, priority: 100 }));
-            */
-            // Actually, keep manual simple logic for speed if diagonal jumps are rare? 
-            // No, correctness is better for ranked.
-            // But let's stick to existing simple logic for now not to break things mid-flight unless requested.
 
             if (state.players[forPlayer].wallsLeft > 0) {
                 moves.push(...this.generateSmartWallMoves(state, forPlayer));
@@ -265,21 +348,154 @@
         applyMove(state, move, playerIdx) {
             if (move.type === 'pawn') {
                 move.prevPos = { ...state.players[playerIdx].pos };
+
+                // XOR out old pawn pos
+                const zOld = this.zobristTable.pawn[playerIdx][move.prevPos.r][move.prevPos.c];
+                state.hashHigh ^= zOld.high;
+                state.hashLow ^= zOld.low;
+
                 state.players[playerIdx].pos = { r: move.r, c: move.c };
+
+                // XOR in new pawn pos
+                const zNew = this.zobristTable.pawn[playerIdx][move.r][move.c];
+                state.hashHigh ^= zNew.high;
+                state.hashLow ^= zNew.low;
+
             } else {
-                if (move.isVertical) state.vWalls[move.r][move.c] = true;
-                else state.hWalls[move.r][move.c] = true;
+                if (move.isVertical) {
+                    state.vWalls[move.r][move.c] = true;
+                    // XOR in Wall
+                    const zWall = this.zobristTable.vWalls[move.r][move.c];
+                    state.hashHigh ^= zWall.high;
+                    state.hashLow ^= zWall.low;
+                } else {
+                    state.hWalls[move.r][move.c] = true;
+                    // XOR in Wall
+                    const zWall = this.zobristTable.hWalls[move.r][move.c];
+                    state.hashHigh ^= zWall.high;
+                    state.hashLow ^= zWall.low;
+                }
+
+                // Update Walls Left count (Remove old count, add new count)
+                const wallsLeft = state.players[playerIdx].wallsLeft;
+                const zWallsOld = this.zobristTable.wallsLeft[playerIdx][wallsLeft];
+                state.hashHigh ^= zWallsOld.high;
+                state.hashLow ^= zWallsOld.low;
+
                 state.players[playerIdx].wallsLeft--;
+
+                const zWallsNew = this.zobristTable.wallsLeft[playerIdx][state.players[playerIdx].wallsLeft];
+                state.hashHigh ^= zWallsNew.high;
+                state.hashLow ^= zWallsNew.low;
             }
+
+            // XOR in next turn
+            // Note: currentPlayer updates in shared reducer not here, but search uses local apply.
+            // Wait, applyMove here does NOT update currentPlayer?
+            // Shared.gameReducer does. But AI uses applyMove for internal simulation.
+            // AI loop: applyMove -> recurse(..., maximizing=!maximizing) -> undoMove.
+            // ai-core.js applyMove does NOT flip currentPlayer.
+            // So we just XOR the turn value we just removed? No.
+            // If minimax recursion conceptually changes "simulation perspective", the state hash should reflect "Turn changed".
+            // But state.currentPlayer is NOT changed in this.applyMove (line 276 original).
+            // So state.hash should reflect current player?
+            // The computeStateKey uses state.currentPlayer.
+            // Since this.applyMove doesn't change state.currentPlayer, we should NOT change the hash part related to currentPlayer?
+            // BUT Minimax alternates.
+            // Actually, Zobrist hash includes "Side to move".
+            // If we don't change state.currentPlayer, we shouldn't change that part of hash.
+            // BUT, `minimax` logic implies turn change.
+            // Let's look at `minimax`. It calculates `stateKey` at start.
+            // Then it calls `applyMove`...
+            // It passes `!maximizing` to recursive call.
+            // The state object itself remains "Player X made move M".
+            // If we don't update currentPlayer in state, the hash should match the state.
+            // So we should NOT XOR turn if we don't change state.currentPlayer.
+            // Correct.
+            // Revert Turn XOR lines?
+            // "XOR out current turn" -> If I flip it back at end?
+            // No, wait.
+            // If I change hash component "Turn", then `computeStateKey` will return a hash for "Next Player Turn",
+            // but `state.currentPlayer` still says "This Player".
+            // Conflict.
+            // `computeStateKey` relies on `state.hash`.
+            // If `state` is logically "After Move", it really should be "Next Player's turn".
+            // BUT `ai-core.js` `applyMove` is minimal. It doesn't switch turns.
+            // So I should removed Turn XORing from applyMove/undoMove unless I also switch `state.currentPlayer`.
+            // For now, I will REMOVE Turn XORing from applyMove/undoMove because applyMove does not change turn.
+            // The turn is handled by the search logic `maximizing` param.
+            // WAIT. Transposition Table `key` MUST include side-to-move.
+            // If I arrive at same board position with same walls, but different side to move... (impossible in Quoridor? No, odd/even steps).
+            // Actually, number of moves is implicit in wall count/position? No.
+            // Zobrist usually includes side to move.
+            // Since `applyMove` doesn't change `currentPlayer`, the hash component for `currentPlayer` remains static?
+            // That's wrong.
+            // If needed, I should update `currentPlayer` in `applyMove`.
+            // But `minimax` uses strict `maximizing` flag.
+            // Let's stick to: Hash represents EXACTLY what's in `state`.
+            // If `state` has `currentPlayer=0`, hash has `turn[0]`.
+            // `applyMove` keeps `currentPlayer=0`. Hash keeps `turn[0]`.
+            // Minimax calls `key = computeStateKey`. It uses `turn[0]`.
+            // But wait, Zobrist for TT needs to distinguish positions effectively.
+            // If we do not change turn, is it okay?
+            // Yes, because inside `minimax`, we pass `depth` and `botIdx`.
+            // But TT lookup happens BEFORE we know if it's safe?
+            // `TT.get(stateKey)`.
+            // If I effectively simulated a move, I really *should* be in next player's turn context.
+            // But I'm not updating `state.currentPlayer`.
+            // I'll stick to updating ONLY what changes in `state`.
+            // Walls, Pawns, WallsLeft.
+            // Turn is static in `ai-core` simulation step (it simulates "what if I did this", but it doesn't run full game turn logic).
+            // OK, I'll remove Turn XOR from apply/undo.
+
+            // Wait, I saw "XOR out current turn" in my draft code above.
+            // I will REMOVE it in the actual tool call to stay consistent with `state.currentPlayer` not changing.
+
+            // XOR in/out Pawns & Walls logic remains.
+
         },
 
         undoMove(state, move, playerIdx) {
+            // Revert changes. XOR is its own inverse, so logic is identical to applyMove (order doesn't matter for XOR)
+
             if (move.type === 'pawn') {
+                // XOR out new pawn pos (remove it)
+                const zNew = this.zobristTable.pawn[playerIdx][move.r][move.c];
+                state.hashHigh ^= zNew.high;
+                state.hashLow ^= zNew.low;
+
                 state.players[playerIdx].pos = move.prevPos;
+
+                // XOR in old pawn pos (restore it)
+                const zOld = this.zobristTable.pawn[playerIdx][move.prevPos.r][move.prevPos.c];
+                state.hashHigh ^= zOld.high;
+                state.hashLow ^= zOld.low;
+
             } else {
-                if (move.isVertical) state.vWalls[move.r][move.c] = false;
-                else state.hWalls[move.r][move.c] = false;
+                if (move.isVertical) {
+                    state.vWalls[move.r][move.c] = false;
+                    const zWall = this.zobristTable.vWalls[move.r][move.c];
+                    state.hashHigh ^= zWall.high;
+                    state.hashLow ^= zWall.low;
+                } else {
+                    state.hWalls[move.r][move.c] = false;
+                    const zWall = this.zobristTable.hWalls[move.r][move.c];
+                    state.hashHigh ^= zWall.high;
+                    state.hashLow ^= zWall.low;
+                }
+
+                // Update Walls Left
+                const wallsLeftNew = state.players[playerIdx].wallsLeft; // This is the 'decremented' value
+                const zWallsNew = this.zobristTable.wallsLeft[playerIdx][wallsLeftNew];
+                state.hashHigh ^= zWallsNew.high;
+                state.hashLow ^= zWallsNew.low;
+
                 state.players[playerIdx].wallsLeft++;
+
+                const wallsLeftOld = state.players[playerIdx].wallsLeft;
+                const zWallsOld = this.zobristTable.wallsLeft[playerIdx][wallsLeftOld];
+                state.hashHigh ^= zWallsOld.high;
+                state.hashLow ^= zWallsOld.low;
             }
         },
 
@@ -293,9 +509,16 @@
 
             const stateKey = this.computeStateKey(state);
             const cached = this.tt.get(stateKey);
+
+            // TT lookup with proper bounds handling
             if (cached && cached.depth >= depth) {
-                // Return exact value from TT
-                return cached.val;
+                if (cached.flag === 'EXACT') {
+                    return cached.val;
+                } else if (cached.flag === 'LOWER' && cached.val >= beta) {
+                    return cached.val; // Fail-high: cached lower bound beats beta
+                } else if (cached.flag === 'UPPER' && cached.val <= alpha) {
+                    return cached.val; // Fail-low: cached upper bound below alpha
+                }
             }
 
             const current = maximizing ? botIdx : (1 - botIdx);
@@ -305,6 +528,7 @@
 
             if (moves.length === 0) return this.evaluate(state, botIdx);
 
+            const origAlpha = alpha;
             let bestScore = maximizing ? -Infinity : Infinity;
 
             if (maximizing) {
@@ -341,39 +565,65 @@
                 }
             }
 
-            this.tt.set(stateKey, { depth: depth, val: bestScore });
+            // Store with proper flag for bounds
+            let flag = 'EXACT';
+            if (bestScore <= origAlpha) {
+                flag = 'UPPER'; // Failed low, this is an upper bound
+            } else if (bestScore >= beta) {
+                flag = 'LOWER'; // Failed high, this is a lower bound
+            }
+
+            this.tt.set(stateKey, { depth, val: bestScore, flag });
             return bestScore;
         },
 
         think(state, botIdx, difficulty) {
+            // Clone the state so we don't mutate the live game state during search
+            // (Crucial because timeouts might interrupt the search before undoMove cleans up)
+            state = this.cloneState(state);
+
+            const thinkStartTime = Date.now();
+
             if (this.tt && this.tt.size > 100000) this.tt.clear();
 
-            // Reset Killer Moves at start of new think (or keep them? Usually reset or age)
-            // Keeping them might be okay for iterative deepening within one turn.
-            // But between turns? Probably irrelevant.
-            // For now, let's just clear to avoid stale moves.
+            // Initialize Zobrist hash if missing (e.g. first call from outside)
+            if (state.hashHigh === undefined) {
+                const h = this.computeZobristHash(state);
+                state.hashHigh = h.hashHigh;
+                state.hashLow = h.hashLow;
+            }
+
+            // Reset Killer Moves at start of new think
             this.killerMoves = Array(30).fill(null).map(() => []);
 
             let maxDepth = { easy: 2, medium: 3, hard: 5, impossible: 20 }[difficulty] || 3;
             if (difficulty === 'impossible') maxDepth = 20;
 
-            const moves = this.generateMoves(state, botIdx, maxDepth); // Initial sort
+            const moves = this.generateMoves(state, botIdx, maxDepth);
             if (moves.length === 0) return null;
+
+            const pos = state.players[botIdx].pos;
+            this.debugLog('=== THINKING START ===');
+            this.debugLog(`Position: (${pos.r},${pos.c}), Moves: ${moves.length}, MaxDepth: ${maxDepth}, Difficulty: ${difficulty}`);
 
             if (difficulty === 'easy' && Math.random() < 0.3) {
                 const pawnMoves = moves.filter(m => m.type === 'pawn');
-                return pawnMoves.length > 0 ? pawnMoves[Math.floor(Math.random() * pawnMoves.length)] : moves[0];
+                const chosen = pawnMoves.length > 0 ? pawnMoves[Math.floor(Math.random() * pawnMoves.length)] : moves[0];
+                this.debugLog(`Easy mode random: ${this.formatMove(chosen)}`);
+                return chosen;
             }
 
-            // Loop Detection
-            let avoidPos = null;
+            // Loop Detection: track last 4 positions
+            const avoidPositions = new Set();
             if (state.history) {
-                const myMoves = state.history.filter(h => h.playerIdx === botIdx);
-                if (myMoves.length >= 2) {
-                    const prev = myMoves[myMoves.length - 2].move;
-                    if (prev.type === 'pawn') avoidPos = { r: prev.r, c: prev.c };
-                } else if (myMoves.length === 1) {
-                    avoidPos = (botIdx === 0) ? { r: 8, c: 4 } : { r: 0, c: 4 };
+                const myMoves = state.history
+                    .filter(h => h.playerIdx === botIdx && h.move.type === 'pawn')
+                    .slice(-4);
+                for (const m of myMoves) {
+                    avoidPositions.add(`${m.move.r},${m.move.c}`);
+                }
+                if (myMoves.length === 0) {
+                    avoidPositions.add(botIdx === 0 ? '8,4' : '0,4');
                 }
             }
 
@@ -382,56 +632,78 @@
             this.nodesVisited = 0;
 
             let bestGlobalMove = moves[0];
+            let bestGlobalScore = -Infinity;
+            let finalDepth = 1;
 
             for (let currentDepth = 1; currentDepth <= maxDepth; currentDepth++) {
                 try {
                     let bestScore = -Infinity;
                     let iterationBestMove = moves[0];
 
-                    // Smart Move Ordering for Root:
-                    // 1. Killer Moves from previous iteration (already in moves list?)
-                    // 2. Best Move from previous iteration MUST be checked first (PV-Move)
+                    this.debugLog(`--- Depth ${currentDepth} ---`);
+
+                    // Move ordering: PV-move first
                     if (currentDepth > 1 && bestGlobalMove) {
-                        // Move bestGlobalMove to front
                         moves.sort((a, b) => {
                             if (this.isSameMove(a, bestGlobalMove)) return -1;
                             if (this.isSameMove(b, bestGlobalMove)) return 1;
-                            return (b.priority || 0) - (a.priority || 0); // fallback
+                            return (b.priority || 0) - (a.priority || 0);
                         });
                     }
 
                     for (const move of moves) {
+                        const moveStart = Date.now();
+
                         this.applyMove(state, move, botIdx);
-                        // Start search window
                         let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx);
 
-                        if (avoidPos && move.type === 'pawn' && move.r === avoidPos.r && move.c === avoidPos.c) {
-                            score -= 1000;
+                        // Penalize loop moves
+                        if (move.type === 'pawn' && avoidPositions.has(`${move.r},${move.c}`)) {
+                            score -= 500;
                         }
-
-                        // Add small noise to break ties deterministically? 
-                        // No, for competitive bot remove random noise or keep it extremely small.
-                        // Ideally determinism is better for debugging.
-                        score += Math.random() * 2 - 1; // +/- 1 point only
 
                         this.undoMove(state, move, botIdx);
 
+                        const moveTime = Date.now() - moveStart;
+                        this.debugLog(`  ${this.formatMove(move)}: score=${score.toFixed(0)}, time=${moveTime}ms`);
+
                         if (score > bestScore) {
+                            const prevBest = iterationBestMove;
+                            const prevScore = bestScore;
                             bestScore = score;
                             iterationBestMove = move;
+
+                            if (prevScore > -Infinity) {
+                                this.debugLog(`  ★ NEW BEST: ${this.formatMove(move)} score=${score.toFixed(0)} (prev: ${this.formatMove(prevBest)} score=${prevScore.toFixed(0)})`);
+                            }
                         }
 
                         if (Date.now() > this.deadline) throw 'timeout';
                     }
 
                     bestGlobalMove = iterationBestMove;
-                    if (bestScore > 900000) break; // Checkmate
+                    bestGlobalScore = bestScore;
+                    finalDepth = currentDepth;
+
+                    if (bestScore > 900000) {
+                        this.debugLog(`  WIN FOUND at depth ${currentDepth}!`);
+                        break;
+                    }
 
                 } catch (e) {
-                    if (e === 'timeout') break;
+                    if (e === 'timeout') {
+                        this.debugLog(`  TIMEOUT at depth ${currentDepth}`);
+                        break;
+                    }
                     throw e;
                 }
             }
+
+            const totalTime = Date.now() - thinkStartTime;
+            this.debugLog('=== DECISION ===');
+            this.debugLog(`Chosen: ${this.formatMove(bestGlobalMove)}`);
+            this.debugLog(`Score: ${bestGlobalScore.toFixed(0)}`);
+            this.debugLog(`Depth: ${finalDepth}, Nodes: ${this.nodesVisited}, Time: ${totalTime}ms`);
 
             return bestGlobalMove;
         }

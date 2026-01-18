@@ -5,7 +5,15 @@ const AI = {
         if (this.worker) return;
         this.worker = new Worker('js/ai-worker.js');
         this.worker.onmessage = (e) => {
-            const move = e.data;
+            const data = e.data;
+
+            // Handle debug logs
+            if (data && data.type === 'debug') {
+                console.log('%c[LOCAL-AI] ' + data.message, 'color: #d63384; background: #fff0f6; padding: 2px 5px; border-radius: 3px;');
+                return;
+            }
+
+            const move = data;
             if (move) {
                 // Преобразуем vertical в isVertical для совместимости с Game
                 if (move.type === 'wall' && move.isVertical === undefined) {

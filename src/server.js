@@ -316,6 +316,7 @@ app.use(cors({
 // Serve static files
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
+app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 
 // --- ADMIN API (Bots) ---
 app.get('/api/admin/bots', (req, res) => {
@@ -546,6 +547,18 @@ io.on('connection', (socket) => {
     // Очистка памяти при отключении
     socket.on('disconnect', () => {
         rateLimits.delete(socket.id);
+    });
+
+    socket.on('toggleBotDebug', () => {
+        BotManager.toggleDebugMode();
+    });
+
+    // Receive debug log from bot process and forward to lobby
+    socket.on('botDebugLog', (data) => {
+        if (data.lobbyId && data.message) {
+            // Forward to human players in the same room
+            socket.to(data.lobbyId).emit('aiDebugLog', data.message);
+        }
     });
 
     // console.log(`[SOCKET] User connected: ${socket.id}`);
@@ -1423,14 +1436,15 @@ async function startServer() {
         await cleanupStaleGames();
         console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
 
-        // Restore Persistent Bots
-        await BotManager.restoreBots();
-
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
         const env = process.env.NODE_ENV || 'development';
-        server.listen(port, '0.0.0.0', () => {
+        server.listen(port, '0.0.0.0', async () => {
             console.log(`[SERVER] Started on port ${port} (env=${env})`);
+
+            // Restore Persistent Bots AFTER server is listening
+            // This fixes the race condition where bots try to connect before the server is ready
+            await BotManager.restoreBots();
         });
     } catch (err) {
         console.error('[STARTUP ERROR] Failed to connect to Redis:', err);

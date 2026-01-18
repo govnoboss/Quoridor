@@ -26,6 +26,15 @@ let botTimeout = null;
 
 console.log(`[BOT] Starting ${DIFFICULTY} bot (Ranked: ${IS_RANKED}). Connecting to ${SERVER_URL}...`);
 
+// Redirect AI Debug logs to socket
+BotAI.logger = (...args) => {
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    // console.log('[BOT-INTERNAL]', msg); // Optional: keep local log
+    if (socket && socket.connected && currentLobbyId) {
+        socket.emit('botDebugLog', { lobbyId: currentLobbyId, message: msg });
+    }
+};
+
 // --- Socket Events ---
 
 socket.on('connect', () => {
@@ -196,3 +205,11 @@ async function makeMove() {
         console.error('[BOT] Error thinking:', e);
     }
 }
+
+// --- IPC Messages (from BotManager) ---
+process.on('message', (msg) => {
+    if (msg.type === 'TOGGLE_DEBUG') {
+        BotAI.DEBUG = !BotAI.DEBUG;
+        console.log(`[BOT] Debug Mode Toggled: ${BotAI.DEBUG ? 'ON' : 'OFF'}`);
+    }
+});

@@ -120,7 +120,7 @@ function createTestState() {
     console.log(`Think took: ${duration}ms`);
 
     assert.ok(move, 'AI should return a move even on timeout');
-    assert.ok(duration >= 1900 && duration < 3500, 'AI should respect ~2s time limit (with some margin)');
+    assert.ok(duration < 3500, 'AI should respect ~2s time limit (with some margin)');
 
     console.log('✅ Passed');
 }

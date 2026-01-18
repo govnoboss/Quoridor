@@ -1686,7 +1686,25 @@ document.addEventListener('DOMContentLoaded', () => {
         UI.backToMenuFromProfile();
       }
     }
+
+    // Ctrl+3: Toggle AI Debug Mode (logs appear in server console)
+    if (e.ctrlKey && e.key === '3') {
+      e.preventDefault();
+      if (Net.socket) {
+        Net.socket.emit('toggleBotDebug');
+        UI.showToast('AI Debug mode toggle sent to server', 'info');
+      } else {
+        UI.showToast('Not connected to server', 'error');
+      }
+    }
   });
+
+  // Listen for AI Debug Logs forwarded by server
+  if (Net.socket) {
+    Net.socket.on('aiDebugLog', (msg) => {
+      console.log('%c' + msg, 'color: #7fdbff; background: #001f3f; padding: 2px 5px; border-radius: 3px;');
+    });
+  }
 
 });
 
