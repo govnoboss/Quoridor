@@ -150,6 +150,15 @@ class BotManager {
         return { success: true, isPaused: bot.isPaused };
     }
 
+    toggleDebugMode() {
+        console.log('[BOT-MANAGER] Toggling Debug Mode for all bots...');
+        for (const [botId, botData] of this.activeBots) {
+            if (botData.process && botData.process.connected) {
+                botData.process.send({ type: 'TOGGLE_DEBUG' });
+            }
+        }
+    }
+
     killBot(botId) {
         const bot = this.activeBots.get(botId);
         if (bot && bot.process) {

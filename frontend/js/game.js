@@ -875,10 +875,43 @@ const Game = {
    */
   drawPawns(state) {
     state = state || this.state;
+    // [Animation] Ensure we have a container for animations if not exists
+    if (!this.activeAnimations) this.activeAnimations = {};
+
     const radius = this.CONFIG.cellSize * 0.35;
-    state.players.forEach((p) => {
-      const x = (p.pos.c + 0.5) * this.CONFIG.cellSize;
-      const y = (this.transformRow(p.pos.r) + 0.5) * this.CONFIG.cellSize;
+    state.players.forEach((p, idx) => {
+      let x, y;
+
+      // [Animation] Check if this pawn is currently animating
+      const anim = this.activeAnimations[idx];
+      if (anim) {
+        // Interpolate position
+        const now = performance.now();
+        const progress = Math.min((now - anim.startTime) / anim.duration, 1);
+
+        // Use a simple easing function (QuadEaseOut) for smoother movement
+        const ease = 1 - (1 - progress) * (1 - progress);
+
+        // Logical coordinates lerp
+        const curR = this.lerp(anim.start.r, anim.end.r, ease);
+        const curC = this.lerp(anim.start.c, anim.end.c, ease);
+
+        x = (curC + 0.5) * this.CONFIG.cellSize;
+        y = (this.transformRow(curR) + 0.5) * this.CONFIG.cellSize;
+
+        // Clean up if finished
+        if (progress >= 1) {
+          delete this.activeAnimations[idx];
+        } else {
+          // Keep animating
+          requestAnimationFrame(() => this.draw());
+        }
+      } else {
+        // Static position
+        x = (p.pos.c + 0.5) * this.CONFIG.cellSize;
+        y = (this.transformRow(p.pos.r) + 0.5) * this.CONFIG.cellSize;
+      }
+
       this.ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -889,32 +922,85 @@ const Game = {
     });
   },
 
+  // [Animation] Helper for linear interpolation
+  lerp(start, end, t) {
+    return start + (end - start) * t;
+  },
+
+  // [Animation] Start a pawn animation
+  animatePawn(playerIdx, startPos, endPos, duration = 200) {
+    this.activeAnimations[playerIdx] = {
+      start: { ...startPos },
+      end: { ...endPos },
+      startTime: performance.now(),
+      duration: duration
+    };
+    // Kick off the loop
+    this.draw();
+  },
+
   /**
    * Рисует все размещенные стены (горизонтальные и вертикальные).
    */
   drawPlacedWalls(state) {
     state = state || this.state;
+    // [Animation] Lazy init container
+    if (!this.activeWallAnimations) this.activeWallAnimations = {};
+
     this.ctx.fillStyle = '#e09f3e';
-    const len = this.CONFIG.cellSize * 2;
+    const fullLen = this.CONFIG.cellSize * 2;
+    const now = performance.now();
+
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
 
       // НОВЫЙ КОД: Переворот индекса стены R_WALL
       const displayRWall = this.myPlayerIndex === 1 ? 7 - r : r;
 
+      // Helper to draw with animation
+      const drawAnimated = (wallR, wallC, isVert) => {
+        const key = `${wallR}-${wallC}-${isVert ? 'v' : 'h'}`;
+        const anim = this.activeWallAnimations[key];
+
+        let scale = 1;
+        if (anim) {
+          const progress = Math.min((now - anim.startTime) / anim.duration, 1);
+          // BackOut easing for "pop" effect
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          const ease = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+
+          scale = progress < 1 ? ease : 1;
+
+          if (progress >= 1) {
+            delete this.activeWallAnimations[key];
+          } else {
+            requestAnimationFrame(() => this.draw());
+          }
+        }
+
+        const len = fullLen - this.CONFIG.gap * 2;
+        // Scale relative to center
+        const currentLen = len * scale;
+        const offset = (len - currentLen) / 2;
+
+        if (isVert) {
+          const x = (wallC + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+          const y = displayRWall * this.CONFIG.cellSize + this.CONFIG.gap;
+          this.ctx.fillRect(x, y + offset, this.CONFIG.wallThick, currentLen);
+        } else {
+          const x = wallC * this.CONFIG.cellSize + this.CONFIG.gap;
+          const y = (displayRWall + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
+          this.ctx.fillRect(x + offset, y, currentLen, this.CONFIG.wallThick);
+        }
+      };
+
       // Горизонтальные стены
       if (state.hWalls[r][c]) {
-        const x = c * this.CONFIG.cellSize + this.CONFIG.gap;
-        // ИСПОЛЬЗУЕМ displayRWall (по сути, это отображаемая строка r-ячейки, над которой стена)
-        const y = (displayRWall + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-        this.ctx.fillRect(x, y, len - this.CONFIG.gap * 2, this.CONFIG.wallThick);
+        drawAnimated(r, c, false);
       }
       // Вертикальные стены
       if (state.vWalls[r][c]) {
-        // Стена находится между столбцом c и c+1
-        const x = (c + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-        // ИСПОЛЬЗУЕМ displayRWall
-        const y = displayRWall * this.CONFIG.cellSize + this.CONFIG.gap;
-        this.ctx.fillRect(x, y, this.CONFIG.wallThick, len - this.CONFIG.gap * 2);
+        drawAnimated(r, c, true);
       }
     }
   },
@@ -950,6 +1036,17 @@ const Game = {
     this.ctx.arc(x, y, this.CONFIG.cellSize * 0.38, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.globalAlpha = 1;
+  },
+
+  // [Animation] Start a wall animation
+  animateWall(r, c, isVertical, duration = 250) {
+    if (!this.activeWallAnimations) this.activeWallAnimations = {};
+    const key = `${r}-${c}-${isVertical ? 'v' : 'h'}`;
+    this.activeWallAnimations[key] = {
+      startTime: performance.now(),
+      duration: duration
+    };
+    this.draw();
   },
 
   /**
@@ -1059,11 +1156,11 @@ const Game = {
     return null;
   },
   /**
- * Трансформирует абсолютную строку (R) в отображаемую (R_display)
- * и наоборот, если мы играем за Черного (Player 1).
- * @param {number} r Абсолютная строка (0-8).
- * @returns {number} Отображаемая строка (0-8).
- */
+  * Трансформирует абсолютную строку (R) в отображаемую (R_display)
+  * и наоборот, если мы играем за Черного (Player 1).
+  * @param {number} r Абсолютная строка (0-8).
+  * @returns {number} Отображаемая строка (0-8).
+  */
 
   transformRow(r) {
     // Переворачиваем доску только для Черного игрока (Player 1)
@@ -1122,6 +1219,17 @@ const Game = {
     const relX = x % this.CONFIG.cellSize;
     const relY = y % this.CONFIG.cellSize;
     const margin = this.CONFIG.cellSize * 0.25; // 25% от размера клетки - зона "активности" у края
+
+    // [UX Improvement] Dead zone at corners (intersections)
+    const CORNER_THRESHOLD = this.CONFIG.cellSize * 0.15;
+    const distToCornerX = Math.min(relX, this.CONFIG.cellSize - relX);
+    const distToCornerY = Math.min(relY, this.CONFIG.cellSize - relY);
+
+    if (distToCornerX < CORNER_THRESHOLD && distToCornerY < CORNER_THRESHOLD) {
+      this.state.hoverWall = null;
+      this.canvas.style.cursor = 'default';
+      return;
+    }
 
     let isNearVertical = (relX > this.CONFIG.cellSize - margin || relX < margin);
     let isNearHorizontal = (relY > this.CONFIG.cellSize - margin || relY < margin);
@@ -1307,6 +1415,8 @@ const Game = {
 
     // Если все OK, уменьшаем счетчик стен
     this.state.players[this.state.currentPlayer].wallsLeft--;
+    // [Animation] Trigger local wall animation
+    this.animateWall(r, c, vertical);
     UI.AudioManager.play('wall');
     return true;
   },
@@ -1323,11 +1433,16 @@ const Game = {
     console.log('[GAME] Сервер подтвердил ход:', data);
     // 1. Применяем изменения к локальному State
     if (move.type === 'pawn') {
+      const oldPos = { ...this.state.players[playerIdx].pos };
       this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+      // [Animation] Trigger remote/server animation
+      this.animatePawn(playerIdx, oldPos, { r: move.r, c: move.c });
     } else if (move.type === 'wall') {
       if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
       else this.state.hWalls[move.r][move.c] = true;
       this.state.players[playerIdx].wallsLeft--;
+      // [Animation] Trigger remote/server wall animation
+      this.animateWall(move.r, move.c, move.isVertical);
     }
 
     if (data.timers) {
@@ -1357,11 +1472,16 @@ const Game = {
     const playerIdx = this.state.currentPlayer;
 
     if (move.type === 'pawn') {
+      const oldPos = { ...this.state.players[playerIdx].pos };
       this.state.players[playerIdx].pos = { r: move.r, c: move.c };
+      // [Animation] Trigger bot animation
+      this.animatePawn(playerIdx, oldPos, { r: move.r, c: move.c });
     } else if (move.type === 'wall') {
       if (move.isVertical) this.state.vWalls[move.r][move.c] = true;
       else this.state.hWalls[move.r][move.c] = true;
       this.state.players[playerIdx].wallsLeft--;
+      // [Animation] Trigger bot wall animation
+      this.animateWall(move.r, move.c, move.isVertical);
     }
 
     UI.AudioManager.play(move.type === 'pawn' ? 'move' : 'wall');
@@ -1872,7 +1992,13 @@ const Game = {
             const player = this.state.players[playerIdx];
             // Проверяем, что ход допустим (нужна реальная проверка, а не только потенциальный ход)
             if (Shared.canMovePawn(this.state, player.pos.r, player.pos.c, tr, tc)) {
-              Game.state.players[playerIdx].pos = { r: potentialMove.r, c: potentialMove.c };
+              // [Animation] Trigger local animation
+              const startPos = { ...player.pos };
+              const endPos = { r: potentialMove.r, c: potentialMove.c };
+
+              Game.state.players[playerIdx].pos = endPos;
+              this.animatePawn(playerIdx, startPos, endPos);
+
               UI.AudioManager.play('move');
               this.addToHistory(potentialMove);
               if (!this.checkVictory()) this.nextTurn();
