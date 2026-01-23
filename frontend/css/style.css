@@ -2655,23 +2655,25 @@ kbd {
     .board-area {
         width: 100%;
         max-width: 100%;
-        max-height: none;
-        /* Let content dictate height, but constrained by game-container */
+        max-height: 65dvh;
+        /* Constrain vertical height of the board area */
         flex: 1;
-        /* Take available space */
         justify-content: center;
-        padding-top: 20px;
-        /* Space from top */
+        padding-top: 10px;
     }
 
     #game-container {
         /* Maximize width/height within constraints */
         width: 90vw;
         height: 90vw;
-        max-width: 450px;
-        max-height: 450px;
+        /* Aspect ratio target */
+
+        /* Critical: Prevent board from taking too much vertical space */
+        max-height: 60dvh;
+        max-width: 60dvh;
+        /* Keep it square relative to height limit */
+
         margin: 0 auto;
-        /* Reset conflicting properties */
         aspect-ratio: 1 / 1;
     }
 
