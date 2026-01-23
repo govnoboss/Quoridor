@@ -2639,3 +2639,117 @@ kbd {
     font-weight: bold;
     color: #aaa;
 }
+
+/* --- MOBILE UI OPTIMIZATION (< 768px) --- */
+@media (max-width: 768px) {
+    .game-layout {
+        flex-direction: column;
+        padding: 10px;
+        height: 100dvh;
+        /* Keep full viewport height */
+        justify-content: flex-start;
+        /* Align to top */
+        gap: 15px;
+    }
+
+    .board-area {
+        width: 100%;
+        max-width: 100%;
+        max-height: none;
+        /* Let content dictate height, but constrained by game-container */
+        flex: 1;
+        /* Take available space */
+        justify-content: center;
+        padding-top: 20px;
+        /* Space from top */
+    }
+
+    #game-container {
+        /* Maximize width/height within constraints */
+        width: 90vw;
+        height: 90vw;
+        max-width: 450px;
+        max-height: 450px;
+        margin: 0 auto;
+        /* Reset conflicting properties */
+        aspect-ratio: 1 / 1;
+    }
+
+    .sidebar {
+        width: 100%;
+        max-width: 450px;
+        /* Match board width */
+        min-width: 0;
+        height: auto;
+        max-height: none;
+        padding: 15px;
+        margin: 0 auto;
+        flex: 0 0 auto;
+        /* Do not stretch */
+        background: #262421;
+        /* Match existing */
+    }
+
+    /* Hide history on mobile */
+    #moveHistory {
+        display: none !important;
+    }
+
+    .sidebar-content {
+        flex: 0 0 auto;
+        /* Auto height */
+        min-height: auto;
+        overflow: visible;
+    }
+
+    .history-container-wrapper {
+        flex-direction: row;
+        justify-content: center;
+        gap: 60px;
+        /* Generous gap between wall templates */
+        padding: 10px 0;
+        width: 100%;
+    }
+
+    /* Ensure templates are visible and touch-friendly */
+    .wall-template {
+        display: block !important;
+        transform: scale(1.1);
+        /* Slightly larger */
+    }
+
+    .menu-actions {
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    .surrender-btn {
+        width: 100%;
+        padding: 15px;
+        /* Fat finger friendly */
+        font-size: 16px;
+    }
+
+    /* Compact player bars */
+    .player-bar {
+        padding: 4px 12px;
+        height: 44px;
+    }
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* Adjust wall inventories */
+    .wall-inventory {
+        min-height: 20px;
+        padding: 4px;
+    }
+
+    .wall-piece {
+        width: 28px;
+        /* Slightly smaller walls in inventory */
+        height: 8px;
+    }
+}
