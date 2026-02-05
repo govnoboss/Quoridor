@@ -49,14 +49,30 @@ const sessionMiddleware = session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // ВАЖНО: false для HTTP (localhost), true для HTTPS
+        secure: process.env.NODE_ENV === 'production', // true для HTTPS
         httpOnly: true,
+        sameSite: 'lax', // Защита от CSRF
         maxAge: 1000 * 60 * 60 * 24 * 7 // 7 дней
     }
 });
 
 app.use(express.json()); // Для парсинга JSON тела запросов
 app.use(sessionMiddleware);
+
+// --- HTTP RATE LIMITING ---
+const rateLimit = require('express-rate-limit');
+
+// Auth rate limiter: 20 requests per 15 minutes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 20, // Максимум 20 запросов
+    message: { error: 'Too many requests. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply to auth routes
+app.use('/api/auth/', authLimiter);
 
 // Serve Core Modules for Frontend
 app.get('/js/ai-core.js', (req, res) => {
@@ -238,12 +254,36 @@ app.post('/api/user/update-status', async (req, res) => {
     }
 });
 
-// Update Avatar (By URL for now)
+// Allowed avatar URL domains
+const ALLOWED_AVATAR_DOMAINS = [
+    'ui-avatars.com',
+    'i.imgur.com',
+    'cdn.discordapp.com',
+    'avatars.githubusercontent.com',
+    'lh3.googleusercontent.com'
+];
+
+// Validate avatar URL
+const isValidAvatarUrl = (url) => {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:') return false;
+        return ALLOWED_AVATAR_DOMAINS.some(domain => parsed.hostname === domain || parsed.hostname.endsWith('.' + domain));
+    } catch {
+        return false;
+    }
+};
+
+// Update Avatar (By URL)
 app.post('/api/user/update-avatar', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
         const { avatarUrl } = req.body;
         if (!avatarUrl) return res.status(400).json({ error: 'Avatar URL required' });
+
+        if (!isValidAvatarUrl(avatarUrl)) {
+            return res.status(400).json({ error: 'Invalid avatar URL. Use allowed image hosts.' });
+        }
 
         await User.findByIdAndUpdate(req.session.userId, { avatarUrl });
         res.json({ message: 'Avatar updated' });
@@ -318,23 +358,39 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 
-// --- ADMIN API (Bots) ---
-app.get('/api/admin/bots', (req, res) => {
+// --- ADMIN AUTHORIZATION MIDDLEWARE ---
+const requireAdmin = async (req, res, next) => {
+    if (!req.session || !req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+        const user = await User.findById(req.session.userId);
+        if (!user || !user.isAdmin) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        next();
+    } catch (err) {
+        return res.status(500).json({ error: 'Server error' });
+    }
+};
+
+// --- ADMIN API (Bots) - Protected ---
+app.get('/api/admin/bots', requireAdmin, (req, res) => {
     res.json(BotManager.getActiveBots());
 });
 
-app.post('/api/admin/bots/spawn', async (req, res) => {
+app.post('/api/admin/bots/spawn', requireAdmin, async (req, res) => {
     const { difficulty, isRanked } = req.body;
     const result = await BotManager.spawnBot(difficulty, isRanked);
     res.json(result);
 });
 
-app.delete('/api/admin/bots/:id', (req, res) => {
+app.delete('/api/admin/bots/:id', requireAdmin, (req, res) => {
     const success = BotManager.killBot(req.params.id);
     res.json({ success });
 });
 
-app.post('/api/admin/bots/:id/toggle', (req, res) => {
+app.post('/api/admin/bots/:id/toggle', requireAdmin, (req, res) => {
     const result = BotManager.toggleBot(req.params.id);
     if (result.success) {
         // Find and notify bot
@@ -349,10 +405,26 @@ app.post('/api/admin/bots/:id/toggle', (req, res) => {
 // --- SERVER & SOCKET.IO INITIALIZATION ---
 // Create server instances FIRST, before using 'io'
 const server = http.createServer(app);
+
+// Parse allowed origins from env (comma-separated)
+const allowedSocketOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : null;
+
 const io = socketIo(server, {
     cors: {
         origin: (origin, callback) => {
-            callback(null, true);
+            // In development, allow all origins
+            if (process.env.NODE_ENV !== 'production') {
+                return callback(null, true);
+            }
+            // In production, check whitelist
+            if (!origin || (allowedSocketOrigins && allowedSocketOrigins.includes(origin))) {
+                callback(null, true);
+            } else {
+                console.warn(`[CORS] Blocked origin: ${origin}`);
+                callback(new Error('Not allowed by CORS'));
+            }
         },
         methods: ['GET', 'POST'],
         credentials: true

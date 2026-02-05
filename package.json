@@ -31,6 +31,7 @@
     "escape-html": "^1.0.3",
     "etag": "^1.8.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.2",
     "finalhandler": "^2.1.1",
     "forwarded": "^0.2.0",
@@ -78,6 +79,7 @@
     "side-channel-weakmap": "^1.0.2",
     "socket.io": "^4.8.1",
     "socket.io-adapter": "^2.5.5",
+    "socket.io-client": "^4.8.1",
     "socket.io-parser": "^4.2.4",
     "statuses": "^2.0.2",
     "toidentifier": "^1.0.1",
@@ -86,8 +88,7 @@
     "unpipe": "^1.0.0",
     "vary": "^1.1.2",
     "wrappy": "^1.0.2",
-    "ws": "^8.17.1",
-    "socket.io-client": "^4.8.1"
+    "ws": "^8.17.1"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -95,7 +96,6 @@
     "test:ai": "node tests/ai-core.test.js",
     "load-test": "node tests/load-test.js"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/govnoboss/Quoridor.git"
