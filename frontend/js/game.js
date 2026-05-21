@@ -1473,6 +1473,13 @@ const Game = {
 
     if (move.type === 'pawn') {
       const oldPos = { ...this.state.players[playerIdx].pos };
+      if (!Shared.canMovePawn(this.state, oldPos.r, oldPos.c, move.r, move.c)) {
+        console.error('[GAME] Bot attempted illegal move:', move, 'from:', oldPos);
+        UI.AudioManager.play('error');
+        this.isInputBlocked = false;
+        this.draw();
+        return;
+      }
       this.state.players[playerIdx].pos = { r: move.r, c: move.c };
       // [Animation] Trigger bot animation
       this.animatePawn(playerIdx, oldPos, { r: move.r, c: move.c });

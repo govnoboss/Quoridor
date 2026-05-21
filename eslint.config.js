@@ -1,0 +1,90 @@
+const js = require('@eslint/js');
+
+module.exports = [
+    js.configs.recommended,
+    {
+        files: ['frontend/js/ai-worker.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'script',
+            globals: {
+                importScripts: 'readonly',
+                AICore: 'writable',
+                postMessage: 'readonly',
+                onmessage: 'writable',
+                self: 'readonly',
+            },
+        },
+        rules: {
+            'no-undef': 'off',
+            'no-unused-vars': 'off',
+        },
+    },
+    {
+        files: ['tests/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'script',
+            globals: {
+                describe: 'readonly',
+                it: 'readonly',
+                expect: 'readonly',
+                beforeEach: 'readonly',
+                afterEach: 'readonly',
+                jest: 'readonly',
+            },
+        },
+    },
+    {
+        files: ['src/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'frontend/js/**/*.js'],
+        ignores: ['frontend/js/ai-worker.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'script',
+            globals: {
+                // Node.js
+                require: 'readonly',
+                module: 'readonly',
+                __dirname: 'readonly',
+                __filename: 'readonly',
+                process: 'readonly',
+                Buffer: 'readonly',
+                console: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly',
+                setInterval: 'readonly',
+                clearInterval: 'readonly',
+                // Browser (frontend)
+                window: 'readonly',
+                document: 'readonly',
+                navigator: 'readonly',
+                localStorage: 'readonly',
+                fetch: 'readonly',
+                io: 'readonly',
+                UI: 'writable',
+                Net: 'writable',
+                Game: 'writable',
+                Shared: 'writable',
+                AI: 'writable',
+                posthog: 'readonly',
+                location: 'readonly',
+                alert: 'readonly',
+                confirm: 'readonly',
+                Image: 'readonly',
+                requestAnimationFrame: 'readonly',
+                cancelAnimationFrame: 'readonly',
+                Audio: 'readonly',
+                Worker: 'readonly',
+                self: 'readonly',
+                addEventListener: 'readonly',
+                removeEventListener: 'readonly',
+            },
+        },
+        rules: {
+            'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+            'no-console': 'off',
+            'no-undef': 'error',
+            'no-redeclare': 'off',
+        },
+    },
+];

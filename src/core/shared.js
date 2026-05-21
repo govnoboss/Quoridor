@@ -158,6 +158,7 @@
                             const diagR = midR, diagC = midC + dcDiag;
                             if (diagC >= 0 && diagC < 9 &&
                                 !exports.hasPawnAt(state, diagR, diagC) &&
+                                !exports.isWallBetween(state, fr, fc, midR, midC) &&
                                 !exports.isWallBetween(state, midR, midC, diagR, diagC)) {
                                 targets.push({ r: diagR, c: diagC });
                             }
@@ -168,6 +169,7 @@
                             const diagR = midR + drDiag, diagC = midC;
                             if (diagR >= 0 && diagR < 9 &&
                                 !exports.hasPawnAt(state, diagR, diagC) &&
+                                !exports.isWallBetween(state, fr, fc, midR, midC) &&
                                 !exports.isWallBetween(state, midR, midC, diagR, diagC)) {
                                 targets.push({ r: diagR, c: diagC });
                             }

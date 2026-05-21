@@ -1398,91 +1398,6 @@ UI.switchProfileTab = function (tabName, btn) {
   if (btn) btn.classList.add('active');
 };
 
-// --- ADMIN UI (Bots) ---
-UI.spawnBot = function () {
-  const diffElem = document.getElementById('botDifficulty');
-  const rankedElem = document.getElementById('botRanked');
-  if (!diffElem || !rankedElem) return;
-
-  this.showToast('Spawning bot...');
-  fetch('/api/admin/bots/spawn', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      difficulty: diffElem.value,
-      isRanked: rankedElem.checked
-    })
-  })
-    .then(r => r.json())
-    .then(res => {
-      if (res.success) {
-        this.showToast(`Bot Spawned: ${res.username}`, 'info');
-        this.refreshBotList();
-      } else {
-        this.showToast('Spawn Failed: ' + res.error, 'error');
-      }
-    })
-    .catch(err => this.showToast('Error: ' + err.message, 'error'));
-};
-
-UI.refreshBotList = function () {
-  fetch('/api/admin/bots')
-    .then(r => r.json())
-    .then(bots => {
-      const list = document.getElementById('activeBotList');
-      if (!list) return;
-
-      if (bots.length === 0) {
-        list.innerHTML = '<div style="color:#888; padding:5px;">No active bots</div>';
-        return;
-      }
-
-      list.innerHTML = bots.map(b => `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); margin-bottom:4px; padding:5px; border-radius:4px;">
-                <span style="font-size:12px; font-family:monospace;">
-                    ${b.username} 
-                    ${b.isPaused ? '<span style="color:orange">[PAUSED]</span>' : '<span style="color:lightgreen">[ACTIVE]</span>'}
-                </span>
-                <div>
-                    <button onclick="UI.toggleBot('${b.id}')" style="background:${b.isPaused ? 'green' : 'orange'}; color:white; border:none; border-radius:3px; cursor:pointer; margin-right:5px; width:60px;">
-                        ${b.isPaused ? 'START' : 'STOP'}
-                    </button>
-                    <button onclick="UI.killBot('${b.id}')" style="background:red; color:white; border:none; border-radius:3px; cursor:pointer;">X</button>
-                </div>
-            </div>
-        `).join('');
-    })
-    .catch(console.error);
-};
-
-UI.killBot = function (id) {
-  if (!confirm('Kill this bot?')) return;
-  fetch(`/api/admin/bots/${id}`, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(res => {
-      if (res.success) this.refreshBotList();
-      else this.showToast('Failed to kill bot');
-    });
-};
-
-UI.toggleBot = function (id) {
-  fetch(`/api/admin/bots/${id}/toggle`, { method: 'POST' })
-    .then(r => r.json())
-    .then(res => {
-      if (res.success) {
-        this.refreshBotList();
-        this.showToast(res.isPaused ? 'Bot Paused' : 'Bot Resumed', 'info');
-      } else {
-        this.showToast('Failed to toggle bot', 'error');
-      }
-    });
-};
-
-UI.toggleAdmin = function () {
-  this.showDynamicPanel('panelAdmin');
-  this.refreshBotList();
-};
-
 UI.initRouting = function () {
   window.addEventListener('popstate', (event) => {
     const path = window.location.pathname;
@@ -1686,25 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
         UI.backToMenuFromProfile();
       }
     }
-
-    // Ctrl+3: Toggle AI Debug Mode (logs appear in server console)
-    if (e.ctrlKey && e.key === '3') {
-      e.preventDefault();
-      if (Net.socket) {
-        Net.socket.emit('toggleBotDebug');
-        UI.showToast('AI Debug mode toggle sent to server', 'info');
-      } else {
-        UI.showToast('Not connected to server', 'error');
-      }
-    }
   });
-
-  // Listen for AI Debug Logs forwarded by server
-  if (Net.socket) {
-    Net.socket.on('aiDebugLog', (msg) => {
-      console.log('%c' + msg, 'color: #7fdbff; background: #001f3f; padding: 2px 5px; border-radius: 3px;');
-    });
-  }
 
 });
 
