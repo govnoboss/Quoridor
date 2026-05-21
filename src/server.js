@@ -1,24 +1,29 @@
-require('dotenv').config(); // Загружаем переменные окружения из .env
+require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
+const morgan = require('morgan');
+const Sentry = require('@sentry/node');
 const Shared = require('./core/shared.js');
-const Redis = require('./storage/redis.js'); // Redis wrapper module
+const Redis = require('./storage/redis.js');
+const log = require('./utils/logger');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-
 const app = express();
-app.set('trust proxy', 1); // Доверяем заголовкам от Nginx ( Cloudflare)
+app.set('trust proxy', 1);
 
-// Request Logger (Optional: keep for debugging, or remove for prod)
-app.use((req, res, next) => {
-    // console.log(`[REQ] ${req.method} ${req.url} from ${req.ip}`);
-    next();
+Sentry.init({
+    dsn: process.env.SENTRY_DSN || '',
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.5 : 0.0,
+    enabled: !!process.env.SENTRY_DSN,
 });
+
+app.use(morgan('dev'));
 
 // --- SECURITY MIDDLEWARE ---
 
@@ -28,7 +33,7 @@ app.disable('x-powered-by');
 const connectDB = require('./storage/db');
 const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
-const BotManager = require('./services/BotManager'); // Bot Manager
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
@@ -358,52 +363,13 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 
-// --- ADMIN AUTHORIZATION MIDDLEWARE ---
-const requireAdmin = async (req, res, next) => {
-    if (!req.session || !req.session.userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    try {
-        const user = await User.findById(req.session.userId);
-        if (!user || !user.isAdmin) {
-            return res.status(403).json({ error: 'Admin access required' });
-        }
-        next();
-    } catch (err) {
-        return res.status(500).json({ error: 'Server error' });
-    }
-};
 
-// --- ADMIN API (Bots) - Protected ---
-app.get('/api/admin/bots', requireAdmin, (req, res) => {
-    res.json(BotManager.getActiveBots());
-});
-
-app.post('/api/admin/bots/spawn', requireAdmin, async (req, res) => {
-    const { difficulty, isRanked } = req.body;
-    const result = await BotManager.spawnBot(difficulty, isRanked);
-    res.json(result);
-});
-
-app.delete('/api/admin/bots/:id', requireAdmin, (req, res) => {
-    const success = BotManager.killBot(req.params.id);
-    res.json({ success });
-});
-
-app.post('/api/admin/bots/:id/toggle', requireAdmin, (req, res) => {
-    const result = BotManager.toggleBot(req.params.id);
-    if (result.success) {
-        // Find and notify bot
-        const botSocket = Array.from(io.sockets.sockets.values()).find(s => s.userId === req.params.id);
-        if (botSocket) {
-            botSocket.emit('botStateUpdate', { isPaused: result.isPaused });
-        }
-    }
-    res.json(result);
-});
+// Sentry error handler (after all routes)
+if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+}
 
 // --- SERVER & SOCKET.IO INITIALIZATION ---
-// Create server instances FIRST, before using 'io'
 const server = http.createServer(app);
 
 // Parse allowed origins from env (comma-separated)
@@ -434,6 +400,22 @@ const io = socketIo(server, {
     pingTimeout: 60000
 });
 
+// Socket.IO Admin UI (разработка/дебаг)
+if (process.env.SOCKET_ADMIN_USERNAME && process.env.SOCKET_ADMIN_PASSWORD) {
+    const { instrument } = require('@socket.io/admin-ui');
+    instrument(io, {
+        auth: {
+            type: 'basic',
+            credentials: {
+                username: process.env.SOCKET_ADMIN_USERNAME,
+                password: process.env.SOCKET_ADMIN_PASSWORD,
+            },
+        },
+        mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+    });
+    log.server('Socket.IO Admin UI enabled at https://admin.socket.io');
+}
+
 // Share session with Socket.IO
 const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
 io.use(wrap(sessionMiddleware));
@@ -445,30 +427,6 @@ io.use((socket, next) => {
         socket.userId = session.userId;
         socket.username = session.username;
         console.log(`[SOCKET] Authenticated user connected: ${socket.username}`);
-    } else {
-        // Check JWT in handshake (for Bots)
-        const token = socket.handshake.auth.token;
-        if (token && typeof token === 'string' && token.length > 30) {
-            try {
-                const decoded = jwt.verify(token, process.env.SESSION_SECRET || 'super_secret_quoridor_key_change_me');
-                if (decoded.id && decoded.username) {
-                    socket.userId = decoded.id;
-                    socket.username = decoded.username;
-
-                    // Check if I am an active bot and get my state
-                    const bots = BotManager.getActiveBots();
-                    const me = bots.find(b => b.id === socket.userId);
-                    if (me && me.isPaused) {
-                        // Delay slightly to ensure client is ready
-                        setTimeout(() => socket.emit('botStateUpdate', { isPaused: true }), 500);
-                    }
-
-                    console.log(`[SOCKET] Bot authenticated: ${socket.username}`);
-                }
-            } catch (e) {
-                // Ignore invalid JWT, treat as Guest
-            }
-        }
     }
 
     if (!socket.userId) {
@@ -619,18 +577,6 @@ io.on('connection', (socket) => {
     // Очистка памяти при отключении
     socket.on('disconnect', () => {
         rateLimits.delete(socket.id);
-    });
-
-    socket.on('toggleBotDebug', () => {
-        BotManager.toggleDebugMode();
-    });
-
-    // Receive debug log from bot process and forward to lobby
-    socket.on('botDebugLog', (data) => {
-        if (data.lobbyId && data.message) {
-            // Forward to human players in the same room
-            socket.to(data.lobbyId).emit('aiDebugLog', data.message);
-        }
     });
 
     // console.log(`[SOCKET] User connected: ${socket.id}`);
@@ -1512,11 +1458,9 @@ async function startServer() {
         const port = process.env.PORT || 3000;
         const env = process.env.NODE_ENV || 'development';
         server.listen(port, '0.0.0.0', async () => {
-            console.log(`[SERVER] Started on port ${port} (env=${env})`);
+            log.server('Server started on port %d (env=%s)', port, env);
 
-            // Restore Persistent Bots AFTER server is listening
-            // This fixes the race condition where bots try to connect before the server is ready
-            await BotManager.restoreBots();
+
         });
     } catch (err) {
         console.error('[STARTUP ERROR] Failed to connect to Redis:', err);

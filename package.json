@@ -4,6 +4,8 @@
   "description": "",
   "main": "src/server.js",
   "dependencies": {
+    "@sentry/node": "^10.53.1",
+    "@socket.io/admin-ui": "^0.5.1",
     "accepts": "^2.0.0",
     "base64id": "^2.0.0",
     "bcryptjs": "^3.0.3",
@@ -55,6 +57,7 @@
     "mime-db": "^1.54.0",
     "mime-types": "^3.0.2",
     "mongoose": "^8.0.0",
+    "morgan": "^1.10.1",
     "ms": "^2.1.3",
     "negotiator": "^1.0.0",
     "object-assign": "^4.1.1",
@@ -92,9 +95,13 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node tests/tests.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --watch",
+    "test:once": "jest",
     "test:ai": "node tests/ai-core.test.js",
-    "load-test": "node tests/load-test.js"
+    "load-test": "node tests/load-test.js",
+    "lint": "eslint src/ frontend/js/ scripts/ tests/",
+    "coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -107,5 +114,11 @@
   "bugs": {
     "url": "https://github.com/govnoboss/Quoridor/issues"
   },
-  "homepage": "https://github.com/govnoboss/Quoridor#readme"
+  "homepage": "https://github.com/govnoboss/Quoridor#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14"
+  }
 }
