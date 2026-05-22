@@ -17,7 +17,7 @@
   <div id="loadingScreen">
     <div class="loading-content">
       <div class="spinner"></div>
-      <h2 class="loading-text">Loading...</h2>
+      <h2 class="loading-text" data-i18n="loading_text">Loading...</h2>
       <div id="loadingError" class="hidden">
         <p>Something went wrong or loading is too slow.</p>
         <button onclick="location.reload()" class="primary-btn">Reload Page</button>
@@ -25,19 +25,30 @@
     </div>
   </div>
 
-  <div id="userProfileArea" class="user-profile-bar">
-    <button id="authBtn" class="auth-btn" onclick="UI.openAuthModal()">🔑 <span class="btn-text">Login</span></button>
-    <div id="userInfo" class="user-info hidden" onclick="UI.openMyProfile()">
-      <div class="avatar-circle">
-        <img id="userAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
-      </div>
-      <span id="userNameDisplay">User</span>
+  <header id="mainHeader" class="main-header">
+    <div class="header-left">
+      <span class="header-logo" onclick="UI.backToMenu()">QUORIDOR</span>
+      <span class="header-version">v1.01</span>
+      <select id="headerLang" class="header-lang" onchange="UI.changeLanguage(this.value)">
+        <option value="ru" data-i18n="lang_ru">🇷🇺 RU</option>
+        <option value="en" data-i18n="lang_en">🇬🇧 EN</option>
+      </select>
     </div>
-  </div>
+    <div class="header-right">
+      <div id="headerAuth">
+        <button id="headerLoginBtn" class="h-btn h-btn-ghost" onclick="UI.openAuthModal()" data-i18n="header_sign_in">Sign In</button>
+        <button id="headerRegisterBtn" class="h-btn h-btn-primary" onclick="UI.openAuthModal('register')" data-i18n="header_sign_up">Sign Up</button>
+      </div>
+      <div id="headerProfile" class="header-profile hidden" onclick="UI.openMyProfile()">
+        <span id="headerUsername">User</span>
+        <div class="header-avatar">
+          <img id="headerAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
+        </div>
+      </div>
+    </div>
+  </header>
 
   <div id="mainMenu" class="screen">
-    <!-- Заголовок для мобильных (над полем) -->
-    <h1 class="main-title mobile-only">Quoridor</h1>
 
     <div class="menu-layout">
       <!-- Декоративная доска с демо-партией -->
@@ -67,25 +78,32 @@
 
       <!-- Панель меню -->
       <div class="menu-panel">
-        <h1 class="main-title desktop-only">Quoridor</h1>
-
+        <div class="menu-title">QUORIDOR</div>
+        <div class="center-stats">
+          <div class="center-stats-item">
+            <span class="center-stats-value" id="statsOnlineCount">0</span>
+            <span class="center-stats-label" data-i18n="info_online">Онлайн</span>
+          </div>
+          <div class="center-stats-divider"></div>
+          <div class="center-stats-item">
+            <span class="center-stats-value" style="color: #f59e0b;" id="statsPlayingCount">0</span>
+            <span class="center-stats-label" data-i18n="info_playing">В матче</span>
+          </div>
+        </div>
         <div class="menu-buttons">
           <div id="playOnlineContainer">
-            <button id="playRankedBtn" onclick="UI.quickMatch(true)" data-i18n="menu_play_ranked" class="primary-btn"
-              style="margin-bottom: 10px; background-color: #e09f3e; color: #000;">🏆 Играть на рейтинг</button>
-            <button id="playOnlineBtn" onclick="UI.quickMatch(false)" data-i18n="menu_play_online">⚡ Быстрый
-              поиск</button>
+            <button id="playOnlineBtn" onclick="UI.showPlayOnlinePanel()" data-i18n="menu_play_online" class="primary-btn"
+              style="background-color: #e09f3e; color: #000;">Играть онлайн</button>
 
             <button id="cancelSearchBtn" class="hidden" onclick="UI.hideSearch(false); Net.cancelFindGame()">
               <span data-i18n="menu_cancel_search">Отменить поиск</span>
               <span id="searchTimer">0:00</span>
             </button>
           </div>
-          <button id="playFriendBtn" onclick="UI.showDynamicPanel('panelRoom')" data-i18n="menu_play_friend">👥 Играть с
+          <button id="playFriendBtn" onclick="UI.showDynamicPanel('panelRoom')" data-i18n="menu_play_friend">Играть с
             другом</button>
-          <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="menu_local_game">🎮 Локальная игра</button>
-          <button onclick="UI.showDynamicPanel('panelRules')" data-i18n="menu_rules">📖 Правила</button>
-          <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">⚙️ Настройки</button>
+          <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="menu_local_game">Локальная игра</button>
+          <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">Настройки</button>
         </div>
       </div>
 
@@ -100,6 +118,17 @@
 
 
 
+        <!-- Панель: Играть онлайн -->
+        <div id="panelPlayOnline" class="dynamic-content hidden">
+          <h3 data-i18n="panel_play_online_title">🎮 Играть онлайн</h3>
+          <div class="panel-buttons">
+            <button id="panelRankedBtn" onclick="UI.onRankedClick()" class="primary-btn" data-i18n="panel_play_ranked"
+              style="margin-bottom: 10px; width: 100%; background-color: #e09f3e; color: #000;">Рейтинговая</button>
+            <button id="panelNormalBtn" onclick="UI.quickMatch(false)" class="primary-btn" data-i18n="panel_play_normal"
+              style="width: 100%; background-color: #555; color: #fff;">Обычная</button>
+          </div>
+        </div>
+
         <!-- Панель: Игра с другом -->
         <div id="panelRoom" class="dynamic-content hidden">
           <h3 data-i18n="screen_room_title">Игра с другом</h3>
@@ -110,9 +139,8 @@
 
             <div id="roomCodeDisplay" class="hidden">
               <p data-i18n="room_created_msg">Код комнаты создан! Отправьте его другу:</p>
-              <div class="code-box">
+              <div class="code-box" onclick="UI.copyRoomCode()" title="Нажмите чтобы скопировать">
                 <span id="roomCodeValue">XXXXX</span>
-                <button class="copy-btn" onclick="UI.copyRoomCode()" title="Скопировать">📋</button>
               </div>
 
               <div class="link-box">
@@ -149,32 +177,13 @@
           </div>
         </div>
 
-        <!-- Панель: Правила -->
-        <div id="panelRules" class="dynamic-content hidden">
-          <h3 data-i18n="screen_rules_title">Правила</h3>
-          <div class="rules-content-inline">
-            <div class="rules-section">
-              <h4 data-i18n="rules_goal_title">🎯 Цель</h4>
-              <p data-i18n="rules_goal_text">Первым доведите свою фишку до противоположного края доски.</p>
-            </div>
-            <div class="rules-section">
-              <h4 data-i18n="rules_turn_title">🎲 Ход</h4>
-              <p data-i18n="rules_turn_text">За ход можно: передвинуть фишку на 1 клетку или поставить стену.</p>
-            </div>
-            <div class="rules-section">
-              <h4 data-i18n="rules_jump_title">🚶 Прыжки</h4>
-              <p data-i18n="rules_jump_text">Если соперник рядом — можно перепрыгнуть через него.</p>
-            </div>
-            <div class="rules-section">
-              <h4 data-i18n="rules_wall_title">🧱 Стены</h4>
-              <p data-i18n="rules_wall_text">Стена занимает 2 клетки. Нельзя полностью блокировать путь к цели.</p>
-            </div>
-            <div class="rules-section">
-              <h4 data-i18n="rules_controls_title">⌨️ Управление</h4>
-              <p data-i18n="rules_controls_text"><kbd>H</kbd> — горизонтальная стена, <kbd>V</kbd> — вертикальная,
-                <kbd>R</kbd> — повернуть.
-              </p>
-            </div>
+        <!-- Панель: Выбор цвета для бота -->
+        <div id="panelColorSelect" class="dynamic-content hidden">
+          <h3 data-i18n="screen_color_title">Выберите сторону</h3>
+          <div class="panel-buttons">
+            <button onclick="Game.startVsBot('white')" class="primary-btn" data-i18n="btn_color_white">Белые</button>
+            <button onclick="Game.startVsBot('black')" class="primary-btn" data-i18n="btn_color_black">Чёрные</button>
+            <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="btn_back">← Назад</button>
           </div>
         </div>
 
@@ -185,12 +194,11 @@
             <label data-i18n="label_theme">Тема:</label>
             <select id="themeSelectInline">
               <option value="dark" data-i18n="theme_dark">Тёмная</option>
-              <option value="light" data-i18n="theme_light">Светлая</option>
             </select>
             <label data-i18n="label_lang">Язык:</label>
             <select id="langSelectInline">
-              <option value="ru">Русский</option>
-              <option value="en">English</option>
+              <option value="ru" data-i18n="lang_ru">Русский</option>
+              <option value="en" data-i18n="lang_en">English</option>
             </select>
             <label data-i18n="label_sound">Звук:</label>
             <select id="soundSelectInline">
@@ -204,31 +212,6 @@
 
       <!-- Инфо-панель справа (Советы и лидерборд) -->
       <div class="info-panel" id="infoPanel">
-        <!-- Online Stats Card -->
-        <div class="info-card" style="padding: 12px 16px;">
-          <div style="display: flex; justify-content: space-around; align-items: center; gap: 20px;">
-            <div style="text-align: center;">
-              <span style="font-size: 1.5rem;">👥</span>
-              <div style="font-size: 1.2rem; font-weight: bold; color: #4ade80;" id="statsOnlineCount">0</div>
-              <div style="font-size: 0.75rem; color: #888;" data-i18n="info_online">Онлайн</div>
-            </div>
-            <div style="width: 1px; height: 40px; background: #444;"></div>
-            <div style="text-align: center;">
-              <span style="font-size: 1.5rem;">⚔️</span>
-              <div style="font-size: 1.2rem; font-weight: bold; color: #f59e0b;" id="statsPlayingCount">0</div>
-              <div style="font-size: 0.75rem; color: #888;" data-i18n="info_playing">В матче</div>
-            </div>
-          </div>
-        </div>
-        <div class="info-card">
-          <div class="info-card-header">
-            <span class="info-icon">💡</span>
-            <h3 data-i18n="info_tip_title">Совет дня</h3>
-          </div>
-          <p id="dailyTip" data-i18n="info_tip_text">Стены — ваше главное оружие. Используйте их, чтобы удлинить
-            путь
-            соперника, но не блокируйте себя!</p>
-        </div>
         <div class="info-card">
           <div class="info-card-header">
             <span class="info-icon">🏆</span>
@@ -240,7 +223,6 @@
           <p class="info-hint" data-i18n="info_hint">Рейтинг обновляется в реальном времени</p>
         </div>
       </div> <!-- info-panel -->
-      <div class="app-version">v1.01</div>
     </div> <!-- menu-layout -->
   </div> <!-- mainMenu -->
 
@@ -259,20 +241,6 @@
         бот</button>
     </div>
     <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
-  </div>
-
-  <div id="colorSelectScreen" class="screen">
-    <h2 data-i18n="screen_color_title">Выберите сторону</h2>
-    <p data-i18n="color_white_hint">Белые всегда ходят первыми</p>
-    <div class="menu-buttons horizontal">
-      <button onclick="Game.startVsBot('white')" data-i18n="btn_play_white">
-        ⚪ Играть за Белых<br>(Вы ходите первым)
-      </button>
-      <button onclick="Game.startVsBot('black')" data-i18n="btn_play_black">
-        ⚫ Играть за Чёрных<br>(Бот ходит первым)
-      </button>
-    </div>
-    <button onclick="UI.showModeSelect()" data-i18n="btn_back">Назад</button>
   </div>
 
   <!-- PROFILE SCREEN (NEW) -->
@@ -363,9 +331,8 @@
           комнату</button>
         <div id="roomCodeDisplay" class="hidden">
           <p data-i18n="room_created_msg">Код комнаты создан! Отправьте его другу:</p>
-          <div class="code-box">
+          <div class="code-box" onclick="UI.copyRoomCode()" title="Нажмите чтобы скопировать">
             <span id="roomCodeValue">XXXXX</span>
-            <button class="copy-btn" onclick="UI.copyRoomCode()" title="Скопировать">📋</button>
           </div>
           <p class="room-hint" data-i18n="room_waiting">Ожидание подключения противника...</p>
         </div>
@@ -468,13 +435,12 @@
       <label data-i18n="label_theme">Тема:</label>
       <select id="themeSelect">
         <option value="dark" data-i18n="theme_dark">Тёмная</option>
-        <option value="light" data-i18n="theme_light">Светлая</option>
       </select>
 
       <label data-i18n="label_lang">Язык:</label>
       <select id="langSelect">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
+        <option value="ru" data-i18n="lang_ru">Русский</option>
+        <option value="en" data-i18n="lang_en">English</option>
       </select>
 
       <label data-i18n="label_sound">Звук:</label>
@@ -487,88 +453,6 @@
     <button onclick="UI.saveSettings()" data-i18n="btn_save">Сохранить</button>
     <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
   </div>
-
-  <div id="rulesScreen" class="screen">
-    <div class="rules-header">
-      <h2 data-i18n="screen_rules_title">Правила</h2>
-    </div>
-
-    <div class="rules-content" id="rulesContentRu">
-      <div class="rules-section">
-        <h3>🎯 Цель</h3>
-        <p>Первым доведите свою фишку до противоположного края доски.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>🎲 Ход</h3>
-        <p>Белые ходят первыми. За ход можно:</p>
-        <ul>
-          <li>Передвинуть фишку на 1 клетку (не по диагонали)</li>
-          <li>Поставить стену (у вас 10 стен)</li>
-        </ul>
-      </div>
-
-      <div class="rules-section">
-        <h3>🚶 Прыжки</h3>
-        <p>Если соперник стоит рядом — можно перепрыгнуть через него. Если за ним стена — прыжок вбок.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>🧱 Стены</h3>
-        <p>Стена занимает 2 клетки. Нельзя полностью блокировать путь к цели.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>⌨️ Управление</h3>
-        <ul>
-          <li><kbd>H</kbd> — взять горизонтальную стену</li>
-          <li><kbd>V</kbd> — взять вертикальную стену</li>
-          <li><kbd>R</kbd> — повернуть стену</li>
-          <li><kbd>Esc</kbd> — отменить</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="rules-content hidden" id="rulesContentEn">
-      <div class="rules-section">
-        <h3>🎯 Goal</h3>
-        <p>Be the first to reach the opposite edge of the board.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>🎲 Turn</h3>
-        <p>White moves first. On your turn you can:</p>
-        <ul>
-          <li>Move your pawn 1 square (not diagonally)</li>
-          <li>Place a wall (you have 10 walls)</li>
-        </ul>
-      </div>
-
-      <div class="rules-section">
-        <h3>🚶 Jumps</h3>
-        <p>If the opponent is adjacent — jump over them. If blocked by a wall — jump diagonally.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>🧱 Walls</h3>
-        <p>Each wall covers 2 squares. You cannot completely block the path to the goal.</p>
-      </div>
-
-      <div class="rules-section">
-        <h3>⌨️ Controls</h3>
-        <ul>
-          <li><kbd>H</kbd> — pick horizontal wall</li>
-          <li><kbd>V</kbd> — pick vertical wall</li>
-          <li><kbd>R</kbd> — rotate wall</li>
-          <li><kbd>Esc</kbd> — cancel</li>
-        </ul>
-      </div>
-    </div>
-
-    <button onclick="UI.backToMenu()" data-i18n="btn_back">Назад</button>
-  </div>
-
-
 
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
@@ -626,31 +510,31 @@
             <h2 id="profileUsername">Username</h2>
             <div class="profile-status-wrapper">
               <input type="text" id="profileStatusInput" placeholder="Введите статус..." maxlength="100"
-                onblur="UI.updateUserStatus()" onkeydown="if(event.key==='Enter') this.blur()">
+                onblur="UI.updateUserStatus()" onkeydown="if(event.key==='Enter') this.blur()" data-i18n="profile_status_placeholder">
             </div>
-            <p class="join-date">Регистрация: <span id="profileRegDate">--.--.----</span></p>
+            <p class="join-date" data-i18n="profile_join_date">Регистрация: <span id="profileRegDate">--.--.----</span></p>
           </div>
-          <button class="logout-btn-profile" onclick="UI.logout()">Выйти из системы</button>
+          <button class="logout-btn-profile" onclick="UI.logout()" data-i18n="profile_logout">Выйти из системы</button>
         </div>
 
         <div class="profile-stats-grid">
           <div class="rating-card">
-            <span class="rating-label">Rating</span>
+            <span class="rating-label" data-i18n="profile_rating">Rating</span>
             <span class="rating-value" id="modalRating">1200</span>
           </div>
         </div>
 
         <div class="profile-archive">
-          <h3 data-api-i18n="profile_archive_title">Архив партий</h3>
+          <h3 data-i18n="profile_archive_title">Архив партий</h3>
           <div class="archive-table-wrapper">
             <table id="archiveTable">
               <thead>
                 <tr>
-                  <th>Тип</th>
-                  <th>Игроки</th>
-                  <th>Результат</th>
-                  <th>Ходы</th>
-                  <th>Дата</th>
+                  <th data-i18n="th_type">Тип</th>
+                  <th data-i18n="th_players">Игроки</th>
+                  <th data-i18n="th_result">Результат</th>
+                  <th data-i18n="th_moves">Ходы</th>
+                  <th data-i18n="th_date">Дата</th>
                   <th></th>
                 </tr>
               </thead>
@@ -702,8 +586,15 @@
       <div id="authFormContainer">
         <!-- LOGIN FORM -->
         <div id="loginForm" class="auth-form">
-          <input type="text" id="loginUsername" placeholder="Username" class="auth-input">
-          <input type="password" id="loginPassword" placeholder="Password" class="auth-input">
+          <input type="text" id="loginUsername" placeholder="Username" class="auth-input" data-i18n="placeholder_username">
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" placeholder="Password" class="auth-input" data-i18n="placeholder_password">
+            <span class="password-toggle" onclick="UI.togglePassword('loginPassword', this)">
+              <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
+              </svg>
+            </span>
+          </div>
           <div class="auth-fp-wrapper">
             <a href="#" class="auth-link small" onclick="return false;" style="opacity: 0.6; cursor: default;"
               data-i18n="link_forgot_pass">Забыли пароль?</a>
@@ -721,8 +612,15 @@
 
         <!-- REGISTER FORM -->
         <div id="registerForm" class="auth-form hidden">
-          <input type="text" id="regUsername" placeholder="Username (at least 3 characters)" class="auth-input">
-          <input type="password" id="regPassword" placeholder="Password (at least 8 characters)" class="auth-input">
+          <input type="text" id="regUsername" placeholder="Username (at least 3 characters)" class="auth-input" data-i18n="placeholder_username_long">
+          <div class="password-wrapper">
+            <input type="password" id="regPassword" placeholder="Password (at least 8 characters)" class="auth-input" data-i18n="placeholder_password_long">
+            <span class="password-toggle" onclick="UI.togglePassword('regPassword', this)">
+              <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
+              </svg>
+            </span>
+          </div>
           <div class="auth-actions">
             <button class="primary-btn full-width" onclick="UI.submitRegister()"
               data-i18n="btn_reg_submit">Зарегистрироваться</button>
@@ -746,6 +644,7 @@
   <script src="/js/net.js?v=1.0.1"></script>
   <script src="/shared.js?v=1.0.1"></script>
   <script src="/js/ai.js?v=1.0.1"></script>
+  <script src="/js/ai-core.js?v=1.0.1"></script>
   <script src="/js/game.js?v=1.0.1"></script>
 </body>
 

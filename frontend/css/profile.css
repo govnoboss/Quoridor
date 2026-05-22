@@ -128,7 +128,7 @@
 /* Stats Overview */
 .pp-stats-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
 }
 
@@ -167,13 +167,12 @@
 .pp-stat-card.rating {
     background: linear-gradient(to bottom right, rgba(224, 159, 62, 0.1), rgba(0, 0, 0, 0.3));
     border-color: rgba(224, 159, 62, 0.4);
-    grid-column: span 2;
-    /* Make it wider */
+    grid-column: 1 / -1;
 }
 
 @media (max-width: 600px) {
-    .pp-stat-card.rating {
-        grid-column: span 1;
+    .pp-stats-overview {
+        grid-template-columns: 1fr;
     }
 }
 

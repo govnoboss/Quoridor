@@ -8,18 +8,18 @@ const UI = {
 
   translations: {
     ru: {
-      menu_play_online: "⚡ Быстрый поиск",
-      menu_play_ranked: "🏆 Играть на рейтинг",
+      menu_play_online: "🎮 Играть онлайн",
+      panel_play_online_title: "🎮 Играть онлайн",
+      panel_play_ranked: "🏆 Рейтинговая",
+      panel_play_normal: "🎮 Обычная",
+      tooltip_ranked_requires_login: "Для рейтинговых игр необходима регистрация",
       menu_cancel_search: "Отменить поиск",
       menu_local_game: "🎮 Локальная игра",
-      menu_rules: "📖 Как играть?",
       menu_settings: "⚙️ Настройки",
       pname_opponent: "Оппонент",
       pname_you: "Вы",
       pname_white: "Белый",
       pname_black: "Черный",
-      info_tip_title: "Совет дня",
-      info_tip_text: "Стены — ваше главное оружие. Используйте их, чтобы удлинить путь соперника, но не блокируйте себя!",
       info_leaderboard_title: "Лидеры",
       info_hint: "Рейтинг обновляется в реальном времени",
       screen_mode_title: "Выберите режим",
@@ -38,13 +38,11 @@ const UI = {
       screen_settings_title: "Настройки",
       label_theme: "Тема:",
       theme_dark: "Тёмная",
-      theme_light: "Светлая",
       label_lang: "Язык:",
       label_sound: "Звук:",
       sound_on: "Вкл",
       sound_off: "Выкл",
       btn_save: "Сохранить",
-      screen_rules_title: "Правила",
       modal_win: "ПОБЕДА 🎉",
       modal_lose: "ПОРАЖЕНИЕ 💀",
       modal_win_local: "ПОБЕДИЛИ {color}!",
@@ -66,22 +64,14 @@ const UI = {
       toast_not_your_turn: "Сейчас не ваш ход!",
       menu_play_friend: "👥 Играть с другом",
       screen_room_title: "Игра с другом",
+      header_sign_in: "Войти",
+      header_sign_up: "Регистрация",
       btn_create_room: "Создать комнату",
       btn_join_room: "Войти",
       room_created_msg: "Код комнаты создан! Отправьте его другу:",
       room_waiting: "Ожидание подключения противника...",
       label_or: "или",
       menu_searching: "Поиск игры...",
-      rules_goal_title: "🎯 Цель",
-      rules_goal_text: "Первым доведите свою фишку до противоположного края доски.",
-      rules_turn_title: "🎲 Ход",
-      rules_turn_text: "За ход можно: передвинуть фишку на 1 клетку или поставить стену.",
-      rules_jump_title: "🚶 Прыжки",
-      rules_jump_text: "Если соперник рядом — можно перепрыгнуть через него.",
-      rules_wall_title: "🧱 Стены",
-      rules_wall_text: "Стена занимает 2 клетки. Нельзя полностью блокировать путь к цели.",
-      rules_controls_title: "⌨️ Управление",
-      rules_controls_text: "H — горизонтальная стена, V — вертикальная, R — повернуть.",
       toast_settings_saved: "Настройки сохранены!",
       toast_link_copied: "Ссылка скопирована!",
       toast_room_code_from_link: "Код комнаты получен из ссылки",
@@ -126,21 +116,40 @@ const UI = {
       text_has_account: "Уже есть аккаунт?",
       link_login_back: "Войти",
       info_online: "Онлайн",
-      info_playing: "В матче"
+      info_playing: "В матче",
+      btn_color_white: "Белые",
+      btn_color_black: "Чёрные",
+      lang_ru: "Русский",
+      lang_en: "English",
+      profile_archive_title: "Архив партий",
+      profile_status_placeholder: "Введите статус...",
+      profile_join_date: "Регистрация:",
+      profile_logout: "Выйти из системы",
+      profile_rating: "Рейтинг",
+      th_type: "Тип",
+      th_players: "Игроки",
+      th_result: "Результат",
+      th_moves: "Ходы",
+      th_date: "Дата",
+      placeholder_username: "Имя пользователя",
+      placeholder_password: "Пароль",
+      placeholder_username_long: "Имя пользователя (минимум 3 символа)",
+      placeholder_password_long: "Пароль (минимум 8 символов)",
+      loading_text: "Загрузка..."
     },
     en: {
-      menu_play_online: "⚡ Quick Match",
-      menu_play_ranked: "🏆 Play Ranked",
+      menu_play_online: "🎮 Play Online",
+      panel_play_online_title: "🎮 Play Online",
+      panel_play_ranked: "🏆 Ranked",
+      panel_play_normal: "🎮 Normal",
+      tooltip_ranked_requires_login: "Registration required for ranked games",
       menu_cancel_search: "Cancel Search",
       menu_local_game: "🎮 Local Game",
-      menu_rules: "📖 How to play?",
       menu_settings: "⚙️ Settings",
       pname_opponent: "Opponent",
       pname_you: "You",
       pname_white: "White",
       pname_black: "Black",
-      info_tip_title: "Tip of the Day",
-      info_tip_text: "Walls are your main weapon. Use them to lengthen your opponent's path, but don't block yourself!",
       info_leaderboard_title: "Leaderboard",
       info_hint: "Ratings update in real-time",
       screen_mode_title: "Choose Mode",
@@ -159,13 +168,11 @@ const UI = {
       screen_settings_title: "Settings",
       label_theme: "Theme:",
       theme_dark: "Dark",
-      theme_light: "Light",
       label_lang: "Language:",
       label_sound: "Sound:",
       sound_on: "On",
       sound_off: "Off",
       btn_save: "Save",
-      screen_rules_title: "Rules",
       modal_win: "VICTORY 🎉",
       modal_lose: "DEFEAT 💀",
       modal_win_local: "{color} WON!",
@@ -187,22 +194,14 @@ const UI = {
       toast_not_your_turn: "It's not your turn!",
       menu_play_friend: "👥 Play with Friend",
       screen_room_title: "Play with Friend",
+      header_sign_in: "Sign In",
+      header_sign_up: "Sign Up",
       btn_create_room: "Create Room",
       btn_join_room: "Join",
       room_created_msg: "Room code created! Send it to your friend:",
       room_waiting: "Waiting for opponent to connect...",
       label_or: "or",
       menu_searching: "Searching for game...",
-      rules_goal_title: "🎯 Goal",
-      rules_goal_text: "Be the first to reach the opposite edge of the board.",
-      rules_turn_title: "🎲 Turn",
-      rules_turn_text: "On your turn: move your pawn 1 square or place a wall.",
-      rules_jump_title: "🚶 Jumps",
-      rules_jump_text: "If opponent is adjacent — you can jump over them.",
-      rules_wall_title: "🧱 Walls",
-      rules_wall_text: "Wall covers 2 squares. Cannot completely block path to goal.",
-      rules_controls_title: "⌨️ Controls",
-      rules_controls_text: "H — horizontal wall, V — vertical, R — rotate.",
       toast_settings_saved: "Settings saved!",
       toast_link_copied: "Link copied!",
       toast_room_code_from_link: "Room code received from link",
@@ -247,7 +246,26 @@ const UI = {
       text_has_account: "Already have an account?",
       link_login_back: "Login",
       info_online: "Online",
-      info_playing: "In Game"
+      info_playing: "In Game",
+      btn_color_white: "White",
+      btn_color_black: "Black",
+      lang_ru: "Russian",
+      lang_en: "English",
+      profile_archive_title: "Game Archive",
+      profile_status_placeholder: "Enter status...",
+      profile_join_date: "Joined:",
+      profile_logout: "Log Out",
+      profile_rating: "Rating",
+      th_type: "Type",
+      th_players: "Players",
+      th_result: "Result",
+      th_moves: "Moves",
+      th_date: "Date",
+      placeholder_username: "Username",
+      placeholder_password: "Password",
+      placeholder_username_long: "Username (at least 3 characters)",
+      placeholder_password_long: "Password (at least 8 characters)",
+      loading_text: "Loading..."
     }
   },
 
@@ -262,7 +280,7 @@ const UI = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    this.updateProfileBarVisibility();
+    this.updateHeaderVisibility();
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
@@ -293,18 +311,39 @@ const UI = {
   },
 
   quickMatch(isRanked = false) {
-    // Check auth for ranked
-    if (isRanked && (typeof Net === 'undefined' || !Net.playerToken || Net.playerToken === 'null')) {
+    if (isRanked && !this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
       this.openAuthModal();
       return;
     }
 
-    // 5 minutes (300s) + 0 increment
     this.showSearch({ base: 300, inc: 0 }, isRanked);
   },
+
+  showPlayOnlinePanel() {
+    this.showDynamicPanel('panelPlayOnline');
+    const rankedBtn = document.getElementById('panelRankedBtn');
+    if (rankedBtn) {
+      if (!this.currentUser) {
+        rankedBtn.classList.add('btn-disabled');
+        rankedBtn.title = this.translate('tooltip_ranked_requires_login');
+      } else {
+        rankedBtn.classList.remove('btn-disabled');
+        rankedBtn.title = '';
+      }
+    }
+  },
+
+  onRankedClick() {
+    if (!this.currentUser) {
+      this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
+      this.openAuthModal();
+      return;
+    }
+    this.quickMatch(true);
+  },
+
   showSettings() { this.showDynamicPanel('panelSettings'); },
-  showRules() { this.showDynamicPanel('panelRules'); },
 
   showInfoPanel(panelId) {
     document.querySelectorAll('.info-content').forEach(p => p.classList.remove('active'));
@@ -325,7 +364,7 @@ const UI = {
         this.createPrivateRoom();
       }
     }
-    this.updateProfileBarVisibility();
+    this.updateHeaderVisibility();
   },
 
   hideDynamicPanel() {
@@ -343,12 +382,12 @@ const UI = {
     // В остальных случаях просто очищаем классы и скрываем контент
     document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
     container.classList.add('empty');
-    this.updateProfileBarVisibility();
+    this.updateHeaderVisibility();
   },
 
-  updateProfileBarVisibility() {
-    const profileBar = document.getElementById('userProfileArea');
-    if (!profileBar) return;
+  updateHeaderVisibility() {
+    const header = document.getElementById('mainHeader');
+    if (!header) return;
 
     const dynamicPanel = document.getElementById('dynamicPanel');
     const isPanelOpen = dynamicPanel && !dynamicPanel.classList.contains('empty');
@@ -358,26 +397,20 @@ const UI = {
 
     const isMobile = window.innerWidth <= 768;
 
-    // Rules:
-    // 1. If Profile Modal (User profile itself) is open - ALWAYS hide the small bar
     if (isProfileModalOpen) {
-      profileBar.classList.add('hidden');
+      header.classList.add('hidden');
       return;
     }
 
-    // 2. If not in Main Menu (e.g. in Game or Room screen) - ALWAYS hide
     if (!isMainMenu) {
-      profileBar.classList.add('hidden');
+      header.classList.add('hidden');
       return;
     }
 
-    // 3. If in Main Menu:
-    //    - On Mobile: Hide if a dynamic sub-panel (Rules, Settings) is open
-    //    - On PC: Stay visible even if a panel is open
     if (isMobile && isPanelOpen) {
-      profileBar.classList.add('hidden');
+      header.classList.add('hidden');
     } else {
-      profileBar.classList.remove('hidden');
+      header.classList.remove('hidden');
     }
   },
 
@@ -388,23 +421,25 @@ const UI = {
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
       if (dict[key]) {
-        el.innerHTML = dict[key];
+        if (el.tagName === 'INPUT') {
+          el.placeholder = dict[key];
+        } else {
+          el.innerHTML = dict[key];
+        }
       }
     });
 
-    // Специальная логика для правил (показ нужного блока)
-    const ruContent = document.getElementById('rulesContentRu');
-    const enContent = document.getElementById('rulesContentEn');
-    if (lang === 'en') {
-      ruContent.classList.add('hidden');
-      enContent.classList.remove('hidden');
-    } else {
-      enContent.classList.add('hidden');
-      ruContent.classList.remove('hidden');
-    }
-
     // Обновляем атрибут lang у html
     document.getElementById('htmlTag').lang = lang;
+
+    // Sync header language selector
+    const headerLang = document.getElementById('headerLang');
+    if (headerLang) headerLang.value = lang;
+  },
+
+  changeLanguage(lang) {
+    this.setLanguage(lang);
+    localStorage.setItem('quoridor-lang', lang);
   },
 
   saveSettings() {
@@ -468,12 +503,11 @@ const UI = {
     // 1. Изменение UI
     this.disableAll();
     const btnOnline = document.getElementById('playOnlineBtn');
-    const btnRanked = document.getElementById('playRankedBtn'); // New button
     if (btnOnline) btnOnline.classList.add('hidden');
-    if (btnRanked) btnRanked.classList.add('hidden');
     document.getElementById('cancelSearchBtn').classList.remove('hidden');
     document.getElementById('cancelSearchBtn').disabled = false;
-    document.getElementById('userProfileArea').classList.add('hidden');
+    const header = document.getElementById('mainHeader');
+    if (header) header.classList.add('hidden');
 
     // 2. Показываем оверлей поиска в динамической панели
     const container = document.getElementById('dynamicPanel');
@@ -504,13 +538,11 @@ const UI = {
 
     // Возвращаем кнопки в исходное состояние
     this.enableAll();
-    this.enableAll();
     const btnOnline = document.getElementById('playOnlineBtn');
-    const btnRanked = document.getElementById('playRankedBtn');
     if (btnOnline) btnOnline.classList.remove('hidden');
-    if (btnRanked) btnRanked.classList.remove('hidden');
     document.getElementById('cancelSearchBtn').classList.add('hidden');
-    document.getElementById('userProfileArea').classList.remove('hidden');
+    const header = document.getElementById('mainHeader');
+    if (header) header.classList.remove('hidden');
 
     const container = document.getElementById('dynamicPanel');
     const overlay = document.getElementById('searchOverlay');
@@ -859,16 +891,16 @@ const UI = {
 
 UI.selectBotDifficulty = function (diff) {
   Game.pendingBotDifficulty = diff;
-  UI.showScreen('colorSelectScreen');
+  UI.showDynamicPanel('panelColorSelect');
 };
 
 // --- AUTHENTICATION ---
 UI.currentUser = null;
 
-UI.openAuthModal = function () {
+UI.openAuthModal = function (tab = 'login') {
   const modal = document.getElementById('authModal');
   if (modal) modal.classList.remove('hidden');
-  this.switchAuthTab('login');
+  this.switchAuthTab(tab);
 };
 
 // --- LOADING SCREEN ---
@@ -949,6 +981,20 @@ UI.switchAuthTab = function (tab) {
   document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
   const targetForm = document.getElementById(tab + 'Form');
   if (targetForm) targetForm.classList.remove('hidden');
+};
+
+UI.togglePassword = function (inputId, el) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const svg = el.querySelector('.eye-icon');
+  if (!svg) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="currentColor"/><path d="M2 2l20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+  } else {
+    input.type = 'password';
+    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
+  }
 };
 
 UI.submitLogin = async function () {
@@ -1060,36 +1106,30 @@ UI.checkSession = async function () {
 UI.handleAuthSuccess = function (user) {
   this.currentUser = user;
   this.updateAuthUI();
+  // Re-enable ranked button in play online panel if open
+  const rankedBtn = document.getElementById('panelRankedBtn');
+  if (rankedBtn) {
+    rankedBtn.classList.remove('btn-disabled');
+    rankedBtn.title = '';
+  }
 };
 
 UI.updateAuthUI = function () {
-  const authBtn = document.getElementById('authBtn');
-  const userInfo = document.getElementById('userInfo');
-  const nameDisplay = document.getElementById('userNameDisplay');
+  const headerAuth = document.getElementById('headerAuth');
+  const headerProfile = document.getElementById('headerProfile');
+  const usernameEl = document.getElementById('headerUsername');
+  const avatarImg = document.getElementById('headerAvatarImg');
 
-  if (authBtn && userInfo && nameDisplay) {
-    if (this.currentUser) {
-      authBtn.classList.add('hidden');
-      userInfo.classList.remove('hidden');
-      nameDisplay.textContent = this.currentUser.username;
-
-      // Update global avatar
-      const avatarImg = document.getElementById('userAvatarImg');
-      if (avatarImg && this.currentUser.avatarUrl) {
-        avatarImg.src = this.currentUser.avatarUrl;
-      }
-
-      const rankedOption = document.getElementById('rankedOption');
-      if (rankedOption) rankedOption.classList.remove('hidden');
-
-    } else {
-      authBtn.classList.remove('hidden');
-      userInfo.classList.add('hidden');
-
-      // Keep ranked option visible for guests - click handler will show toast
-      const rankedOption = document.getElementById('rankedOption');
-      if (rankedOption) rankedOption.classList.remove('hidden');
+  if (this.currentUser) {
+    if (headerAuth) headerAuth.classList.add('hidden');
+    if (headerProfile) headerProfile.classList.remove('hidden');
+    if (usernameEl) usernameEl.textContent = this.currentUser.username;
+    if (avatarImg && this.currentUser.avatarUrl) {
+      avatarImg.src = this.currentUser.avatarUrl;
     }
+  } else {
+    if (headerAuth) headerAuth.classList.remove('hidden');
+    if (headerProfile) headerProfile.classList.add('hidden');
   }
 };
 
@@ -1146,7 +1186,7 @@ UI.showProfile = async function () {
     // Open Modal
     document.getElementById('profileModal').classList.remove('hidden');
     // Call visibility update
-    this.updateProfileBarVisibility();
+    this.updateHeaderVisibility();
   } catch (err) {
     console.error('[PROFILE ERROR]', err);
     this.showToast(this.translate('toast_profile_load_error'), 'error');
@@ -1157,7 +1197,7 @@ UI.closeProfileModal = function () {
   const modal = document.getElementById('profileModal');
   if (modal) modal.classList.add('hidden');
   // Call visibility update
-  UI.updateProfileBarVisibility();
+  UI.updateHeaderVisibility();
 };
 
 UI.updateUserStatus = async function () {
@@ -1187,7 +1227,7 @@ UI.openAvatarPicker = async function () {
       });
       if (res.ok) {
         document.getElementById('profileAvatarLarge').src = newUrl;
-        document.getElementById('userAvatarImg').src = newUrl;
+        document.getElementById('headerAvatarImg').src = newUrl;
         this.currentUser.avatarUrl = newUrl;
         this.showToast(this.translate('toast_avatar_updated'), 'success');
       }
