@@ -1,0 +1,10 @@
+node_modules
+.git
+.gitignore
+.env
+.env.*
+*.md
+.DS_Store
+Thumbs.db
+coverage
+tests

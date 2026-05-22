@@ -2056,30 +2056,52 @@ const DemoBoard = {
   cellSize: 80,
   animationInterval: null,
   moveIndex: 0,
+  activeScenario: null,
+  botMode: true,
 
-  // Демо-партия: последовательность ЛЕГАЛЬНЫХ ходов
-  // Белые (0) стартуют r=8,c=4, Черные (1) стартуют r=0,c=4
-  // ВАЖНО: Только ортогональные ходы (1 клетка по вертикали ИЛИ горизонтали)
-  demoMoves: [
-    // Ход 1-2: Оба идут вперед
-    { type: 'pawn', player: 0, r: 7, c: 4 },
-    { type: 'pawn', player: 1, r: 1, c: 4 },
-    // Ход 3-4: Белые ставят стену, черные идут вперед
-    { type: 'wall', player: 0, r: 6, c: 2, isVertical: false },
-    { type: 'pawn', player: 1, r: 2, c: 4 },
-    // Ход 5-6: Оба идут вперед
-    { type: 'pawn', player: 0, r: 6, c: 4 },
-    { type: 'pawn', player: 1, r: 3, c: 4 },
-    // Ход 7-8: Черные ставят стену, белые идут влево
-    { type: 'wall', player: 1, r: 5, c: 4, isVertical: true },
-    { type: 'pawn', player: 0, r: 6, c: 3 }, // Влево
-    // Ход 9-10: Черные вперед, белые вперед
-    { type: 'pawn', player: 1, r: 4, c: 4 },
-    { type: 'pawn', player: 0, r: 5, c: 3 }, // Вперед
-    // Ход 11-12: Черные вправо, белые стена
-    { type: 'pawn', player: 1, r: 4, c: 5 }, // Вправо
-    { type: 'wall', player: 0, r: 4, c: 5, isVertical: false },
-  ],
+  scenarios: {
+    // Базовая демо-партия (цикл)
+    default: [
+      { type: 'pawn', player: 0, r: 7, c: 4 },
+      { type: 'pawn', player: 1, r: 1, c: 4 },
+      { type: 'wall', player: 0, r: 6, c: 2, isVertical: false },
+      { type: 'pawn', player: 1, r: 2, c: 4 },
+      { type: 'pawn', player: 0, r: 6, c: 4 },
+      { type: 'pawn', player: 1, r: 3, c: 4 },
+      { type: 'wall', player: 1, r: 5, c: 4, isVertical: true },
+      { type: 'pawn', player: 0, r: 6, c: 3 },
+      { type: 'pawn', player: 1, r: 4, c: 4 },
+      { type: 'pawn', player: 0, r: 5, c: 3 },
+      { type: 'pawn', player: 1, r: 4, c: 5 },
+      { type: 'wall', player: 0, r: 4, c: 5, isVertical: false },
+    ],
+    // Сценарий: движение пешки
+    move: [
+      { type: 'pawn', player: 0, r: 7, c: 4 },
+      { type: 'pawn', player: 0, r: 6, c: 4 },
+      { type: 'pawn', player: 0, r: 5, c: 4 },
+      { type: 'pawn', player: 0, r: 4, c: 4 },
+      { type: 'pawn', player: 0, r: 4, c: 3 },
+      { type: 'pawn', player: 0, r: 4, c: 2 },
+    ],
+    // Сценарий: стены
+    wall: [
+      { type: 'pawn', player: 0, r: 7, c: 4 },
+      { type: 'wall', player: 0, r: 4, c: 2, isVertical: false },
+      { type: 'pawn', player: 0, r: 6, c: 4 },
+      { type: 'wall', player: 0, r: 2, c: 4, isVertical: true },
+      { type: 'pawn', player: 0, r: 5, c: 4 },
+      { type: 'wall', player: 0, r: 4, c: 6, isVertical: false },
+    ],
+    // Сценарий: прыжки
+    jump: [
+      { type: 'pawn', player: 0, r: 5, c: 4 },
+      { type: 'pawn', player: 1, r: 4, c: 4 },
+      { type: 'pawn', player: 0, r: 3, c: 4 },
+      { type: 'pawn', player: 1, r: 3, c: 5 },
+      { type: 'pawn', player: 1, r: 2, c: 5 },
+    ],
+  },
 
   state: {
     players: [{ pos: { r: 8, c: 4 } }, { pos: { r: 0, c: 4 } }],
@@ -2090,33 +2112,125 @@ const DemoBoard = {
   init() {
     this.canvas = document.getElementById('demoBoard');
     if (!this.canvas) return;
-
     this.ctx = this.canvas.getContext('2d');
+    if (typeof AICore !== 'undefined') AICore.init(Shared);
     this.reset();
     this.draw();
-    this.startAnimation();
+    this.scheduleNext();
+  },
+
+  scheduleNext() {
+    this.animationInterval = setTimeout(() => this.botTurn(), 600);
+  },
+
+  botTurn() {
+    const state = this.state;
+    const idx = state.currentPlayer;
+    const goalRow = idx === 0 ? 0 : 8;
+    let move;
+    if (Math.random() < 0.2) {
+      const allMoves = [];
+      const pawnTargets = Shared.getJumpTargets(state, state.players[idx].pos.r, state.players[idx].pos.c);
+      for (const t of pawnTargets) allMoves.push({ type: 'pawn', r: t.r, c: t.c });
+      if (state.players[idx].wallsLeft > 0) {
+        const wallCandidates = [];
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (Shared.checkWallPlacement(state, r, c, true)) {
+              const clone = Shared.cloneState(state); clone.vWalls[r][c] = true;
+              if (Shared.isValidWallPlacement(clone)) wallCandidates.push({ type: 'wall', r, c, isVertical: true });
+            }
+            if (Shared.checkWallPlacement(state, r, c, false)) {
+              const clone = Shared.cloneState(state); clone.hWalls[r][c] = true;
+              if (Shared.isValidWallPlacement(clone)) wallCandidates.push({ type: 'wall', r, c, isVertical: false });
+            }
+          }
+        }
+        for (let i = 0; i < 2 && wallCandidates.length > 0; i++) {
+          const pick = Math.floor(Math.random() * wallCandidates.length);
+          allMoves.push(wallCandidates.splice(pick, 1)[0]);
+        }
+      }
+      if (allMoves.length > 0) move = allMoves[Math.floor(Math.random() * allMoves.length)];
+    }
+    if (!move && typeof AICore !== 'undefined') {
+      move = AICore.think(Shared.cloneState(state), idx, 'medium');
+    }
+    if (!move) {
+      const targets = Shared.getJumpTargets(state, state.players[idx].pos.r, state.players[idx].pos.c);
+      if (targets.length > 0) {
+        let best = null, bestScore = -Infinity;
+        for (const t of targets) {
+          const dist = idx === 0 ? t.r : 8 - t.r;
+          if (t.r === goalRow) { best = t; break; }
+          if ((idx === 0 ? t.r < state.players[idx].pos.r : t.r > state.players[idx].pos.r)) {
+            if (-dist > bestScore) { bestScore = -dist; best = t; }
+          }
+        }
+        if (!best && targets.length > 0) best = targets[0];
+        move = best ? { type: 'pawn', r: best.r, c: best.c } : null;
+      }
+    }
+    if (!move) { this.scheduleNext(); return; }
+    if (move.type === 'pawn') {
+      state.players[idx].pos = { r: move.r, c: move.c };
+      state.currentPlayer = 1 - idx;
+      this.draw();
+      if (move.r === goalRow) {
+        setTimeout(() => { this.reset(); this.draw(); this.scheduleNext(); }, 2000);
+        return;
+      }
+    } else {
+      if (move.isVertical) state.vWalls[move.r][move.c] = true;
+      else state.hWalls[move.r][move.c] = true;
+      state.players[idx].wallsLeft--;
+      state.currentPlayer = 1 - idx;
+      this.draw();
+    }
+    this.scheduleNext();
   },
 
   reset() {
-    this.state.players = [{ pos: { r: 8, c: 4 } }, { pos: { r: 0, c: 4 } }];
+    this.moveIndex = 0;
     this.state.hWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
     this.state.vWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
+    this.state.players[0].pos = { r: 8, c: 4 };
+    this.state.players[1].pos = { r: 0, c: 4 };
+    this.state.players[0].wallsLeft = 10;
+    this.state.players[1].wallsLeft = 10;
+    this.state.currentPlayer = 0;
     this.moveIndex = 0;
   },
 
   startAnimation() {
     if (this.animationInterval) clearInterval(this.animationInterval);
-    this.animationInterval = setInterval(() => this.playNextMove(), 1500);
+    this.animationInterval = setInterval(() => this.playNextMove(), 500);
+  },
+
+  playScenario(name) {
+    if (!this.scenarios[name]) return;
+    if (this.animationInterval) clearInterval(this.animationInterval);
+    this.botMode = false;
+    this.activeScenario = name;
+    this.reset();
+    this.draw();
+    setTimeout(() => this.startAnimation(), 400);
   },
 
   playNextMove() {
-    if (this.moveIndex >= this.demoMoves.length) {
-      this.reset();
-      this.draw();
+    const moves = this.scenarios[this.activeScenario] || this.scenarios.default;
+    if (this.moveIndex >= moves.length) {
+      if (this.botMode || this.activeScenario === 'default') {
+        this.reset();
+        this.draw();
+      } else {
+        clearInterval(this.animationInterval);
+        this.startBotMatch();
+      }
       return;
     }
 
-    const move = this.demoMoves[this.moveIndex];
+    const move = moves[this.moveIndex];
     if (move.type === 'pawn') {
       this.state.players[move.player].pos = { r: move.r, c: move.c };
     } else if (move.type === 'wall') {

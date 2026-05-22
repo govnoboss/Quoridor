@@ -41,9 +41,6 @@ const { RedisStore } = require('connect-redis'); // connect-redis v7+ named expo
 const { createClient } = require('redis');
 const path = require('path');
 
-// Подключаем MongoDB
-connectDB();
-
 const redisSessionClient = createClient({ url: process.env.REDIS_URL });
 redisSessionClient.connect().catch(console.error);
 
@@ -339,16 +336,22 @@ app.use(helmet.contentSecurityPolicy({
     }
 })); // CLOSED Correctly
 
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'file://'
-];
+const allowedOrigins = (() => {
+    const origins = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'file://'
+    ];
+    if (process.env.ALLOWED_ORIGINS) {
+        origins.push(...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()));
+    }
+    return origins;
+})();
 
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || process.env.NODE_ENV === 'production') {
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -372,20 +375,13 @@ if (process.env.SENTRY_DSN) {
 // --- SERVER & SOCKET.IO INITIALIZATION ---
 const server = http.createServer(app);
 
-// Parse allowed origins from env (comma-separated)
-const allowedSocketOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : null;
-
 const io = socketIo(server, {
     cors: {
         origin: (origin, callback) => {
-            // In development, allow all origins
             if (process.env.NODE_ENV !== 'production') {
                 return callback(null, true);
             }
-            // In production, check whitelist
-            if (!origin || (allowedSocketOrigins && allowedSocketOrigins.includes(origin))) {
+            if (!origin || allowedOrigins.indexOf(origin) !== -1) {
                 callback(null, true);
             } else {
                 console.warn(`[CORS] Blocked origin: ${origin}`);
@@ -1446,6 +1442,10 @@ async function cleanupStaleGames() {
 
 async function startServer() {
     try {
+        // Подключаемся к MongoDB
+        await connectDB();
+        console.log('[STARTUP] MongoDB connected successfully');
+
         // Подключаемся к Redis
         await Redis.connect();
         console.log('[STARTUP] Redis connected successfully');
@@ -1463,7 +1463,7 @@ async function startServer() {
 
         });
     } catch (err) {
-        console.error('[STARTUP ERROR] Failed to connect to Redis:', err);
+        console.error('[STARTUP ERROR] Failed to connect:', err);
         process.exit(1);
     }
 }

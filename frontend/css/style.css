@@ -3,6 +3,154 @@
     --board: #252525;
     --wall: #e09f3e;
     --text: #eee;
+    --header-h: 64px;
+}
+
+/* === MAIN HEADER === */
+.main-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 max(20px, 15vw);
+    background: rgba(9, 9, 11, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: 10010;
+}
+
+.main-header.hidden { display: none; }
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-logo {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #e09f3e;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-shadow: 0 2px 10px rgba(224, 159, 62, 0.2);
+}
+
+.header-version {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.2);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+}
+
+.header-lang {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #aaa;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+}
+
+.header-lang:focus {
+    border-color: #e09f3e;
+}
+
+.h-btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.h-btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ccc;
+}
+
+.h-btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+.h-btn-primary {
+    background: #e09f3e;
+    border: 1px solid #e09f3e;
+    color: #000;
+}
+
+.h-btn-primary:hover {
+    background: #ffb74d;
+}
+
+.header-profile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 12px 4px 4px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.2s;
+}
+
+.header-profile:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.header-profile.hidden { display: none; }
+
+#headerUsername {
+    font-weight: 600;
+    color: #fff;
+    font-size: 13px;
+}
+
+.header-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #e09f3e;
+    flex-shrink: 0;
+}
+
+.header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Padding main content for fixed header */
+#mainMenu {
+    padding-top: var(--header-h);
+}
+
+@media (max-width: 768px) {
+    .main-header {
+        height: 56px;
+        padding: 0 12px;
+    }
+    .header-version { display: none; }
+    .header-lang { font-size: 11px; padding: 3px 6px; }
+    .h-btn { font-size: 12px; padding: 6px 12px; }
+    .header-logo { font-size: 1rem; letter-spacing: 2px; }
+    #headerUsername { display: none; }
+    .header-profile { padding: 3px; }
+    .header-avatar { width: 32px; height: 32px; }
 }
 
 *,
@@ -26,9 +174,7 @@ body {
     touch-action: manipulation;
 }
 
-/* Allow selection in rules and future chat */
-.rules-content,
-.rules-content *,
+/* Allow selection in chat */
 #chatbox,
 #chatbox * {
     user-select: text !important;
@@ -680,6 +826,12 @@ canvas {
     background: #ffb74d;
 }
 
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
 /* --- CONFIRMATION MODAL --- */
 .confirm-overlay {
     position: fixed;
@@ -769,98 +921,7 @@ canvas {
     border-color: var(--accent);
 }
 
-/* --- RULES PAGE --- */
-#rulesScreen button:last-of-type {
-    margin-top: 15px;
-    /* Space between rules content and back button */
-    margin-bottom: 10px;
-    /* Safety margin for mobile home indicator */
-}
 
-#rulesScreen {
-    justify-content: flex-start;
-    /* Align content to top */
-    overflow-y: auto;
-    /* Enable scrolling */
-    padding-top: 20px;
-    /* Buffer for top content */
-    padding-bottom: 20px;
-    /* Buffer for back button */
-}
-
-.rules-header {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    margin-bottom: 10px;
-    /* Reduced from 20px */
-    padding: 0 24px;
-    width: 100%;
-    max-width: 500px;
-    box-sizing: border-box;
-}
-
-.rules-header h2 {
-    margin: 0;
-}
-
-/* Obsolete lang-toggle styles removed */
-
-.rules-content {
-    text-align: left;
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 0 24px;
-    box-sizing: border-box;
-}
-
-.rules-section {
-    margin-bottom: 12px;
-    /* Reduced from 25px */
-}
-
-.rules-section h3 {
-    font-size: 1.1rem;
-    margin-bottom: 4px;
-    /* Reduced from 10px */
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.rules-section p {
-    color: var(--text-dim);
-    line-height: 1.4;
-    /* Reduced from 1.6 */
-    margin: 0;
-    overflow-wrap: break-word;
-    hyphens: auto;
-}
-
-.rules-section ul {
-    margin: 6px 0 0 0;
-    /* Reduced from 10px */
-    padding-left: 1.2rem;
-    color: var(--text-dim);
-}
-
-.rules-section li {
-    margin-bottom: 3px;
-    /* Reduced from 8px */
-    line-height: 1.2;
-    /* Reduced from 1.4 */
-}
-
-kbd {
-    background: #333;
-    border: 1px solid #555;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: monospace;
-    font-size: 0.9rem;
-    color: var(--accent);
-}
 
 /* --- MODE SELECTION --- */
 .mode-buttons {
@@ -916,6 +977,52 @@ kbd {
     width: 100%;
     height: 100%;
     gap: 0;
+}
+
+.menu-title {
+    font-size: 3.2rem;
+    font-weight: 900;
+    letter-spacing: 10px;
+    color: #e09f3e;
+    text-transform: uppercase;
+    user-select: none;
+    text-align: center;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(224, 159, 62, 0.5), 0 0 60px rgba(224, 159, 62, 0.2);
+}
+
+.center-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.center-stats-item {
+    text-align: center;
+}
+
+.center-stats-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #4ade80;
+    display: inline;
+}
+
+.center-stats-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline;
+    margin-left: 3px;
+}
+
+.center-stats-divider {
+    width: 1px;
+    height: 14px;
+    background: #444;
 }
 
 .board-preview {
@@ -1196,6 +1303,8 @@ kbd {
         margin-bottom: 0px;
     }
 
+    .menu-title { display: none; }
+
     .board-preview {
         padding: 10px 0;
         width: 100%;
@@ -1216,7 +1325,7 @@ kbd {
         width: 100%;
         max-width: 480px;
         padding: 20px;
-        order: 2;
+        order: 3;
         background: transparent;
         margin: 0;
     }
@@ -1292,7 +1401,6 @@ kbd {
         .board-preview {
             align-items: center;
             padding-left: 20px;
-            /* Reset desktop fixed padding */
         }
 
         #demoBoard {
@@ -1462,7 +1570,7 @@ kbd {
 
     #mainMenu {
         justify-content: flex-start;
-        padding-top: 5px;
+        padding-top: 50px;
     }
 
     /* Modal Sizing Fix */
@@ -1500,6 +1608,12 @@ kbd {
     display: flex;
     align-items: center;
     gap: 15px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.code-box:hover {
+    border-color: var(--wall);
 }
 
 #roomCodeValue {
@@ -1510,20 +1624,6 @@ kbd {
     letter-spacing: 5px;
 }
 
-.copy-btn {
-    background: #333;
-    border: 1px solid #444;
-    padding: 8px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: 0.2s;
-}
-
-.copy-btn:hover {
-    background: #444;
-    transform: scale(1.1);
-}
 
 /* Room Link Styling */
 .link-box {
@@ -1756,31 +1856,6 @@ kbd {
 
 .panel-buttons button:hover {
     background: #4a4a4a;
-}
-
-/* Rules inline panel */
-.rules-content-inline {
-    text-align: left;
-    max-height: 50vh;
-    overflow-y: auto;
-    padding-right: 10px;
-}
-
-.rules-content-inline .rules-section {
-    margin-bottom: 12px;
-}
-
-.rules-content-inline h4 {
-    font-size: 1rem;
-    margin: 0 0 5px 0;
-    color: var(--text);
-}
-
-.rules-content-inline p {
-    margin: 0;
-    color: #aaa;
-    font-size: 0.9rem;
-    line-height: 1.4;
 }
 
 /* Settings inline panel */
