@@ -30,8 +30,8 @@
       <span class="header-logo" onclick="UI.backToMenu()">QUORIDOR</span>
       <span class="header-version">v1.01</span>
       <select id="headerLang" class="header-lang" onchange="UI.changeLanguage(this.value)">
-        <option value="ru" data-i18n="lang_ru">🇷🇺 RU</option>
-        <option value="en" data-i18n="lang_en">🇬🇧 EN</option>
+        <option value="ru" data-i18n="lang_ru">RU</option>
+        <option value="en" data-i18n="lang_en">EN</option>
       </select>
     </div>
     <div class="header-right">
@@ -104,6 +104,7 @@
             другом</button>
           <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="menu_local_game">Локальная игра</button>
           <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">Настройки</button>
+          <button onclick="UI.showDynamicPanel('panelHowToPlay')" data-i18n="menu_howtoplay">Как играть</button>
         </div>
       </div>
 
@@ -120,7 +121,7 @@
 
         <!-- Панель: Играть онлайн -->
         <div id="panelPlayOnline" class="dynamic-content hidden">
-          <h3 data-i18n="panel_play_online_title">🎮 Играть онлайн</h3>
+          <h3 data-i18n="panel_play_online_title">Играть онлайн</h3>
           <div class="panel-buttons">
             <button id="panelRankedBtn" onclick="UI.onRankedClick()" class="primary-btn" data-i18n="panel_play_ranked"
               style="margin-bottom: 10px; width: 100%; background-color: #e09f3e; color: #000;">Рейтинговая</button>
@@ -187,6 +188,29 @@
           </div>
         </div>
 
+        <!-- Панель: Как играть -->
+        <div id="panelHowToPlay" class="dynamic-content hidden">
+          <h3 data-i18n="howto_title">Как играть в Quoridor</h3>
+          <div class="howto-content">
+            <div class="howto-section">
+              <h4 data-i18n="howto_goal_title">Цель игры</h4>
+              <p data-i18n="howto_goal_text">Проведите свою пешку на противоположную сторону доски. Белые стартуют снизу и движутся вверх, чёрные — сверху вниз.</p>
+            </div>
+            <div class="howto-section">
+              <h4 data-i18n="howto_move_title">Ходы</h4>
+              <p data-i18n="howto_move_text">За ход можно либо передвинуть пешку на одну соседнюю клетку (вверх, вниз, влево, вправо), либо поставить стену. Если пешка соперника стоит вплотную, можно перепрыгнуть через неё.</p>
+            </div>
+            <div class="howto-section">
+              <h4 data-i18n="howto_wall_title">Стены</h4>
+              <p data-i18n="howto_wall_text">У каждого игрока по 10 стен. Стены блокируют проход, но нельзя перекрывать единственный путь к цели соперника. Стены ставятся между клетками.</p>
+            </div>
+            <div class="howto-section">
+              <h4 data-i18n="howto_tip_title">Совет</h4>
+              <p data-i18n="howto_tip_text">Стены можно использовать не только для защиты, но и чтобы направить соперника в длинный обход, пока вы сами двигаетесь к цели.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Панель: Настройки -->
         <div id="panelSettings" class="dynamic-content hidden">
           <h3 data-i18n="screen_settings_title">Настройки</h3>
@@ -214,7 +238,7 @@
       <div class="info-panel" id="infoPanel">
         <div class="info-card">
           <div class="info-card-header">
-            <span class="info-icon">🏆</span>
+            <span class="info-icon"></span>
             <h3 data-i18n="info_leaderboard_title">Лидерборд</h3>
           </div>
           <div class="leaderboard" id="leaderboard">
@@ -457,15 +481,15 @@
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
       <h2 id="resultStatus" data-i18n="modal_win">ПОБЕДА</h2>
+      <div class="result-divider"></div>
       <p class="result-reason">
-        <span data-i18n="modal_reason">Причина: </span>
         <span id="resultReasonText"></span>
       </p>
 
       <div id="resultRatingChanges" class="rating-changes"></div>
 
       <div class="result-actions">
-        <button class="primary-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">В меню</button>
+        <button class="result-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">В меню</button>
       </div>
     </div>
   </div>

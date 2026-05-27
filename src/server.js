@@ -16,6 +16,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const app = express();
 app.set('trust proxy', 1);
 
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 Sentry.init({
     dsn: process.env.SENTRY_DSN || '',
     environment: process.env.NODE_ENV || 'development',
@@ -24,8 +28,6 @@ Sentry.init({
 });
 
 app.use(morgan('dev'));
-
-// --- SECURITY MIDDLEWARE ---
 
 app.disable('x-powered-by');
 
@@ -37,24 +39,17 @@ const GameResult = require('./models/GameResult'); // Архив игр
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
-const { RedisStore } = require('connect-redis'); // connect-redis v7+ named export
-const { createClient } = require('redis');
 const path = require('path');
 
-const redisSessionClient = createClient({ url: process.env.REDIS_URL });
-redisSessionClient.connect().catch(console.error);
-
-// Настройка сессий
 const sessionMiddleware = session({
-    store: new RedisStore({ client: redisSessionClient, prefix: "sess:" }),
     secret: process.env.SESSION_SECRET || 'super_secret_quoridor_key_change_me',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production', // true для HTTPS
+        secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        sameSite: 'lax', // Защита от CSRF
-        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 дней
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24 * 7
     }
 });
 
@@ -1442,13 +1437,9 @@ async function cleanupStaleGames() {
 
 async function startServer() {
     try {
-        // Подключаемся к MongoDB
         await connectDB();
-        console.log('[STARTUP] MongoDB connected successfully');
 
-        // Подключаемся к Redis
         await Redis.connect();
-        console.log('[STARTUP] Redis connected successfully');
 
         // Очистка зомби-игр при старте (удаляет только игры с обоими offline игроками)
         await cleanupStaleGames();

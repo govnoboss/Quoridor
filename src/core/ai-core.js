@@ -157,6 +157,37 @@
             return Infinity;
         },
 
+        // Multi-source BFS from all goal-row cells.
+        // Returns a 9x9 grid where map[r][c] = real path distance to goal for playerIdx.
+        // Unlike shortestPathDistance (single value), this map covers every cell,
+        // so generateMoves can compare any target cell without extra BFS calls.
+        pathDistanceMap(state, playerIdx) {
+            const targetRow = playerIdx === 0 ? 0 : 8;
+            const dist = Array.from({ length: 9 }, () => Array(9).fill(Infinity));
+            const queue = [];
+            let head = 0;
+
+            // Seed from every cell on the goal row simultaneously
+            for (let c = 0; c < 9; c++) {
+                dist[targetRow][c] = 0;
+                queue.push({ r: targetRow, c });
+            }
+
+            while (head < queue.length) {
+                const { r, c } = queue[head++];
+                for (const { dr, dc } of this.Shared.DIRECTIONS) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 &&
+                        dist[nr][nc] === Infinity &&
+                        !this.Shared.isWallBetween(state, r, c, nr, nc)) {
+                        dist[nr][nc] = dist[r][c] + 1;
+                        queue.push({ r: nr, c: nc });
+                    }
+                }
+            }
+            return dist;
+        },
+
         evaluate(state, botIdx) {
             const humanIdx = 1 - botIdx;
             const botPos = state.players[botIdx].pos;
@@ -219,6 +250,12 @@
             // Ahead Bonus (Push harder if winning)
             if (dBot < dHuman) score += 50;
 
+            // 6. Mobility Score — penalize being cornered or in a narrow corridor.
+            // Count reachable moves from current position; fewer options = worse position.
+            const botMobility  = this.Shared.getJumpTargets(state, botPos.r,   botPos.c).length;
+            const humanMobility = this.Shared.getJumpTargets(state, humanPos.r, humanPos.c).length;
+            score += (botMobility - humanMobility) * 15;
+
             return score;
         },
 
@@ -240,18 +277,15 @@
             candidates.add('3,4'); candidates.add('4,4');
 
             const oldOppDist = this.shortestPathDistance(state, oppPlayer);
+            const oldMyDist = this.shortestPathDistance(state, forPlayer); // FIX 1: measure own path before wall
             const MAX_WALL_MOVES = 8; // Limit wall moves to reduce BFS calls
 
             for (const posStr of candidates) {
-                if (moves.length >= MAX_WALL_MOVES) break; // Early exit when enough found
-
                 const [rStr, cStr] = posStr.split(',');
                 const r = parseInt(rStr), c = parseInt(cStr);
                 if (r < 0 || r >= 8 || c < 0 || c >= 8) continue;
 
                 const checkAndAddWall = (r, c, isVertical) => {
-                    if (moves.length >= MAX_WALL_MOVES) return; // Early exit
-
                     if (this.Shared.checkWallPlacement(state, r, c, isVertical)) {
                         state.players[forPlayer].wallsLeft--;
                         if (isVertical) state.vWalls[r][c] = true;
@@ -259,12 +293,16 @@
 
                         if (this.Shared.isValidWallPlacement(state)) {
                             const newOppDist = this.shortestPathDistance(state, oppPlayer);
+                            const newMyDist = this.shortestPathDistance(state, forPlayer); // FIX 1: measure own path after wall
 
-                            // HEURISTIC: Use wall only if it increases opponent path
-                            if (newOppDist > oldOppDist) {
+                            // FIX 1: Use wall only if NET gain is positive (helps opponent more than hurts self)
+                            const oppGain = newOppDist - oldOppDist;
+                            const selfCost = newMyDist - oldMyDist;
+                            const netGain = oppGain - selfCost;
+
+                            if (netGain > 0) {
                                 let priority = 50;
-                                const distGain = newOppDist - oldOppDist;
-                                priority += distGain * 80;
+                                priority += netGain * 80; // FIX 1: priority based on net gain, not raw opp gain
 
                                 moves.push({
                                     type: 'wall', r, c, isVertical,
@@ -280,7 +318,11 @@
                 checkAndAddWall(r, c, false);
                 checkAndAddWall(r, c, true);
             }
-            return moves;
+
+            // FIX 4: Sort all candidates by priority, then take top MAX_WALL_MOVES
+            // (previously early-exit by count caused best walls to be missed)
+            moves.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+            return moves.slice(0, MAX_WALL_MOVES);
         },
 
         // Helper for Same Move Check
@@ -313,17 +355,24 @@
             const dBot = this.shortestPathDistance(state, forPlayer);
             const urgencyBonus = dBot <= 3 ? (4 - dBot) * 100 : 0; // dist 1 → +300, dist 2 → +200, dist 3 → +100
 
+            // Build a real path-distance map for the entire board (one BFS, wall-aware).
+            // Used for directionBonus so that a "backward" row move that is the only maze
+            // exit gets a positive bonus instead of a Manhattan penalty.
+            const distMap = this.pathDistanceMap(state, forPlayer);
+            const currentPathDist = distMap[r][c];
+
             for (const target of pawnTargets) {
                 // Higher priority for straight-line jumps (moving towards goal)
                 const isJump = Math.abs(target.r - r) === 2 || Math.abs(target.c - c) === 2 ||
                     (Math.abs(target.r - r) === 1 && Math.abs(target.c - c) === 1);
                 const basePriority = isJump ? 150 : 100;
 
-                // Direction-aware priority: forward moves first, backward moves last
-                const goalRow = forPlayer === 0 ? 0 : 8;
-                const currentDist = Math.abs(r - goalRow);
-                const newDist = Math.abs(target.r - goalRow);
-                const directionBonus = currentDist > newDist ? 50 : (currentDist < newDist ? -30 : 0);
+                // Direction-aware priority based on REAL path distance, not Manhattan row distance.
+                // This ensures moves that navigate through a maze exit are not penalised.
+                const newPathDist = distMap[target.r][target.c];
+                const directionBonus = newPathDist < currentPathDist ? 50
+                                     : newPathDist > currentPathDist ? -30
+                                     : 0;
 
                 moves.push({ type: 'pawn', r: target.r, c: target.c, priority: basePriority + urgencyBonus + directionBonus });
             }
@@ -389,70 +438,9 @@
                 state.hashLow ^= zWallsNew.low;
             }
 
-            // XOR in next turn
-            // Note: currentPlayer updates in shared reducer not here, but search uses local apply.
-            // Wait, applyMove here does NOT update currentPlayer?
-            // Shared.gameReducer does. But AI uses applyMove for internal simulation.
-            // AI loop: applyMove -> recurse(..., maximizing=!maximizing) -> undoMove.
-            // ai-core.js applyMove does NOT flip currentPlayer.
-            // So we just XOR the turn value we just removed? No.
-            // If minimax recursion conceptually changes "simulation perspective", the state hash should reflect "Turn changed".
-            // But state.currentPlayer is NOT changed in this.applyMove (line 276 original).
-            // So state.hash should reflect current player?
-            // The computeStateKey uses state.currentPlayer.
-            // Since this.applyMove doesn't change state.currentPlayer, we should NOT change the hash part related to currentPlayer?
-            // BUT Minimax alternates.
-            // Actually, Zobrist hash includes "Side to move".
-            // If we don't change state.currentPlayer, we shouldn't change that part of hash.
-            // BUT, `minimax` logic implies turn change.
-            // Let's look at `minimax`. It calculates `stateKey` at start.
-            // Then it calls `applyMove`...
-            // It passes `!maximizing` to recursive call.
-            // The state object itself remains "Player X made move M".
-            // If we don't update currentPlayer in state, the hash should match the state.
-            // So we should NOT XOR turn if we don't change state.currentPlayer.
-            // Correct.
-            // Revert Turn XOR lines?
-            // "XOR out current turn" -> If I flip it back at end?
-            // No, wait.
-            // If I change hash component "Turn", then `computeStateKey` will return a hash for "Next Player Turn",
-            // but `state.currentPlayer` still says "This Player".
-            // Conflict.
-            // `computeStateKey` relies on `state.hash`.
-            // If `state` is logically "After Move", it really should be "Next Player's turn".
-            // BUT `ai-core.js` `applyMove` is minimal. It doesn't switch turns.
-            // So I should removed Turn XORing from applyMove/undoMove unless I also switch `state.currentPlayer`.
-            // For now, I will REMOVE Turn XORing from applyMove/undoMove because applyMove does not change turn.
-            // The turn is handled by the search logic `maximizing` param.
-            // WAIT. Transposition Table `key` MUST include side-to-move.
-            // If I arrive at same board position with same walls, but different side to move... (impossible in Quoridor? No, odd/even steps).
-            // Actually, number of moves is implicit in wall count/position? No.
-            // Zobrist usually includes side to move.
-            // Since `applyMove` doesn't change `currentPlayer`, the hash component for `currentPlayer` remains static?
-            // That's wrong.
-            // If needed, I should update `currentPlayer` in `applyMove`.
-            // But `minimax` uses strict `maximizing` flag.
-            // Let's stick to: Hash represents EXACTLY what's in `state`.
-            // If `state` has `currentPlayer=0`, hash has `turn[0]`.
-            // `applyMove` keeps `currentPlayer=0`. Hash keeps `turn[0]`.
-            // Minimax calls `key = computeStateKey`. It uses `turn[0]`.
-            // But wait, Zobrist for TT needs to distinguish positions effectively.
-            // If we do not change turn, is it okay?
-            // Yes, because inside `minimax`, we pass `depth` and `botIdx`.
-            // But TT lookup happens BEFORE we know if it's safe?
-            // `TT.get(stateKey)`.
-            // If I effectively simulated a move, I really *should* be in next player's turn context.
-            // But I'm not updating `state.currentPlayer`.
-            // I'll stick to updating ONLY what changes in `state`.
-            // Walls, Pawns, WallsLeft.
-            // Turn is static in `ai-core` simulation step (it simulates "what if I did this", but it doesn't run full game turn logic).
-            // OK, I'll remove Turn XOR from apply/undo.
-
-            // Wait, I saw "XOR out current turn" in my draft code above.
-            // I will REMOVE it in the actual tool call to stay consistent with `state.currentPlayer` not changing.
-
-            // XOR in/out Pawns & Walls logic remains.
-
+                     // FIX 3: XOR side-to-move so TT distinguishes same board position by different active player
+            state.hashHigh ^= this.zobristTable.turn[playerIdx].high ^ this.zobristTable.turn[1 - playerIdx].high;
+            state.hashLow  ^= this.zobristTable.turn[playerIdx].low  ^ this.zobristTable.turn[1 - playerIdx].low;
         },
 
         undoMove(state, move, playerIdx) {
@@ -497,6 +485,10 @@
                 state.hashHigh ^= zWallsOld.high;
                 state.hashLow ^= zWallsOld.low;
             }
+
+            // FIX 3: Undo side-to-move XOR (XOR is its own inverse, same operation)
+            state.hashHigh ^= this.zobristTable.turn[playerIdx].high ^ this.zobristTable.turn[1 - playerIdx].high;
+            state.hashLow  ^= this.zobristTable.turn[playerIdx].low  ^ this.zobristTable.turn[1 - playerIdx].low;
         },
 
         minimax(state, depth, alpha, beta, maximizing, botIdx) {
@@ -613,18 +605,18 @@
                 return chosen;
             }
 
-            // Loop Detection: track last 4 positions
+            // FIX 2: Loop Detection — robust even when state.history is absent
             const avoidPositions = new Set();
-            if (state.history) {
-                const myMoves = state.history
-                    .filter(h => h.playerIdx === botIdx && h.move.type === 'pawn')
-                    .slice(-4);
-                for (const m of myMoves) {
-                    avoidPositions.add(`${m.move.r},${m.move.c}`);
-                }
-                if (myMoves.length === 0) {
-                    avoidPositions.add(botIdx === 0 ? '8,4' : '0,4');
-                }
+            const historySource = state.history || [];
+            const myMoves = historySource
+                .filter(h => h.playerIdx === botIdx && h.move && h.move.type === 'pawn')
+                .slice(-6); // FIX 2: track last 6 moves (was 4) for wider oscillation detection
+            for (const m of myMoves) {
+                avoidPositions.add(`${m.move.r},${m.move.c}`);
+            }
+            // Always add starting position as a fallback avoid-target
+            if (myMoves.length === 0) {
+                avoidPositions.add(botIdx === 0 ? '8,4' : '0,4');
             }
 
             const timeLimit = 2000;
@@ -657,9 +649,9 @@
                         this.applyMove(state, move, botIdx);
                         let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx);
 
-                        // Penalize loop moves
+                        // FIX 2: Penalize loop moves with stronger penalty (was 500, now 2000)
                         if (move.type === 'pawn' && avoidPositions.has(`${move.r},${move.c}`)) {
-                            score -= 500;
+                            score -= 2000;
                         }
 
                         this.undoMove(state, move, botIdx);
