@@ -315,7 +315,7 @@ function getStore() {
 }
 
 function isMemoryMode() {
-    return memoryStore !== null && memoryStore.isReady();
+    return (!client || !isConnected) && memoryStore !== null && memoryStore.isReady();
 }
 
 // ============================================================
