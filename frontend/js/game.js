@@ -233,7 +233,6 @@ const Game = {
 
     const modal = document.getElementById('resultModal');
     const statusText = document.getElementById('resultStatus');
-    const reasonText = document.getElementById('resultReason');
 
     const reasons = {
       'Goal reached': UI.translate('reason_goal'),
@@ -2124,37 +2123,13 @@ const DemoBoard = {
   },
 
   botTurn() {
+    if (!this.canvas || this.canvas.offsetParent === null) { this.scheduleNext(); return; }
     const state = this.state;
     const idx = state.currentPlayer;
     const goalRow = idx === 0 ? 0 : 8;
     let move;
-    if (Math.random() < 0.2) {
-      const allMoves = [];
-      const pawnTargets = Shared.getJumpTargets(state, state.players[idx].pos.r, state.players[idx].pos.c);
-      for (const t of pawnTargets) allMoves.push({ type: 'pawn', r: t.r, c: t.c });
-      if (state.players[idx].wallsLeft > 0) {
-        const wallCandidates = [];
-        for (let r = 0; r < 8; r++) {
-          for (let c = 0; c < 8; c++) {
-            if (Shared.checkWallPlacement(state, r, c, true)) {
-              const clone = Shared.cloneState(state); clone.vWalls[r][c] = true;
-              if (Shared.isValidWallPlacement(clone)) wallCandidates.push({ type: 'wall', r, c, isVertical: true });
-            }
-            if (Shared.checkWallPlacement(state, r, c, false)) {
-              const clone = Shared.cloneState(state); clone.hWalls[r][c] = true;
-              if (Shared.isValidWallPlacement(clone)) wallCandidates.push({ type: 'wall', r, c, isVertical: false });
-            }
-          }
-        }
-        for (let i = 0; i < 2 && wallCandidates.length > 0; i++) {
-          const pick = Math.floor(Math.random() * wallCandidates.length);
-          allMoves.push(wallCandidates.splice(pick, 1)[0]);
-        }
-      }
-      if (allMoves.length > 0) move = allMoves[Math.floor(Math.random() * allMoves.length)];
-    }
-    if (!move && typeof AICore !== 'undefined') {
-      move = AICore.think(Shared.cloneState(state), idx, 'medium');
+    if (typeof AICore !== 'undefined') {
+      move = AICore.think(Shared.cloneState(state), idx, 'hard', { randomize: true });
     }
     if (!move) {
       const targets = Shared.getJumpTargets(state, state.players[idx].pos.r, state.players[idx].pos.c);
@@ -2174,19 +2149,25 @@ const DemoBoard = {
     if (!move) { this.scheduleNext(); return; }
     if (move.type === 'pawn') {
       state.players[idx].pos = { r: move.r, c: move.c };
-      state.currentPlayer = 1 - idx;
-      this.draw();
-      if (move.r === goalRow) {
-        setTimeout(() => { this.reset(); this.draw(); this.scheduleNext(); }, 2000);
-        return;
-      }
     } else {
       if (move.isVertical) state.vWalls[move.r][move.c] = true;
       else state.hWalls[move.r][move.c] = true;
       state.players[idx].wallsLeft--;
-      state.currentPlayer = 1 - idx;
-      this.draw();
     }
+    state.history.push({ playerIdx: idx, move: { ...move } });
+    state.currentPlayer = 1 - idx;
+    this.draw();
+    if (move.type === 'pawn' && move.r === goalRow) {
+      setTimeout(() => { this.reset(); this.draw(); this.scheduleNext(); }, 2000);
+      return;
+    }
+    this.scheduleNext();
+  },
+
+  startBotMatch() {
+    this.botMode = true;
+    this.reset();
+    this.draw();
     this.scheduleNext();
   },
 
@@ -2199,6 +2180,7 @@ const DemoBoard = {
     this.state.players[0].wallsLeft = 10;
     this.state.players[1].wallsLeft = 10;
     this.state.currentPlayer = 0;
+    this.state.history = [];
     this.moveIndex = 0;
   },
 
@@ -2229,6 +2211,8 @@ const DemoBoard = {
       }
       return;
     }
+
+    if (!this.state.history) this.state.history = [];
 
     const move = moves[this.moveIndex];
     if (move.type === 'pawn') {

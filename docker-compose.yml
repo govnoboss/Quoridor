@@ -1,14 +1,32 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: quoridor-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   app:
     build: .
     container_name: quoridor
     restart: unless-stopped
     ports:
       - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=3000
       - MONGO_URI=${MONGO_URI}
       - SESSION_SECRET=${SESSION_SECRET}
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=redis://redis:6379
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+
+volumes:
+  redis_data:
