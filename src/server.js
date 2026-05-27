@@ -335,6 +335,7 @@ const allowedOrigins = (() => {
     const origins = [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
+        'http://178.105.248.106',
         'file://'
     ];
     if (process.env.ALLOWED_ORIGINS) {
@@ -360,6 +361,7 @@ app.use(cors({
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
+
 
 
 // Sentry error handler (after all routes)
