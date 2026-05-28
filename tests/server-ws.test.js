@@ -360,3 +360,89 @@ describe('Game Flow', () => {
         expect(o1).toEqual(o2);
     });
 });
+
+describe('Rematch', () => {
+    it('both players can request a rematch after game over', async () => {
+        const { sock: p1, captured: c1 } = await connectClient();
+        const t1 = c1.find(e => e.event === 'assignToken').args[0].token;
+        p1.emit('createRoom', { token: t1 });
+        const { roomCode } = await waitForEvent(p1, 'roomCreated');
+
+        const { sock: p2, captured: c2 } = await connectClient();
+        const t2 = c2.find(e => e.event === 'assignToken').args[0].token;
+        p2.emit('joinRoom', { roomCode, token: t2 });
+        const [g1] = await Promise.all([
+            waitForEvent(p1, 'gameStart'),
+            waitForEvent(p2, 'gameStart'),
+        ]);
+        const lobbyId = g1.lobbyId;
+
+        // End the game via surrender
+        const black = g1.color === 'black' ? p1 : p2;
+        black.emit('surrender', { lobbyId });
+        await Promise.all([
+            waitForEvent(p1, 'gameOver'),
+            waitForEvent(p2, 'gameOver'),
+        ]);
+
+        // Both players request rematch
+        p1.emit('requestRematch', { lobbyId, token: t1 });
+        await new Promise(r => setTimeout(r, 100));
+        p2.emit('requestRematch', { lobbyId, token: t2 });
+
+        const [r1, r2] = await Promise.all([
+            waitForEvent(p1, 'rematchStarted'),
+            waitForEvent(p2, 'rematchStarted'),
+        ]);
+
+        expect(r1.lobbyId).toBeDefined();
+        expect(r1.lobbyId).toBe(r2.lobbyId);
+        expect(r1.lobbyId).not.toBe(lobbyId);
+        expect(r1.color === 'white' || r1.color === 'black').toBe(true);
+        expect(r2.color === 'white' || r2.color === 'black').toBe(true);
+        expect(r1.color).not.toBe(r2.color);
+        expect(r1.opponent).toBeDefined();
+        expect(r2.opponent).toBeDefined();
+    });
+
+    it('rematch fails for non-existent lobby', async () => {
+        const { sock, captured } = await connectClient();
+        const token = captured.find(e => e.event === 'assignToken').args[0].token;
+
+        sock.emit('requestRematch', { lobbyId: 'lobby-99999', token });
+        const fail = await waitForEvent(sock, 'rematchFailed');
+        expect(fail.reason).toBeDefined();
+    });
+
+    it('single player requesting rematch does not trigger rematchStarted', async () => {
+        const { sock: p1, captured: c1 } = await connectClient();
+        const t1 = c1.find(e => e.event === 'assignToken').args[0].token;
+        p1.emit('createRoom', { token: t1 });
+        const { roomCode } = await waitForEvent(p1, 'roomCreated');
+
+        const { sock: p2, captured: c2 } = await connectClient();
+        const t2 = c2.find(e => e.event === 'assignToken').args[0].token;
+        p2.emit('joinRoom', { roomCode, token: t2 });
+        const [g1] = await Promise.all([
+            waitForEvent(p1, 'gameStart'),
+            waitForEvent(p2, 'gameStart'),
+        ]);
+        const lobbyId = g1.lobbyId;
+
+        const black = g1.color === 'black' ? p1 : p2;
+        black.emit('surrender', { lobbyId });
+        await Promise.all([
+            waitForEvent(p1, 'gameOver'),
+            waitForEvent(p2, 'gameOver'),
+        ]);
+
+        // Only p1 requests rematch
+        p1.emit('requestRematch', { lobbyId, token: t1 });
+        await new Promise(r => setTimeout(r, 300));
+
+        let gotRematch = false;
+        p1.on('rematchStarted', () => { gotRematch = true; });
+        await new Promise(r => setTimeout(r, 500));
+        expect(gotRematch).toBe(false);
+    });
+});
