@@ -185,7 +185,8 @@ const Game = {
     this.reset();
     this.state.botDifficulty = 'none';
 
-    UI.showPlayAgainBtn(false);
+    UI.showRematchBtn(false);
+    UI.showNewGameBtn(false);
 
     this.myPlayerIndex = playerIdx;
     this.initialTime = initialTime;
