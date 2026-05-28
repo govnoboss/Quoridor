@@ -38,15 +38,23 @@ const GameResult = require('./models/GameResult'); // Архив игр
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const redisPkg = require('redis');
 const session = require('express-session');
+const { RedisStore } = require('connect-redis');
 const path = require('path');
 
+const sessionRedisClient = redisPkg.createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    socket: { connectTimeout: 5000 }
+});
+
 const sessionMiddleware = session({
+    store: new RedisStore({ client: sessionRedisClient }),
     secret: process.env.SESSION_SECRET || 'super_secret_quoridor_key_change_me',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7
@@ -1443,6 +1451,9 @@ async function startServer() {
 
         await Redis.connect();
 
+        await sessionRedisClient.connect();
+        console.log('[STARTUP] Session store (Redis) connected successfully');
+
         // Очистка зомби-игр при старте (удаляет только игры с обоими offline игроками)
         await cleanupStaleGames();
         console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
@@ -1465,12 +1476,14 @@ async function startServer() {
 process.on('SIGTERM', async () => {
     console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
     await Redis.disconnect();
+    await sessionRedisClient.quit();
     process.exit(0);
 });
 
 process.on('SIGINT', async () => {
     console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
     await Redis.disconnect();
+    await sessionRedisClient.quit();
     process.exit(0);
 });
 

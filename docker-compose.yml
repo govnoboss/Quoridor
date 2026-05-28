@@ -27,6 +27,7 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - REDIS_URL=redis://redis:6379
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - SENTRY_DSN=${SENTRY_DSN}
 
 volumes:
   redis_data:
