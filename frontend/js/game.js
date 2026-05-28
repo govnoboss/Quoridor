@@ -637,9 +637,9 @@ const Game = {
     this.stopTimer();
     this.timers = [this.initialTime, this.initialTime];
 
-    // Clear history
     this.state.history = [];
     this.viewHistoryIndex = -1; // Сброс просмотра при ресете
+    this.isGameOver = false; // Сброс флага окончания игры
     this.state.playerProfiles = [null, null];
     if (this.state.gameId) {
       localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
