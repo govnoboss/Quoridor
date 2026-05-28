@@ -279,11 +279,18 @@ const Game = {
 
     modal.classList.remove('hidden');
 
-    // Show "Play Again" button for online games
-    if (typeof Net !== 'undefined' && Net.lastGameLobbyId) {
-      UI.showPlayAgainBtn(true);
+    // Show rematch + new game buttons for online games
+    const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
+    if (isOnlineGame) {
+      UI.showRematchBtn(true);
+      if (Net.lastTimeControl) {
+        UI.showNewGameBtn(true);
+      } else {
+        UI.showNewGameBtn(false);
+      }
     } else {
-      UI.showPlayAgainBtn(false);
+      UI.showRematchBtn(false);
+      UI.showNewGameBtn(false);
     }
 
     // Rating changes display
@@ -334,11 +341,13 @@ const Game = {
     this.stopTimer();
     this.isGameOver = false;
 
-    // 3. Clear rematch state
+    // 3. Clear rematch / new game state
     if (typeof Net !== 'undefined') {
       Net.lastGameLobbyId = null;
+      Net.lastTimeControl = null;
     }
-    UI.showPlayAgainBtn(false);
+    UI.showRematchBtn(false);
+    UI.showNewGameBtn(false);
 
     // 4. Возвращаемся в меню через UI
     if (typeof UI !== 'undefined') {
