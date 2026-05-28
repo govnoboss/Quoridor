@@ -5,6 +5,7 @@ const Net = {
     lobbyId: null,     // ID комнаты
     myPlayerIndex: -1,
     playerToken: null, // Токен игрока для переподключения
+    lastGameLobbyId: null, // LobbyId последней завершенной игры (для реванша)
 
     init() {
         // 1. Пытаемся получить сохраненный токен
@@ -106,11 +107,37 @@ const Net = {
             // Если мы уже не в игре или в главном меню, игнорируем (защита от поздних событий)
             if (!this.lobbyId && !Game.isOnlineGame) return;
 
+            // Save lobbyId for rematch
+            this.lastGameLobbyId = this.lobbyId;
+
             this.isOnline = false;
             this.lobbyId = null;
             this.myColor = null;
 
             Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
+        });
+
+        this.socket.on('rematchStarted', (data) => {
+            console.log(`[NET] Реванш начался! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
+            this.isOnline = true;
+            this.myColor = data.color;
+            this.lobbyId = data.lobbyId;
+            this.myPlayerIndex = data.color === 'white' ? 0 : 1;
+            this.lastGameLobbyId = null;
+            UI.hideSearch(false);
+            UI.currentRoomCode = null;
+            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
+        });
+
+        this.socket.on('rematchFailed', (data) => {
+            console.log('[NET] Реванш не удался:', data.reason);
+            UI.showToast(data.reason, 'error');
+            UI.showPlayAgainBtn(true);
+        });
+
+        this.socket.on('opponentWantsRematch', () => {
+            console.log('[NET] Противник хочет реванш!');
+            UI.showToast(UI.translate('toast_opponent_wants_rematch') || 'Opponent wants a rematch!', 'info', 5000);
         });
         this.socket.on('serverMove', (data) => {
             Game.applyServerMove(data);
@@ -186,6 +213,14 @@ const Net = {
             lobbyId: this.lobbyId,
             move: moveData
         });
+    },
+
+    requestRematch() {
+        if (this.lastGameLobbyId) {
+            console.log('[NET] Requesting rematch for lobby:', this.lastGameLobbyId);
+            this.socket.emit('requestRematch', { lobbyId: this.lastGameLobbyId, token: this.playerToken });
+            UI.showPlayAgainBtn(false);
+        }
     },
 
     createRoom() {

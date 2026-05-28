@@ -62,6 +62,8 @@ const UI = {
       reason_surrender: "Противник сдался",
       reason_disconnected: "Противник покинул игру",
       btn_to_menu: "В меню",
+      btn_play_again: "Играть снова",
+      toast_opponent_wants_rematch: "Противник хочет реванш!",
       disconnect_title: "Соединение разорвано",
       disconnect_msg: "Вы открыли игру в другой вкладке или окне.<br>Эта сессия была завершена.",
       btn_reconnect: "Вернуться в игру (Reconnect)",
@@ -202,6 +204,8 @@ const UI = {
       reason_surrender: "Opponent surrendered",
       reason_disconnected: "Opponent disconnected",
       btn_to_menu: "To Menu",
+      btn_play_again: "Play Again",
+      toast_opponent_wants_rematch: "Opponent wants a rematch!",
       disconnect_title: "Connection Lost",
       disconnect_msg: "You opened the game in another tab or window.<br>This session has ended.",
       btn_reconnect: "Return to Game (Reconnect)",
@@ -572,6 +576,17 @@ const UI = {
     // Возвращаемся в меню выбора времени или просто закрываем панель
     // Всегда закрываем панель поиска и возвращаемся в меню
     this.hideDynamicPanel();
+  },
+
+  showPlayAgainBtn(show) {
+    const btn = document.getElementById('playAgainBtn');
+    if (btn) {
+      if (show) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
   },
 
   renderHistory(history, currentViewIndex = -1) {

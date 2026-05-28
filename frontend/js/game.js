@@ -185,6 +185,8 @@ const Game = {
     this.reset();
     this.state.botDifficulty = 'none';
 
+    UI.showPlayAgainBtn(false);
+
     this.myPlayerIndex = playerIdx;
     this.initialTime = initialTime;
     this.timers = [initialTime, initialTime];
@@ -277,6 +279,13 @@ const Game = {
 
     modal.classList.remove('hidden');
 
+    // Show "Play Again" button for online games
+    if (typeof Net !== 'undefined' && Net.lastGameLobbyId) {
+      UI.showPlayAgainBtn(true);
+    } else {
+      UI.showPlayAgainBtn(false);
+    }
+
     // Rating changes display
     const ratingContainer = document.getElementById('resultRatingChanges');
     if (ratingContainer) {
@@ -325,7 +334,13 @@ const Game = {
     this.stopTimer();
     this.isGameOver = false;
 
-    // 3. Возвращаемся в меню через UI
+    // 3. Clear rematch state
+    if (typeof Net !== 'undefined') {
+      Net.lastGameLobbyId = null;
+    }
+    UI.showPlayAgainBtn(false);
+
+    // 4. Возвращаемся в меню через UI
     if (typeof UI !== 'undefined') {
       UI.backToMenu();
     }

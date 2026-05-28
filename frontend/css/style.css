@@ -2668,6 +2668,18 @@ canvas {
     transform: scale(0.97);
 }
 
+.result-btn.primary {
+    background: #e09f3e;
+    color: #000;
+    border-color: #e09f3e;
+    opacity: 1;
+}
+
+.result-btn.primary:hover {
+    background: #d48f2e;
+    transform: scale(1.05);
+}
+
 .result-reason {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.55);

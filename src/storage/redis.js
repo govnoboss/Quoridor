@@ -13,19 +13,21 @@ const TTL = {
     GAME: 2 * 60 * 60,
     TOKEN_MAPPING: 2 * 60 * 60,
     ROOM: 30 * 60,
+    REMATCH: 5 * 60,
 };
 
 const KEYS = {
     GAME: (lobbyId) => `game:${lobbyId}`,
     TOKEN: (token) => `token:${token}`,
     ROOM: (code) => `room:${code}`,
-    QUEUE: (base, inc, isRanked) => `queue:${isRanked ? 'ranked' : 'casual'}:${base}:${inc}`,
-    LOBBY_COUNTER: 'global:lobby_id',
-    ACTIVE_GAMES: 'global:active_games',
-    DISCONNECT_TIMERS: 'timers:disconnect',
-    TURN_TIMEOUTS: 'timers:turn',
-    TOKEN_USER_MAP: 'token:user:',
-};
+        QUEUE: (base, inc, isRanked) => `queue:${isRanked ? 'ranked' : 'casual'}:${base}:${inc}`,
+        LOBBY_COUNTER: 'global:lobby_id',
+        ACTIVE_GAMES: 'global:active_games',
+        DISCONNECT_TIMERS: 'timers:disconnect',
+        TURN_TIMEOUTS: 'timers:turn',
+        TOKEN_USER_MAP: 'token:user:',
+        REMATCH: (lobbyId) => `rematch:${lobbyId}`,
+    };
 
 // ============================================================
 // IN-MEMORY STORE (fallback when Redis is unavailable)
@@ -42,6 +44,7 @@ class MemoryStore {
         this.disconnectTimers = new Map();
         this.turnTimeouts = new Map();
         this.tokenUserMapping = new Map();
+        this.rematchContexts = new Map();
         this.lobbyCounter = 0;
         this.connected = false;
     }
@@ -221,6 +224,24 @@ class MemoryStore {
             if (time <= now) expired.push(lobbyId);
         }
         return expired;
+    }
+
+    saveRematchContext(lobbyId, context) {
+        this.rematchContexts.set(lobbyId, { ...context, createdAt: Date.now() });
+    }
+
+    getRematchContext(lobbyId) {
+        const ctx = this.rematchContexts.get(lobbyId);
+        if (!ctx) return null;
+        if (Date.now() - ctx.createdAt > TTL.REMATCH * 1000) {
+            this.rematchContexts.delete(lobbyId);
+            return null;
+        }
+        return ctx;
+    }
+
+    deleteRematchContext(lobbyId) {
+        this.rematchContexts.delete(lobbyId);
     }
 
     setTokenUserMapping(token, userId) {
@@ -574,6 +595,35 @@ async function getExpiredTurnTimeouts() {
     return await store.zRangeByScore(KEYS.TURN_TIMEOUTS, 0, now);
 }
 
+async function saveRematchContext(lobbyId, context) {
+    const store = getStore();
+    if (!store) return;
+    if (isMemoryMode()) return store.saveRematchContext(lobbyId, context);
+    const data = { ...context, createdAt: Date.now() };
+    await store.setEx(KEYS.REMATCH(lobbyId), TTL.REMATCH, JSON.stringify(data));
+}
+
+async function getRematchContext(lobbyId) {
+    const store = getStore();
+    if (!store) return null;
+    if (isMemoryMode()) return store.getRematchContext(lobbyId);
+    const data = await store.get(KEYS.REMATCH(lobbyId));
+    if (!data) return null;
+    const ctx = JSON.parse(data);
+    if (Date.now() - ctx.createdAt > TTL.REMATCH * 1000) {
+        await store.del(KEYS.REMATCH(lobbyId));
+        return null;
+    }
+    return ctx;
+}
+
+async function deleteRematchContext(lobbyId) {
+    const store = getStore();
+    if (!store) return;
+    if (isMemoryMode()) return store.deleteRematchContext(lobbyId);
+    await store.del(KEYS.REMATCH(lobbyId));
+}
+
 async function setTokenUserMapping(token, userId) {
     const store = getStore();
     if (!store) return;
@@ -642,6 +692,10 @@ module.exports = {
     setTokenUserMapping,
     getUserIdByToken,
     deleteTokenUserMapping,
+
+    saveRematchContext,
+    getRematchContext,
+    deleteRematchContext,
 
     TTL,
     KEYS,

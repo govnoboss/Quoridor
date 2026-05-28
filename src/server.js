@@ -1074,6 +1074,50 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('requestRematch', async (data) => {
+        const lobbyId = data?.lobbyId;
+        const token = data?.token || socket.playerToken;
+        if (!lobbyId || !token) {
+            socket.emit('rematchFailed', { reason: 'Invalid request' });
+            return;
+        }
+
+        try {
+            const rematchCtx = await Redis.getRematchContext(lobbyId);
+            if (!rematchCtx) {
+                socket.emit('rematchFailed', { reason: 'Game not found for rematch' });
+                return;
+            }
+
+            if (!rematchCtx.playerTokens.includes(token)) {
+                socket.emit('rematchFailed', { reason: 'Not a player in this game' });
+                return;
+            }
+
+            if (!rematchCtx.rematchRequests.includes(token)) {
+                rematchCtx.rematchRequests.push(token);
+            }
+
+            if (rematchCtx.rematchRequests.length >= 2) {
+                await startRematchGame(lobbyId, rematchCtx);
+                await Redis.deleteRematchContext(lobbyId);
+            } else {
+                await Redis.saveRematchContext(lobbyId, rematchCtx);
+                const otherSocketId = rematchCtx.playerSockets[
+                    rematchCtx.playerTokens.indexOf(
+                        rematchCtx.playerTokens.find(t => t !== token)
+                    )
+                ];
+                if (otherSocketId) {
+                    io.to(otherSocketId).emit('opponentWantsRematch');
+                }
+            }
+        } catch (err) {
+            console.error('[REMATCH ERROR]', err);
+            socket.emit('rematchFailed', { reason: 'Server error' });
+        }
+    });
+
     socket.on('disconnect', async () => {
         // console.log(`[SOCKET] User disconnected: ${socket.id}`);
 
@@ -1304,6 +1348,17 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
             } : null
         });
 
+        // Save rematch context before deleting game data
+        const rematchCtx = {
+            playerTokens: game.playerTokens,
+            playerSockets: game.playerSockets,
+            playerProfiles: game.playerProfiles,
+            timeControl: game.timeControl || { base: 600, inc: 0 },
+            isRanked: !!game.isRanked,
+            rematchRequests: []
+        };
+        await Redis.saveRematchContext(lobbyId, rematchCtx);
+
         await Redis.deleteGame(lobbyId);
         await Redis.removeActiveGame(lobbyId);
         if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
@@ -1311,6 +1366,61 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     }
 }
 
+
+async function startRematchGame(oldLobbyId, rematchCtx) {
+    const swap = true;
+    const p1 = { socketId: rematchCtx.playerSockets[swap ? 1 : 0], token: rematchCtx.playerTokens[swap ? 1 : 0] };
+    const p2 = { socketId: rematchCtx.playerSockets[swap ? 0 : 1], token: rematchCtx.playerTokens[swap ? 0 : 1] };
+
+    const s1 = io.sockets.sockets.get(p1.socketId);
+    const s2 = io.sockets.sockets.get(p2.socketId);
+
+    if (!s1 || !s2) {
+        if (s1) s1.emit('rematchFailed', { reason: 'Opponent disconnected' });
+        if (s2) s2.emit('rematchFailed', { reason: 'Opponent disconnected' });
+        return;
+    }
+
+    const nextId = await Redis.incrementLobbyCounter();
+    const lobbyId = `lobby-${nextId}`;
+
+    const gameState = Shared.createInitialState(rematchCtx.timeControl, rematchCtx.isRanked);
+    gameState.playerSockets[0] = p1.socketId;
+    gameState.playerSockets[1] = p2.socketId;
+    gameState.playerTokens[0] = p1.token;
+    gameState.playerTokens[1] = p2.token;
+    gameState.playerProfiles[0] = rematchCtx.playerProfiles[swap ? 1 : 0];
+    gameState.playerProfiles[1] = rematchCtx.playerProfiles[swap ? 0 : 1];
+
+    await Redis.saveGame(lobbyId, gameState);
+    await Redis.addActiveGame(lobbyId);
+
+    const timeoutAt = Date.now() + gameState.timers[0] * 1000;
+    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+
+    await Redis.setTokenMapping(p1.token, lobbyId);
+    await Redis.setTokenMapping(p2.token, lobbyId);
+
+    s1.join(lobbyId);
+    s2.join(lobbyId);
+
+    s1.emit('rematchStarted', {
+        lobbyId,
+        color: 'white',
+        opponent: gameState.playerProfiles[1],
+        me: gameState.playerProfiles[0],
+        initialTime: gameState.timers[0]
+    });
+    s2.emit('rematchStarted', {
+        lobbyId,
+        color: 'black',
+        opponent: gameState.playerProfiles[0],
+        me: gameState.playerProfiles[1],
+        initialTime: gameState.timers[1]
+    });
+
+    console.log(`[REMATCH] New game ${lobbyId} from rematch of ${oldLobbyId}`);
+}
 
 const PORT = process.env.PORT || 3000;
 
