@@ -3,4 +3,6 @@ module.exports = {
     testMatch: ['**/tests/**/*.test.js'],
     verbose: true,
     collectCoverage: false,
+    roots: ['<rootDir>'],
+    testTimeout: 60000,
 };

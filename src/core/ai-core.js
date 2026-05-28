@@ -441,6 +441,7 @@
                      // FIX 3: XOR side-to-move so TT distinguishes same board position by different active player
             state.hashHigh ^= this.zobristTable.turn[playerIdx].high ^ this.zobristTable.turn[1 - playerIdx].high;
             state.hashLow  ^= this.zobristTable.turn[playerIdx].low  ^ this.zobristTable.turn[1 - playerIdx].low;
+            state.currentPlayer = 1 - state.currentPlayer;
         },
 
         undoMove(state, move, playerIdx) {
@@ -489,6 +490,7 @@
             // FIX 3: Undo side-to-move XOR (XOR is its own inverse, same operation)
             state.hashHigh ^= this.zobristTable.turn[playerIdx].high ^ this.zobristTable.turn[1 - playerIdx].high;
             state.hashLow  ^= this.zobristTable.turn[playerIdx].low  ^ this.zobristTable.turn[1 - playerIdx].low;
+            state.currentPlayer = 1 - state.currentPlayer;
         },
 
         minimax(state, depth, alpha, beta, maximizing, botIdx) {
