@@ -27,7 +27,7 @@ Sentry.init({
     enabled: !!process.env.SENTRY_DSN,
 });
 
-app.use(morgan('dev'));
+if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 app.disable('x-powered-by');
 
@@ -54,7 +54,7 @@ const sessionMiddleware = session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: true,
+        secure: process.env.NODE_ENV !== 'test',
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7
@@ -421,19 +421,15 @@ if (process.env.SOCKET_ADMIN_USERNAME && process.env.SOCKET_ADMIN_PASSWORD) {
 const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
 io.use(wrap(sessionMiddleware));
 
-// Socket Auth Middleware
 io.use((socket, next) => {
     const session = socket.request.session;
     if (session && session.userId) {
         socket.userId = session.userId;
         socket.username = session.username;
-        console.log(`[SOCKET] Authenticated user connected: ${socket.username}`);
     }
-
     if (!socket.userId) {
         socket.username = `Guest-${socket.id.substr(0, 4)}`;
     }
-
     next();
 });
 
@@ -812,7 +808,7 @@ io.on('connection', (socket) => {
                     sWhite.join(lobbyId);
                     sBlack.join(lobbyId);
 
-                    const gameState = createInitialState({ base: 600, inc: 0 }); // Default for private rooms
+                    const gameState = Shared.createInitialState({ base: 600, inc: 0 }); // Default for private rooms
                     gameState.playerSockets[0] = whitePlayer.socketId;
                     gameState.playerSockets[1] = blackPlayer.socketId;
                     gameState.playerTokens[0] = whitePlayer.token;
@@ -1318,8 +1314,8 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
 
 const PORT = process.env.PORT || 3000;
 
-// Оптимизированный интервал проверки таймеров
-setInterval(async () => {
+// Оптимизированный интервал проверки таймеров (не в тестах)
+if (process.env.NODE_ENV !== 'test') setInterval(async () => {
     try {
         // 1. Проверяем просроченные дисконнекты
         const expiredDisconnects = await Redis.getExpiredDisconnectTimers();
@@ -1382,8 +1378,8 @@ setInterval(async () => {
     }
 }, 1000);
 
-// Broadcast online stats to all clients every 5 seconds
-setInterval(async () => {
+// Broadcast online stats to all clients every 5 seconds (не в тестах)
+if (process.env.NODE_ENV !== 'test') setInterval(async () => {
     try {
         const gameIds = await Redis.getActiveGameIds();
         io.emit('onlineStats', {
@@ -1487,5 +1483,10 @@ process.on('SIGINT', async () => {
     process.exit(0);
 });
 
-// Запуск!
-startServer();
+// Экспорт для тестов
+module.exports = { app, server, io, startServer };
+
+// Запуск (если не тесты)
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
