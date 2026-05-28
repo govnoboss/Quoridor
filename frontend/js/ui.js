@@ -30,6 +30,11 @@ const UI = {
       pname_you: "Вы",
       pname_white: "Белый",
       pname_black: "Черный",
+      info_online_list_title: "Онлайн",
+      info_games_list_title: "Матчи",
+      presence_empty: "Пока никого",
+      presence_no_games: "Нет активных партий",
+      presence_bot_tag: "бот",
       info_leaderboard_title: "Лидеры",
       info_hint: "Рейтинг обновляется в реальном времени",
       screen_mode_title: "Выберите режим",
@@ -173,6 +178,11 @@ const UI = {
       pname_you: "You",
       pname_white: "White",
       pname_black: "Black",
+      info_online_list_title: "Online",
+      info_games_list_title: "Live games",
+      presence_empty: "Nobody here yet",
+      presence_no_games: "No active games",
+      presence_bot_tag: "bot",
       info_leaderboard_title: "Leaderboard",
       info_hint: "Ratings update in real-time",
       screen_mode_title: "Choose Mode",
@@ -295,12 +305,84 @@ const UI = {
     }
   },
 
-  // Function to update online stats display
-  updateOnlineStats(online, playing) {
+  escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  },
+
+  escapeJsString(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  },
+
+  // Function to update online stats display and presence lists
+  updateOnlineStats(data) {
+    const payload = (typeof data === 'object' && data !== null)
+      ? data
+      : { online: data, playing: arguments[1] || 0 };
+
     const onlineEl = document.getElementById('statsOnlineCount');
     const playingEl = document.getElementById('statsPlayingCount');
-    if (onlineEl) onlineEl.textContent = online || 0;
-    if (playingEl) playingEl.textContent = playing || 0;
+    if (onlineEl) onlineEl.textContent = payload.online || 0;
+    if (playingEl) playingEl.textContent = payload.playing || 0;
+
+    this.renderPresenceLists(payload);
+  },
+
+  renderPresenceLists(data) {
+    const onlineList = document.getElementById('onlinePlayersList');
+    const gamesList = document.getElementById('liveGamesList');
+    if (!onlineList || !gamesList) return;
+
+    const entries = [
+      ...(data.humans || []),
+      ...(data.bots || []),
+    ];
+
+    // Filter out admin-botops
+    const filteredEntries = entries.filter(entry => entry.name !== 'admin-botops');
+
+    // Sort: authenticated users (not starting with Guest-) on top, guests below
+    filteredEntries.sort((a, b) => {
+      const aIsGuest = a.name.startsWith('Guest-');
+      const bIsGuest = b.name.startsWith('Guest-');
+      if (aIsGuest && !bIsGuest) return 1;
+      if (!aIsGuest && bIsGuest) return -1;
+      return 0;
+    });
+
+    if (!filteredEntries.length) {
+      onlineList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_empty'))}</li>`;
+    } else {
+      onlineList.innerHTML = filteredEntries.map((entry) => {
+        const queue = entry.inQueue ? '<span class="presence-queue">…</span>' : '';
+        return `<li class="presence-row" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
+          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${queue}
+        </li>`;
+      }).join('');
+    }
+
+    const games = data.liveGames || [];
+    // Filter out games with admin-botops
+    const filteredGames = games.filter(game => 
+      game.players[0].name !== 'admin-botops' && game.players[1].name !== 'admin-botops'
+    );
+
+    if (!filteredGames.length) {
+      gamesList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_no_games'))}</li>`;
+    } else {
+      gamesList.innerHTML = filteredGames.map((game) => {
+        const left = game.players[0];
+        const right = game.players[1];
+        return `<li class="presence-game">
+          <span onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
+          <span class="presence-vs">vs</span>
+          <span onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
+        </li>`;
+      }).join('');
+    }
   },
 
   showScreen(id) {
@@ -1515,15 +1597,18 @@ UI.loadLeaderboard = async function () {
     const container = document.getElementById('leaderboard');
     if (!container) return;
 
-    if (players.length === 0) {
+    // Filter out admin-botops
+    const filteredPlayers = players.filter(p => p.username !== 'admin-botops');
+
+    if (filteredPlayers.length === 0) {
       container.innerHTML = '<div class="leaderboard-row" style="justify-content: center; color: #888;">No players yet</div>';
       return;
     }
 
-    container.innerHTML = players.map((p, i) => `
-            <div class="leaderboard-row" onclick="UI.showProfilePage('${p.username}')">
+    container.innerHTML = filteredPlayers.map((p, i) => `
+            <div class="leaderboard-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">
                 <span class="rank">${i + 1}</span>
-                <span class="name">${p.username}</span>
+                <span class="name">${UI.escapeHtml(p.username)}</span>
                 <span class="score">${p.rating}</span>
             </div>
         `).join('');
