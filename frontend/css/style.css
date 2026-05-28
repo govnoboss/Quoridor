@@ -2638,9 +2638,25 @@ canvas {
     color: #ef4444;
 }
 
-/* Result action button */
+/* Result action buttons */
 .result-actions {
-    margin-top: 4px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.result-actions .result-btn {
+    width: 100%;
+}
+
+.result-secondary-row {
+    display: flex;
+    gap: 8px;
+}
+
+.result-secondary-row .result-btn {
+    flex: 1;
 }
 
 .result-btn {

@@ -62,7 +62,8 @@ const UI = {
       reason_surrender: "Противник сдался",
       reason_disconnected: "Противник покинул игру",
       btn_to_menu: "В меню",
-      btn_play_again: "Играть снова",
+      btn_rematch: "Реванш",
+      btn_new_game: "Новая игра",
       toast_opponent_wants_rematch: "Противник хочет реванш!",
       disconnect_title: "Соединение разорвано",
       disconnect_msg: "Вы открыли игру в другой вкладке или окне.<br>Эта сессия была завершена.",
@@ -203,8 +204,9 @@ const UI = {
       reason_timeout: "Time out",
       reason_surrender: "Opponent surrendered",
       reason_disconnected: "Opponent disconnected",
-      btn_to_menu: "To Menu",
-      btn_play_again: "Play Again",
+      btn_to_menu: "Exit",
+      btn_rematch: "Rematch",
+      btn_new_game: "New Game",
       toast_opponent_wants_rematch: "Opponent wants a rematch!",
       disconnect_title: "Connection Lost",
       disconnect_msg: "You opened the game in another tab or window.<br>This session has ended.",
@@ -578,8 +580,19 @@ const UI = {
     this.hideDynamicPanel();
   },
 
-  showPlayAgainBtn(show) {
-    const btn = document.getElementById('playAgainBtn');
+  showRematchBtn(show) {
+    const btn = document.getElementById('rematchBtn');
+    if (btn) {
+      if (show) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+  },
+
+  showNewGameBtn(show) {
+    const btn = document.getElementById('newGameBtn');
     if (btn) {
       if (show) {
         btn.classList.remove('hidden');

@@ -6,6 +6,8 @@ const Net = {
     myPlayerIndex: -1,
     playerToken: null, // Токен игрока для переподключения
     lastGameLobbyId: null, // LobbyId последней завершенной игры (для реванша)
+    lastTimeControl: null, // {base, inc} последнего поиска (для New Game)
+    lastIsRanked: false,   // флаг ranked последнего поиска
 
     init() {
         // 1. Пытаемся получить сохраненный токен
@@ -119,6 +121,9 @@ const Net = {
 
         this.socket.on('rematchStarted', (data) => {
             console.log(`[NET] Реванш начался! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
+            // Close result modal if still open
+            const modal = document.getElementById('resultModal');
+            if (modal) modal.classList.add('hidden');
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = data.lobbyId;
@@ -132,12 +137,14 @@ const Net = {
         this.socket.on('rematchFailed', (data) => {
             console.log('[NET] Реванш не удался:', data.reason);
             UI.showToast(data.reason, 'error');
-            UI.showPlayAgainBtn(true);
+            UI.showRematchBtn(true);
         });
 
         this.socket.on('opponentWantsRematch', () => {
             console.log('[NET] Противник хочет реванш!');
             UI.showToast(UI.translate('toast_opponent_wants_rematch') || 'Opponent wants a rematch!', 'info', 5000);
+            // Re-enable rematch button in case it was disabled
+            UI.showRematchBtn(true);
         });
         this.socket.on('serverMove', (data) => {
             Game.applyServerMove(data);
@@ -194,9 +201,11 @@ const Net = {
 
     findGame(timeData, isRanked) {
         // isRanked passed from UI
+        this.lastTimeControl = timeData;
+        this.lastIsRanked = !!isRanked;
         this.socket.emit('findGame', {
             token: this.playerToken,
-            timeControl: timeData, // { base: seconds, inc: seconds }
+            timeControl: timeData,
             isRanked: !!isRanked
         });
         console.log('[NET] Ищу игру с контролем:', timeData, 'Ranked:', isRanked);
@@ -219,8 +228,26 @@ const Net = {
         if (this.lastGameLobbyId) {
             console.log('[NET] Requesting rematch for lobby:', this.lastGameLobbyId);
             this.socket.emit('requestRematch', { lobbyId: this.lastGameLobbyId, token: this.playerToken });
-            UI.showPlayAgainBtn(false);
+            UI.showRematchBtn(false);
         }
+    },
+
+    startNewGame() {
+        const modal = document.getElementById('resultModal');
+        if (modal) modal.classList.add('hidden');
+        UI.showNewGameBtn(false);
+        UI.showRematchBtn(false);
+
+        if (!this.lastTimeControl) return;
+
+        if (this.lastIsRanked && !UI.currentUser) {
+            UI.showToast(UI.translate('toast_ranked_requires_login') || 'Login required for ranked', 'warning');
+            UI.openAuthModal();
+            return;
+        }
+
+        UI.backToMenu();
+        UI.showSearch(this.lastTimeControl, this.lastIsRanked);
     },
 
     createRoom() {
