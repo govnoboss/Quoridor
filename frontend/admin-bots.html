@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quoridor Admin: Bots</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 180px;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .row label {
+            color: var(--muted);
+        }
+        input[type="number"], input[type="password"] {
+            width: 100%;
+            background: #0b1220;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            box-sizing: border-box;
+        }
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            justify-self: start;
+        }
+        button {
+            background: var(--accent);
+            color: #1f2937;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        button.secondary {
+            background: #64748b;
+            color: #fff;
+        }
+        .status {
+            min-height: 20px;
+            margin: 10px 0;
+            color: var(--muted);
+        }
+        .status.ok { color: var(--ok); }
+        .status.error { color: var(--danger); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            padding: 8px 6px;
+            font-size: 14px;
+        }
+        .meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bot Control Panel</h1>
+        <div id="authError" class="panel hidden">
+            <h2>Доступ закрыт</h2>
+            <p class="meta">Нужна авторизованная админ-сессия на этом же домене.</p>
+        </div>
+
+        <div id="mainContent" class="hidden">
+            <div class="panel">
+                <h2>Runtime</h2>
+                <div id="runtime" class="meta">-</div>
+            </div>
+
+            <div class="panel">
+                <h2>Настройки ботов</h2>
+                <div class="row"><label for="enabled">BOTS_ENABLED</label><input id="enabled" type="checkbox"></div>
+                <div class="row"><label for="rankedEnabled">BOT_RANKED_ENABLED</label><input id="rankedEnabled" type="checkbox"></div>
+                <div class="row"><label for="fallbackMinWaitMs">BOT_FALLBACK_MIN_WAIT_MS</label><input id="fallbackMinWaitMs" type="number" min="0"></div>
+                <div class="row"><label for="fallbackMaxWaitMs">BOT_FALLBACK_MAX_WAIT_MS</label><input id="fallbackMaxWaitMs" type="number" min="0"></div>
+                <div class="row"><label for="maxActiveGames">BOT_MAX_ACTIVE_GAMES</label><input id="maxActiveGames" type="number" min="0"></div>
+                <div class="row"><label for="moveMinDelayMs">BOT_MOVE_MIN_DELAY_MS</label><input id="moveMinDelayMs" type="number" min="0"></div>
+                <div class="row"><label for="moveMaxDelayMs">BOT_MOVE_MAX_DELAY_MS</label><input id="moveMaxDelayMs" type="number" min="0"></div>
+                <div class="row"><label for="maxRecentMatches">BOT_MAX_RECENT_MATCHES</label><input id="maxRecentMatches" type="number" min="0"></div>
+                <div class="row"><label for="recentWindowMs">BOT_RECENT_WINDOW_MS</label><input id="recentWindowMs" type="number" min="60000"></div>
+                <div class="status" id="settingsStatus"></div>
+                <button id="saveSettingsBtn">Сохранить настройки</button>
+                <button id="reloadBtn" class="secondary">Обновить</button>
+            </div>
+
+            <div class="panel">
+                <h2>Seed bot-аккаунтов</h2>
+                <div class="row">
+                    <label for="seedPassword">Пароль для новых аккаунтов (опционально)</label>
+                    <input id="seedPassword" type="password" placeholder="Оставьте пустым для BOT_ACCOUNT_PASSWORD/random">
+                </div>
+                <div class="status" id="seedStatus"></div>
+                <button id="seedBtn">Seed bots</button>
+            </div>
+
+            <div class="panel">
+                <h2>Текущие bot-аккаунты</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Rating</th>
+                            <th>Country</th>
+                        </tr>
+                    </thead>
+                    <tbody id="botsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fieldIds = [
+            'enabled',
+            'rankedEnabled',
+            'fallbackMinWaitMs',
+            'fallbackMaxWaitMs',
+            'maxActiveGames',
+            'moveMinDelayMs',
+            'moveMaxDelayMs',
+            'maxRecentMatches',
+            'recentWindowMs'
+        ];
+
+        function setStatus(elementId, message, cls = '') {
+            const node = document.getElementById(elementId);
+            node.className = `status ${cls}`.trim();
+            node.textContent = message || '';
+        }
+
+        function fillSettings(settings) {
+            document.getElementById('enabled').checked = Boolean(settings.enabled);
+            document.getElementById('rankedEnabled').checked = Boolean(settings.rankedEnabled);
+            document.getElementById('fallbackMinWaitMs').value = settings.fallbackMinWaitMs;
+            document.getElementById('fallbackMaxWaitMs').value = settings.fallbackMaxWaitMs;
+            document.getElementById('maxActiveGames').value = settings.maxActiveGames;
+            document.getElementById('moveMinDelayMs').value = settings.moveMinDelayMs;
+            document.getElementById('moveMaxDelayMs').value = settings.moveMaxDelayMs;
+            document.getElementById('maxRecentMatches').value = settings.maxRecentMatches;
+            document.getElementById('recentWindowMs').value = settings.recentWindowMs;
+        }
+
+        function readSettingsPayload() {
+            return {
+                enabled: document.getElementById('enabled').checked,
+                rankedEnabled: document.getElementById('rankedEnabled').checked,
+                fallbackMinWaitMs: Number(document.getElementById('fallbackMinWaitMs').value),
+                fallbackMaxWaitMs: Number(document.getElementById('fallbackMaxWaitMs').value),
+                maxActiveGames: Number(document.getElementById('maxActiveGames').value),
+                moveMinDelayMs: Number(document.getElementById('moveMinDelayMs').value),
+                moveMaxDelayMs: Number(document.getElementById('moveMaxDelayMs').value),
+                maxRecentMatches: Number(document.getElementById('maxRecentMatches').value),
+                recentWindowMs: Number(document.getElementById('recentWindowMs').value)
+            };
+        }
+
+        function renderBots(bots) {
+            const body = document.getElementById('botsTableBody');
+            body.innerHTML = '';
+            for (const bot of bots) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${bot.username}</td><td>${bot.rating || 1200}</td><td>${bot.country || 'XX'}</td>`;
+                body.appendChild(tr);
+            }
+        }
+
+        function renderRuntime(runtime) {
+            const activeIds = (runtime.activeBotGameIds || []).join(', ') || '-';
+            document.getElementById('runtime').textContent =
+                `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
+        }
+
+        async function loadPanel() {
+            setStatus('settingsStatus', 'Загрузка...');
+            const res = await fetch('/api/admin/bots', { credentials: 'include' });
+            if (res.status === 401 || res.status === 403) {
+                document.getElementById('authError').classList.remove('hidden');
+                document.getElementById('mainContent').classList.add('hidden');
+                return;
+            }
+            if (!res.ok) {
+                throw new Error(`Failed to load: HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            fillSettings(data.settings);
+            renderRuntime(data.runtime || {});
+            renderBots(data.bots || []);
+            document.getElementById('mainContent').classList.remove('hidden');
+            document.getElementById('authError').classList.add('hidden');
+            setStatus('settingsStatus', 'Данные обновлены', 'ok');
+        }
+
+        async function saveSettings() {
+            setStatus('settingsStatus', 'Сохраняем...');
+            const payload = readSettingsPayload();
+            const res = await fetch('/api/admin/bots/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                throw new Error(`Save failed: HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            fillSettings(data.settings);
+            renderRuntime(data.runtime || {});
+            setStatus('settingsStatus', 'Настройки сохранены', 'ok');
+        }
+
+        async function seedBots() {
+            setStatus('seedStatus', 'Seeding...');
+            const password = document.getElementById('seedPassword').value.trim();
+            const res = await fetch('/api/admin/bots/seed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(password ? { password } : {})
+            });
+            if (!res.ok) {
+                throw new Error(`Seed failed: HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            renderBots(data.bots || []);
+            setStatus('seedStatus', `Done. created=${data.created || 0}, updated=${data.updated || 0}`, 'ok');
+        }
+
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            saveSettings().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+        });
+        document.getElementById('reloadBtn').addEventListener('click', () => {
+            loadPanel().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+        });
+        document.getElementById('seedBtn').addEventListener('click', () => {
+            seedBots().catch((err) => setStatus('seedStatus', err.message, 'error'));
+        });
+
+        loadPanel().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+    </script>
+</body>
+</html>

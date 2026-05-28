@@ -1278,6 +1278,90 @@ canvas {
     text-align: center;
 }
 
+/* --- PRESENCE LISTS (online / live games) --- */
+.presence-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 140px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.presence-row,
+.presence-game {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    font-size: 0.82rem;
+}
+
+.presence-row {
+    cursor: pointer;
+}
+
+.presence-row:hover,
+.presence-game span:hover {
+    background: #2a2a2a;
+}
+
+.presence-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.presence-tag {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.presence-queue {
+    color: #4ade80;
+    font-size: 0.75rem;
+}
+
+.presence-game {
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.presence-game span {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.presence-vs {
+    color: #888;
+    font-size: 0.75rem;
+    cursor: default !important;
+}
+
+.presence-bot .presence-name,
+.presence-game .presence-bot {
+    color: #fbbf24;
+}
+
+.presence-empty {
+    justify-content: center;
+    color: #666;
+    font-size: 0.8rem;
+    cursor: default;
+}
+
 /* --- LEADERBOARD --- */
 .leaderboard {
     display: flex;

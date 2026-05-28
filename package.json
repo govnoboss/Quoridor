@@ -99,6 +99,7 @@
     "test:once": "jest",
     "test:ai": "node tests/ai-core.test.js",
     "load-test": "node tests/load-test.js",
+    "seed:bots": "node scripts/seed_bots.js",
     "lint": "eslint src/ frontend/js/ scripts/ tests/",
     "coverage": "jest --coverage"
   },

@@ -41,6 +41,9 @@
         if (state.history) cloned.history = [...state.history];
         if (state.disconnectTimer !== undefined) cloned.disconnectTimer = state.disconnectTimer;
         if (state.isRanked !== undefined) cloned.isRanked = state.isRanked;
+        if (state.hasBot !== undefined) cloned.hasBot = state.hasBot;
+        if (state.botPlayerIdx !== undefined) cloned.botPlayerIdx = state.botPlayerIdx;
+        if (state.botDifficulty !== undefined) cloned.botDifficulty = state.botDifficulty;
 
         return cloned;
     };

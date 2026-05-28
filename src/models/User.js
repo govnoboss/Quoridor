@@ -13,6 +13,11 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    seedId: {
+        type: String,
+        unique: true,
+        sparse: true,
+    },
     isAdmin: {
         type: Boolean,
         default: false
