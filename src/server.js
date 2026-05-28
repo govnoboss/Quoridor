@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const Sentry = require('@sentry/node');
 const Shared = require('./core/shared.js');
 const Redis = require('./storage/redis.js');
+const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -35,6 +36,9 @@ app.disable('x-powered-by');
 const connectDB = require('./storage/db');
 const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
+const BotSettings = require('./models/BotSettings');
+const { ACCOUNT_BOTS } = require('./bots/defaultBots');
+const { upsertAccountBot } = require('./bots/botSeed');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -155,13 +159,187 @@ app.get('/api/auth/me', async (req, res) => {
     }
 });
 
+async function resolveUserById(userId, fields = null) {
+    const query = User.findById(userId);
+    if (query && typeof query.select === 'function') {
+        return await query.select(fields || '');
+    }
+    return await query;
+}
+
+async function requireAdmin(req, res, next) {
+    if (!req.session?.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const user = await resolveUserById(req.session.userId, 'username isAdmin');
+        if (!user?.isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        req.adminUser = user;
+        next();
+    } catch (err) {
+        console.error('[ADMIN] Auth check failed:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+}
+
+function botSettingsFromEnv() {
+    return {
+        key: 'global',
+        enabled: ['1', 'true', 'yes', 'on'].includes(String(process.env.BOTS_ENABLED || 'false').toLowerCase()),
+        rankedEnabled: ['1', 'true', 'yes', 'on'].includes(String(process.env.BOT_RANKED_ENABLED || 'false').toLowerCase()),
+        fallbackMinWaitMs: parseInt(process.env.BOT_FALLBACK_MIN_WAIT_MS, 10) || 15000,
+        fallbackMaxWaitMs: parseInt(process.env.BOT_FALLBACK_MAX_WAIT_MS, 10) || 25000,
+        maxActiveGames: parseInt(process.env.BOT_MAX_ACTIVE_GAMES, 10) || 15,
+        moveMinDelayMs: parseInt(process.env.BOT_MOVE_MIN_DELAY_MS, 10) || 800,
+        moveMaxDelayMs: parseInt(process.env.BOT_MOVE_MAX_DELAY_MS, 10) || 2500,
+        maxRecentMatches: parseInt(process.env.BOT_MAX_RECENT_MATCHES, 10) || 3,
+        recentWindowMs: parseInt(process.env.BOT_RECENT_WINDOW_MS, 10) || 3600000,
+    };
+}
+
+function sanitizeBotSettings(input) {
+    const defaults = botSettingsFromEnv();
+    const minWait = Math.max(0, parseInt(input.fallbackMinWaitMs ?? defaults.fallbackMinWaitMs, 10));
+    const maxWait = Math.max(minWait, parseInt(input.fallbackMaxWaitMs ?? defaults.fallbackMaxWaitMs, 10));
+    const minMoveDelay = Math.max(0, parseInt(input.moveMinDelayMs ?? defaults.moveMinDelayMs, 10));
+    const maxMoveDelay = Math.max(minMoveDelay, parseInt(input.moveMaxDelayMs ?? defaults.moveMaxDelayMs, 10));
+
+    return {
+        key: 'global',
+        enabled: Boolean(input.enabled),
+        rankedEnabled: Boolean(input.rankedEnabled),
+        fallbackMinWaitMs: minWait,
+        fallbackMaxWaitMs: maxWait,
+        maxActiveGames: Math.max(0, parseInt(input.maxActiveGames ?? defaults.maxActiveGames, 10)),
+        moveMinDelayMs: minMoveDelay,
+        moveMaxDelayMs: maxMoveDelay,
+        maxRecentMatches: Math.max(0, parseInt(input.maxRecentMatches ?? defaults.maxRecentMatches, 10)),
+        recentWindowMs: Math.max(60000, parseInt(input.recentWindowMs ?? defaults.recentWindowMs, 10)),
+    };
+}
+
+function settingsForBotManager(settings) {
+    return {
+        enabled: settings.enabled,
+        rankedEnabled: settings.rankedEnabled,
+        fallbackMinWaitMs: settings.fallbackMinWaitMs,
+        fallbackMaxWaitMs: settings.fallbackMaxWaitMs,
+        maxActiveGames: settings.maxActiveGames,
+        moveMinDelayMs: settings.moveMinDelayMs,
+        moveMaxDelayMs: settings.moveMaxDelayMs,
+        maxRecentMatches: settings.maxRecentMatches,
+        recentWindowMs: settings.recentWindowMs,
+    };
+}
+
+async function getOrCreateBotSettings() {
+    let settings = await BotSettings.findOne({ key: 'global' });
+    if (!settings) {
+        settings = new BotSettings(botSettingsFromEnv());
+        await settings.save();
+    }
+    return settings;
+}
+
+async function applyPersistedBotSettings() {
+    const settings = await getOrCreateBotSettings();
+    botManager.setRuntimeConfig(settingsForBotManager(settings));
+    return settings;
+}
+
+async function seedBotAccounts(password = null) {
+    const passwordHash = await bcrypt.hash(
+        password || process.env.BOT_ACCOUNT_PASSWORD || `bot-${Date.now()}-${Math.random()}`,
+        10
+    );
+    const result = { created: 0, updated: 0 };
+
+    for (const bot of ACCOUNT_BOTS) {
+        const action = await upsertAccountBot(User, bot, passwordHash);
+        if (action === 'created') result.created++;
+        else result.updated++;
+    }
+
+    return result;
+}
+
+app.get('/admin/bots', requireAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/admin-bots.html'));
+});
+
+app.get('/api/admin/bots', requireAdmin, async (req, res) => {
+    try {
+        const settings = await getOrCreateBotSettings();
+        botManager.setRuntimeConfig(settingsForBotManager(settings));
+
+        const bots = await User.find({ isBot: true });
+        res.json({
+            settings,
+            runtime: botManager.getRuntimeStats(),
+            bots: bots.map(bot => ({
+                id: bot._id,
+                username: bot.username,
+                rating: bot.rating,
+                avatarUrl: bot.avatarUrl,
+                country: bot.country,
+                stats: bot.stats || {},
+            })),
+        });
+    } catch (err) {
+        console.error('[ADMIN] Failed to load bot panel data:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.put('/api/admin/bots/settings', requireAdmin, async (req, res) => {
+    try {
+        const nextSettings = sanitizeBotSettings(req.body || {});
+        nextSettings.updatedBy = req.adminUser._id;
+
+        const settings = await BotSettings.findOneAndUpdate(
+            { key: 'global' },
+            { $set: nextSettings },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+
+        botManager.setRuntimeConfig(settingsForBotManager(settings));
+        res.json({ settings, runtime: botManager.getRuntimeStats() });
+    } catch (err) {
+        console.error('[ADMIN] Failed to update bot settings:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/admin/bots/seed', requireAdmin, async (req, res) => {
+    try {
+        const result = await seedBotAccounts(req.body?.password || null);
+        const bots = await User.find({ isBot: true });
+        res.json({
+            ...result,
+            bots: bots.map(bot => ({
+                id: bot._id,
+                username: bot.username,
+                rating: bot.rating,
+                avatarUrl: bot.avatarUrl,
+                country: bot.country,
+            })),
+        });
+    } catch (err) {
+        console.error('[ADMIN] Failed to seed bot accounts:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // --- PROFILE API ---
 
 // Public Profile Data
 app.get('/api/profiles/:username', async (req, res) => {
     try {
         const { username } = req.params;
-        const user = await User.findOne({ username }).select('-passwordHash -__v -email');
+        const user = await User.findOne({ username }).select('-passwordHash -__v -email -isBot -isAdmin');
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -199,13 +377,14 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     }
 });
 
-// Leaderboard API - returns top players by rating
+// Leaderboard API - top humans and bot accounts by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const topPlayers = await User.find({})
-            .select('username rating avatarUrl')
+        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
+        const topPlayers = await User.find({ isAdmin: { $ne: true } })
+            .select('username rating avatarUrl isBot')
             .sort({ rating: -1 })
-            .limit(5);
+            .limit(limit);
         res.json(topPlayers);
     } catch (err) {
         console.error('[LEADERBOARD] Error:', err);
@@ -361,7 +540,7 @@ app.use(cors({
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
     credentials: true
 }));
 
@@ -393,7 +572,7 @@ const io = socketIo(server, {
                 callback(new Error('Not allowed by CORS'));
             }
         },
-        methods: ['GET', 'POST'],
+        methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
         credentials: true
     },
     transports: ['polling', 'websocket'],
@@ -499,6 +678,145 @@ function isValidToken(token) {
     return typeof token === 'string' && token.length > 0;
 }
 
+async function startBotGame(socket, humanPlayer, bot, isRanked) {
+    const swap = Math.random() > 0.5;
+    const humanIdx = swap ? 1 : 0;
+    const botIdx = 1 - humanIdx;
+
+    const nextId = await Redis.incrementLobbyCounter();
+    const lobbyId = `lobby-${nextId}`;
+
+    const gameState = Shared.createInitialState(humanPlayer.timeControl, isRanked);
+    gameState.hasBot = true;
+    gameState.botPlayerIdx = botIdx;
+    gameState.botDifficulty = bot.difficulty || 'medium';
+
+    gameState.playerSockets[humanIdx] = socket.id;
+    gameState.playerSockets[botIdx] = null;
+    gameState.playerTokens[humanIdx] = humanPlayer.token;
+    gameState.playerTokens[botIdx] = bot.token;
+    gameState.playerProfiles[humanIdx] = await getPlayerProfile(humanPlayer.token);
+    gameState.playerProfiles[botIdx] = bot.profile;
+    socket.searchToken = null;
+
+    await Redis.saveGame(lobbyId, gameState);
+    await Redis.addActiveGame(lobbyId);
+    await Redis.setTurnTimeout(lobbyId, Date.now() + gameState.timers[gameState.currentPlayer] * 1000);
+    await Redis.setTokenMapping(humanPlayer.token, lobbyId);
+    await Redis.setTokenMapping(bot.token, lobbyId);
+    if (bot.isAccount && bot.userId) {
+        await Redis.setTokenUserMapping(bot.token, bot.userId);
+    }
+
+    socket.join(lobbyId);
+    socket.emit('gameStart', {
+        lobbyId,
+        color: humanIdx === 0 ? 'white' : 'black',
+        opponent: gameState.playerProfiles[botIdx],
+        me: gameState.playerProfiles[humanIdx],
+        initialTime: gameState.timers[humanIdx]
+    });
+
+    botManager.scheduleMoveIfNeeded(lobbyId, gameState);
+    console.log(`[BOT] Started fallback game ${lobbyId} (${isRanked ? 'ranked' : 'casual'}, bot=${gameState.botDifficulty})`);
+    schedulePresenceBroadcast();
+    return lobbyId;
+}
+
+async function applyBotMove(lobbyId, token, move) {
+    return await applyGameMove({ lobbyId, token, move });
+}
+
+async function applyGameMove({ lobbyId, token, move, rejectSocket = null }) {
+    if (!Shared.isValidLobbyId(lobbyId)) {
+        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Invalid lobby format' });
+        return false;
+    }
+
+    if (!Shared.isValidMove(move)) {
+        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Invalid move format' });
+        return false;
+    }
+
+    let attempts = 0;
+    let locked = false;
+
+    while (attempts < 10) {
+        locked = await Redis.acquireLock(lobbyId);
+        if (locked) break;
+        attempts++;
+        await sleep(50);
+    }
+
+    if (!locked) {
+        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Room busy' });
+        return false;
+    }
+
+    try {
+        const game = await Redis.getGame(lobbyId);
+
+        if (!game) {
+            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Game not found' });
+            return false;
+        }
+
+        const playerIdx = game.playerTokens.indexOf(token);
+        if (playerIdx === -1) {
+            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Unauthorized' });
+            return false;
+        }
+
+        const now = Date.now();
+        const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
+        game.timers[game.currentPlayer] -= elapsed;
+        game.lastMoveTimestamp = now;
+
+        if (game.timers[game.currentPlayer] < 0) {
+            await finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
+            return true;
+        }
+
+        try {
+            const action = { ...move, playerIdx };
+            const nextState = Shared.gameReducer(game, action);
+
+            if (nextState.increment > 0) {
+                nextState.timers[playerIdx] += nextState.increment;
+            }
+
+            const winnerIdx = checkVictory(nextState);
+            if (winnerIdx !== -1) {
+                await finalizeGame(lobbyId, winnerIdx, 'Goal reached', nextState);
+                return true;
+            }
+
+            await Redis.saveGame(lobbyId, nextState);
+            await Redis.setTurnTimeout(lobbyId, Date.now() + nextState.timers[nextState.currentPlayer] * 1000);
+
+            io.to(lobbyId).emit('serverMove', {
+                playerIdx,
+                move,
+                nextPlayer: nextState.currentPlayer,
+                timers: nextState.timers
+            });
+
+            botManager.scheduleMoveIfNeeded(lobbyId, nextState);
+            return true;
+        } catch (reducerError) {
+            console.log(`[MOVE REJECTED] Lobby ${lobbyId}: ${reducerError.message}`);
+            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: reducerError.message });
+            return false;
+        }
+    } catch (err) {
+        console.error('[PLAYER MOVE ERROR]', err);
+        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Server error' });
+        return false;
+    } finally {
+        await Redis.releaseLock(lobbyId);
+    }
+}
+
 /**
  * Проверяет формат lobbyId: 'lobby-<number>'.
  */
@@ -540,6 +858,82 @@ function checkRateLimit(socketId, type, limit, windowMs) {
 
 const crypto = require('crypto');
 
+const botManager = new BotManager({
+    Shared,
+    Redis,
+    User,
+    io,
+    startBotGame,
+    applyBotMove,
+});
+
+async function collectPresenceStats() {
+    const gameIds = await Redis.getActiveGameIds();
+    const liveGames = [];
+
+    for (const lobbyId of gameIds) {
+        const game = await Redis.getGame(lobbyId);
+        if (!game?.playerProfiles) continue;
+
+        const player0Name = game.playerProfiles[0]?.name || 'Player';
+        const player1Name = game.playerProfiles[1]?.name || 'Player';
+
+        // Filter out games with admin-botops
+        if (player0Name === 'admin-botops' || player1Name === 'admin-botops') continue;
+
+        liveGames.push({
+            lobbyId,
+            players: [
+                {
+                    name: player0Name,
+                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 0),
+                },
+                {
+                    name: player1Name,
+                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 1),
+                },
+            ],
+        });
+    }
+
+    const humans = [];
+    io.sockets.sockets.forEach((socket) => {
+        // Filter out admin-botops
+        if (socket.username === 'admin-botops') return;
+        humans.push({
+            name: socket.username || 'Guest',
+            isBot: false,
+            inQueue: Boolean(socket.searchToken),
+        });
+    });
+
+    let bots = [];
+    if (botManager.isEnabled()) {
+        const botUsers = await User.find({ isBot: true, username: { $ne: 'admin-botops' } })
+            .select('username rating')
+            .sort({ rating: -1 });
+        bots = botUsers.map((user) => ({
+            name: user.username,
+            isBot: true,
+            rating: user.rating || 1200,
+        }));
+    }
+
+    return {
+        online: humans.length + bots.length,
+        playing: gameIds.length * 2,
+        humans,
+        bots,
+        liveGames,
+    };
+}
+
+function schedulePresenceBroadcast() {
+    collectPresenceStats()
+        .then((stats) => io.emit('onlineStats', stats))
+        .catch((err) => console.error('[PRESENCE] Broadcast failed:', err));
+}
+
 io.on('connection', (socket) => {
     // --- SINGLE SESSION ENFORCEMENT ---
     if (socket.userId) {
@@ -574,19 +968,17 @@ io.on('connection', (socket) => {
     // Очистка памяти при отключении
     socket.on('disconnect', () => {
         rateLimits.delete(socket.id);
+        schedulePresenceBroadcast();
     });
 
     // console.log(`[SOCKET] User connected: ${socket.id}`);
 
-    // Send current online stats to newly connected client
-    Redis.getActiveGameIds().then(gameIds => {
-        socket.emit('onlineStats', {
-            online: io.sockets.sockets.size,
-            playing: gameIds.length * 2 // Each game has 2 players
+    collectPresenceStats()
+        .then((stats) => socket.emit('onlineStats', stats))
+        .catch(() => {
+            socket.emit('onlineStats', { online: io.sockets.sockets.size, playing: 0, humans: [], bots: [], liveGames: [] });
         });
-    }).catch(() => {
-        socket.emit('onlineStats', { online: io.sockets.sockets.size, playing: 0 });
-    });
+    schedulePresenceBroadcast();
 
     // --- ПОИСК ИГРЫ ---
     socket.on('findGame', async (data) => {
@@ -623,17 +1015,24 @@ io.on('connection', (socket) => {
         }
 
         if (!isValidToken(token)) return;
+        socket.searchToken = token;
 
         try {
             // Удаляем из всех очередей, если игрок там был (защита от дублей)
             await Redis.removeFromAllQueues(token);
 
             // Добавляем в очередь
-            await Redis.addToQueue(tc.base, tc.inc, {
+            const playerData = {
                 socketId: socket.id,
                 token: token,
-                timeControl: tc
-            }, isRanked);
+                timeControl: tc,
+                queuedAt: Date.now()
+            };
+            await Redis.addToQueue(tc.base, tc.inc, playerData, isRanked);
+            if (socket.searchToken !== token) {
+                await Redis.removeFromQueue(tc.base, tc.inc, token, isRanked);
+                return;
+            }
             // console.log(`[QUEUE] Player ${socket.id} joined queue [${tc.base}+${tc.inc}] (Ranked: ${isRanked})`);
 
             // Пробуем достать двух игроков
@@ -641,6 +1040,8 @@ io.on('connection', (socket) => {
 
             if (pair) {
                 const [pA, pB] = pair;
+                botManager.cancelFallback(pA.token);
+                botManager.cancelFallback(pB.token);
 
                 // Randomize White/Black
                 const swap = Math.random() > 0.5;
@@ -660,6 +1061,8 @@ io.on('connection', (socket) => {
                         // Return both to queue but notify second socket
                         await Redis.addToQueue(tc.base, tc.inc, p1, isRanked);
                         await Redis.addToQueue(tc.base, tc.inc, p2, isRanked);
+                        botManager.scheduleFallback(s1, p1, isRanked);
+                        botManager.scheduleFallback(s2, p2, isRanked);
                         s2.emit('findGameFailed', { reason: 'Already in a queue' });
                         return;
                     }
@@ -685,6 +1088,8 @@ io.on('connection', (socket) => {
                     // Сохраняем маппинг токенов для Rejoin
                     await Redis.setTokenMapping(p1.token, lobbyId);
                     await Redis.setTokenMapping(p2.token, lobbyId);
+                    s1.searchToken = null;
+                    s2.searchToken = null;
 
                     s1.join(lobbyId);
                     s2.join(lobbyId);
@@ -703,11 +1108,20 @@ io.on('connection', (socket) => {
                         initialTime: gameState.timers[1]
                     });
                     console.log(`[GAME START] Lobby ${lobbyId} created for ${tc.base}+${tc.inc}. Random Swap: ${swap}`);
+                    schedulePresenceBroadcast();
                 } else {
                     // Один из игроков отключился — возвращаем в очередь
-                    if (s1) await Redis.addToQueue(tc.base, tc.inc, p1);
-                    if (s2) await Redis.addToQueue(tc.base, tc.inc, p2);
+                    if (s1) {
+                        await Redis.addToQueue(tc.base, tc.inc, p1, isRanked);
+                        botManager.scheduleFallback(s1, p1, isRanked);
+                    }
+                    if (s2) {
+                        await Redis.addToQueue(tc.base, tc.inc, p2, isRanked);
+                        botManager.scheduleFallback(s2, p2, isRanked);
+                    }
                 }
+            } else {
+                botManager.scheduleFallback(socket, playerData, isRanked);
             }
         } catch (err) {
             console.error('[QUEUE ERROR]', err);
@@ -720,6 +1134,8 @@ io.on('connection', (socket) => {
             const token = data?.token || socket.playerToken;
             if (token) {
                 await Redis.removeFromAllQueues(token);
+                botManager.cancelFallback(token);
+                if (socket.searchToken === token) socket.searchToken = null;
                 // console.log(`[QUEUE] Player ${socket.id} left all queues`);
             }
         } catch (err) {
@@ -731,10 +1147,12 @@ io.on('connection', (socket) => {
     socket.on('createRoom', async (data) => {
         const token = data?.token || socket.playerToken;
         if (!isValidToken(token)) return;
+        if (socket.searchToken === token) socket.searchToken = null;
 
         try {
             // Удаляем игрока из ВСЕХ очередей поиска, если он там был
             await Redis.removeFromAllQueues(token);
+            botManager.cancelFallback(token);
 
             const roomCode = generateRoomCode();
             await Redis.createRoom(roomCode, {
@@ -845,6 +1263,7 @@ io.on('connection', (socket) => {
 
                     console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
                     await Redis.deleteRoom(normalizedCode);
+                    schedulePresenceBroadcast();
                 } else {
                     await Redis.deleteRoom(normalizedCode);
                     if (sWhite) sWhite.emit('gameStartFailed', { reason: 'Противник отключился' });
@@ -1027,6 +1446,7 @@ io.on('connection', (socket) => {
                     nextPlayer: nextState.currentPlayer,
                     timers: nextState.timers
                 });
+                botManager.scheduleMoveIfNeeded(lobbyId, nextState);
 
             } catch (reducerError) {
                 console.log(`[MOVE REJECTED] Lobby ${lobbyId}: ${reducerError.message}`);
@@ -1125,6 +1545,7 @@ io.on('connection', (socket) => {
             // Remove from search queues
             if (socket.playerToken) {
                 await Redis.removeFromAllQueues(socket.playerToken);
+                botManager.cancelFallback(socket.playerToken);
             }
 
             // Check active games for disconnects
@@ -1167,8 +1588,8 @@ async function handleDisconnectTimeout(lobbyId) {
     console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
     const game = await Redis.getGame(lobbyId);
     if (game) {
-        const s0 = io.sockets.sockets.get(game.playerSockets[0]);
-        const s1 = io.sockets.sockets.get(game.playerSockets[1]);
+        const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
+        const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
 
         let winnerIdx = -1;
         if (s0 && !s1) winnerIdx = 0;
@@ -1285,7 +1706,7 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
 
 
         let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
-        if (lobbyId.startsWith('bot-')) gameType = 'bot';
+        if (game.hasBot) gameType = 'bot';
 
         // --- NEW LOGIC: Only save RANKED games ---
         if (!game.isRanked) {
@@ -1327,6 +1748,8 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     const game = stateOverride || await Redis.getGame(lobbyId);
 
     if (game) {
+        botManager.cancelGame(lobbyId);
+
         // Clear timers immediately
         await Redis.clearDisconnectTimer(lobbyId);
         await Redis.clearTurnTimeout(lobbyId);
@@ -1363,6 +1786,11 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
         await Redis.removeActiveGame(lobbyId);
         if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
         if (game.playerTokens?.[1]) await Redis.deleteTokenMapping(game.playerTokens[1]);
+        if (game.hasBot && game.playerTokens?.[game.botPlayerIdx]) {
+            await Redis.deleteTokenUserMapping(game.playerTokens[game.botPlayerIdx]);
+        }
+
+        schedulePresenceBroadcast();
     }
 }
 
@@ -1446,8 +1874,8 @@ if (process.env.NODE_ENV !== 'test') setInterval(async () => {
             const game = await Redis.getGame(lobbyId);
             if (!game) continue;
 
-            const s0 = io.sockets.sockets.get(game.playerSockets[0]);
-            const s1 = io.sockets.sockets.get(game.playerSockets[1]);
+            const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
+            const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
 
             // Если кто-то отсутствует
             if (!s0 || !s1) {
@@ -1489,16 +1917,8 @@ if (process.env.NODE_ENV !== 'test') setInterval(async () => {
 }, 1000);
 
 // Broadcast online stats to all clients every 5 seconds (не в тестах)
-if (process.env.NODE_ENV !== 'test') setInterval(async () => {
-    try {
-        const gameIds = await Redis.getActiveGameIds();
-        io.emit('onlineStats', {
-            online: io.sockets.sockets.size,
-            playing: gameIds.length * 2 // Each game has 2 players
-        });
-    } catch (err) {
-        // Silent fail - non-critical feature
-    }
+if (process.env.NODE_ENV !== 'test') setInterval(() => {
+    schedulePresenceBroadcast();
 }, 5000);
 
 // Инициализация Redis и запуск сервера
@@ -1526,8 +1946,8 @@ async function cleanupStaleGames() {
             const blackSock = game.playerSockets?.[1];
 
             // Проверяем, есть ли эти сокеты среди активных подключений
-            const whiteAlive = whiteSock && io.sockets.sockets.has(whiteSock);
-            const blackAlive = blackSock && io.sockets.sockets.has(blackSock);
+            const whiteAlive = botManager.isBotSlot(game, 0) || (whiteSock && io.sockets.sockets.has(whiteSock));
+            const blackAlive = botManager.isBotSlot(game, 1) || (blackSock && io.sockets.sockets.has(blackSock));
 
             if (!whiteAlive && !blackAlive) {
                 // Оба игрока offline — удаляем игру полностью
@@ -1559,6 +1979,9 @@ async function startServer() {
 
         await sessionRedisClient.connect();
         console.log('[STARTUP] Session store (Redis) connected successfully');
+
+        await applyPersistedBotSettings();
+        console.log('[STARTUP] Loaded bot settings from MongoDB');
 
         // Очистка зомби-игр при старте (удаляет только игры с обоими offline игроками)
         await cleanupStaleGames();
