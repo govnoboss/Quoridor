@@ -522,7 +522,7 @@ const allowedOrigins = (() => {
     const origins = [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'http://178.105.248.106',
+        'http://62.238.36.105',
         'file://'
     ];
     if (process.env.ALLOWED_ORIGINS) {
