@@ -341,45 +341,33 @@ const UI = {
       ...(data.bots || []),
     ];
 
-    // Filter out admin-botops
-    const filteredEntries = entries.filter(entry => entry.name !== 'admin-botops');
-
-    // Sort: authenticated users (not starting with Guest-) on top, guests below
-    filteredEntries.sort((a, b) => {
-      const aIsGuest = a.name.startsWith('Guest-');
-      const bIsGuest = b.name.startsWith('Guest-');
-      if (aIsGuest && !bIsGuest) return 1;
-      if (!aIsGuest && bIsGuest) return -1;
-      return 0;
-    });
-
-    if (!filteredEntries.length) {
+    if (!entries.length) {
       onlineList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_empty'))}</li>`;
     } else {
-      onlineList.innerHTML = filteredEntries.map((entry) => {
+      onlineList.innerHTML = entries.map((entry) => {
+        const tag = entry.isBot
+          ? `<span class="presence-tag">${this.escapeHtml(this.translate('presence_bot_tag'))}</span>`
+          : '';
         const queue = entry.inQueue ? '<span class="presence-queue">…</span>' : '';
-        return `<li class="presence-row" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
-          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${queue}
+        return `<li class="presence-row ${entry.isBot ? 'presence-bot' : 'presence-human'}" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
+          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${tag}${queue}
         </li>`;
       }).join('');
     }
 
     const games = data.liveGames || [];
-    // Filter out games with admin-botops
-    const filteredGames = games.filter(game => 
-      game.players[0].name !== 'admin-botops' && game.players[1].name !== 'admin-botops'
-    );
-
-    if (!filteredGames.length) {
+    if (!games.length) {
       gamesList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_no_games'))}</li>`;
     } else {
-      gamesList.innerHTML = filteredGames.map((game) => {
+      gamesList.innerHTML = games.map((game) => {
         const left = game.players[0];
         const right = game.players[1];
+        const leftClass = left.isBot ? 'presence-bot' : 'presence-human';
+        const rightClass = right.isBot ? 'presence-bot' : 'presence-human';
         return `<li class="presence-game">
-          <span onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
+          <span class="${leftClass}" onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
           <span class="presence-vs">vs</span>
-          <span onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
+          <span class="${rightClass}" onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
         </li>`;
       }).join('');
     }
@@ -1597,18 +1585,15 @@ UI.loadLeaderboard = async function () {
     const container = document.getElementById('leaderboard');
     if (!container) return;
 
-    // Filter out admin-botops
-    const filteredPlayers = players.filter(p => p.username !== 'admin-botops');
-
-    if (filteredPlayers.length === 0) {
+    if (players.length === 0) {
       container.innerHTML = '<div class="leaderboard-row" style="justify-content: center; color: #888;">No players yet</div>';
       return;
     }
 
-    container.innerHTML = filteredPlayers.map((p, i) => `
+    container.innerHTML = players.map((p, i) => `
             <div class="leaderboard-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">
                 <span class="rank">${i + 1}</span>
-                <span class="name">${UI.escapeHtml(p.username)}</span>
+                <span class="name">${UI.escapeHtml(p.username)}${p.isBot ? ' <span class="presence-tag">' + UI.escapeHtml(UI.translate('presence_bot_tag')) + '</span>' : ''}</span>
                 <span class="score">${p.rating}</span>
             </div>
         `).join('');

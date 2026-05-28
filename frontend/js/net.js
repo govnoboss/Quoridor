@@ -186,9 +186,9 @@ const Net = {
             UI.hideRoomJoining();
         });
 
-        // Online stats update (users online, games in progress)
+        // Online stats update (users online, games in progress, lists)
         this.socket.on('onlineStats', (data) => {
-            UI.updateOnlineStats(data.online, data.playing);
+            UI.updateOnlineStats(data);
         });
     },
 

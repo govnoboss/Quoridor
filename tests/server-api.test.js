@@ -14,15 +14,15 @@ jest.mock('../src/models/User', () => {
             _id: String(nextId++),
             username: data.username,
             passwordHash: data.passwordHash,
-            rating: 1200,
+            rating: data.rating ?? 1200,
             stats: { totalGames: 0, wins: 0, losses: 0, playTimeSeconds: 0 },
             createdAt: new Date(),
-            isBot: false,
-            isAdmin: false,
-            avatarUrl: '',
-            status: '',
-            bio: '',
-            country: 'XX',
+            isBot: Boolean(data.isBot),
+            isAdmin: Boolean(data.isAdmin),
+            avatarUrl: data.avatarUrl || '',
+            status: data.status || '',
+            bio: data.bio || '',
+            country: data.country || 'XX',
             achievements: [],
             preferences: { boardTheme: 'default', pieceSet: 'default' },
             save: jest.fn().mockResolvedValue(true),
@@ -44,7 +44,32 @@ jest.mock('../src/models/User', () => {
             return Promise.resolve(null);
         }
     }));
-    MockUser.find = jest.fn(() => Promise.resolve([]));
+    MockUser.find = jest.fn((query = {}) => {
+        const users = Array.from(store.values());
+        let filtered = users;
+        if (query && Object.keys(query).length > 0) {
+            filtered = users.filter((user) => Object.entries(query).every(([k, v]) => {
+                if (k === 'isAdmin' && v?.$ne === true) return user.isAdmin !== true;
+                return user[k] === v;
+            }));
+        }
+
+        const chain = {
+            select() { return chain; },
+            sort() {
+                filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                return chain;
+            },
+            limit(n) {
+                filtered = filtered.slice(0, n);
+                return Promise.resolve(filtered);
+            },
+            then(resolve, reject) {
+                return Promise.resolve(filtered).then(resolve, reject);
+            },
+        };
+        return chain;
+    });
     MockUser.findByIdAndUpdate = jest.fn(() => Promise.resolve(null));
 
     MockUser.__clearStore = () => { store.clear(); nextId = 1; };
@@ -66,21 +91,86 @@ jest.mock('../src/models/GameResult', () => {
     return MockGameResult;
 });
 
+jest.mock('../src/models/BotSettings', () => {
+    let settings = null;
+
+    function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    class MockBotSettings {
+        constructor(data = {}) {
+            Object.assign(this, {
+                key: 'global',
+                enabled: false,
+                rankedEnabled: false,
+                fallbackMinWaitMs: 15000,
+                fallbackMaxWaitMs: 25000,
+                maxActiveGames: 15,
+                moveMinDelayMs: 800,
+                moveMaxDelayMs: 2500,
+                maxRecentMatches: 3,
+                recentWindowMs: 3600000,
+                updatedBy: undefined,
+            }, data);
+        }
+
+        async save() {
+            settings = clone(this);
+            return this;
+        }
+
+        static async findOne(query = {}) {
+            if (query.key !== 'global') return null;
+            return settings ? clone(settings) : null;
+        }
+
+        static async findOneAndUpdate(query, update = {}, options = {}) {
+            if (query.key !== 'global') return null;
+            const current = settings ? clone(settings) : {
+                key: 'global',
+                enabled: false,
+                rankedEnabled: false,
+                fallbackMinWaitMs: 15000,
+                fallbackMaxWaitMs: 25000,
+                maxActiveGames: 15,
+                moveMinDelayMs: 800,
+                moveMaxDelayMs: 2500,
+                maxRecentMatches: 3,
+                recentWindowMs: 3600000,
+            };
+            const patch = update.$set || {};
+            settings = { ...current, ...clone(patch) };
+            if (options.setDefaultsOnInsert && !settings.key) settings.key = 'global';
+            return clone(settings);
+        }
+
+        static __reset() {
+            settings = null;
+        }
+    }
+
+    return MockBotSettings;
+});
+
 const { setupTestEnvironment, teardownTestEnvironment, getApp } = require('./helpers');
 
 let app;
 let User;
+let BotSettings;
 
 beforeAll(async () => {
     jest.setTimeout(30000);
     await setupTestEnvironment();
     app = await getApp();
     User = require('../src/models/User');
+    BotSettings = require('../src/models/BotSettings');
 }, 30000);
 
 beforeEach(() => {
     jest.clearAllMocks();
     User.__clearStore();
+    BotSettings.__reset();
 });
 
 afterAll(async () => {
@@ -160,5 +250,77 @@ describe('Auth API', () => {
         const res = await request(app).get('/api/auth/me');
         expect(res.status).toBe(200);
         expect(res.body.isAuthenticated).toBe(false);
+    });
+});
+
+describe('Admin Bots API', () => {
+    const adminHash = bcrypt.hashSync('adminpass123', 10);
+    const userHash = bcrypt.hashSync('userpass123', 10);
+
+    it('GET /api/admin/bots requires auth', async () => {
+        const res = await request(app).get('/api/admin/bots');
+        expect(res.status).toBe(401);
+    });
+
+    it('GET /api/admin/bots rejects non-admin user', async () => {
+        User.__seedUser({ _id: 'u1', username: 'plainuser', passwordHash: userHash, isAdmin: false });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'plainuser', password: 'userpass123' });
+        const res = await agent.get('/api/admin/bots');
+        expect(res.status).toBe(403);
+    });
+
+    it('GET /api/admin/bots returns settings/runtime/bots for admin', async () => {
+        User.__seedUser({ _id: 'a1', username: 'boss', passwordHash: adminHash, isAdmin: true });
+        User.__seedUser({ _id: 'b1', username: 'BotAlpha', passwordHash: adminHash, isBot: true, rating: 1300, country: 'XX', avatarUrl: '' });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'boss', password: 'adminpass123' });
+
+        const res = await agent.get('/api/admin/bots');
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty('settings');
+        expect(res.body).toHaveProperty('runtime');
+        expect(Array.isArray(res.body.bots)).toBe(true);
+        expect(res.body.bots.some(b => b.username === 'BotAlpha')).toBe(true);
+    });
+
+    it('PUT /api/admin/bots/settings persists normalized settings', async () => {
+        User.__seedUser({ _id: 'a2', username: 'admin2', passwordHash: adminHash, isAdmin: true });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'admin2', password: 'adminpass123' });
+
+        const res = await agent.put('/api/admin/bots/settings').send({
+            enabled: true,
+            rankedEnabled: true,
+            fallbackMinWaitMs: 50,
+            fallbackMaxWaitMs: 40,
+            moveMinDelayMs: 100,
+            moveMaxDelayMs: 90,
+            maxActiveGames: -1,
+            maxRecentMatches: -2,
+            recentWindowMs: 500,
+        });
+
+        expect(res.status).toBe(200);
+        expect(res.body.settings.enabled).toBe(true);
+        expect(res.body.settings.rankedEnabled).toBe(true);
+        expect(res.body.settings.fallbackMaxWaitMs).toBe(50);
+        expect(res.body.settings.moveMaxDelayMs).toBe(100);
+        expect(res.body.settings.maxActiveGames).toBe(0);
+        expect(res.body.settings.maxRecentMatches).toBe(0);
+        expect(res.body.settings.recentWindowMs).toBe(60000);
+        expect(res.body.settings.updatedBy).toBe('a2');
+    });
+
+    it('POST /api/admin/bots/seed creates or updates bot accounts', async () => {
+        User.__seedUser({ _id: 'a3', username: 'admin3', passwordHash: adminHash, isAdmin: true });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'admin3', password: 'adminpass123' });
+
+        const res = await agent.post('/api/admin/bots/seed').send({ password: 'botpass123' });
+        expect(res.status).toBe(200);
+        expect(res.body.created + res.body.updated).toBeGreaterThan(0);
+        expect(Array.isArray(res.body.bots)).toBe(true);
+        expect(res.body.bots.length).toBeGreaterThan(0);
     });
 });

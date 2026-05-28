@@ -29,7 +29,27 @@ jest.mock('../src/models/User', () => {
             return Promise.resolve(null);
         }
     }));
-    MockUser.find = jest.fn(() => Promise.resolve([]));
+    MockUser.find = jest.fn((query = {}) => {
+        let filtered = Array.from(store.values());
+        if (query && Object.keys(query).length > 0) {
+            filtered = filtered.filter((user) => Object.entries(query).every(([k, v]) => user[k] === v));
+        }
+        const chain = {
+            select() { return chain; },
+            sort() {
+                filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                return chain;
+            },
+            limit(n) {
+                filtered = filtered.slice(0, n);
+                return Promise.resolve(filtered);
+            },
+            then(resolve, reject) {
+                return Promise.resolve(filtered).then(resolve, reject);
+            },
+        };
+        return chain;
+    });
     MockUser.findByIdAndUpdate = jest.fn(() => Promise.resolve(null));
     MockUser.__clearStore = () => { store.clear(); nextId = 1; };
     MockUser.__seedUser = (data) => {
@@ -444,5 +464,54 @@ describe('Rematch', () => {
         p1.on('rematchStarted', () => { gotRematch = true; });
         await new Promise(r => setTimeout(r, 500));
         expect(gotRematch).toBe(false);
+    });
+});
+
+describe('Bot matchmaking fallback', () => {
+    afterEach(() => {
+        process.env.BOTS_ENABLED = 'false';
+        process.env.BOT_RANKED_ENABLED = 'false';
+        process.env.BOT_FALLBACK_MIN_WAIT_MS = '15000';
+        process.env.BOT_FALLBACK_MAX_WAIT_MS = '25000';
+    });
+
+    it('starts a casual game against a bot after the fallback delay', async () => {
+        process.env.BOTS_ENABLED = 'true';
+        process.env.BOT_FALLBACK_MIN_WAIT_MS = '20';
+        process.env.BOT_FALLBACK_MAX_WAIT_MS = '20';
+        process.env.BOT_MAX_ACTIVE_GAMES = '15';
+        process.env.BOT_MOVE_MIN_DELAY_MS = '1000';
+        process.env.BOT_MOVE_MAX_DELAY_MS = '1000';
+
+        const { sock, captured } = await connectClient();
+        const token = captured.find(e => e.event === 'assignToken').args[0].token;
+
+        sock.emit('findGame', { token });
+        const gameStart = await waitForEvent(sock, 'gameStart', 2000);
+
+        const Redis = require('../src/storage/redis');
+        const game = await Redis.getGame(gameStart.lobbyId);
+
+        expect(gameStart.lobbyId).toMatch(/^lobby-/);
+        expect(game.hasBot).toBe(true);
+        expect(game.botPlayerIdx === 0 || game.botPlayerIdx === 1).toBe(true);
+        expect(game.playerProfiles[game.botPlayerIdx]).toHaveProperty('name');
+        sock.emit('surrender', { lobbyId: gameStart.lobbyId });
+        await waitForEvent(sock, 'gameOver', 2000);
+    });
+
+    it('does not start a bot game after cancelSearch', async () => {
+        process.env.BOTS_ENABLED = 'true';
+        process.env.BOT_FALLBACK_MIN_WAIT_MS = '30';
+        process.env.BOT_FALLBACK_MAX_WAIT_MS = '30';
+
+        const { sock, captured } = await connectClient();
+        const token = captured.find(e => e.event === 'assignToken').args[0].token;
+
+        sock.emit('findGame', { token });
+        sock.emit('cancelSearch', { token });
+        await new Promise(r => setTimeout(r, 150));
+
+        expect(captured.some(e => e.event === 'gameStart')).toBe(false);
     });
 });

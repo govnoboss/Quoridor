@@ -26,6 +26,7 @@ const KEYS = {
         DISCONNECT_TIMERS: 'timers:disconnect',
         TURN_TIMEOUTS: 'timers:turn',
         TOKEN_USER_MAP: 'token:user:',
+        BOT_RECENT: (token) => `bot:recent:${token}`,
         REMATCH: (lobbyId) => `rematch:${lobbyId}`,
     };
 
@@ -45,6 +46,7 @@ class MemoryStore {
         this.turnTimeouts = new Map();
         this.tokenUserMapping = new Map();
         this.rematchContexts = new Map();
+        this.botRecentMatchCounts = new Map();
         this.lobbyCounter = 0;
         this.connected = false;
     }
@@ -254,6 +256,24 @@ class MemoryStore {
 
     deleteTokenUserMapping(token) {
         this.tokenUserMapping.delete(token);
+    }
+
+    incrementBotRecentMatchCount(token, ttlMs) {
+        const existing = this.botRecentMatchCounts.get(token);
+        const now = Date.now();
+        const count = existing && existing.expiresAt > now ? existing.count + 1 : 1;
+        this.botRecentMatchCounts.set(token, { count, expiresAt: now + ttlMs });
+        return count;
+    }
+
+    getBotRecentMatchCount(token) {
+        const existing = this.botRecentMatchCounts.get(token);
+        if (!existing) return 0;
+        if (existing.expiresAt <= Date.now()) {
+            this.botRecentMatchCounts.delete(token);
+            return 0;
+        }
+        return existing.count;
     }
 }
 
@@ -645,6 +665,28 @@ async function deleteTokenUserMapping(token) {
     await store.del(`${KEYS.TOKEN_USER_MAP}${token}`);
 }
 
+async function incrementBotRecentMatchCount(token, ttlMs) {
+    const store = getStore();
+    if (!store) return 0;
+    if (isMemoryMode()) return store.incrementBotRecentMatchCount(token, ttlMs);
+    const key = KEYS.BOT_RECENT(token);
+    const count = await store.incr(key);
+    if (typeof store.pExpire === 'function') {
+        await store.pExpire(key, ttlMs);
+    } else {
+        await store.set(key, String(count), { PX: ttlMs });
+    }
+    return count;
+}
+
+async function getBotRecentMatchCount(token) {
+    const store = getStore();
+    if (!store) return 0;
+    if (isMemoryMode()) return store.getBotRecentMatchCount(token);
+    const value = await store.get(KEYS.BOT_RECENT(token));
+    return value ? parseInt(value, 10) : 0;
+}
+
 // ============================================================
 // ЭКСПОРТ
 // ============================================================
@@ -692,6 +734,8 @@ module.exports = {
     setTokenUserMapping,
     getUserIdByToken,
     deleteTokenUserMapping,
+    incrementBotRecentMatchCount,
+    getBotRecentMatchCount,
 
     saveRematchContext,
     getRematchContext,

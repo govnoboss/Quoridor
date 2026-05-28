@@ -875,21 +875,15 @@ async function collectPresenceStats() {
         const game = await Redis.getGame(lobbyId);
         if (!game?.playerProfiles) continue;
 
-        const player0Name = game.playerProfiles[0]?.name || 'Player';
-        const player1Name = game.playerProfiles[1]?.name || 'Player';
-
-        // Filter out games with admin-botops
-        if (player0Name === 'admin-botops' || player1Name === 'admin-botops') continue;
-
         liveGames.push({
             lobbyId,
             players: [
                 {
-                    name: player0Name,
+                    name: game.playerProfiles[0]?.name || 'Player',
                     isBot: Boolean(game.hasBot && game.botPlayerIdx === 0),
                 },
                 {
-                    name: player1Name,
+                    name: game.playerProfiles[1]?.name || 'Player',
                     isBot: Boolean(game.hasBot && game.botPlayerIdx === 1),
                 },
             ],
@@ -898,8 +892,6 @@ async function collectPresenceStats() {
 
     const humans = [];
     io.sockets.sockets.forEach((socket) => {
-        // Filter out admin-botops
-        if (socket.username === 'admin-botops') return;
         humans.push({
             name: socket.username || 'Guest',
             isBot: false,
@@ -909,7 +901,7 @@ async function collectPresenceStats() {
 
     let bots = [];
     if (botManager.isEnabled()) {
-        const botUsers = await User.find({ isBot: true, username: { $ne: 'admin-botops' } })
+        const botUsers = await User.find({ isBot: true })
             .select('username rating')
             .sort({ rating: -1 });
         bots = botUsers.map((user) => ({
