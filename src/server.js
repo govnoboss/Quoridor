@@ -166,6 +166,35 @@ app.get('/api/auth/me', async (req, res) => {
     }
 });
 
+app.get('/api/game/active', async (req, res) => {
+    try {
+        const token = req.headers['x-player-token'];
+        let lobbyCode = null;
+
+        if (req.session?.userId) {
+            lobbyCode = await Redis.getActiveLobbyForUser(req.session.userId);
+        }
+
+        if (!lobbyCode && typeof token === 'string' && token.trim()) {
+            lobbyCode = await Redis.getLobbyByToken(token.trim());
+        }
+
+        if (!lobbyCode) {
+            return res.json({ hasActiveGame: false });
+        }
+
+        const game = await Redis.getGame(lobbyCode);
+        if (!game) {
+            return res.json({ hasActiveGame: false });
+        }
+
+        res.json({ hasActiveGame: true, lobbyCode });
+    } catch (err) {
+        console.error('[ACTIVE GAME API ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 async function resolveUserById(userId, fields = null) {
     const query = User.findById(userId);
     if (query && typeof query.select === 'function') {
@@ -453,6 +482,14 @@ app.get('/profiles/:username', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
+app.get('/lobby/:lobbyCode', (req, res) => {
+    const { lobbyCode } = req.params;
+    if (!Shared.isValidLobbyId((lobbyCode || '').toUpperCase())) {
+        return res.redirect('/');
+    }
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
 // Deprecated or Redirected Enpoints
 // Get "My" Profile Data (Legacy support, maybe redirect to /api/profiles/me in future)
 app.get('/api/user/profile', async (req, res) => {
@@ -669,6 +706,37 @@ function generateRoomCode() {
     return Math.random().toString(36).substring(2, 7).toUpperCase();
 }
 
+async function generateUniqueRoomCode(maxAttempts = 30) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const code = generateRoomCode();
+        const existing = await Redis.getRoom(code);
+        if (!existing) return code;
+    }
+    throw new Error('Failed to generate unique room code');
+}
+
+async function linkPlayersToLobbyByToken(tokens, lobbyId) {
+    for (const token of tokens || []) {
+        if (!token) continue;
+        await Redis.setTokenMapping(token, lobbyId);
+        const userId = await Redis.getUserIdByToken(token);
+        if (userId) {
+            await Redis.setActiveLobbyForUser(userId, lobbyId);
+        }
+    }
+}
+
+async function clearPlayersLobbyLinkByToken(tokens) {
+    for (const token of tokens || []) {
+        if (!token) continue;
+        await Redis.deleteTokenMapping(token);
+        const userId = await Redis.getUserIdByToken(token);
+        if (userId) {
+            await Redis.clearActiveLobbyForUser(userId);
+        }
+    }
+}
+
 /**
  * Получает профиль игрока (имя и аватар) по токену.
  */
@@ -733,8 +801,7 @@ async function startBotGame(socket, humanPlayer, bot, isRanked) {
     const humanIdx = swap ? 1 : 0;
     const botIdx = 1 - humanIdx;
 
-    const nextId = await Redis.incrementLobbyCounter();
-    const lobbyId = `lobby-${nextId}`;
+    const lobbyId = await Redis.generateUniqueLobbyCode();
 
     const gameState = Shared.createInitialState(humanPlayer.timeControl, isRanked);
     gameState.hasBot = true;
@@ -752,15 +819,16 @@ async function startBotGame(socket, humanPlayer, bot, isRanked) {
     await Redis.saveGame(lobbyId, gameState);
     await Redis.addActiveGame(lobbyId);
     await Redis.setTurnTimeout(lobbyId, Date.now() + gameState.timers[gameState.currentPlayer] * 1000);
-    await Redis.setTokenMapping(humanPlayer.token, lobbyId);
-    await Redis.setTokenMapping(bot.token, lobbyId);
+    await linkPlayersToLobbyByToken([humanPlayer.token, bot.token], lobbyId);
     if (bot.isAccount && bot.userId) {
         await Redis.setTokenUserMapping(bot.token, bot.userId);
+        await Redis.setActiveLobbyForUser(bot.userId, lobbyId);
     }
 
     socket.join(lobbyId);
     socket.emit('gameStart', {
         lobbyId,
+        lobbyCode: lobbyId,
         color: humanIdx === 0 ? 'white' : 'black',
         opponent: gameState.playerProfiles[botIdx],
         me: gameState.playerProfiles[humanIdx],
@@ -1084,8 +1152,7 @@ io.on('connection', (socket) => {
                 const p1 = swap ? pB : pA;
                 const p2 = swap ? pA : pB;
 
-                const nextId = await Redis.incrementLobbyCounter();
-                const lobbyId = `lobby-${nextId}`;
+                const lobbyId = await Redis.generateUniqueLobbyCode();
 
                 const s1 = io.sockets.sockets.get(p1.socketId);
                 const s2 = io.sockets.sockets.get(p2.socketId);
@@ -1122,8 +1189,7 @@ io.on('connection', (socket) => {
                     await Redis.setTurnTimeout(lobbyId, timeoutAt);
 
                     // Сохраняем маппинг токенов для Rejoin
-                    await Redis.setTokenMapping(p1.token, lobbyId);
-                    await Redis.setTokenMapping(p2.token, lobbyId);
+                    await linkPlayersToLobbyByToken([p1.token, p2.token], lobbyId);
                     s1.searchToken = null;
                     s2.searchToken = null;
 
@@ -1131,6 +1197,7 @@ io.on('connection', (socket) => {
                     s2.join(lobbyId);
                     s1.emit('gameStart', {
                         lobbyId,
+                        lobbyCode: lobbyId,
                         color: 'white',
                         opponent: gameState.playerProfiles[1], // Pass full profile
                         me: gameState.playerProfiles[0],
@@ -1138,6 +1205,7 @@ io.on('connection', (socket) => {
                     });
                     s2.emit('gameStart', {
                         lobbyId,
+                        lobbyCode: lobbyId,
                         color: 'black',
                         opponent: gameState.playerProfiles[0], // Pass full profile
                         me: gameState.playerProfiles[1],
@@ -1190,7 +1258,7 @@ io.on('connection', (socket) => {
             await Redis.removeFromAllQueues(token);
             botManager.cancelFallback(token);
 
-            const roomCode = generateRoomCode();
+            const roomCode = await generateUniqueRoomCode();
             await Redis.createRoom(roomCode, {
                 players: [{ socketId: socket.id, token: token }]
             });
@@ -1252,8 +1320,7 @@ io.on('connection', (socket) => {
                 const whitePlayer = isSwap ? room.players[1] : room.players[0];
                 const blackPlayer = isSwap ? room.players[0] : room.players[1];
 
-                const nextId = await Redis.incrementLobbyCounter();
-                const lobbyId = `lobby-${nextId}`;
+                const lobbyId = normalizedCode;
 
                 const sWhite = io.sockets.sockets.get(whitePlayer.socketId);
                 const sBlack = io.sockets.sockets.get(blackPlayer.socketId);
@@ -1281,17 +1348,18 @@ io.on('connection', (socket) => {
                     await Redis.setTurnTimeout(lobbyId, timeoutAt);
 
                     // Сохраняем маппинг токенов для Rejoin
-                    await Redis.setTokenMapping(whitePlayer.token, lobbyId);
-                    await Redis.setTokenMapping(blackPlayer.token, lobbyId);
+                    await linkPlayersToLobbyByToken([whitePlayer.token, blackPlayer.token], lobbyId);
 
                     sWhite.emit('gameStart', {
                         lobbyId,
+                        lobbyCode: lobbyId,
                         color: 'white',
                         opponent: gameState.playerProfiles[1],
                         me: gameState.playerProfiles[0]
                     });
                     sBlack.emit('gameStart', {
                         lobbyId,
+                        lobbyCode: lobbyId,
                         color: 'black',
                         opponent: gameState.playerProfiles[0],
                         me: gameState.playerProfiles[1]
@@ -1364,6 +1432,7 @@ io.on('connection', (socket) => {
                 // 4. Send Resume event
                 socket.emit('gameResumed', {
                     lobbyId,
+                    lobbyCode: lobbyId,
                     color: pIdx === 0 ? 'white' : 'black',
                     myPlayerIndex: pIdx,
                     state: game,
@@ -1379,6 +1448,35 @@ io.on('connection', (socket) => {
             }
         } catch (err) {
             console.error('[REJOIN ERROR]', err);
+        }
+    });
+
+    socket.on('rejoinLobby', async (data) => {
+        const token = data?.token;
+        const lobbyCode = (data?.lobbyCode || '').toUpperCase().trim();
+        if (!isValidToken(token) || !Shared.isValidLobbyId(lobbyCode)) return;
+
+        try {
+            const game = await Redis.getGame(lobbyCode);
+            if (!game) return;
+
+            const pIdx = game.playerTokens.indexOf(token);
+            if (pIdx === -1) return;
+
+            game.playerSockets[pIdx] = socket.id;
+            socket.join(lobbyCode);
+            await Redis.saveGame(lobbyCode, game);
+            socket.emit('gameResumed', {
+                lobbyId: lobbyCode,
+                lobbyCode,
+                color: pIdx === 0 ? 'white' : 'black',
+                myPlayerIndex: pIdx,
+                state: game,
+                timers: game.timers,
+                profiles: game.playerProfiles
+            });
+        } catch (err) {
+            console.error('[REJOIN LOBBY ERROR]', err);
         }
     });
 
@@ -1638,8 +1736,7 @@ async function handleDisconnectTimeout(lobbyId) {
             // Original logic just cleaned up.
             await Redis.deleteGame(lobbyId);
             await Redis.removeActiveGame(lobbyId);
-            await Redis.deleteTokenMapping(game.playerTokens[0]);
-            await Redis.deleteTokenMapping(game.playerTokens[1]);
+            await clearPlayersLobbyLinkByToken(game.playerTokens);
             await Redis.clearDisconnectTimer(lobbyId);
             await Redis.clearTurnTimeout(lobbyId);
         }
@@ -1820,8 +1917,7 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
 
         await Redis.deleteGame(lobbyId);
         await Redis.removeActiveGame(lobbyId);
-        if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
-        if (game.playerTokens?.[1]) await Redis.deleteTokenMapping(game.playerTokens[1]);
+        await clearPlayersLobbyLinkByToken(game.playerTokens);
         if (game.hasBot && game.playerTokens?.[game.botPlayerIdx]) {
             await Redis.deleteTokenUserMapping(game.playerTokens[game.botPlayerIdx]);
         }
@@ -1845,8 +1941,7 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
         return;
     }
 
-    const nextId = await Redis.incrementLobbyCounter();
-    const lobbyId = `lobby-${nextId}`;
+    const lobbyId = await Redis.generateUniqueLobbyCode();
 
     const gameState = Shared.createInitialState(rematchCtx.timeControl, rematchCtx.isRanked);
     gameState.playerSockets[0] = p1.socketId;
@@ -1862,14 +1957,14 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
     const timeoutAt = Date.now() + gameState.timers[0] * 1000;
     await Redis.setTurnTimeout(lobbyId, timeoutAt);
 
-    await Redis.setTokenMapping(p1.token, lobbyId);
-    await Redis.setTokenMapping(p2.token, lobbyId);
+    await linkPlayersToLobbyByToken([p1.token, p2.token], lobbyId);
 
     s1.join(lobbyId);
     s2.join(lobbyId);
 
     s1.emit('rematchStarted', {
         lobbyId,
+        lobbyCode: lobbyId,
         color: 'white',
         opponent: gameState.playerProfiles[1],
         me: gameState.playerProfiles[0],
@@ -1877,6 +1972,7 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
     });
     s2.emit('rematchStarted', {
         lobbyId,
+        lobbyCode: lobbyId,
         color: 'black',
         opponent: gameState.playerProfiles[0],
         me: gameState.playerProfiles[1],
@@ -1993,8 +2089,7 @@ async function cleanupStaleGames() {
                 await Redis.clearTurnTimeout(lobbyId);
 
                 // Очищаем маппинг токенов
-                if (game.playerTokens?.[0]) await Redis.deleteTokenMapping(game.playerTokens[0]);
-                if (game.playerTokens?.[1]) await Redis.deleteTokenMapping(game.playerTokens[1]);
+                await clearPlayersLobbyLinkByToken(game.playerTokens);
 
                 console.log(`[Startup] Cleaned stale game: ${lobbyId}`);
                 cleaned++;

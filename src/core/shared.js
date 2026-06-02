@@ -239,7 +239,7 @@
     // --- VALIDATION HELPERS (for server and client) ---
 
     exports.isValidLobbyId = function (lobbyId) {
-        return typeof lobbyId === 'string' && /^lobby-\d+$/.test(lobbyId);
+        return typeof lobbyId === 'string' && /^[A-Z0-9]{5}$/.test(lobbyId);
     };
 
     exports.isValidPawnMove = function (move) {

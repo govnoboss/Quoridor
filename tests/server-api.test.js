@@ -195,6 +195,20 @@ describe('Health Check', () => {
     });
 });
 
+describe('Active Lobby API', () => {
+    it('GET /api/game/active returns false when no active game', async () => {
+        const res = await request(app).get('/api/game/active');
+        expect(res.status).toBe(200);
+        expect(res.body.hasActiveGame).toBe(false);
+    });
+
+    it('GET /api/game/active responds with expected schema', async () => {
+        const res = await request(app).get('/api/game/active');
+        expect(res.status).toBe(200);
+        expect(typeof res.body.hasActiveGame).toBe('boolean');
+    });
+});
+
 describe('Auth API', () => {
     const passwordHash = bcrypt.hashSync('testpass123', 10);
 

@@ -14,6 +14,7 @@ const TTL = {
     TOKEN_MAPPING: 2 * 60 * 60,
     ROOM: 30 * 60,
     REMATCH: 5 * 60,
+    USER_ACTIVE_LOBBY: 2 * 60 * 60,
 };
 
 const KEYS = {
@@ -26,6 +27,7 @@ const KEYS = {
         DISCONNECT_TIMERS: 'timers:disconnect',
         TURN_TIMEOUTS: 'timers:turn',
         TOKEN_USER_MAP: 'token:user:',
+        USER_ACTIVE_LOBBY: (userId) => `user:active_lobby:${userId}`,
         BOT_RECENT: (token) => `bot:recent:${token}`,
         REMATCH: (lobbyId) => `rematch:${lobbyId}`,
     };
@@ -45,6 +47,7 @@ class MemoryStore {
         this.disconnectTimers = new Map();
         this.turnTimeouts = new Map();
         this.tokenUserMapping = new Map();
+        this.userActiveLobbyMapping = new Map();
         this.rematchContexts = new Map();
         this.botRecentMatchCounts = new Map();
         this.lobbyCounter = 0;
@@ -127,6 +130,10 @@ class MemoryStore {
 
     getLobbyCounter() {
         return this.lobbyCounter;
+    }
+
+    lobbyExists(lobbyId) {
+        return this.games.has(lobbyId);
     }
 
     createRoom(code, roomData) {
@@ -256,6 +263,18 @@ class MemoryStore {
 
     deleteTokenUserMapping(token) {
         this.tokenUserMapping.delete(token);
+    }
+
+    setActiveLobbyForUser(userId, lobbyId) {
+        this.userActiveLobbyMapping.set(userId.toString(), lobbyId);
+    }
+
+    getActiveLobbyForUser(userId) {
+        return this.userActiveLobbyMapping.get(userId.toString()) || null;
+    }
+
+    clearActiveLobbyForUser(userId) {
+        this.userActiveLobbyMapping.delete(userId.toString());
     }
 
     incrementBotRecentMatchCount(token, ttlMs) {
@@ -470,6 +489,36 @@ async function getLobbyCounter() {
     return value ? parseInt(value, 10) : 0;
 }
 
+async function lobbyExists(lobbyId) {
+    const store = getStore();
+    if (!store) return false;
+    if (isMemoryMode()) return store.lobbyExists(lobbyId);
+    if (typeof store.exists === 'function') {
+        return (await store.exists(KEYS.GAME(lobbyId))) === 1;
+    }
+    const value = await store.get(KEYS.GAME(lobbyId));
+    return value !== null;
+}
+
+function randomLobbyCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+}
+
+async function generateUniqueLobbyCode(maxAttempts = 30) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const code = randomLobbyCode();
+        if (!(await lobbyExists(code))) {
+            return code;
+        }
+    }
+    throw new Error('Failed to allocate unique lobby code');
+}
+
 async function createRoom(code, roomData) {
     const store = getStore();
     if (!store) return;
@@ -665,6 +714,27 @@ async function deleteTokenUserMapping(token) {
     await store.del(`${KEYS.TOKEN_USER_MAP}${token}`);
 }
 
+async function setActiveLobbyForUser(userId, lobbyId) {
+    const store = getStore();
+    if (!store || !userId || !lobbyId) return;
+    if (isMemoryMode()) return store.setActiveLobbyForUser(userId, lobbyId);
+    await store.setEx(KEYS.USER_ACTIVE_LOBBY(userId), TTL.USER_ACTIVE_LOBBY, lobbyId);
+}
+
+async function getActiveLobbyForUser(userId) {
+    const store = getStore();
+    if (!store || !userId) return null;
+    if (isMemoryMode()) return store.getActiveLobbyForUser(userId);
+    return await store.get(KEYS.USER_ACTIVE_LOBBY(userId));
+}
+
+async function clearActiveLobbyForUser(userId) {
+    const store = getStore();
+    if (!store || !userId) return;
+    if (isMemoryMode()) return store.clearActiveLobbyForUser(userId);
+    await store.del(KEYS.USER_ACTIVE_LOBBY(userId));
+}
+
 async function incrementBotRecentMatchCount(token, ttlMs) {
     const store = getStore();
     if (!store) return 0;
@@ -712,6 +782,7 @@ module.exports = {
 
     incrementLobbyCounter,
     getLobbyCounter,
+    generateUniqueLobbyCode,
 
     createRoom,
     getRoom,
@@ -734,6 +805,9 @@ module.exports = {
     setTokenUserMapping,
     getUserIdByToken,
     deleteTokenUserMapping,
+    setActiveLobbyForUser,
+    getActiveLobbyForUser,
+    clearActiveLobbyForUser,
     incrementBotRecentMatchCount,
     getBotRecentMatchCount,
 

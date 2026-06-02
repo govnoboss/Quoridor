@@ -44,13 +44,15 @@ const Net = {
 
         this.socket.on('gameStart', (data) => {
             console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
+            const lobbyCode = data.lobbyCode || data.lobbyId;
 
             this.isOnline = true;
             this.myColor = data.color;
-            this.lobbyId = data.lobbyId;
+            this.lobbyId = lobbyCode;
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
             UI.hideSearch(false);
             UI.currentRoomCode = null; // Сбрасываем код, так как он использован
+            UI.updateLobbyRoute(lobbyCode);
 
             Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
         });
@@ -58,13 +60,15 @@ const Net = {
         // Обработка восстановления игры
         this.socket.on('gameResumed', (data) => {
             console.log(`[NET] ИГРА ВОССТАНОВЛЕНА! Лобби: ${data.lobbyId}`);
+            const lobbyCode = data.lobbyCode || data.lobbyId;
             this.isOnline = true;
             this.myColor = data.color;
-            this.lobbyId = data.lobbyId;
+            this.lobbyId = lobbyCode;
             this.myPlayerIndex = data.myPlayerIndex;
 
             UI.hideSearch(false);
             UI.showScreen('gameScreen');
+            UI.updateLobbyRoute(lobbyCode, true);
 
             // Восстанавливаем состояние локально
             Game.myPlayerIndex = this.myPlayerIndex;
@@ -115,6 +119,7 @@ const Net = {
             this.isOnline = false;
             this.lobbyId = null;
             this.myColor = null;
+            UI.clearLobbyRoute();
 
             Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
         });
@@ -126,11 +131,12 @@ const Net = {
             if (modal) modal.classList.add('hidden');
             this.isOnline = true;
             this.myColor = data.color;
-            this.lobbyId = data.lobbyId;
+            this.lobbyId = data.lobbyCode || data.lobbyId;
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
             this.lastGameLobbyId = null;
             UI.hideSearch(false);
             UI.currentRoomCode = null;
+            UI.updateLobbyRoute(this.lobbyId);
             Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
         });
 
@@ -258,6 +264,11 @@ const Net = {
     joinRoom(roomCode) {
         this.socket.emit('joinRoom', { roomCode, token: this.playerToken });
         console.log('[NET] Joining room:', roomCode);
+    },
+
+    rejoinLobbyByCode(lobbyCode) {
+        if (!lobbyCode) return;
+        this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken });
     }
 };
 

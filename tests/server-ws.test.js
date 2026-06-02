@@ -199,6 +199,8 @@ describe('Matchmaking', () => {
 
         expect(g1.lobbyId).toBeDefined();
         expect(g1.lobbyId).toBe(g2.lobbyId);
+        expect(g1.lobbyId).toMatch(/^[A-Z0-9]{5}$/);
+        expect(g1.lobbyCode).toBe(g1.lobbyId);
         expect(g1.color === 'white' || g1.color === 'black').toBe(true);
         expect(g2.color === 'white' || g2.color === 'black').toBe(true);
         expect(g1.color).not.toBe(g2.color);
@@ -267,6 +269,7 @@ describe('Private Rooms', () => {
         ]);
 
         expect(g1.lobbyId).toBe(g2.lobbyId);
+        expect(g1.lobbyId).toMatch(/^[A-Z0-9]{5}$/);
         expect(g1.color).not.toBe(g2.color);
     });
 
@@ -418,6 +421,7 @@ describe('Rematch', () => {
         expect(r1.lobbyId).toBeDefined();
         expect(r1.lobbyId).toBe(r2.lobbyId);
         expect(r1.lobbyId).not.toBe(lobbyId);
+        expect(r1.lobbyId).toMatch(/^[A-Z0-9]{5}$/);
         expect(r1.color === 'white' || r1.color === 'black').toBe(true);
         expect(r2.color === 'white' || r2.color === 'black').toBe(true);
         expect(r1.color).not.toBe(r2.color);
@@ -429,7 +433,7 @@ describe('Rematch', () => {
         const { sock, captured } = await connectClient();
         const token = captured.find(e => e.event === 'assignToken').args[0].token;
 
-        sock.emit('requestRematch', { lobbyId: 'lobby-99999', token });
+        sock.emit('requestRematch', { lobbyId: 'ABCDE', token });
         const fail = await waitForEvent(sock, 'rematchFailed');
         expect(fail.reason).toBeDefined();
     });
@@ -492,7 +496,7 @@ describe('Bot matchmaking fallback', () => {
         const Redis = require('../src/storage/redis');
         const game = await Redis.getGame(gameStart.lobbyId);
 
-        expect(gameStart.lobbyId).toMatch(/^lobby-/);
+        expect(gameStart.lobbyId).toMatch(/^[A-Z0-9]{5}$/);
         expect(game.hasBot).toBe(true);
         expect(game.botPlayerIdx === 0 || game.botPlayerIdx === 1).toBe(true);
         expect(game.playerProfiles[game.botPlayerIdx]).toHaveProperty('name');
