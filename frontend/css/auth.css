@@ -178,7 +178,8 @@
     }
 }
 
-#profileModal .close-panel-btn {
+#profileModal .close-panel-btn,
+#resultModal .close-panel-btn {
     display: flex;
     /* Show by default in modal */
     position: absolute;

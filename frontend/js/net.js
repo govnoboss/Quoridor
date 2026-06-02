@@ -126,6 +126,18 @@ const Net = {
             Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
         });
 
+        this.socket.on('gameActiveError', (data) => {
+            console.log('[NET] Игра активна, доступ заблокирован:', data.lobbyCode);
+            UI.showToast(UI.translate('toast_game_active') || 'Эта игра уже началась. Доступ запрещён.', 'error');
+            UI.clearLobbyRoute();
+            UI.showScreen('mainMenu');
+        });
+
+        this.socket.on('gameReplayAvailable', (data) => {
+            console.log('[NET] Доступен реплей игры:', data.lobbyCode);
+            UI.launchReplay(data);
+        });
+
         this.socket.on('rematchStarted', (data) => {
             console.log(`[NET] Реванш начался! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             // Close result modal if still open
@@ -270,9 +282,9 @@ const Net = {
         console.log('[NET] Joining room:', roomCode);
     },
 
-    rejoinLobbyByCode(lobbyCode) {
+    rejoinLobbyByCode(lobbyCode, replay = false) {
         if (!lobbyCode) return;
-        this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken });
+        this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken, replay });
     }
 };
 
