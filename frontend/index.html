@@ -461,7 +461,7 @@
               </div>
               <div class="history-list" id="historyList"></div>
               <div class="history-controls">
-                <button id="histFirst" title="В начало" onclick="Game.setHistoryView(0)">«</button>
+                <button id="histFirst" title="В начало" onclick="Game.setHistoryView(-2)">«</button>
                 <button id="histPrev" title="Назад" onclick="Game.navigateHistory(-1)">‹</button>
                 <button id="histNext" title="Вперед" onclick="Game.navigateHistory(1)">›</button>
                 <button id="histLast" title="В конец" onclick="Game.setHistoryView(-1)">»</button>
@@ -507,6 +507,7 @@
 
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
+      <button class="close-panel-btn" onclick="Game.closeResultModal()">×</button>
       <h2 id="resultStatus" data-i18n="modal_win">ПОБЕДА</h2>
       <div class="result-divider"></div>
       <p class="result-reason">

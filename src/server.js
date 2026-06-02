@@ -1454,27 +1454,70 @@ io.on('connection', (socket) => {
     socket.on('rejoinLobby', async (data) => {
         const token = data?.token;
         const lobbyCode = (data?.lobbyCode || '').toUpperCase().trim();
+        const isReplay = data?.replay === true;
         if (!isValidToken(token) || !Shared.isValidLobbyId(lobbyCode)) return;
 
         try {
+            // 1. Сначала проверяем активную игру
             const game = await Redis.getGame(lobbyCode);
-            if (!game) return;
+            if (game) {
+                const pIdx = game.playerTokens.indexOf(token);
+                if (pIdx === -1) {
+                    // Игра активна, но токен не совпадает — блокируем доступ
+                    socket.emit('gameActiveError', { lobbyCode });
+                    return;
+                }
+                // Свой игрок переподключается — пускаем
+                game.playerSockets[pIdx] = socket.id;
+                socket.join(lobbyCode);
+                await Redis.saveGame(lobbyCode, game);
+                socket.emit('gameResumed', {
+                    lobbyId: lobbyCode,
+                    lobbyCode,
+                    color: pIdx === 0 ? 'white' : 'black',
+                    myPlayerIndex: pIdx,
+                    state: game,
+                    timers: game.timers,
+                    profiles: game.playerProfiles
+                });
+                return;
+            }
 
-            const pIdx = game.playerTokens.indexOf(token);
-            if (pIdx === -1) return;
+            // 2. Активной игры нет — проверяем finished-копию (TTL 5 мин)
+            const finished = await Redis.getFinishedGame(lobbyCode);
+            if (finished) {
+                socket.emit('gameReplayAvailable', {
+                    lobbyCode,
+                    history: finished.history || [],
+                    playerProfiles: finished.playerProfiles || [],
+                    timers: finished.timers || null,
+                    result: finished.result || null
+                });
+                return;
+            }
 
-            game.playerSockets[pIdx] = socket.id;
-            socket.join(lobbyCode);
-            await Redis.saveGame(lobbyCode, game);
-            socket.emit('gameResumed', {
-                lobbyId: lobbyCode,
-                lobbyCode,
-                color: pIdx === 0 ? 'white' : 'black',
-                myPlayerIndex: pIdx,
-                state: game,
-                timers: game.timers,
-                profiles: game.playerProfiles
-            });
+            // 3. Нет ни активной, ни finished — ищем в MongoDB
+            const GameResult = require('./models/GameResult');
+            const archived = await GameResult.findOne({ lobbyId: lobbyCode });
+            if (archived) {
+                socket.emit('gameReplayAvailable', {
+                    lobbyCode,
+                    history: archived.history || [],
+                    playerProfiles: [
+                        { username: archived.playerWhite?.username || 'White' },
+                        { username: archived.playerBlack?.username || 'Black' }
+                    ],
+                    timers: null,
+                    result: {
+                        winnerIdx: archived.winner,
+                        reason: archived.reason
+                    }
+                });
+                return;
+            }
+
+            // 4. Ничего не нашли — пускаем в комнату как обычно
+            return;
         } catch (err) {
             console.error('[REJOIN LOBBY ERROR]', err);
         }
@@ -1852,13 +1895,14 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
 
         const result = new GameResult({
             gameType,
-            isRanked: true, // We checked it above
+            lobbyId,
+            isRanked: true,
             playerWhite,
             playerBlack,
             winner: winnerIdx,
             reason,
             turns: Math.ceil((game.history?.length || 0) / 2),
-            history: game.history || [], // Save history
+            history: game.history || [],
             date: new Date()
         });
 
@@ -1914,6 +1958,9 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
             rematchRequests: []
         };
         await Redis.saveRematchContext(lobbyId, rematchCtx);
+
+        // Сохраняем завершённую игру для реплея (TTL 5 мин)
+        await Redis.saveFinishedGame(lobbyId, game);
 
         await Redis.deleteGame(lobbyId);
         await Redis.removeActiveGame(lobbyId);

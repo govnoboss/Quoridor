@@ -340,6 +340,7 @@ const Game = {
     this.stopTimer();
     this.isGameOver = false;
     this.postGameReview = false;
+    this.viewHistoryIndex = -1;
 
     // 3. Clear rematch / new game state
     if (typeof Net !== 'undefined') {

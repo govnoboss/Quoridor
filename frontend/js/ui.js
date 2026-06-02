@@ -690,6 +690,16 @@ const UI = {
     if (!list) return;
     list.innerHTML = '';
 
+    // Стартовая позиция
+    const startRow = document.createElement('div');
+    startRow.className = 'history-row start-row';
+    const startSpan = document.createElement('span');
+    startSpan.className = 'move start-move' + (currentViewIndex === -2 ? ' active' : '');
+    startSpan.textContent = UI.translate('btn_start') || 'Start';
+    startSpan.onclick = () => Game.setHistoryView(-2);
+    startRow.appendChild(startSpan);
+    list.appendChild(startRow);
+
     for (let i = 0; i < history.length; i += 2) {
       const moveW = history[i];
       const moveB = history[i + 1];
@@ -727,8 +737,8 @@ const UI = {
 
     if (btnFirst && btnPrev && btnNext && btnLast) {
       const histLen = history.length;
-      btnFirst.disabled = (histLen === 0 || currentViewIndex === 0);
-      btnPrev.disabled = (histLen === 0 || currentViewIndex === 0);
+      btnFirst.disabled = (histLen === 0 || currentViewIndex === -2);
+      btnPrev.disabled = (histLen === 0 || currentViewIndex === -2);
       btnNext.disabled = (histLen === 0 || currentViewIndex === -1);
       btnLast.disabled = (histLen === 0 || currentViewIndex === -1);
     }
@@ -1601,23 +1611,46 @@ UI.redirectToActiveLobbyIfNeeded = async function () {
   return false;
 };
 
+UI.getReplayParam = function () {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('replay') === 'true';
+};
+
+UI.launchReplay = function (data) {
+  this.showScreen('gameScreen');
+  const gameData = {
+    history: data.history || [],
+    playerWhite: { username: data.playerProfiles?.[0]?.username || 'White' },
+    playerBlack: { username: data.playerProfiles?.[1]?.username || 'Black' }
+  };
+  Game.startReplay(gameData);
+};
+
 UI.initRouting = function () {
+  const handleLobbyPath = (lobbyCode, isReplay) => {
+    this.showScreen('gameScreen');
+    if (!lobbyCode) return;
+    Net.rejoinLobbyByCode(lobbyCode, isReplay);
+    setTimeout(() => {
+      if (Net.isOnline || Net.lobbyId) return;
+      if (isReplay) {
+        UI.showToast(UI.translate('toast_replay_not_found') || 'Replay not available', 'error');
+        UI.clearLobbyRoute();
+        UI.showScreen('mainMenu');
+      } else {
+        Net.joinRoom(lobbyCode);
+      }
+    }, 500);
+  };
+
   window.addEventListener('popstate', (event) => {
     const path = window.location.pathname;
+    const isReplay = this.getReplayParam();
     if (path.startsWith('/profiles/')) {
       const username = path.split('/')[2];
       this.showProfilePage(username, false);
     } else if (path.startsWith('/lobby/')) {
-      this.showScreen('gameScreen');
-      const lobbyCode = this.getLobbyCodeFromPath();
-      if (lobbyCode) {
-        Net.rejoinLobbyByCode(lobbyCode);
-        setTimeout(() => {
-          if (!Net.isOnline && !Net.lobbyId) {
-            Net.joinRoom(lobbyCode);
-          }
-        }, 500);
-      }
+      handleLobbyPath(this.getLobbyCodeFromPath(), isReplay);
     } else {
       this.showScreen('mainMenu');
     }
@@ -1625,20 +1658,12 @@ UI.initRouting = function () {
 
   // Check initial load
   const path = window.location.pathname;
+  const isReplay = this.getReplayParam();
   if (path.startsWith('/profiles/')) {
     const username = path.split('/')[2];
     this.showProfilePage(username, false);
   } else if (path.startsWith('/lobby/')) {
-    this.showScreen('gameScreen');
-    const lobbyCode = this.getLobbyCodeFromPath();
-    if (lobbyCode) {
-      Net.rejoinLobbyByCode(lobbyCode);
-      setTimeout(() => {
-        if (!Net.isOnline && !Net.lobbyId) {
-          Net.joinRoom(lobbyCode);
-        }
-      }, 500);
-    }
+    handleLobbyPath(this.getLobbyCodeFromPath(), isReplay);
   } else {
     this.showScreen('mainMenu');
   }
@@ -1779,13 +1804,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Legacy query room support -> canonical lobby path
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
+  const isReplay = UI.getReplayParam();
   const normalizedRoomCode = (roomCode || '').toUpperCase().trim();
   if (UI.isValidLobbyCode(normalizedRoomCode)) {
     UI.updateLobbyRoute(normalizedRoomCode, true);
     UI.showScreen('gameScreen');
-    Net.rejoinLobbyByCode(normalizedRoomCode);
+    Net.rejoinLobbyByCode(normalizedRoomCode, isReplay);
     setTimeout(() => {
-      if (!Net.isOnline && !Net.lobbyId) {
+      if (Net.isOnline || Net.lobbyId) return;
+      if (isReplay) {
+        UI.showToast(UI.translate('toast_replay_not_found') || 'Replay not available', 'error');
+        UI.clearLobbyRoute();
+        UI.showScreen('mainMenu');
+      } else {
         Net.joinRoom(normalizedRoomCode);
       }
     }, 500);

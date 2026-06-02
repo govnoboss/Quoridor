@@ -11,6 +11,7 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const TTL = {
     GAME: 2 * 60 * 60,
+    FINISHED_GAME: 5 * 60, // 5 min — доступ для реплея после окончания
     TOKEN_MAPPING: 2 * 60 * 60,
     ROOM: 30 * 60,
     REMATCH: 5 * 60,
@@ -19,6 +20,7 @@ const TTL = {
 
 const KEYS = {
     GAME: (lobbyId) => `game:${lobbyId}`,
+    FINISHED: (lobbyId) => `finished:${lobbyId}`,
     TOKEN: (token) => `token:${token}`,
     ROOM: (code) => `room:${code}`,
         QUEUE: (base, inc, isRanked) => `queue:${isRanked ? 'ranked' : 'casual'}:${base}:${inc}`,
@@ -251,6 +253,21 @@ class MemoryStore {
 
     deleteRematchContext(lobbyId) {
         this.rematchContexts.delete(lobbyId);
+    }
+
+    saveFinishedGame(lobbyId, data) {
+        this.games.set(`finished:${lobbyId}`, { ...data, _finishedAt: Date.now() });
+    }
+
+    getFinishedGame(lobbyId) {
+        const entry = this.games.get(`finished:${lobbyId}`);
+        if (!entry) return null;
+        if (Date.now() - entry._finishedAt > TTL.FINISHED_GAME * 1000) {
+            this.games.delete(`finished:${lobbyId}`);
+            return null;
+        }
+        const { _finishedAt, ...rest } = entry;
+        return rest;
     }
 
     setTokenUserMapping(token, userId) {
@@ -693,6 +710,21 @@ async function deleteRematchContext(lobbyId) {
     await store.del(KEYS.REMATCH(lobbyId));
 }
 
+async function saveFinishedGame(lobbyId, data) {
+    const store = getStore();
+    if (!store) return;
+    if (isMemoryMode()) return store.saveFinishedGame(lobbyId, data);
+    await store.setEx(KEYS.FINISHED(lobbyId), TTL.FINISHED_GAME, JSON.stringify(data));
+}
+
+async function getFinishedGame(lobbyId) {
+    const store = getStore();
+    if (!store) return null;
+    if (isMemoryMode()) return store.getFinishedGame(lobbyId);
+    const data = await store.get(KEYS.FINISHED(lobbyId));
+    return data ? JSON.parse(data) : null;
+}
+
 async function setTokenUserMapping(token, userId) {
     const store = getStore();
     if (!store) return;
@@ -814,6 +846,9 @@ module.exports = {
     saveRematchContext,
     getRematchContext,
     deleteRematchContext,
+
+    saveFinishedGame,
+    getFinishedGame,
 
     TTL,
     KEYS,
