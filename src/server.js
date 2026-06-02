@@ -97,25 +97,32 @@ app.get('/shared.js', (req, res) => {
 // register
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ error: 'All fields required' });
+        const { username, email, password } = req.body;
+        if (!username || !email || !password) return res.status(400).json({ error: 'All fields required' });
         if (username.length < 3 || username.length > 20) return res.status(400).json({ error: 'Username must be 3-20 chars' });
         if (password.length < 6) return res.status(400).json({ error: 'Password too short (min 6)' });
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+
+        const trimmedEmail = email.trim().toLowerCase();
         const existingUser = await User.findOne({ username });
         if (existingUser) return res.status(400).json({ error: 'Username taken' });
+
+        const existingEmail = await User.findOne({ email: trimmedEmail });
+        if (existingEmail) return res.status(400).json({ error: 'Email already in use' });
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        const newUser = new User({ username, passwordHash });
+        const newUser = new User({ username, email: trimmedEmail, passwordHash });
         await newUser.save();
 
         // Auto login
         req.session.userId = newUser._id;
         req.session.username = newUser.username;
 
-        res.status(201).json({ message: 'User created', user: { username: newUser.username, id: newUser._id } });
+        res.status(201).json({ message: 'User created', user: { username: newUser.username, email: newUser.email, id: newUser._id } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -237,9 +244,43 @@ function settingsForBotManager(settings) {
 
 async function getOrCreateBotSettings() {
     let settings = await BotSettings.findOne({ key: 'global' });
+    const envDefaults = botSettingsFromEnv();
     if (!settings) {
-        settings = new BotSettings(botSettingsFromEnv());
+        settings = new BotSettings(envDefaults);
         await settings.save();
+    } else {
+        let changed = false;
+        if (process.env.BOTS_ENABLED !== undefined) {
+            const envEnabled = ['1', 'true', 'yes', 'on'].includes(String(process.env.BOTS_ENABLED).toLowerCase());
+            if (settings.enabled !== envEnabled) {
+                settings.enabled = envEnabled;
+                changed = true;
+            }
+        }
+        if (process.env.BOT_RANKED_ENABLED !== undefined) {
+            const envRanked = ['1', 'true', 'yes', 'on'].includes(String(process.env.BOT_RANKED_ENABLED).toLowerCase());
+            if (settings.rankedEnabled !== envRanked) {
+                settings.rankedEnabled = envRanked;
+                changed = true;
+            }
+        }
+        if (process.env.BOT_FALLBACK_MIN_WAIT_MS !== undefined) {
+            const envMinWait = parseInt(process.env.BOT_FALLBACK_MIN_WAIT_MS, 10);
+            if (!isNaN(envMinWait) && settings.fallbackMinWaitMs !== envMinWait) {
+                settings.fallbackMinWaitMs = envMinWait;
+                changed = true;
+            }
+        }
+        if (process.env.BOT_FALLBACK_MAX_WAIT_MS !== undefined) {
+            const envMaxWait = parseInt(process.env.BOT_FALLBACK_MAX_WAIT_MS, 10);
+            if (!isNaN(envMaxWait) && settings.fallbackMaxWaitMs !== envMaxWait) {
+                settings.fallbackMaxWaitMs = envMaxWait;
+                changed = true;
+            }
+        }
+        if (changed) {
+            await settings.save();
+        }
     }
     return settings;
 }
@@ -381,7 +422,7 @@ app.get('/api/profiles/:username/games', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true } })
+        const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
             .select('username rating avatarUrl isBot')
             .sort({ rating: -1 })
             .limit(limit);
@@ -508,13 +549,13 @@ app.use(helmet.contentSecurityPolicy({
     useDefaults: false,
     directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "img-src": ["'self'", "https://ui-avatars.com"],
         "media-src": ["'self'", "data:"],
-        "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io"]
+        "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io", "https://analytics.playquor.org"]
     }
 })); // CLOSED Correctly
 
@@ -549,7 +590,16 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 
+// Standalone pages (not SPA)
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));
+app.get('/register', (req, res) => res.sendFile(path.join(__dirname, '../frontend/register.html')));
+app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/terms.html')));
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 
+// SPA fallback — serve index.html for any unrecognized GET route
+app.get('/{*path}', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
 
 // Sentry error handler (after all routes)
 if (process.env.SENTRY_DSN) {
@@ -875,15 +925,20 @@ async function collectPresenceStats() {
         const game = await Redis.getGame(lobbyId);
         if (!game?.playerProfiles) continue;
 
+        const player0Name = game.playerProfiles[0]?.name || 'Player';
+        const player1Name = game.playerProfiles[1]?.name || 'Player';
+
+        if (player0Name === 'admin-botops' || player1Name === 'admin-botops') continue;
+
         liveGames.push({
             lobbyId,
             players: [
                 {
-                    name: game.playerProfiles[0]?.name || 'Player',
+                    name: player0Name,
                     isBot: Boolean(game.hasBot && game.botPlayerIdx === 0),
                 },
                 {
-                    name: game.playerProfiles[1]?.name || 'Player',
+                    name: player1Name,
                     isBot: Boolean(game.hasBot && game.botPlayerIdx === 1),
                 },
             ],
@@ -892,6 +947,7 @@ async function collectPresenceStats() {
 
     const humans = [];
     io.sockets.sockets.forEach((socket) => {
+        if (socket.username === 'admin-botops') return;
         humans.push({
             name: socket.username || 'Guest',
             isBot: false,
@@ -899,23 +955,11 @@ async function collectPresenceStats() {
         });
     });
 
-    let bots = [];
-    if (botManager.isEnabled()) {
-        const botUsers = await User.find({ isBot: true })
-            .select('username rating')
-            .sort({ rating: -1 });
-        bots = botUsers.map((user) => ({
-            name: user.username,
-            isBot: true,
-            rating: user.rating || 1200,
-        }));
-    }
-
     return {
-        online: humans.length + bots.length,
+        online: humans.length,
         playing: gameIds.length * 2,
         humans,
-        bots,
+        bots: [],
         liveGames,
     };
 }

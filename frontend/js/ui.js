@@ -334,7 +334,6 @@ const UI = {
   renderPresenceLists(data) {
     const onlineList = document.getElementById('onlinePlayersList');
     const gamesList = document.getElementById('liveGamesList');
-    if (!onlineList || !gamesList) return;
 
     const entries = [
       ...(data.humans || []),
@@ -355,21 +354,23 @@ const UI = {
       }).join('');
     }
 
-    const games = data.liveGames || [];
-    if (!games.length) {
-      gamesList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_no_games'))}</li>`;
-    } else {
-      gamesList.innerHTML = games.map((game) => {
-        const left = game.players[0];
-        const right = game.players[1];
-        const leftClass = left.isBot ? 'presence-bot' : 'presence-human';
-        const rightClass = right.isBot ? 'presence-bot' : 'presence-human';
-        return `<li class="presence-game">
-          <span class="${leftClass}" onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
-          <span class="presence-vs">vs</span>
-          <span class="${rightClass}" onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
-        </li>`;
-      }).join('');
+    if (gamesList) {
+      const games = data.liveGames || [];
+      if (!games.length) {
+        gamesList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_no_games'))}</li>`;
+      } else {
+        gamesList.innerHTML = games.map((game) => {
+          const left = game.players[0];
+          const right = game.players[1];
+          const leftClass = left.isBot ? 'presence-bot' : 'presence-human';
+          const rightClass = right.isBot ? 'presence-bot' : 'presence-human';
+          return `<li class="presence-game">
+            <span class="${leftClass}" onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
+            <span class="presence-vs">vs</span>
+            <span class="${rightClass}" onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
+          </li>`;
+        }).join('');
+      }
     }
   },
 
@@ -409,7 +410,7 @@ const UI = {
   quickMatch(isRanked = false) {
     if (isRanked && !this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      this.openAuthModal();
+      window.location.href = '/login';
       return;
     }
 
@@ -433,7 +434,7 @@ const UI = {
   onRankedClick() {
     if (!this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      this.openAuthModal();
+      window.location.href = '/login';
       return;
     }
     this.quickMatch(true);
@@ -1015,12 +1016,6 @@ UI.selectBotDifficulty = function (diff) {
 // --- AUTHENTICATION ---
 UI.currentUser = null;
 
-UI.openAuthModal = function (tab = 'login') {
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.remove('hidden');
-  this.switchAuthTab(tab);
-};
-
 // --- LOADING SCREEN ---
 UI.loadingTimeout = null;
 
@@ -1077,28 +1072,18 @@ UI.hideLoadingScreen = function () {
 // Start loading logic immediately
 UI.initLoadingScreen();
 
-UI.closeAuthModal = function () {
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.add('hidden');
-};
-
-UI.switchAuthTab = function (tab) {
-  // Update header title
-  const title = document.getElementById('authTitle');
-  if (title) {
-    if (tab === 'login') {
-      title.textContent = 'Вход';
-      title.setAttribute('data-i18n', 'auth_login');
-    } else if (tab === 'register') {
-      title.textContent = 'Регистрация';
-      title.setAttribute('data-i18n', 'auth_register');
-    }
+UI.togglePassword = function (inputId, el) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const svg = el.querySelector('.eye-icon');
+  if (!svg) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="currentColor"/><path d="M2 2l20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+  } else {
+    input.type = 'password';
+    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
   }
-
-  // Toggle forms
-  document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
-  const targetForm = document.getElementById(tab + 'Form');
-  if (targetForm) targetForm.classList.remove('hidden');
 };
 
 UI.togglePassword = function (inputId, el) {
@@ -1401,7 +1386,7 @@ UI.openMyProfile = function () {
   if (this.currentUser && this.currentUser.username) {
     this.showProfilePage(this.currentUser.username);
   } else {
-    this.openAuthModal();
+    window.location.href = '/login';
   }
 };
 
@@ -1749,7 +1734,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       UI.closeProfileModal();
-      UI.closeAuthModal();
       UI.hideDisconnectOverlay();
       const confirmModal = document.getElementById('confirmModal');
       if (confirmModal) confirmModal.style.display = 'none';

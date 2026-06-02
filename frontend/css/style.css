@@ -72,6 +72,9 @@
     cursor: pointer;
     transition: all 0.2s;
     line-height: 1;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
 }
 
 .h-btn-ghost {
@@ -1407,6 +1410,46 @@ canvas {
     font-weight: 500;
 }
 
+/* --- SOCIAL BAR --- */
+.social-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 10px 20px;
+    z-index: 50;
+    pointer-events: none;
+}
+.social-bar .social-link {
+    color: #777;
+    transition: color 0.2s;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    font-size: 12px;
+    pointer-events: auto;
+}
+.social-bar .social-link:hover {
+    color: var(--wall);
+}
+.social-bar .social-link svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+}
+.social-bar .social-text {
+    letter-spacing: 0.5px;
+}
+.social-bar .social-separator {
+    color: #444;
+    font-size: 13px;
+    pointer-events: none;
+}
+
 /* --- TABLET & MOBILE RESPONSIVE (Portrait) --- */
 @media (max-width: 1024px) {
 
@@ -1415,7 +1458,12 @@ canvas {
         justify-content: flex-start;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-        padding-bottom: 30px;
+        padding-bottom: 60px;
+    }
+
+    #mainMenu .social-bar {
+        position: static;
+        padding: 8px 20px 16px;
     }
 
     #mainMenu .main-title {

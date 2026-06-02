@@ -9,6 +9,13 @@ const userSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 20
     },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true
+    },
     isBot: {
         type: Boolean,
         default: false

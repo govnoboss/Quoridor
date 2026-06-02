@@ -13,6 +13,7 @@ jest.mock('../src/models/User', () => {
         const user = {
             _id: String(nextId++),
             username: data.username,
+            email: data.email || `${data.username}@test.com`,
             passwordHash: data.passwordHash,
             rating: data.rating ?? 1200,
             stats: { totalGames: 0, wins: 0, losses: 0, playTimeSeconds: 0 },
@@ -31,7 +32,16 @@ jest.mock('../src/models/User', () => {
         return user;
     });
 
-    MockUser.findOne = jest.fn(({ username } = {}) => store.get(username) || null);
+    MockUser.findOne = jest.fn((query = {}) => {
+        if (query.username) return store.get(query.username) || null;
+        if (query.email) {
+            for (const user of store.values()) {
+                if (user.email === query.email) return user;
+            }
+            return null;
+        }
+        return null;
+    });
     MockUser.findById = jest.fn((id) => ({
         select(fields) {
             for (const user of store.values()) {
@@ -191,23 +201,39 @@ describe('Auth API', () => {
     it('POST /api/auth/register - creates user', async () => {
         const res = await request(app)
             .post('/api/auth/register')
-            .send({ username: 'testplayer', password: 'testpass123' });
+            .send({ username: 'testplayer', email: 'test@example.com', password: 'testpass123' });
         expect(res.status).toBe(201);
         expect(res.body.message).toBe('User created');
     });
 
     it('POST /api/auth/register - duplicate username', async () => {
-        User.__seedUser({ username: 'testplayer', passwordHash });
+        User.__seedUser({ username: 'testplayer', email: 'test@example.com', passwordHash });
         const res = await request(app)
             .post('/api/auth/register')
-            .send({ username: 'testplayer', password: 'testpass123' });
+            .send({ username: 'testplayer', email: 'other@example.com', password: 'testpass123' });
         expect(res.status).toBe(400);
+    });
+
+    it('POST /api/auth/register - duplicate email', async () => {
+        User.__seedUser({ username: 'player1', email: 'test@example.com', passwordHash });
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({ username: 'player2', email: 'test@example.com', password: 'testpass123' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Email already in use');
     });
 
     it('POST /api/auth/register - missing fields', async () => {
         const res = await request(app)
             .post('/api/auth/register')
             .send({ username: 'nopass' });
+        expect(res.status).toBe(400);
+    });
+
+    it('POST /api/auth/register - invalid email', async () => {
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({ username: 'testplayer', email: 'notanemail', password: 'testpass123' });
         expect(res.status).toBe(400);
     });
 
