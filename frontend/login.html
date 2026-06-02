@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Sign In — Quoridor</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.1" type="text/css" />
+    <link rel="stylesheet" href="/css/auth.css?v=1.0.1" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.1" type="text/css" />
+</head>
+<body class="auth-page-body">
+    <header class="main-header">
+        <div class="header-left">
+            <a href="/" class="header-logo">QUORIDOR</a>
+        </div>
+        <div class="header-right">
+            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="auth-page-container">
+        <div class="auth-form-wrapper">
+            <h1 id="pageTitle">Sign In</h1>
+            <div id="authError" class="auth-error"></div>
+            <form class="auth-form" id="loginForm" onsubmit="submitLogin(event)" novalidate>
+                <div class="field-group">
+                    <label class="field-label" id="loginUsernameLabel" for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" autocomplete="username" required oninput="liveValidateField(this)" />
+                    <div id="usernameError" class="field-error"></div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label" id="loginPasswordLabel" for="loginPassword">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" autocomplete="current-password" required oninput="liveValidateField(this)" />
+                        <span class="password-toggle" onclick="togglePassword('loginPassword', this)">&#128065;</span>
+                    </div>
+                    <div id="passwordError" class="field-error"></div>
+                </div>
+                <button type="submit" class="btn-primary" id="submitBtn">Sign In</button>
+            </form>
+            <div class="auth-footer-links">
+                <span id="footerText">No account?</span>
+                <a href="/register" id="footerLink">Register</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var dict = {
+            ru: {
+                title: 'Вход',
+                username_label: 'Имя пользователя',
+                password_label: 'Пароль',
+                submit: 'Войти',
+                footer: 'Нет аккаунта?',
+                footer_link: 'Зарегистрироваться',
+                error_username_empty: 'Введите имя пользователя',
+                error_password_empty: 'Введите пароль',
+                error_invalid: 'Неверный логин или пароль',
+                error_network: 'Ошибка сети',
+                page_title: 'Вход — Quoridor',
+            },
+            en: {
+                title: 'Sign In',
+                username_label: 'Username',
+                password_label: 'Password',
+                submit: 'Sign In',
+                footer: 'No account?',
+                footer_link: 'Register',
+                error_username_empty: 'Please enter your username',
+                error_password_empty: 'Please enter your password',
+                error_invalid: 'Invalid username or password',
+                error_network: 'Network error',
+                page_title: 'Sign In — Quoridor',
+            }
+        };
+
+        function getLang() {
+            return localStorage.getItem('quoridor-lang') || 'en';
+        }
+
+        function setLanguage(lang) {
+            localStorage.setItem('quoridor-lang', lang);
+            var d = dict[lang];
+            document.title = d.page_title;
+            document.documentElement.lang = lang;
+            document.getElementById('headerLang').value = lang;
+            document.getElementById('pageTitle').textContent = d.title;
+            document.getElementById('loginUsernameLabel').textContent = d.username_label;
+            document.getElementById('loginPasswordLabel').textContent = d.password_label;
+            document.getElementById('submitBtn').textContent = d.submit;
+            document.getElementById('footerText').textContent = d.footer;
+            document.getElementById('footerLink').textContent = d.footer_link;
+        }
+
+        function applyLang() {
+            setLanguage(getLang());
+        }
+
+        function togglePassword(inputId, el) {
+            var input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                el.textContent = '\u{1F441}';
+            } else {
+                input.type = 'password';
+                el.textContent = '\u{1F441}';
+            }
+        }
+
+        function clearFieldErrors() {
+            document.querySelectorAll('.field-error').forEach(function(el) {
+                el.classList.remove('visible');
+                el.textContent = '';
+            });
+            document.querySelectorAll('.field-group input').forEach(function(el) {
+                el.classList.remove('input-error');
+            });
+            document.getElementById('authError').classList.remove('visible');
+        }
+
+        function liveValidateField(input) {
+            var errEl = document.getElementById(input.id + 'Error');
+            var val = input.value.trim();
+            var d = dict[getLang()];
+            var msg = '';
+            if (!val) {
+                msg = (input.id === 'loginPassword') ? d.error_password_empty : d.error_username_empty;
+            }
+            if (msg) {
+                input.classList.add('input-error');
+                errEl.textContent = msg;
+                errEl.classList.add('visible');
+            } else {
+                input.classList.remove('input-error');
+                errEl.classList.remove('visible');
+                errEl.textContent = '';
+            }
+            document.getElementById('authError').classList.remove('visible');
+        }
+
+        function showFieldError(inputId, msg) {
+            var input = document.getElementById(inputId);
+            if (input) input.classList.add('input-error');
+            var errorEl = document.getElementById(inputId + 'Error');
+            if (errorEl) {
+                errorEl.textContent = msg;
+                errorEl.classList.add('visible');
+            }
+        }
+
+        function showGlobalError(msg) {
+            var el = document.getElementById('authError');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+
+        function submitLogin(e) {
+            e.preventDefault();
+            clearFieldErrors();
+            var lang = getLang();
+            var d = dict[lang];
+            var username = document.getElementById('loginUsername').value.trim();
+            var password = document.getElementById('loginPassword').value;
+            var hasError = false;
+
+            if (!username) {
+                showFieldError('loginUsername', d.error_username_empty);
+                hasError = true;
+            }
+            if (!password) {
+                showFieldError('loginPassword', d.error_password_empty);
+                hasError = true;
+            }
+            if (hasError) return;
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            }).then(function(r) {
+                return r.json().then(function(data) { return { status: r.status, data: data }; });
+            }).then(function(resp) {
+                if (resp.status === 200) {
+                    window.location.href = '/';
+                } else {
+                    showFieldError('loginUsername', d.error_invalid);
+                    showFieldError('loginPassword', '');
+                }
+            }).catch(function() {
+                showGlobalError(d.error_network);
+            });
+        }
+
+        applyLang();
+    </script>
+</body>
+</html>

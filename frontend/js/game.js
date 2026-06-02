@@ -1,4 +1,4 @@
-
+﻿
 const Game = {
   /** @type {HTMLCanvasElement} Ссылка на элемент Canvas. */
   canvas: document.getElementById('board'),
@@ -67,6 +67,7 @@ const Game = {
   },
   isInputBlocked: false, // New: Block input flag
   isReplayMode: false, // Replay mode flag - disables input and timers
+  postGameReview: false, // Post-game review: modal closed, board visible for review
   replayReturnProfile: null, // Username to return to after exiting replay
 
   // Bind methods
@@ -139,7 +140,6 @@ const Game = {
         localStorage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
       }
     } catch (e) {
-      console.error("[GAME] Failed to save history to localStorage", e);
     }
   },
 
@@ -155,7 +155,6 @@ const Game = {
         }
       }
     } catch (e) {
-      console.error("[GAME] Failed to load history from localStorage", e);
     }
   },
 
@@ -170,8 +169,6 @@ const Game = {
       return `${col}${row}${move.isVertical ? 'v' : 'h'}`;
     }
   },
-
-
 
   // ====================================================================
   // 1. МЕТОДЫ ЗАПУСКА И ИНИЦИАЛИЗАЦИИ
@@ -205,8 +202,6 @@ const Game = {
 
     // Генерируем ID игры для истории (например, из времени или серверного ID)
     this.state.gameId = "online_" + (Net.roomCode || Date.now());
-
-    console.log(`[GAME] Старт Онлайн. Я играю за: ${color} (Индекс: ${this.myPlayerIndex}), время: ${initialTime}s`);
 
     UI.showScreen('gameScreen');
     this.updateTimerDisplay();
@@ -258,6 +253,7 @@ const Game = {
       const colorName = UI.translate(colorKey);
       statusMessage = UI.translate('modal_win_local').replace('{color}', colorName);
     }
+    typeof umami !== "undefined" && umami.track('game-finished', { result: isWinner ? 'win' : 'loss', reason });
 
     // Применяем стили
     const contentBox = modal.querySelector('.modal-content');
@@ -326,7 +322,6 @@ const Game = {
           ratingContainer.appendChild(row);
         }
 
-
       }
     }
   },
@@ -341,6 +336,7 @@ const Game = {
     // 2. Останавливаем все процессы игры
     this.stopTimer();
     this.isGameOver = false;
+    this.postGameReview = false;
 
     // 3. Clear rematch / new game state
     if (typeof Net !== 'undefined') {
@@ -356,6 +352,12 @@ const Game = {
     }
   },
 
+  closeResultModal() {
+    document.getElementById('resultModal').classList.add('hidden');
+    this.postGameReview = true;
+    this.restoreGameUI();
+    this.setupPostGameUI();
+  },
 
   // Вспомогательный метод для красивого вывода причины
   translateReason(reason) {
@@ -374,7 +376,6 @@ const Game = {
    * @param {string} returnToProfile - Username to return to after exiting replay
    */
   startReplay(gameData, returnToProfile) {
-    console.log('[REPLAY] Starting fullscreen replay for game:', gameData._id);
 
     // Save return destination
     this.replayReturnProfile = returnToProfile || null;
@@ -387,6 +388,7 @@ const Game = {
     // Create initial state
     this.state = Shared.createInitialState({ base: 600 }, gameData.isRanked || false);
     this.state.history = [];
+    this._initialSnapshot = Shared.cloneState(this.state);
     this.state.playerProfiles = [
       { name: gameData.playerWhite?.username || 'White', avatar: gameData.playerWhite?.avatarUrl },
       { name: gameData.playerBlack?.username || 'Black', avatar: gameData.playerBlack?.avatarUrl }
@@ -405,7 +407,6 @@ const Game = {
         tempState = Shared.gameReducer(tempState, record.move);
         this._replaySnapshots.push(Shared.cloneState(tempState));
       } catch (e) {
-        console.error('[REPLAY] Error applying move:', e);
         break;
       }
     }
@@ -416,6 +417,7 @@ const Game = {
     // Update UI
     UI.showScreen('gameScreen');
     this.setupReplayUI();
+    this.updateTurnDisplay();
     this.updateTimerDisplay();
     this.draw();
 
@@ -432,8 +434,6 @@ const Game = {
    */
   exitReplay() {
     if (!this.isReplayMode) return;
-
-    console.log('[REPLAY] Exiting replay mode');
 
     this.isReplayMode = false;
     this._replayHistory = null;
@@ -472,6 +472,20 @@ const Game = {
   },
 
   /**
+   * Sets up post-game review UI: replace surrender btn with Exit.
+   */
+  setupPostGameUI() {
+    const btn = document.querySelector('.menu-actions .secondary-btn');
+    if (!btn) return;
+    if (!btn._originalOnClick) {
+      btn._originalOnClick = btn.getAttribute('onclick');
+      btn._originalText = btn.textContent;
+    }
+    btn.setAttribute('onclick', 'Game.goToMainMenu()');
+    btn.textContent = '← ' + (UI.translate('btn_back') || 'Exit');
+  },
+
+  /**
    * Restores original game UI after exiting replay.
    */
   restoreGameUI() {
@@ -490,11 +504,9 @@ const Game = {
    */
   replayGoToMove(index) {
     if (!this.isReplayMode || !this._replaySnapshots) {
-      console.log('[REPLAY] Navigation blocked: isReplayMode=', this.isReplayMode, 'snapshots=', !!this._replaySnapshots);
       return;
     }
 
-    console.log('[REPLAY] GoToMove:', index, 'of', this._replaySnapshots.length, 'snapshots');
     index = Math.max(0, Math.min(index, this._replaySnapshots.length - 1));
     this._replayMoveIndex = index;
 
@@ -507,6 +519,7 @@ const Game = {
 
     // Reconstruct timers from history timestamps
     this.reconstructReplayTimers(index);
+    this.updateTurnDisplay();
 
     this.updateReplayCounter();
     this.renderReplayHistory();
@@ -538,6 +551,21 @@ const Game = {
       } else if (move && move.timestamp && i === moveIndex - 1) {
         // For the last move before current, estimate from game end or current
         // Just use what we have
+      }
+    }
+  },
+
+  reconstructHistoryTimers(moveIndex) {
+    const initialTime = this.initialTime || 600;
+    this.timers = [initialTime, initialTime];
+    const hist = this.state.history;
+    for (let i = 0; i < moveIndex && i < hist.length; i++) {
+      const move = hist[i];
+      const nextMove = hist[i + 1];
+      if (move && nextMove && move.timestamp && nextMove.timestamp) {
+        const elapsed = Math.floor((nextMove.timestamp - move.timestamp) / 1000);
+        const playerIdx = i % 2;
+        this.timers[playerIdx] = Math.max(0, this.timers[playerIdx] - elapsed);
       }
     }
   },
@@ -591,6 +619,14 @@ const Game = {
     if (!historyList) return;
 
     historyList.innerHTML = '';
+
+    // Add starting position entry
+    const startRow = document.createElement('div');
+    startRow.className = 'history-row';
+    startRow.innerHTML = `
+      <span class="move start-move ${this._replayMoveIndex === 0 ? 'active' : ''}" onclick="Game.replayGoToMove(0)">Start</span>
+    `;
+    historyList.appendChild(startRow);
 
     // Build history rows (pair moves like chess notation)
     for (let i = 0; i < this._replayHistory.length; i += 2) {
@@ -646,6 +682,9 @@ const Game = {
     }
     this.state.gameId = "local_" + Date.now();
 
+    this._initialSnapshot = Shared.cloneState(this.state);
+    this.restoreGameUI();
+
     if (typeof UI !== 'undefined' && UI.renderHistory) {
       UI.renderHistory(this.state.history, -1);
     }
@@ -677,6 +716,7 @@ const Game = {
    */
   startVsBot(playerColor) {
     const diff = this.pendingBotDifficulty;
+    typeof umami !== "undefined" && umami.track('play-bot-click', { difficulty: diff });
     this.state.botDifficulty = diff;
 
     // Если мы Белые: myPlayerIndex = 0. Бот = 1.
@@ -758,7 +798,6 @@ const Game = {
     if (elTop) elTop.textContent = formatTime(this.timers[topIdx]);
   },
 
-
   // ====================================================================
   // 2. МЕТОДЫ ОТРЕЗОВКИ (ВИЗУАЛИЗАЦИЯ)
   // ====================================================================
@@ -772,9 +811,11 @@ const Game = {
     this.ctx.clearRect(0, 0, size, size);
 
     // Если мы в режиме просмотра истории
-    const activeState = (this.viewHistoryIndex !== -1 && this.state.history[this.viewHistoryIndex])
-      ? this.state.history[this.viewHistoryIndex].snapshot
-      : this.state;
+    const activeState = (this.viewHistoryIndex === -2 && this._initialSnapshot)
+      ? this._initialSnapshot
+      : (this.viewHistoryIndex !== -1 && this.state.history[this.viewHistoryIndex])
+        ? this.state.history[this.viewHistoryIndex].snapshot
+        : this.state;
 
     // Важно: drawGrid, drawCoordinates и другие должны использовать pos/walls из activeState
     this.drawGrid(activeState);
@@ -795,18 +836,32 @@ const Game = {
   setHistoryView(index) {
     // In replay mode, delegate to replay navigation
     if (this.isReplayMode) {
-      if (index === 0) this.replayGoToStart();
+      if (index === 0 || index === -2) this.replayGoToStart();
       else if (index === -1) this.replayGoToEnd();
       else this.replayGoToMove(index);
       return;
     }
 
-    if (index < -1 || index >= this.state.history.length) return;
+    if (index < -2 || index >= this.state.history.length) return;
     this.viewHistoryIndex = index;
 
     if (typeof UI !== 'undefined' && UI.renderHistory) {
       UI.renderHistory(this.state.history, this.viewHistoryIndex);
     }
+
+    // Update walls and timers for history view
+    const activeState = (index === -2 && this._initialSnapshot)
+      ? this._initialSnapshot
+      : (index !== -1 && this.state.history[index])
+        ? this.state.history[index].snapshot
+        : this.state;
+    if (index === -2) {
+      this.reconstructHistoryTimers(0);
+    } else if (index !== -1) {
+      this.reconstructHistoryTimers(index + 1);
+    }
+    this.updateTurnDisplay(activeState);
+    this.updateTimerDisplay();
     this.draw();
   },
 
@@ -834,10 +889,16 @@ const Game = {
       nextIndex += direction;
     }
 
-    // Проверка границ:
-    // Если ушли за 0 (в начало), остаемся на 0
-    if (nextIndex < 0) nextIndex = 0;
-    // Если ушли за конец истории, возвращаемся в живую игру (-1)
+    // Из первого хода (0) назад → стартовая позиция (-2)
+    if (this.viewHistoryIndex === 0 && direction === -1 && nextIndex === -1) {
+      nextIndex = -2;
+    }
+    // Из стартовой позиции (-2) вперед → первый ход (0)
+    if (this.viewHistoryIndex === -2 && direction === 1) {
+      nextIndex = 0;
+    }
+
+    if (nextIndex < -2) nextIndex = -2;
     if (nextIndex >= histLen) nextIndex = -1;
 
     this.setHistoryView(nextIndex);
@@ -1202,7 +1263,7 @@ const Game = {
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
   updateHoverWall(x, y) {
-    if (this.isInputBlocked || this.viewHistoryIndex !== -1) {
+    if (this.isReplayMode || this.isInputBlocked || this.viewHistoryIndex !== -1) {
       this.state.hoverWall = null;
       return;
     }
@@ -1395,19 +1456,13 @@ const Game = {
     return null;
   },
 
-
-
   // ====================================================================
   // 4. МЕТОДЫ ИГРОВОЙ ЛОГИКИ (ДВИЖЕНИЕ ФИШКИ)
   // ====================================================================
 
-
-
   // ====================================================================
   // 5. МЕТОДЫ ИГРОВОЙ ЛОГИКИ (СТЕНЫ)
   // ====================================================================
-
-
 
   /**
    * Выполняет попытку размещения стены в слоте (r, c).
@@ -1445,8 +1500,6 @@ const Game = {
     return true;
   },
 
-
-
   // ====================================================================
   // 6. МЕТОДЫ УПРАВЛЕНИЯ ХОДОМ
   // ====================================================================
@@ -1454,7 +1507,6 @@ const Game = {
   applyServerMove(data) {
     const { playerIdx, move, nextPlayer } = data;
 
-    console.log('[GAME] Сервер подтвердил ход:', data);
     // 1. Применяем изменения к локальному State
     if (move.type === 'pawn') {
       const oldPos = { ...this.state.players[playerIdx].pos };
@@ -1498,7 +1550,6 @@ const Game = {
     if (move.type === 'pawn') {
       const oldPos = { ...this.state.players[playerIdx].pos };
       if (!Shared.canMovePawn(this.state, oldPos.r, oldPos.c, move.r, move.c)) {
-        console.error('[GAME] Bot attempted illegal move:', move, 'from:', oldPos);
         UI.AudioManager.play('error');
         this.isInputBlocked = false;
         this.draw();
@@ -1571,7 +1622,8 @@ const Game = {
   /**
    * Обновляет UI: плашки игроков, стены, подсветку хода.
    */
-  updateTurnDisplay() {
+  updateTurnDisplay(state) {
+    if (!state) state = this.state;
     // 1. Определяем, кто есть кто
     // Если игра онлайн или мы играем за черных (индекс 1) -> Мы снизу
     // По умолчанию в Локальной игре (PvP) Player 0 (Белый) снизу, Player 1 (Черный) сверху.
@@ -1581,8 +1633,8 @@ const Game = {
     const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
     const topIdx = 1 - bottomIdx;
 
-    const bottomPlayer = this.state.players[bottomIdx];
-    const topPlayer = this.state.players[topIdx];
+    const bottomPlayer = state.players[bottomIdx];
+    const topPlayer = state.players[topIdx];
 
     // 2. Обновляем тексты Стен
     const elBottomWalls = document.getElementById('bottomPlayerWalls');
@@ -1596,15 +1648,16 @@ const Game = {
     const elBottomAvatar = document.getElementById('bottomPlayerAvatar');
     const elTopAvatar = document.getElementById('topPlayerAvatar');
 
-    const bottomProfile = this.state.playerProfiles ? this.state.playerProfiles[bottomIdx] : null;
-    const topProfile = this.state.playerProfiles ? this.state.playerProfiles[topIdx] : null;
+    const profiles = state.playerProfiles || this.state.playerProfiles;
+    const bottomProfile = profiles ? profiles[bottomIdx] : null;
+    const topProfile = profiles ? profiles[topIdx] : null;
 
     if (elBottomName) {
       if (bottomProfile) {
         let text = bottomProfile.name;
         if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
         elBottomName.textContent = text;
-      } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
+      } else if (state.gameId && state.gameId.startsWith('local_')) {
         elBottomName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_white') : UI.translate('pname_you');
       }
     }
@@ -1614,7 +1667,7 @@ const Game = {
         let text = topProfile.name;
         if (topProfile.rating) text += ` (${topProfile.rating})`;
         elTopName.textContent = text;
-      } else if (this.state.gameId && this.state.gameId.startsWith('local_')) {
+      } else if (state.gameId && state.gameId.startsWith('local_')) {
         elTopName.textContent = (this.myPlayerIndex === -1) ? UI.translate('pname_black') : UI.translate('pname_opponent');
       }
     }
@@ -1637,24 +1690,25 @@ const Game = {
     bottomBar.classList.remove('active-turn');
     topBar.classList.remove('active-turn');
 
-    if (this.state.currentPlayer === bottomIdx) {
+    if (state.currentPlayer === bottomIdx) {
       bottomBar.classList.add('active-turn');
     } else {
       topBar.classList.add('active-turn');
     }
 
     // 5. Обновляем визуальный инвентарь стен
-    this.renderWallInventory();
+    this.renderWallInventory(state);
   },
 
   /**
    * Рендерит визуальные стенки в инвентарях игроков.
    */
-  renderWallInventory() {
+  renderWallInventory(state) {
     const bottomInv = document.getElementById('bottomWallInventory');
     const topInv = document.getElementById('topWallInventory');
 
     if (!bottomInv || !topInv) return;
+    if (!state) state = this.state;
 
     const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
     const topIdx = 1 - bottomIdx;
@@ -1673,11 +1727,11 @@ const Game = {
       // 1. Сейчас должен быть ход этого игрока
       // 2. ИГРА НЕ окончена
       // 3. Либо это локальная игра (можно за всех), либо это "мой" игрок (онлайн)
-      const isCurrentPlayerTurn = (this.state.currentPlayer === playerIdx);
+      const isCurrentPlayerTurn = (state.currentPlayer === playerIdx);
       const isMyPlayer = (this.myPlayerIndex === playerIdx);
       const interactive = isCurrentPlayerTurn && (localPlay || isMyPlayer) && !this.isGameOver && !this.isInputBlocked;
 
-      const wallsLeft = this.state.players[playerIdx].wallsLeft;
+      const wallsLeft = state.players[playerIdx].wallsLeft;
       el.innerHTML = '';
 
       for (let w = 0; w < 10; w++) {
@@ -1814,7 +1868,6 @@ const Game = {
       if (Net.isOnline) {
         const myIdx = Net.myColor === 'white' ? 0 : 1;
         if (this.state.currentPlayer !== myIdx) {
-          console.log('[GAME] Сейчас не ваш ход!');
           return;
         }
         // 2. Если пытаемся взять ЧУЖУЮ фишку
@@ -1866,12 +1919,39 @@ const Game = {
         return;
       }
 
+      // Post-game review: arrow keys to navigate moves
+      if (this.isGameOver && this.postGameReview) {
+        if (e.key === 'ArrowLeft') {
+          if (this.viewHistoryIndex > 0) {
+            this.setHistoryView(this.viewHistoryIndex - 1);
+          } else if (this.viewHistoryIndex === 0) {
+            this.setHistoryView(-2);
+          } else if (this.viewHistoryIndex === -1 && this.state.history.length > 0) {
+            this.setHistoryView(this.state.history.length - 1);
+          }
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          if (this.viewHistoryIndex === -2) {
+            this.setHistoryView(0);
+          } else if (this.viewHistoryIndex < this.state.history.length - 1) {
+            this.setHistoryView(this.viewHistoryIndex + 1);
+          } else if (this.viewHistoryIndex === this.state.history.length - 1) {
+            this.setHistoryView(-1);
+          }
+          return;
+        }
+        if (e.key === 'Escape') {
+          this.goToMainMenu();
+          return;
+        }
+      }
+
       if (this.isInputBlocked || this.viewHistoryIndex !== -1) return;
       if (this.isGameOver) return;
       // Toggle Debug Mode: Shift + D
       if (e.shiftKey && e.code === 'KeyD') {
         this.debugControl = !this.debugControl;
-        console.log('[DEBUG] Режим отладки:', this.debugControl ? 'ВКЛ' : 'ВЫКЛ');
         this.draw();
       }
 
@@ -1893,6 +1973,7 @@ const Game = {
 
       // H/V keys: Взять стену прямо под курсор
       if (e.key === 'h' || e.key === 'H' || e.key === 'v' || e.key === 'V') {
+        if (this.isReplayMode) return;
         const p = this.state.players[this.state.currentPlayer];
         if (p.wallsLeft <= 0) return;
 
@@ -1917,8 +1998,6 @@ const Game = {
         this.draw();
       }
     });
-
-
 
     // === 7.2. Перемещение (pointermove) ===
     window.addEventListener('pointermove', e => {
@@ -1966,6 +2045,7 @@ const Game = {
       }
       // Клик работает только если мы НЕ перетаскивали (drag был null)
       if (this.isInputBlocked) return;
+      if (this.isReplayMode) return;
       if (this.state.drag) return;
       if (!this.state.hoverWall || !this.state.hoverWall.isValid) return;
 
@@ -1987,6 +2067,7 @@ const Game = {
     // === 7.3. Окончание перетаскивания (pointerup) ===
     window.addEventListener('pointerup', e => {
       if (!this.state.drag) return;
+      if (this.isReplayMode) return;
 
       const rect = this.canvas.getBoundingClientRect();
       const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
@@ -2012,7 +2093,6 @@ const Game = {
 
       if (potentialMove) {
         if (Net.isOnline) {
-          console.log('[GAME] Отправляю ход на проверку:', potentialMove);
           Net.sendMove(potentialMove);
         } else {
           // ЛОКАЛЬНАЯ ИГРА: Восстановленная логика
@@ -2059,8 +2139,6 @@ const Game = {
       this.draw();
     });
   },
-
-
 
   surrender() {
     const loserIdx = (this.myPlayerIndex !== -1) ? this.myPlayerIndex : this.state.currentPlayer;

@@ -36,8 +36,8 @@
     </div>
     <div class="header-right">
       <div id="headerAuth">
-        <button id="headerLoginBtn" class="h-btn h-btn-ghost" onclick="UI.openAuthModal()" data-i18n="header_sign_in">Sign In</button>
-        <button id="headerRegisterBtn" class="h-btn h-btn-primary" onclick="UI.openAuthModal('register')" data-i18n="header_sign_up">Sign Up</button>
+        <a href="/login" id="headerLoginBtn" class="h-btn h-btn-ghost" data-i18n="header_sign_in">Sign In</a>
+        <a href="/register" id="headerRegisterBtn" class="h-btn h-btn-primary" data-i18n="header_sign_up">Sign Up</a>
       </div>
       <div id="headerProfile" class="header-profile hidden" onclick="UI.openMyProfile()">
         <span id="headerUsername">User</span>
@@ -247,15 +247,6 @@
         </div>
         <div class="info-card">
           <div class="info-card-header">
-            <span class="info-icon">⚔</span>
-            <h3 data-i18n="info_games_list_title">Матчи</h3>
-          </div>
-          <ul class="presence-list" id="liveGamesList">
-            <li class="presence-empty" data-i18n="presence_no_games">Нет активных партий</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <div class="info-card-header">
             <span class="info-icon"></span>
             <h3 data-i18n="info_leaderboard_title">Лидерборд</h3>
           </div>
@@ -266,6 +257,22 @@
         </div>
       </div> <!-- info-panel -->
     </div> <!-- menu-layout -->
+
+    <div class="social-bar">
+      <a href="https://www.tiktok.com/@playquor" target="_blank" rel="noopener" class="social-link" aria-label="TikTok">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+        </svg>
+      </a>
+      <a href="https://www.youtube.com/@playquoridor" target="_blank" rel="noopener" class="social-link" aria-label="YouTube">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      </a>
+      <span class="social-separator">|</span>
+      <a href="/terms" class="social-link social-text">Terms</a>
+      <a href="/privacy" class="social-link social-text">Privacy</a>
+    </div>
   </div> <!-- mainMenu -->
 
 
@@ -623,67 +630,8 @@
     </div>
   </div>
 
-  <div id="authModal" class="modal-overlay hidden">
-    <div class="auth-content">
-      <button class="close-panel-btn" onclick="UI.closeAuthModal()">×</button>
-
-      <h2 id="authTitle" class="auth-title" data-i18n="auth_login">Вход</h2>
-
-      <div id="authFormContainer">
-        <!-- LOGIN FORM -->
-        <div id="loginForm" class="auth-form">
-          <input type="text" id="loginUsername" placeholder="Username" class="auth-input" data-i18n="placeholder_username">
-          <div class="password-wrapper">
-            <input type="password" id="loginPassword" placeholder="Password" class="auth-input" data-i18n="placeholder_password">
-            <span class="password-toggle" onclick="UI.togglePassword('loginPassword', this)">
-              <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
-              </svg>
-            </span>
-          </div>
-          <div class="auth-fp-wrapper">
-            <a href="#" class="auth-link small" onclick="return false;" style="opacity: 0.6; cursor: default;"
-              data-i18n="link_forgot_pass">Забыли пароль?</a>
-          </div>
-          <div class="auth-actions">
-            <button class="primary-btn full-width" onclick="UI.submitLogin()"
-              data-i18n="btn_login_submit">Войти</button>
-          </div>
-          <div class="auth-footer">
-            <span class="auth-text" data-i18n="text_no_account">Нет аккаунта?</span>
-            <a href="#" class="auth-link action-link" onclick="UI.switchAuthTab('register'); return false;"
-              data-i18n="link_register">Зарегистрироваться</a>
-          </div>
-        </div>
-
-        <!-- REGISTER FORM -->
-        <div id="registerForm" class="auth-form hidden">
-          <input type="text" id="regUsername" placeholder="Username (at least 3 characters)" class="auth-input" data-i18n="placeholder_username_long">
-          <div class="password-wrapper">
-            <input type="password" id="regPassword" placeholder="Password (at least 8 characters)" class="auth-input" data-i18n="placeholder_password_long">
-            <span class="password-toggle" onclick="UI.togglePassword('regPassword', this)">
-              <svg class="eye-icon" viewBox="0 0 24 24" width="20" height="20">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
-              </svg>
-            </span>
-          </div>
-          <div class="auth-actions">
-            <button class="primary-btn full-width" onclick="UI.submitRegister()"
-              data-i18n="btn_reg_submit">Зарегистрироваться</button>
-          </div>
-          <div class="auth-footer">
-            <span class="auth-text" data-i18n="text_has_account">Уже есть аккаунт?</span>
-            <a href="#" class="auth-link action-link" onclick="UI.switchAuthTab('login'); return false;"
-              data-i18n="link_login_back">Войти</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Toasts Container -->
   <div id="notificationContainer" class="notification-container"></div>
-
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/ui.js?v=1.0.1"></script>

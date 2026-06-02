@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Create account — Quoridor</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.1" type="text/css" />
+    <link rel="stylesheet" href="/css/auth.css?v=1.0.1" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.1" type="text/css" />
+</head>
+<body class="auth-page-body">
+    <header class="main-header">
+        <div class="header-left">
+            <a href="/" class="header-logo">QUORIDOR</a>
+        </div>
+        <div class="header-right">
+            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="auth-page-container">
+        <div class="auth-form-wrapper">
+            <h1 id="pageTitle">Create account</h1>
+            <div id="authError" class="auth-error"></div>
+            <form class="auth-form" id="registerForm" onsubmit="submitRegister(event)" novalidate>
+                <div class="field-group">
+                    <label class="field-label" id="regUsernameLabel" for="regUsername">Username</label>
+                    <input type="text" id="regUsername" autocomplete="username" required oninput="liveValidateReg(this)" />
+                    <div id="regUsernameError" class="field-error"></div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label" id="regEmailLabel" for="regEmail">Email</label>
+                    <input type="email" id="regEmail" autocomplete="email" required oninput="liveValidateReg(this)" />
+                    <div id="regEmailError" class="field-error"></div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label" id="regPasswordLabel" for="regPassword">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="regPassword" autocomplete="new-password" required oninput="liveValidateReg(this)" />
+                        <span class="password-toggle" onclick="togglePassword('regPassword', this)">&#128065;</span>
+                    </div>
+                    <div id="regPasswordError" class="field-error"></div>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="acceptTos" required onchange="updateSubmitBtn()" />
+                    <label for="acceptTos">
+                        <span id="tosLabel">I accept</span>
+                        <a href="/terms" target="_blank" id="tosLink">Terms of Service</a>
+                        <span id="andLabel">and</span>
+                        <a href="/privacy" target="_blank" id="privacyLink">Privacy Policy</a>
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary" id="submitBtn" disabled>Create account</button>
+            </form>
+            <div class="auth-footer-links">
+                <span id="footerText">Already have an account?</span>
+                <a href="/login" id="footerLink">Sign In</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var dict = {
+            ru: {
+                title: 'Создание аккаунта',
+                username_label: 'Имя пользователя',
+                email_label: 'Email',
+                password_label: 'Пароль',
+                submit: 'Создать аккаунт',
+                tos_accept: 'Я принимаю',
+                tos_link: 'Условия использования',
+                and: 'и',
+                privacy_link: 'Политику конфиденциальности',
+                footer: 'Уже есть аккаунт?',
+                footer_link: 'Войти',
+                error_username_empty: 'Введите имя пользователя',
+                error_username_length: 'От 3 до 20 символов',
+                error_email_empty: 'Введите email',
+                error_email_invalid: 'Некорректный email',
+                error_password_empty: 'Введите пароль',
+                error_password_length: 'Минимум 8 символов',
+                error_tos: 'Примите условия использования',
+                error_username_taken: 'Имя занято',
+                error_email_taken: 'Email уже используется',
+                error_generic: 'Ошибка регистрации',
+                error_network: 'Ошибка сети',
+                page_title: 'Создание аккаунта — Quoridor',
+            },
+            en: {
+                title: 'Create account',
+                username_label: 'Username',
+                email_label: 'Email',
+                password_label: 'Password',
+                submit: 'Create account',
+                tos_accept: 'I accept',
+                tos_link: 'Terms of Service',
+                and: 'and',
+                privacy_link: 'Privacy Policy',
+                footer: 'Already have an account?',
+                footer_link: 'Sign In',
+                error_username_empty: 'Please enter a username',
+                error_username_length: 'Must be 3 to 20 characters',
+                error_email_empty: 'Please enter your email',
+                error_email_invalid: 'Invalid email format',
+                error_password_empty: 'Please enter a password',
+                error_password_length: 'Must be at least 8 characters',
+                error_tos: 'You must accept the Terms of Service',
+                error_username_taken: 'Username already taken',
+                error_email_taken: 'Email already in use',
+                error_generic: 'Registration failed',
+                error_network: 'Network error',
+                page_title: 'Create account — Quoridor',
+            }
+        };
+
+        function getLang() {
+            return localStorage.getItem('quoridor-lang') || 'en';
+        }
+
+        function setLanguage(lang) {
+            localStorage.setItem('quoridor-lang', lang);
+            var d = dict[lang];
+            document.title = d.page_title;
+            document.documentElement.lang = lang;
+            document.getElementById('headerLang').value = lang;
+            document.getElementById('pageTitle').textContent = d.title;
+            document.getElementById('regUsernameLabel').textContent = d.username_label;
+            document.getElementById('regEmailLabel').textContent = d.email_label;
+            document.getElementById('regPasswordLabel').textContent = d.password_label;
+            document.getElementById('submitBtn').textContent = d.submit;
+            document.getElementById('tosLabel').textContent = d.tos_accept;
+            document.getElementById('tosLink').textContent = d.tos_link;
+            document.getElementById('andLabel').textContent = d.and;
+            document.getElementById('privacyLink').textContent = d.privacy_link;
+            document.getElementById('footerText').textContent = d.footer;
+            document.getElementById('footerLink').textContent = d.footer_link;
+        }
+
+        function applyLang() {
+            setLanguage(getLang());
+        }
+
+        function togglePassword(inputId, el) {
+            var input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                el.textContent = '\u{1F441}';
+            } else {
+                input.type = 'password';
+                el.textContent = '\u{1F441}';
+            }
+        }
+
+        function clearFieldErrors() {
+            document.querySelectorAll('.field-error').forEach(function(el) {
+                el.classList.remove('visible');
+                el.textContent = '';
+            });
+            document.querySelectorAll('.field-group input').forEach(function(el) {
+                el.classList.remove('input-error');
+            });
+            document.getElementById('authError').classList.remove('visible');
+        }
+
+        function showFieldError(inputId, msg) {
+            var input = document.getElementById(inputId);
+            if (input) input.classList.add('input-error');
+            var errorEl = document.getElementById(inputId + 'Error');
+            if (errorEl) {
+                errorEl.textContent = msg;
+                errorEl.classList.add('visible');
+            }
+        }
+
+        function updateSubmitBtn() {
+            var cb = document.getElementById('acceptTos');
+            document.getElementById('submitBtn').disabled = !cb.checked;
+        }
+
+        function liveValidateReg(input) {
+            var errEl = document.getElementById(input.id + 'Error');
+            var val = input.value.trim();
+            var d = dict[getLang()];
+            var msg = '';
+            if (input.id === 'regUsername') {
+                if (!val) msg = d.error_username_empty;
+                else if (val.length < 3 || val.length > 20) msg = d.error_username_length;
+            } else if (input.id === 'regEmail') {
+                if (!val) msg = d.error_email_empty;
+                else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) msg = d.error_email_invalid;
+            } else if (input.id === 'regPassword') {
+                if (!val) msg = d.error_password_empty;
+                else if (val.length < 8) msg = d.error_password_length;
+            }
+            if (msg) {
+                input.classList.add('input-error');
+                errEl.textContent = msg;
+                errEl.classList.add('visible');
+            } else {
+                input.classList.remove('input-error');
+                errEl.classList.remove('visible');
+                errEl.textContent = '';
+            }
+            document.getElementById('authError').classList.remove('visible');
+            updateSubmitBtn();
+        }
+
+        function showGlobalError(msg) {
+            var el = document.getElementById('authError');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+
+        function submitRegister(e) {
+            e.preventDefault();
+            clearFieldErrors();
+            var lang = getLang();
+            var d = dict[lang];
+            var username = document.getElementById('regUsername').value.trim();
+            var email = document.getElementById('regEmail').value.trim();
+            var password = document.getElementById('regPassword').value;
+            var acceptTos = document.getElementById('acceptTos').checked;
+            var hasError = false;
+
+            if (!username) {
+                showFieldError('regUsername', d.error_username_empty);
+                hasError = true;
+            } else if (username.length < 3 || username.length > 20) {
+                showFieldError('regUsername', d.error_username_length);
+                hasError = true;
+            }
+
+            if (!email) {
+                showFieldError('regEmail', d.error_email_empty);
+                hasError = true;
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showFieldError('regEmail', d.error_email_invalid);
+                hasError = true;
+            }
+
+            if (!password) {
+                showFieldError('regPassword', d.error_password_empty);
+                hasError = true;
+            } else if (password.length < 8) {
+                showFieldError('regPassword', d.error_password_length);
+                hasError = true;
+            }
+
+            if (!acceptTos) {
+                showGlobalError(d.error_tos);
+                hasError = true;
+            }
+
+            if (hasError) return;
+
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, email: email, password: password })
+            }).then(function(r) {
+                return r.json().then(function(data) { return { status: r.status, data: data }; });
+            }).then(function(resp) {
+                if (resp.status === 201) {
+                    window.location.href = '/';
+                } else {
+                    if (resp.data.error === 'Username taken') showFieldError('regUsername', d.error_username_taken);
+                    else if (resp.data.error === 'Email already in use') showFieldError('regEmail', d.error_email_taken);
+                    else showGlobalError(resp.data.error || d.error_generic);
+                }
+            }).catch(function() {
+                showGlobalError(d.error_network);
+            });
+        }
+
+        applyLang();
+    </script>
+</body>
+</html>
