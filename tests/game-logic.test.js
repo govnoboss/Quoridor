@@ -88,9 +88,9 @@ describe('Utility and State', () => {
 
 describe('Input Validation', () => {
     it('isValidLobbyId', () => {
-        expect(Shared.isValidLobbyId('lobby-123')).toBe(true);
-        expect(Shared.isValidLobbyId('lobby-abc')).toBe(false);
-        expect(Shared.isValidLobbyId('lobby-')).toBe(false);
+        expect(Shared.isValidLobbyId('AB12C')).toBe(true);
+        expect(Shared.isValidLobbyId('abc12')).toBe(false);
+        expect(Shared.isValidLobbyId('AB12')).toBe(false);
         expect(Shared.isValidLobbyId(123)).toBe(false);
     });
 

@@ -1541,12 +1541,66 @@ UI.switchProfileTab = function (tabName, btn) {
   if (btn) btn.classList.add('active');
 };
 
+UI.isValidLobbyCode = function (code) {
+  return typeof code === 'string' && /^[A-Z0-9]{5}$/.test(code);
+};
+
+UI.getLobbyCodeFromPath = function () {
+  const match = window.location.pathname.match(/^\/lobby\/([A-Z0-9]{5})$/i);
+  if (!match) return null;
+  return match[1].toUpperCase();
+};
+
+UI.updateLobbyRoute = function (lobbyCode, replace = false) {
+  if (!this.isValidLobbyCode(lobbyCode)) return;
+  const target = '/lobby/' + lobbyCode.toUpperCase();
+  if (window.location.pathname === target) return;
+  const method = replace ? 'replaceState' : 'pushState';
+  window.history[method]({ screen: 'lobby', lobbyCode: lobbyCode.toUpperCase() }, '', target);
+};
+
+UI.clearLobbyRoute = function () {
+  if (window.location.pathname.startsWith('/lobby/')) {
+    window.history.pushState({ screen: 'menu' }, '', '/');
+  }
+};
+
+UI.redirectToActiveLobbyIfNeeded = async function () {
+  if (window.location.pathname !== '/') return false;
+  const token = localStorage.getItem('quoridor_token');
+  try {
+    const headers = token ? { 'x-player-token': token } : {};
+    const res = await fetch('/api/game/active', { headers });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const lobbyCode = data?.lobbyCode;
+    if (data?.hasActiveGame && this.isValidLobbyCode(lobbyCode)) {
+      this.updateLobbyRoute(lobbyCode, true);
+      return true;
+    }
+  } catch (err) {
+    console.error('[ACTIVE LOBBY REDIRECT ERROR]', err);
+  }
+  return false;
+};
+
 UI.initRouting = function () {
   window.addEventListener('popstate', (event) => {
     const path = window.location.pathname;
     if (path.startsWith('/profiles/')) {
       const username = path.split('/')[2];
       this.showProfilePage(username, false);
+    } else if (path.startsWith('/lobby/')) {
+      this.showScreen('gameScreen');
+      const lobbyCode = this.getLobbyCodeFromPath();
+      if (lobbyCode) {
+        Net.rejoinLobbyByCode(lobbyCode);
+        setTimeout(() => {
+          if (!Net.isOnline && !Net.lobbyId) {
+            Net.joinRoom(lobbyCode);
+          }
+        }, 500);
+      }
     } else {
       this.showScreen('mainMenu');
     }
@@ -1557,6 +1611,17 @@ UI.initRouting = function () {
   if (path.startsWith('/profiles/')) {
     const username = path.split('/')[2];
     this.showProfilePage(username, false);
+  } else if (path.startsWith('/lobby/')) {
+    this.showScreen('gameScreen');
+    const lobbyCode = this.getLobbyCodeFromPath();
+    if (lobbyCode) {
+      Net.rejoinLobbyByCode(lobbyCode);
+      setTimeout(() => {
+        if (!Net.isOnline && !Net.lobbyId) {
+          Net.joinRoom(lobbyCode);
+        }
+      }, 500);
+    }
   } else {
     this.showScreen('mainMenu');
   }
@@ -1686,6 +1751,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Проверка сессии пользователя
   UI.checkSession();
+  UI.redirectToActiveLobbyIfNeeded();
 
   // Инициализация роутинга
   UI.initRouting();
@@ -1693,27 +1759,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load leaderboard data
   UI.loadLeaderboard();
 
-  // Проверка URL на наличие комнаты
+  // Legacy query room support -> canonical lobby path
   const urlParams = new URLSearchParams(window.location.search);
   const roomCode = urlParams.get('room');
-  if (roomCode && !Net.isOnline && !Net.lobbyId) {
-    // Показываем панель, но НЕ создаем новую комнату
-    UI.showDynamicPanel('panelRoom', false);
-
-    // Заполняем поле ввода
-    document.getElementById('roomCodeInput').value = roomCode.toUpperCase();
-
-    // Пытаемся сразу войти
-    // Небольшая задержка, чтобы сокет успел инициализироваться, если это первый запуск
+  const normalizedRoomCode = (roomCode || '').toUpperCase().trim();
+  if (UI.isValidLobbyCode(normalizedRoomCode)) {
+    UI.updateLobbyRoute(normalizedRoomCode, true);
+    UI.showScreen('gameScreen');
+    Net.rejoinLobbyByCode(normalizedRoomCode);
     setTimeout(() => {
-      Net.joinRoom(roomCode.toUpperCase());
+      if (!Net.isOnline && !Net.lobbyId) {
+        Net.joinRoom(normalizedRoomCode);
+      }
     }, 500);
-
     UI.showToast(UI.translate('toast_room_code_from_link'), 'info');
-
-    // Очищаем URL от параметра room, чтобы избежать повторных попыток при перезагрузке
-    const newUrl = window.location.pathname + (window.location.hash || '');
-    window.history.replaceState({}, document.title, newUrl);
   }
 
   // Ranked option click handler for guests
