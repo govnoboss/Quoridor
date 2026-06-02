@@ -330,19 +330,16 @@ const Game = {
   },
 
   goToMainMenu() {
-    // 1. Находим модалку
     const modal = document.getElementById('resultModal');
     if (modal) {
-      modal.classList.add('hidden'); // Скрываем
+      modal.classList.add('hidden');
     }
 
-    // 2. Останавливаем все процессы игры
     this.stopTimer();
     this.isGameOver = false;
     this.postGameReview = false;
     this.viewHistoryIndex = -1;
 
-    // 3. Clear rematch / new game state
     if (typeof Net !== 'undefined') {
       Net.lastGameLobbyId = null;
       Net.lastTimeControl = null;
@@ -350,8 +347,8 @@ const Game = {
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
 
-    // 4. Возвращаемся в меню через UI
     if (typeof UI !== 'undefined') {
+      UI.clearLobbyRoute();
       UI.backToMenu();
     }
   },
