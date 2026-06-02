@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/css/style.css?v=1.0.1" type="text/css" />
     <link rel="stylesheet" href="/css/auth.css?v=1.0.1" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.1" type="text/css" />
+    <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+    <script src="/js/analytics.js?v=1.0.1"></script>
 </head>
 <body class="auth-page-body">
     <header class="main-header">
@@ -264,6 +266,7 @@
                 return r.json().then(function(data) { return { status: r.status, data: data }; });
             }).then(function(resp) {
                 if (resp.status === 201) {
+                    trackEvent('register-complete');
                     window.location.href = '/';
                 } else {
                     if (resp.data.error === 'Username taken') showFieldError('regUsername', d.error_username_taken);

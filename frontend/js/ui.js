@@ -415,9 +415,11 @@ const UI = {
     }
 
     this.showSearch({ base: 300, inc: 0 }, isRanked);
+    trackEvent('search-started', { mode: isRanked ? 'ranked' : 'normal' });
   },
 
   showPlayOnlinePanel() {
+    trackEvent('play-online-click');
     this.showDynamicPanel('panelPlayOnline');
     const rankedBtn = document.getElementById('panelRankedBtn');
     if (rankedBtn) {
@@ -438,6 +440,16 @@ const UI = {
       return;
     }
     this.quickMatch(true);
+  },
+
+  onPlayFriendClick() {
+    trackEvent('play-friend-click');
+    this.showDynamicPanel('panelRoom');
+  },
+
+  onPlayLocalClick() {
+    trackEvent('play-local-click');
+    this.showDynamicPanel('panelMode');
   },
 
   showSettings() { this.showDynamicPanel('panelSettings'); },
@@ -728,6 +740,7 @@ const UI = {
       this.translate('confirm_surrender_msg'),
       () => {
         // Пользователь подтвердил сдачу
+        trackEvent('surrender-click');
         if (Net.isOnline) {
           Net.surrender();
         } else {
@@ -828,6 +841,7 @@ const UI = {
   },
 
   onRoomCreated(code) {
+    trackEvent('room-created');
     this.currentRoomCode = code;
     document.getElementById('createRoomBtn').classList.add('hidden');
     document.getElementById('roomCodeDisplay').classList.remove('hidden');
@@ -891,6 +905,7 @@ const UI = {
     if (!code) return;
     document.getElementById('joinRoomBtn').disabled = true;
     Net.joinRoom(code);
+    trackEvent('room-joined');
   },
 
   hideRoomJoining() {
@@ -1115,6 +1130,7 @@ UI.submitLogin = async function () {
     const data = await res.json();
 
     if (res.ok) {
+      trackEvent('login-complete');
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
       this.showToast(this.translate('toast_login_success'), 'info');
@@ -1166,6 +1182,7 @@ UI.submitRegister = async function () {
     const data = await res.json();
 
     if (res.ok) {
+      trackEvent('register-complete');
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
       this.showToast(this.translate('toast_register_success'), 'info');

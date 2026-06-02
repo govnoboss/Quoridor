@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/css/style.css?v=1.0.1" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.1" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.1" type="text/css" />
+  <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+  <script src="/js/analytics.js?v=1.0.1"></script>
 </head>
 
 <body>
@@ -100,9 +102,9 @@
               <span id="searchTimer">0:00</span>
             </button>
           </div>
-          <button id="playFriendBtn" onclick="UI.showDynamicPanel('panelRoom')" data-i18n="menu_play_friend">Играть с
+          <button id="playFriendBtn" onclick="UI.onPlayFriendClick()" data-i18n="menu_play_friend">Играть с
             другом</button>
-          <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="menu_local_game">Локальная игра</button>
+          <button onclick="UI.onPlayLocalClick()" data-i18n="menu_local_game">Локальная игра</button>
           <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">Настройки</button>
           <button onclick="UI.showDynamicPanel('panelHowToPlay')" data-i18n="menu_howtoplay">Как играть</button>
         </div>
