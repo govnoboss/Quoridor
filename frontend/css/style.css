@@ -149,11 +149,18 @@
     }
     .header-version { display: none; }
     .header-lang { font-size: 11px; padding: 3px 6px; }
-    .h-btn { font-size: 12px; padding: 6px 12px; }
+    .header-left, .header-right { gap: 8px; }
+    .h-btn { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
     .header-logo { font-size: 1rem; letter-spacing: 2px; }
     #headerUsername { display: none; }
     .header-profile { padding: 3px; }
     .header-avatar { width: 32px; height: 32px; }
+}
+
+@media (max-width: 420px) {
+    .h-btn { font-size: 10px; padding: 4px 6px; }
+    .header-left, .header-right { gap: 5px; }
+    .header-logo { font-size: 0.85rem; letter-spacing: 1px; }
 }
 
 *,

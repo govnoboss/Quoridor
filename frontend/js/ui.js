@@ -139,6 +139,11 @@ const UI = {
       btn_color_black: "Чёрные",
       lang_ru: "Русский",
       lang_en: "English",
+      auth_register: "Создание аккаунта",
+      auth_tos_accept: "Я принимаю",
+      auth_tos_link: "Условия использования",
+      auth_and: "и",
+      auth_privacy_link: "Политику конфиденциальности",
       profile_archive_title: "Архив партий",
       profile_status_placeholder: "Введите статус...",
       profile_join_date: "Регистрация:",
@@ -287,6 +292,11 @@ const UI = {
       btn_color_black: "Black",
       lang_ru: "Russian",
       lang_en: "English",
+      auth_register: "Create account",
+      auth_tos_accept: "I accept",
+      auth_tos_link: "Terms of Service",
+      auth_and: "and",
+      auth_privacy_link: "Privacy Policy",
       profile_archive_title: "Game Archive",
       profile_status_placeholder: "Enter status...",
       profile_join_date: "Joined:",
@@ -410,7 +420,7 @@ const UI = {
   quickMatch(isRanked = false) {
     if (isRanked && !this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      window.location.href = '/login';
+      this.openAuthModal('login');
       return;
     }
 
@@ -434,7 +444,7 @@ const UI = {
   onRankedClick() {
     if (!this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      window.location.href = '/login';
+      this.openAuthModal('login');
       return;
     }
     this.quickMatch(true);
@@ -1086,23 +1096,9 @@ UI.togglePassword = function (inputId, el) {
   }
 };
 
-UI.togglePassword = function (inputId, el) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  const svg = el.querySelector('.eye-icon');
-  if (!svg) return;
-  if (input.type === 'password') {
-    input.type = 'text';
-    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="currentColor"/><path d="M2 2l20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
-  } else {
-    input.type = 'password';
-    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
-  }
-};
-
 UI.submitLogin = async function () {
-  const uInput = document.getElementById('loginUsername');
-  const pInput = document.getElementById('loginPassword');
+  const uInput = document.getElementById('authLoginUsername');
+  const pInput = document.getElementById('authLoginPassword');
   const username = uInput.value;
   const password = pInput.value;
 
@@ -1118,8 +1114,6 @@ UI.submitLogin = async function () {
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
       this.showToast(this.translate('toast_login_success'), 'info');
-      // Reload to re-establish socket with new session
-      setTimeout(() => window.location.reload(), 500);
     } else {
       // Show error feedback
       uInput.classList.add('input-error');
@@ -1138,8 +1132,9 @@ UI.submitLogin = async function () {
 };
 
 UI.submitRegister = async function () {
-  const username = document.getElementById('regUsername').value;
-  const password = document.getElementById('regPassword').value;
+  const username = document.getElementById('authRegUsername').value;
+  const email = document.getElementById('authRegEmail').value;
+  const password = document.getElementById('authRegPassword').value;
 
   // Client-side validation
   if (username.length < 3 || username.length > 20) {
@@ -1161,7 +1156,7 @@ UI.submitRegister = async function () {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, email, password })
     });
     const data = await res.json();
 
@@ -1169,8 +1164,6 @@ UI.submitRegister = async function () {
       this.handleAuthSuccess(data.user);
       this.closeAuthModal();
       this.showToast(this.translate('toast_register_success'), 'info');
-      // Reload to re-establish socket with new session
-      setTimeout(() => window.location.reload(), 500);
     } else {
       this.showToast(data.error || this.translate('toast_register_failed'), 'error');
     }
@@ -1185,7 +1178,11 @@ UI.logout = async function () {
   this.currentUser = null;
   this.updateAuthUI();
   this.showToast(this.translate('toast_logged_out'), 'info');
-  window.location.href = '/';
+  if (typeof Net !== 'undefined' && Net.reconnectSocket) {
+    Net.reconnectSocket();
+  }
+  this.backToMenu();
+  window.history.pushState({ screen: 'menu' }, '', '/');
 };
 
 UI.checkSession = async function () {
@@ -1215,6 +1212,10 @@ UI.handleAuthSuccess = function (user) {
     rankedBtn.classList.remove('btn-disabled');
     rankedBtn.title = '';
   }
+  // Reconnect socket with authenticated session
+  if (typeof Net !== 'undefined' && Net.reconnectSocket) {
+    Net.reconnectSocket();
+  }
 };
 
 UI.updateAuthUI = function () {
@@ -1234,6 +1235,40 @@ UI.updateAuthUI = function () {
     if (headerAuth) headerAuth.classList.remove('hidden');
     if (headerProfile) headerProfile.classList.add('hidden');
   }
+};
+
+UI.openAuthModal = function (tab) {
+  const modal = document.getElementById('authModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const loginForm = document.getElementById('authLoginForm');
+  const registerForm = document.getElementById('authRegisterForm');
+
+  if (tab === 'register') {
+    loginForm.classList.add('hidden');
+    registerForm.classList.remove('hidden');
+  } else {
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+  }
+
+  this.updateLanguage();
+  this.updateHeaderVisibility();
+};
+
+UI.closeAuthModal = function () {
+  const modal = document.getElementById('authModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  document.getElementById('authError').classList.remove('visible');
+  this.updateHeaderVisibility();
+};
+
+UI.updateAuthSubmitBtn = function () {
+  const cb = document.getElementById('authAcceptTos');
+  const btn = document.getElementById('authRegisterBtn');
+  if (btn) btn.disabled = !cb.checked;
 };
 
 UI.updateGameInfo = function (profiles, myIndex) {
@@ -1386,7 +1421,7 @@ UI.openMyProfile = function () {
   if (this.currentUser && this.currentUser.username) {
     this.showProfilePage(this.currentUser.username);
   } else {
-    window.location.href = '/login';
+    this.openAuthModal('login');
   }
 };
 
