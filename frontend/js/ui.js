@@ -1122,10 +1122,19 @@ UI.togglePassword = function (inputId, el) {
 };
 
 UI.submitLogin = async function () {
-  const uInput = document.getElementById('authLoginUsername');
-  const pInput = document.getElementById('authLoginPassword');
-  const username = uInput.value;
-  const password = pInput.value;
+  const username = document.getElementById('authLoginUsername').value;
+  const password = document.getElementById('authLoginPassword').value;
+
+  this.clearAuthErrors();
+
+  if (!username) {
+    this.showFieldError('authLoginUsername', this.translate('field_required') || 'Required');
+    return;
+  }
+  if (!password) {
+    this.showFieldError('authLoginPassword', this.translate('field_required') || 'Required');
+    return;
+  }
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -1141,15 +1150,8 @@ UI.submitLogin = async function () {
       this.closeAuthModal();
       this.showToast(this.translate('toast_login_success'), 'info');
     } else {
-      // Show error feedback
-      uInput.classList.add('input-error');
-      pInput.classList.add('input-error');
-
-      const clearError = (e) => e.target.classList.remove('input-error');
-      uInput.addEventListener('input', clearError, { once: true });
-      pInput.addEventListener('input', clearError, { once: true });
-
-      this.showToast(this.translate('toast_invalid_credentials'), 'error');
+      this.showFieldError('authLoginUsername', data.error || this.translate('toast_invalid_credentials'));
+      this.showFieldError('authLoginPassword', data.error || this.translate('toast_invalid_credentials'));
     }
   } catch (e) {
     console.error(e);
@@ -1162,19 +1164,28 @@ UI.submitRegister = async function () {
   const email = document.getElementById('authRegEmail').value;
   const password = document.getElementById('authRegPassword').value;
 
+  this.clearAuthErrors();
+
   // Client-side validation
   if (username.length < 3 || username.length > 20) {
-    this.showToast(this.translate('toast_username_length_error'), 'error');
+    this.showFieldError('authRegUsername', this.translate('toast_username_length_error'));
+    document.getElementById('authRegUsername').focus();
+    return;
+  }
+  if (!email) {
+    this.showFieldError('authRegEmail', this.translate('field_required') || 'Required');
+    document.getElementById('authRegEmail').focus();
     return;
   }
   if (password.length < 8) {
-    this.showToast(this.translate('toast_password_too_short'), 'error');
+    this.showFieldError('authRegPassword', this.translate('toast_password_too_short'));
+    document.getElementById('authRegPassword').focus();
     return;
   }
 
-  // Check for spaces or other whitespace
   if (/\s/.test(password)) {
-    this.showToast(this.translate('toast_password_no_spaces'), 'error');
+    this.showFieldError('authRegPassword', this.translate('toast_password_no_spaces'));
+    document.getElementById('authRegPassword').focus();
     return;
   }
 
@@ -1280,6 +1291,7 @@ UI.openAuthModal = function (tab) {
     registerForm.classList.add('hidden');
   }
 
+  this.clearAuthErrors();
   this.updateLanguage();
   this.updateHeaderVisibility();
 };
@@ -1289,7 +1301,39 @@ UI.closeAuthModal = function () {
   if (!modal) return;
   modal.classList.add('hidden');
   document.getElementById('authError').classList.remove('visible');
+  this.clearAuthErrors();
   this.updateHeaderVisibility();
+};
+
+UI.clearAuthErrors = function () {
+  document.querySelectorAll('.auth-form .field-error.visible').forEach(function (el) {
+    el.classList.remove('visible');
+    el.textContent = '';
+  });
+  document.querySelectorAll('.auth-form .input-error').forEach(function (el) {
+    el.classList.remove('input-error');
+  });
+  document.getElementById('authError').classList.remove('visible');
+  document.getElementById('authError').textContent = '';
+};
+
+UI.showFieldError = function (inputId, message) {
+  var errorDiv = document.getElementById(inputId + 'Error');
+  if (errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.classList.add('visible');
+  }
+  var input = document.getElementById(inputId);
+  if (input) {
+    input.classList.add('input-error');
+    input.addEventListener('input', function () {
+      input.classList.remove('input-error');
+      if (errorDiv) {
+        errorDiv.classList.remove('visible');
+        errorDiv.textContent = '';
+      }
+    }, { once: true });
+  }
 };
 
 UI.updateAuthSubmitBtn = function () {
