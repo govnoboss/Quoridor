@@ -35,6 +35,9 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/quoridor
       - REDIS_URL=redis://redis:6379
       - SESSION_SECRET=dev_secret_12345
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM:-onboarding@resend.dev}
+      - SITE_URL=${SITE_URL:-http://localhost:3000}
     depends_on:
       mongodb:
         condition: service_healthy
