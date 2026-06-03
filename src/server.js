@@ -1045,7 +1045,7 @@ io.on('connection', (socket) => {
             if (s.id !== socket.id && s.userId === socket.userId) {
                 console.log(`[AUTH] Kicking old socket ${s.id} for user ${socket.username}`);
                 s.emit('forceDisconnect', { reason: 'Logged in from another tab' });
-                s.disconnect(true);
+                s.disconnect();
             }
         });
     }

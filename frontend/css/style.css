@@ -2545,32 +2545,6 @@ canvas {
 }
 
 /* --- AUTH STYLES --- */
-.auth-tabs {
-    display: flex;
-    background: #333;
-    border-radius: 8px;
-    padding: 4px;
-    margin-bottom: 20px;
-}
-
-.auth-tab {
-    flex: 1;
-    background: transparent;
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
-    color: #aaa;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
-}
-
-.auth-tab.active {
-    background: #555;
-    color: #fff;
-    font-weight: bold;
-}
-
 .auth-form {
     display: flex;
     flex-direction: column;
