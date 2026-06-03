@@ -1371,7 +1371,8 @@ UI.showProfilePage = async function (username, pushState = true) {
     if (isOwnProfile) {
       const logoutBtn = document.createElement('button');
       logoutBtn.className = 'pp-logout-btn';
-      logoutBtn.textContent = 'Выйти';
+      const label = UI.translate('profile_logout') || 'Log Out';
+      logoutBtn.textContent = label;
       logoutBtn.onclick = () => this.logout();
       actionsContainer.appendChild(logoutBtn);
     }
