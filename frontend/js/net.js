@@ -15,7 +15,10 @@ const Net = {
         console.log('[NET] Local token:', this.playerToken || 'none');
 
         // 2. Подключаемся, передавая токен (если есть)
-        this.socket = io({
+        // Use absolute URL so it works in Capacitor WebView
+        const serverUrl = window.location.origin || 'https://playquor.org';
+        this.socket = io(serverUrl, {
+            transports: ['websocket', 'polling'],
             extraHeaders: {
                 "ngrok-skip-browser-warning": "any-value"
             },
@@ -270,6 +273,15 @@ const Net = {
         if (!lobbyCode) return;
         this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken });
     }
+};
+
+Net.reconnectSocket = function () {
+    if (this.socket) {
+        this.socket.disconnect();
+        this.socket.removeAllListeners();
+        this.socket = null;
+    }
+    this.init();
 };
 
 Net.init();
