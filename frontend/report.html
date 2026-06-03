@@ -74,7 +74,7 @@
 
         <div id="successMessage" class="auth-success" style="display:none;">
             <p id="successText">Thank you! Your report has been submitted.</p>
-            <a href="/" class="back-link">← Back to home</a>
+            <a href="/" class="back-link" id="backLink">← Back to home</a>
         </div>
     </div>
 </div>
@@ -114,6 +114,8 @@ var dict = {
 };
 
 function getLang() {
+    var saved = localStorage.getItem('quoridor-lang');
+    if (saved === 'ru' || saved === 'en') return saved;
     var lang = navigator.language || navigator.userLanguage || '';
     if (lang.startsWith('ru')) return 'ru';
     return 'en';
@@ -122,12 +124,14 @@ function getLang() {
 function applyLang() {
     var lang = getLang();
     var d = dict[lang];
+    document.title = d.title;
     document.getElementById('reportTitle').textContent = d.title;
     document.getElementById('lblSubject').textContent = d.lblSubject;
     document.getElementById('lblDesc').textContent = d.lblDesc;
     document.getElementById('lblContact').textContent = d.lblContact;
     document.getElementById('submitBtn').textContent = d.submit;
     document.getElementById('successText').textContent = d.success;
+    document.getElementById('backLink').textContent = d.back;
 }
 
 function clearErrors() {
