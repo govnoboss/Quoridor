@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Report a Bug — Quoridor</title>
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.2" type="text/css" />
+    <style>
+        textarea {
+            background: #333;
+            border: 1px solid #444;
+            padding: 12px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            width: 100%;
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            border-color: var(--wall);
+        }
+        textarea.input-error {
+            border-color: #ff4444 !important;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 18px;
+            color: var(--wall);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="auth-page-body">
+
+<header id="mainHeader" class="main-header">
+    <a href="/" class="header-logo">Quoridor</a>
+</header>
+
+<div class="auth-page-container">
+    <div class="auth-form-wrapper">
+        <a href="/" class="close-panel-btn">&times;</a>
+        <h1 id="reportTitle">Report a Bug</h1>
+
+        <div id="authError" class="auth-error"></div>
+        <div id="authSuccess" class="auth-success hidden"></div>
+
+        <form id="reportForm" class="auth-form" onsubmit="return submitReport(event)">
+            <div class="field-group">
+                <label class="field-label" for="reportSubject" id="lblSubject">Subject</label>
+                <input id="reportSubject" type="text" maxlength="200" autocomplete="off" />
+                <div class="field-error" id="reportSubjectError"></div>
+            </div>
+            <div class="field-group">
+                <label class="field-label" for="reportDesc" id="lblDesc">Description</label>
+                <textarea id="reportDesc" maxlength="5000"></textarea>
+                <div class="field-error" id="reportDescError"></div>
+            </div>
+            <div class="field-group">
+                <label class="field-label" for="reportContact" id="lblContact">Contact (email / Discord — optional)</label>
+                <input id="reportContact" type="text" maxlength="200" autocomplete="off" />
+                <div class="field-error" id="reportContactError"></div>
+            </div>
+            <button type="submit" class="btn-primary" id="submitBtn">Send Report</button>
+        </form>
+
+        <div id="successMessage" class="auth-success" style="display:none;">
+            <p id="successText">Thank you! Your report has been submitted.</p>
+            <a href="/" class="back-link">← Back to home</a>
+        </div>
+    </div>
+</div>
+
+<script>
+var dict = {
+    en: {
+        title: "Report a Bug",
+        lblSubject: "Subject",
+        lblDesc: "Description",
+        lblContact: "Contact (email / Discord — optional)",
+        submit: "Send Report",
+        success: "Thank you! Your report has been submitted.",
+        error_subject_empty: "Please enter a subject",
+        error_subject_short: "Subject must be at least 3 characters",
+        error_desc_empty: "Please describe the bug",
+        error_desc_short: "Description must be at least 10 characters",
+        error_network: "Network error. Try again later.",
+        error_limit: "Too many requests. Try again later.",
+        back: "← Back to home"
+    },
+    ru: {
+        title: "Сообщить об ошибке",
+        lblSubject: "Тема",
+        lblDesc: "Описание",
+        lblContact: "Контакт (email / Discord — необязательно)",
+        submit: "Отправить",
+        success: "Спасибо! Репорт отправлен.",
+        error_subject_empty: "Введите тему",
+        error_subject_short: "Тема должна быть не менее 3 символов",
+        error_desc_empty: "Опишите ошибку",
+        error_desc_short: "Описание должно быть не менее 10 символов",
+        error_network: "Ошибка сети. Попробуйте позже.",
+        error_limit: "Слишком много запросов. Попробуйте позже.",
+        back: "← На главную"
+    }
+};
+
+function getLang() {
+    var lang = navigator.language || navigator.userLanguage || '';
+    if (lang.startsWith('ru')) return 'ru';
+    return 'en';
+}
+
+function applyLang() {
+    var lang = getLang();
+    var d = dict[lang];
+    document.getElementById('reportTitle').textContent = d.title;
+    document.getElementById('lblSubject').textContent = d.lblSubject;
+    document.getElementById('lblDesc').textContent = d.lblDesc;
+    document.getElementById('lblContact').textContent = d.lblContact;
+    document.getElementById('submitBtn').textContent = d.submit;
+    document.getElementById('successText').textContent = d.success;
+}
+
+function clearErrors() {
+    document.querySelectorAll('.field-error').forEach(function(el) {
+        el.textContent = '';
+        el.classList.remove('visible');
+    });
+    document.querySelectorAll('input.input-error, textarea.input-error').forEach(function(el) {
+        el.classList.remove('input-error');
+    });
+    var err = document.getElementById('authError');
+    err.textContent = '';
+    err.classList.remove('visible');
+}
+
+function showFieldError(id, msg) {
+    var input = document.getElementById(id);
+    if (input) input.classList.add('input-error');
+    var errorEl = document.getElementById(id + 'Error');
+    if (errorEl) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+    }
+}
+
+function showGlobalError(msg) {
+    var el = document.getElementById('authError');
+    el.textContent = msg;
+    el.classList.add('visible');
+}
+
+function submitReport(e) {
+    e.preventDefault();
+    clearErrors();
+
+    var lang = getLang();
+    var d = dict[lang];
+    var subject = document.getElementById('reportSubject').value.trim();
+    var desc = document.getElementById('reportDesc').value.trim();
+    var contact = document.getElementById('reportContact').value.trim();
+    var hasError = false;
+
+    if (!subject) {
+        showFieldError('reportSubject', d.error_subject_empty);
+        hasError = true;
+    } else if (subject.length < 3) {
+        showFieldError('reportSubject', d.error_subject_short);
+        hasError = true;
+    }
+    if (!desc) {
+        showFieldError('reportDesc', d.error_desc_empty);
+        hasError = true;
+    } else if (desc.length < 10) {
+        showFieldError('reportDesc', d.error_desc_short);
+        hasError = true;
+    }
+    if (hasError) return;
+
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: subject, description: desc, contact: contact })
+    }).then(function(r) {
+        return r.json().then(function(data) { return { status: r.status, data: data }; });
+    }).then(function(resp) {
+        if (resp.status === 201) {
+            document.getElementById('reportForm').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'block';
+        } else if (resp.status === 429) {
+            showGlobalError(d.error_limit);
+            btn.disabled = false;
+            btn.textContent = d.submit;
+        } else {
+            showGlobalError(resp.data.error || d.error_network);
+            btn.disabled = false;
+            btn.textContent = d.submit;
+        }
+    }).catch(function() {
+        showGlobalError(d.error_network);
+        btn.disabled = false;
+        btn.textContent = d.submit;
+    });
+}
+
+applyLang();
+</script>
+</body>
+</html>

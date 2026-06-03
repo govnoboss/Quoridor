@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quoridor Admin: Reports</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+        }
+        h1 { margin-top: 0; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-new { background: #3b82f6; color: #fff; }
+        .badge-in_progress { background: #f59e0b; color: #000; }
+        .badge-closed { background: #64748b; color: #fff; }
+        .btn-sm {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .btn-sm + .btn-sm { margin-left: 4px; }
+        .btn-primary-sm { background: var(--accent); color: #000; }
+        .btn-ok-sm { background: var(--ok); color: #000; }
+        .btn-danger-sm { background: var(--danger); color: #fff; }
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .filter-bar select {
+            background: #1e293b;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+        .desc-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h2 { margin-top: 0; }
+        .modal-close {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .modal label { color: var(--muted); font-size: 13px; display: block; margin-top: 12px; margin-bottom: 4px; }
+        .modal p { margin: 0 0 12px; line-height: 1.5; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/" class="back-link">← Home</a>
+    <h1>Reports</h1>
+
+    <div class="panel">
+        <div class="filter-bar">
+            <span>Status filter:</span>
+            <select id="statusFilter" onchange="loadReports()">
+                <option value="all">All</option>
+                <option value="new">New</option>
+                <option value="in_progress">In Progress</option>
+                <option value="closed">Closed</option>
+            </select>
+            <span style="margin-left: auto; color: var(--muted); font-size: 13px;" id="reportCount"></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="reportBody">
+                <tr><td colspan="5" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="detailModal" class="modal-overlay" style="display:none;" onclick="closeDetail(event)">
+    <div class="modal">
+        <button class="modal-close" onclick="closeDetail()">&times;</button>
+        <h2 id="detailSubject"></h2>
+        <label>Description</label>
+        <p id="detailDesc"></p>
+        <label>Contact</label>
+        <p id="detailContact"></p>
+        <label>Date</label>
+        <p id="detailDate"></p>
+        <label>IP</label>
+        <p id="detailIp"></p>
+        <label>Status</label>
+        <p id="detailStatus"></p>
+    </div>
+</div>
+
+<script>
+var reports = [];
+
+function loadReports() {
+    var filter = document.getElementById('statusFilter').value;
+    var tbody = document.getElementById('reportBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+
+    fetch('/api/admin/reports')
+        .then(function(r) {
+            if (!r.ok) throw new Error('Not authorized');
+            return r.json();
+        })
+        .then(function(data) {
+            reports = data;
+            render(filter);
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load. Are you admin?</td></tr>';
+        });
+}
+
+function render(filter) {
+    var filtered = filter === 'all' ? reports : reports.filter(function(r) { return r.status === filter; });
+    var tbody = document.getElementById('reportBody');
+    var countEl = document.getElementById('reportCount');
+
+    countEl.textContent = filtered.length + ' report(s)';
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No reports</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    filtered.forEach(function(r) {
+        var tr = document.createElement('tr');
+        var date = new Date(r.createdAt).toLocaleString();
+        var badgeClass = 'badge-' + r.status;
+
+        tr.innerHTML =
+            '<td style="white-space:nowrap">' + date + '</td>' +
+            '<td><a href="#" onclick="showDetail(\'' + r._id + '\');return false" style="color:var(--accent);text-decoration:none">' + esc(r.subject) + '</a></td>' +
+            '<td>' + esc(r.contact || '-') + '</td>' +
+            '<td><span class="badge ' + badgeClass + '">' + r.status.replace('_', ' ') + '</span></td>' +
+            '<td style="white-space:nowrap">' + actionButtons(r) + '</td>';
+
+        tbody.appendChild(tr);
+    });
+}
+
+function actionButtons(r) {
+    var btns = '';
+    if (r.status === 'new') {
+        btns += '<button class="btn-sm btn-primary-sm" onclick="updateStatus(\'' + r._id + '\',\'in_progress\')">Take</button>';
+    }
+    if (r.status !== 'closed') {
+        btns += '<button class="btn-sm btn-ok-sm" onclick="updateStatus(\'' + r._id + '\',\'closed\')">Close</button>';
+    }
+    if (r.status === 'closed' || r.status === 'in_progress') {
+        btns += '<button class="btn-sm btn-danger-sm" onclick="updateStatus(\'' + r._id + '\',\'new\')">Reopen</button>';
+    }
+    return btns;
+}
+
+function updateStatus(id, status) {
+    fetch('/api/admin/reports/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: status })
+    }).then(function(r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+    }).then(function() {
+        loadReports();
+    }).catch(function() {
+        alert('Failed to update');
+    });
+}
+
+function showDetail(id) {
+    var r = reports.find(function(x) { return x._id === id; });
+    if (!r) return;
+    document.getElementById('detailSubject').textContent = r.subject;
+    document.getElementById('detailDesc').textContent = r.description;
+    document.getElementById('detailContact').textContent = r.contact || '-';
+    document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
+    document.getElementById('detailIp').textContent = r.ip || '-';
+    document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
+    document.getElementById('detailModal').style.display = 'flex';
+}
+
+function closeDetail(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('detailModal').style.display = 'none';
+}
+
+function esc(s) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(s || ''));
+    return div.innerHTML;
+}
+
+loadReports();
+</script>
+</body>
+</html>
