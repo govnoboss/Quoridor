@@ -12,6 +12,7 @@ const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
 const { sendPasswordResetEmail } = require('./utils/mailer');
+const Report = require('./models/Report');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -712,6 +713,71 @@ app.get('/forgot-password', (req, res) => res.sendFile(path.join(__dirname, '../
 app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, '../frontend/reset-password.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/terms.html')));
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
+app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
+app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
+
+// --- BUG REPORT API ---
+
+const reportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many reports. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.post('/api/reports', reportLimiter, async (req, res) => {
+    try {
+        const { subject, description, contact } = req.body;
+        if (!subject || subject.trim().length < 3) {
+            return res.status(400).json({ error: 'Subject must be at least 3 characters' });
+        }
+        if (!description || description.trim().length < 10) {
+            return res.status(400).json({ error: 'Description must be at least 10 characters' });
+        }
+
+        const report = await Report.create({
+            subject: subject.trim(),
+            description: description.trim(),
+            contact: (contact || '').trim(),
+            ip: req.ip || req.connection?.remoteAddress || ''
+        });
+
+        res.status(201).json({ message: 'Report submitted' });
+    } catch (e) {
+        console.error('[REPORT] Create error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+    try {
+        const reports = await Report.find().sort({ createdAt: -1 }).lean();
+        res.json(reports);
+    } catch (e) {
+        console.error('[REPORT] List error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.patch('/api/admin/reports/:id', requireAdmin, async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['new', 'in_progress', 'closed'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+        const report = await Report.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        );
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+        res.json(report);
+    } catch (e) {
+        console.error('[REPORT] Update error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
 // SPA fallback — serve index.html for any unrecognized GET route
 app.get('/{*path}', (req, res) => {

@@ -3084,3 +3084,22 @@ canvas {
         height: 8px;
     }
 }
+
+.site-footer {
+    text-align: center;
+    padding: 24px 16px 32px;
+    font-size: 13px;
+    color: #666;
+}
+.site-footer a {
+    color: #888;
+    text-decoration: none;
+}
+.site-footer a:hover {
+    color: var(--wall);
+    text-decoration: underline;
+}
+.footer-sep {
+    margin: 0 8px;
+    color: #555;
+}
