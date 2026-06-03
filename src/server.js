@@ -2030,19 +2030,10 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
         if (game.hasBot) gameType = 'bot';
 
-        // --- NEW LOGIC: Only save RANKED games ---
-        if (!game.isRanked) {
-            console.log(`[ARCHIVE] Skipped unranked game ${lobbyId}`);
-            return {
-                white: playerWhite,
-                black: playerBlack
-            };
-        }
-
         const result = new GameResult({
             gameType,
             lobbyId,
-            isRanked: true,
+            isRanked: !!game.isRanked,
             playerWhite,
             playerBlack,
             winner: winnerIdx,
