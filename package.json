@@ -4,11 +4,6 @@
   "description": "",
   "main": "src/server.js",
   "dependencies": {
-    "@capacitor/android": "^8.4.0",
-    "@capacitor/app": "^8.1.0",
-    "@capacitor/cli": "^8.4.0",
-    "@capacitor/core": "^8.4.0",
-    "@capacitor/splash-screen": "^8.0.1",
     "@sentry/node": "^10.54.0",
     "@socket.io/admin-ui": "^0.5.1",
     "accepts": "^2.0.0",
@@ -121,6 +116,11 @@
   },
   "homepage": "https://github.com/govnoboss/Quoridor#readme",
   "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/splash-screen": "^8.0.1",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.4.0",
     "jest": "^30.4.2",
