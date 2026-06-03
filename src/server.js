@@ -11,6 +11,7 @@ const Shared = require('./core/shared.js');
 const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
+const { sendPasswordResetEmail } = require('./utils/mailer');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -574,6 +575,83 @@ app.post('/api/auth/logout', (req, res) => {
         res.json({ message: 'Logged out' });
     });
 });
+
+// --- PASSWORD RESET ---
+
+// Separate stricter rate limiter for forgot-password
+const forgotLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many password reset attempts. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.post('/api/auth/forgot-password', forgotLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        // Always return 200 to prevent email enumeration
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (user) {
+            // Cooldown: only one reset per 24 hours
+            const cooldown = user.resetPasswordRequestedAt;
+            if (cooldown && (Date.now() - new Date(cooldown).getTime() < 86400000)) {
+                // Still on cooldown — silently return
+                return res.json({ message: 'If that email is registered, a reset link has been sent.' });
+            }
+
+            const token = crypto.randomBytes(32).toString('hex');
+            user.resetPasswordToken = token;
+            user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+            user.resetPasswordRequestedAt = new Date();
+            await user.save();
+
+            try {
+                await sendPasswordResetEmail(user.email, token);
+            } catch (e) {
+                console.error('[FORGOT] Failed to send email:', e);
+            }
+        }
+
+        res.json({ message: 'If that email is registered, a reset link has been sent.' });
+    } catch (e) {
+        console.error('[FORGOT] Error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+        if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: new Date() }
+        });
+
+        if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        user.passwordHash = passwordHash;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        // Destroy all sessions for this user
+        if (req.session.userId === user._id.toString()) {
+            req.session.destroy(() => {});
+        }
+
+        res.json({ message: 'Password has been reset. You can now log in.' });
+    } catch (e) {
+        console.error('[RESET] Error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 // -----------------------
 
 // LAN-friendly Helmet Configuration
@@ -630,6 +708,8 @@ app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')
 // Standalone pages (not SPA)
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, '../frontend/register.html')));
+app.get('/forgot-password', (req, res) => res.sendFile(path.join(__dirname, '../frontend/forgot-password.html')));
+app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, '../frontend/reset-password.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/terms.html')));
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 
