@@ -158,7 +158,8 @@ const UI = {
       placeholder_password: "Пароль",
       placeholder_username_long: "Имя пользователя (минимум 3 символа)",
       placeholder_password_long: "Пароль (минимум 8 символов)",
-      loading_text: "Загрузка..."
+      loading_text: "Загрузка...",
+      menu_found_bug: "Нашли баг?"
     },
     en: {
       menu_howtoplay: "How to Play",
@@ -311,7 +312,8 @@ const UI = {
       placeholder_password: "Password",
       placeholder_username_long: "Username (at least 3 characters)",
       placeholder_password_long: "Password (at least 8 characters)",
-      loading_text: "Loading..."
+      loading_text: "Loading...",
+      menu_found_bug: "Found a bug?"
     }
   },
 
