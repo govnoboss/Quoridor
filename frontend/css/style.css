@@ -2533,6 +2533,17 @@ canvas {
     font-weight: bold;
 }
 
+.history-row.start-row {
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+}
+.history-row.start-row .move {
+    font-style: italic;
+    opacity: 0.8;
+}
+
 /* --- AUTH STYLES --- */
 .auth-tabs {
     display: flex;

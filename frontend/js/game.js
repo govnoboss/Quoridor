@@ -177,10 +177,11 @@ const Game = {
    * Запускает сетевую игру.
    * @param {'white'|'black'} color Цвет игрока
    */
-  startOnline(color, playerIdx, initialTime = 600, profiles = null) {
+  startOnline(color, playerIdx, initialTime = 600, profiles = null, gameMode = 'online') {
     this.initialTime = initialTime; // Устанавливаем ДО reset или обновляем после
     this.reset();
     this.state.botDifficulty = 'none';
+    this.state.gameMode = gameMode;
 
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
@@ -213,6 +214,8 @@ const Game = {
     if (typeof UI !== 'undefined' && UI.updateGameInfo) {
       UI.updateGameInfo(this.state.playerProfiles, this.myPlayerIndex);
     }
+
+    trackEvent('game-started', { mode: gameMode });
   },
 
   setupCanvas() {
@@ -253,7 +256,7 @@ const Game = {
       const colorName = UI.translate(colorKey);
       statusMessage = UI.translate('modal_win_local').replace('{color}', colorName);
     }
-    typeof umami !== "undefined" && umami.track('game-finished', { result: isWinner ? 'win' : 'loss', reason });
+    trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local' });
 
     // Применяем стили
     const contentBox = modal.querySelector('.modal-content');
@@ -327,18 +330,16 @@ const Game = {
   },
 
   goToMainMenu() {
-    // 1. Находим модалку
     const modal = document.getElementById('resultModal');
     if (modal) {
-      modal.classList.add('hidden'); // Скрываем
+      modal.classList.add('hidden');
     }
 
-    // 2. Останавливаем все процессы игры
     this.stopTimer();
     this.isGameOver = false;
     this.postGameReview = false;
+    this.viewHistoryIndex = -1;
 
-    // 3. Clear rematch / new game state
     if (typeof Net !== 'undefined') {
       Net.lastGameLobbyId = null;
       Net.lastTimeControl = null;
@@ -346,8 +347,8 @@ const Game = {
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
 
-    // 4. Возвращаемся в меню через UI
     if (typeof UI !== 'undefined') {
+      UI.clearLobbyRoute();
       UI.backToMenu();
     }
   },
@@ -698,11 +699,13 @@ const Game = {
    */
   startPvP() {
     this.state.botDifficulty = 'none';
+    this.state.gameMode = 'local';
     this.initialTime = 600;
     this.reset();
     UI.showScreen('gameScreen');
     this.startTimer();
     this.draw();
+    trackEvent('game-started', { mode: 'local' });
   },
 
   selectBotDifficulty(difficulty) {
@@ -716,8 +719,9 @@ const Game = {
    */
   startVsBot(playerColor) {
     const diff = this.pendingBotDifficulty;
-    typeof umami !== "undefined" && umami.track('play-bot-click', { difficulty: diff });
+    trackEvent('play-bot-click', { difficulty: diff });
     this.state.botDifficulty = diff;
+    this.state.gameMode = 'bot';
 
     // Если мы Белые: myPlayerIndex = 0. Бот = 1.
     // Если мы Черные: myPlayerIndex = 1. Бот = 0.
@@ -738,6 +742,8 @@ const Game = {
     if (this.myPlayerIndex === 1) {
       setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
     }
+
+    trackEvent('game-started', { mode: 'bot', difficulty: diff });
   },
 
   startTimer() {

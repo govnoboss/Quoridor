@@ -53,11 +53,13 @@ const Net = {
             this.myColor = data.color;
             this.lobbyId = lobbyCode;
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
+            const gameMode = !data.initialTime ? 'friend' : (this.lastIsRanked ? 'ranked' : 'normal');
+            this.lastGameMode = gameMode;
             UI.hideSearch(false);
             UI.currentRoomCode = null; // Сбрасываем код, так как он использован
             UI.updateLobbyRoute(lobbyCode);
 
-            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
+            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent }, gameMode);
         });
 
         // Обработка восстановления игры
@@ -127,6 +129,18 @@ const Net = {
             Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
         });
 
+        this.socket.on('gameActiveError', (data) => {
+            console.log('[NET] Игра активна, доступ заблокирован:', data.lobbyCode);
+            UI.showToast(UI.translate('toast_game_active') || 'Эта игра уже началась. Доступ запрещён.', 'error');
+            UI.clearLobbyRoute();
+            UI.showScreen('mainMenu');
+        });
+
+        this.socket.on('gameReplayAvailable', (data) => {
+            console.log('[NET] Доступен реплей игры:', data.lobbyCode);
+            UI.launchReplay(data);
+        });
+
         this.socket.on('rematchStarted', (data) => {
             console.log(`[NET] Реванш начался! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             // Close result modal if still open
@@ -140,7 +154,7 @@ const Net = {
             UI.hideSearch(false);
             UI.currentRoomCode = null;
             UI.updateLobbyRoute(this.lobbyId);
-            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent });
+            Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent }, this.lastGameMode || 'normal');
         });
 
         this.socket.on('rematchFailed', (data) => {
@@ -223,6 +237,7 @@ const Net = {
     cancelFindGame() {
         this.socket.emit('cancelSearch', { token: this.playerToken });
         console.log('[NET] Поиск отменен.');
+        trackEvent('search-cancelled');
     },
 
     sendMove(moveData) {
@@ -237,6 +252,7 @@ const Net = {
         if (this.lastGameLobbyId) {
             console.log('[NET] Requesting rematch for lobby:', this.lastGameLobbyId);
             this.socket.emit('requestRematch', { lobbyId: this.lastGameLobbyId, token: this.playerToken });
+            trackEvent('rematch-click');
             UI.showRematchBtn(false);
         }
     },
@@ -269,9 +285,9 @@ const Net = {
         console.log('[NET] Joining room:', roomCode);
     },
 
-    rejoinLobbyByCode(lobbyCode) {
+    rejoinLobbyByCode(lobbyCode, replay = false) {
         if (!lobbyCode) return;
-        this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken });
+        this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken, replay });
     }
 };
 

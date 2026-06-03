@@ -17,6 +17,11 @@ const gameResultSchema = new mongoose.Schema({
         isGuest: { type: Boolean, default: false },
         ratingChange: { type: Number, default: 0 }
     },
+    lobbyId: {
+        type: String,
+        index: true,
+        default: null
+    },
     isRanked: {
         type: Boolean,
         default: false
