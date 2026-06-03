@@ -9,6 +9,7 @@ html {
     height: auto;
 }
 .auth-page-body {
+    background: var(--bg);
     height: auto !important;
     min-height: 100vh;
     overflow-y: auto !important;
@@ -58,6 +59,7 @@ html {
     cursor: pointer;
     z-index: 1000;
     line-height: 1;
+    text-decoration: none;
 }
 .auth-form-wrapper h1 {
     text-align: center;
@@ -200,6 +202,10 @@ html {
 }
 .checkbox-row a:hover {
     text-decoration: underline;
+}
+
+.hidden {
+    display: none !important;
 }
 
 /* Static content pages (terms, privacy) */
