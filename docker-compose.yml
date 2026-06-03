@@ -37,6 +37,9 @@ services:
       - BOT_MOVE_MAX_DELAY_MS=${BOT_MOVE_MAX_DELAY_MS:-2500}
       - BOT_MAX_RECENT_MATCHES=${BOT_MAX_RECENT_MATCHES:-3}
       - BOT_RECENT_WINDOW_MS=${BOT_RECENT_WINDOW_MS:-3600000}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM:-onboarding@resend.dev}
+      - SITE_URL=${SITE_URL:-https://playquor.org}
 
 volumes:
   redis_data:
