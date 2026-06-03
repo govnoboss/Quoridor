@@ -156,6 +156,16 @@ html {
 .auth-form-wrapper .auth-error.visible {
     display: block;
 }
+.auth-form-wrapper .auth-success {
+    color: #4caf50;
+    font-size: 14px;
+    text-align: center;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    line-height: 1.5;
+}
 .auth-form-wrapper .auth-footer-links {
     display: flex;
     justify-content: center;

@@ -42,6 +42,9 @@
                     </div>
                     <div id="passwordError" class="field-error"></div>
                 </div>
+                <div class="auth-fp-wrapper">
+                    <a href="/forgot-password" class="auth-link small" data-i18n="link_forgot_pass">Forgot password?</a>
+                </div>
                 <button type="submit" class="btn-primary" id="submitBtn">Sign In</button>
             </form>
             <div class="auth-footer-links">
@@ -64,6 +67,7 @@
                 error_password_empty: 'Введите пароль',
                 error_invalid: 'Неверный логин или пароль',
                 error_network: 'Ошибка сети',
+                forgot_link: 'Забыли пароль?',
                 page_title: 'Вход — Quoridor',
             },
             en: {
@@ -77,6 +81,7 @@
                 error_password_empty: 'Please enter your password',
                 error_invalid: 'Invalid username or password',
                 error_network: 'Network error',
+                forgot_link: 'Forgot password?',
                 page_title: 'Sign In — Quoridor',
             }
         };
@@ -97,6 +102,8 @@
             document.getElementById('submitBtn').textContent = d.submit;
             document.getElementById('footerText').textContent = d.footer;
             document.getElementById('footerLink').textContent = d.footer_link;
+            var fp = document.querySelector('.auth-fp-wrapper a');
+            if (fp) fp.textContent = d.forgot_link;
         }
 
         function applyLang() {
