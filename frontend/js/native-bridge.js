@@ -4,12 +4,6 @@
     const App = window.Capacitor.Plugins.App;
 
     App.addListener('backButton', function () {
-        const authModal = document.getElementById('authModal');
-        if (authModal && !authModal.classList.contains('hidden')) {
-            UI.closeAuthModal();
-            return;
-        }
-
         const profileModal = document.getElementById('profileModal');
         if (profileModal && !profileModal.classList.contains('hidden')) {
             UI.closeProfileModal();

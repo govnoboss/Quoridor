@@ -420,7 +420,7 @@ const UI = {
   quickMatch(isRanked = false) {
     if (isRanked && !this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      this.openAuthModal('login');
+      window.location.href = '/login';
       return;
     }
 
@@ -446,7 +446,7 @@ const UI = {
   onRankedClick() {
     if (!this.currentUser) {
       this.showToast(this.translate('toast_ranked_requires_login'), 'warning');
-      this.openAuthModal('login');
+      window.location.href = '/login';
       return;
     }
     this.quickMatch(true);
@@ -1107,120 +1107,13 @@ UI.hideLoadingScreen = function () {
 // Start loading logic immediately
 UI.initLoadingScreen();
 
-UI.togglePassword = function (inputId, el) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  const svg = el.querySelector('.eye-icon');
-  if (!svg) return;
-  if (input.type === 'password') {
-    input.type = 'text';
-    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="currentColor"/><path d="M2 2l20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
-  } else {
-    input.type = 'password';
-    svg.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>';
-  }
-};
-
-UI.submitLogin = async function () {
-  const username = document.getElementById('authLoginUsername').value;
-  const password = document.getElementById('authLoginPassword').value;
-
-  this.clearAuthErrors();
-
-  if (!username) {
-    this.showFieldError('authLoginUsername', this.translate('field_required') || 'Required');
-    return;
-  }
-  if (!password) {
-    this.showFieldError('authLoginPassword', this.translate('field_required') || 'Required');
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      trackEvent('login-complete');
-      this.handleAuthSuccess(data.user);
-      this.closeAuthModal();
-      this.showToast(this.translate('toast_login_success'), 'info');
-    } else {
-      this.showFieldError('authLoginUsername', data.error || this.translate('toast_invalid_credentials'));
-      this.showFieldError('authLoginPassword', data.error || this.translate('toast_invalid_credentials'));
-    }
-  } catch (e) {
-    console.error(e);
-    this.showToast(this.translate('toast_network_error'), 'error');
-  }
-};
-
-UI.submitRegister = async function () {
-  const username = document.getElementById('authRegUsername').value;
-  const email = document.getElementById('authRegEmail').value;
-  const password = document.getElementById('authRegPassword').value;
-
-  this.clearAuthErrors();
-
-  // Client-side validation
-  if (username.length < 3 || username.length > 20) {
-    this.showFieldError('authRegUsername', this.translate('toast_username_length_error'));
-    document.getElementById('authRegUsername').focus();
-    return;
-  }
-  if (!email) {
-    this.showFieldError('authRegEmail', this.translate('field_required') || 'Required');
-    document.getElementById('authRegEmail').focus();
-    return;
-  }
-  if (password.length < 8) {
-    this.showFieldError('authRegPassword', this.translate('toast_password_too_short'));
-    document.getElementById('authRegPassword').focus();
-    return;
-  }
-
-  if (/\s/.test(password)) {
-    this.showFieldError('authRegPassword', this.translate('toast_password_no_spaces'));
-    document.getElementById('authRegPassword').focus();
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      trackEvent('register-complete');
-      this.handleAuthSuccess(data.user);
-      this.closeAuthModal();
-      this.showToast(this.translate('toast_register_success'), 'info');
-    } else {
-      this.showToast(data.error || this.translate('toast_register_failed'), 'error');
-    }
-  } catch (e) {
-    console.error(e);
-    this.showToast(this.translate('toast_network_error'), 'error');
-  }
-};
-
 UI.logout = async function () {
   await fetch('/api/auth/logout', { method: 'POST' });
   this.currentUser = null;
   this.updateAuthUI();
   this.showToast(this.translate('toast_logged_out'), 'info');
-  if (typeof Net !== 'undefined' && Net.reconnectSocket) {
-    Net.reconnectSocket();
-  }
   this.backToMenu();
-  window.history.pushState({ screen: 'menu' }, '', '/');
+  window.location.href = '/';
 };
 
 UI.checkSession = async function () {
@@ -1250,10 +1143,6 @@ UI.handleAuthSuccess = function (user) {
     rankedBtn.classList.remove('btn-disabled');
     rankedBtn.title = '';
   }
-  // Reconnect socket with authenticated session
-  if (typeof Net !== 'undefined' && Net.reconnectSocket) {
-    Net.reconnectSocket();
-  }
 };
 
 UI.updateAuthUI = function () {
@@ -1273,73 +1162,6 @@ UI.updateAuthUI = function () {
     if (headerAuth) headerAuth.classList.remove('hidden');
     if (headerProfile) headerProfile.classList.add('hidden');
   }
-};
-
-UI.openAuthModal = function (tab) {
-  const modal = document.getElementById('authModal');
-  if (!modal) return;
-  modal.classList.remove('hidden');
-
-  const loginForm = document.getElementById('authLoginForm');
-  const registerForm = document.getElementById('authRegisterForm');
-
-  if (tab === 'register') {
-    loginForm.classList.add('hidden');
-    registerForm.classList.remove('hidden');
-  } else {
-    loginForm.classList.remove('hidden');
-    registerForm.classList.add('hidden');
-  }
-
-  this.clearAuthErrors();
-  this.updateLanguage();
-  this.updateHeaderVisibility();
-};
-
-UI.closeAuthModal = function () {
-  const modal = document.getElementById('authModal');
-  if (!modal) return;
-  modal.classList.add('hidden');
-  document.getElementById('authError').classList.remove('visible');
-  this.clearAuthErrors();
-  this.updateHeaderVisibility();
-};
-
-UI.clearAuthErrors = function () {
-  document.querySelectorAll('.auth-form .field-error.visible').forEach(function (el) {
-    el.classList.remove('visible');
-    el.textContent = '';
-  });
-  document.querySelectorAll('.auth-form .input-error').forEach(function (el) {
-    el.classList.remove('input-error');
-  });
-  document.getElementById('authError').classList.remove('visible');
-  document.getElementById('authError').textContent = '';
-};
-
-UI.showFieldError = function (inputId, message) {
-  var errorDiv = document.getElementById(inputId + 'Error');
-  if (errorDiv) {
-    errorDiv.textContent = message;
-    errorDiv.classList.add('visible');
-  }
-  var input = document.getElementById(inputId);
-  if (input) {
-    input.classList.add('input-error');
-    input.addEventListener('input', function () {
-      input.classList.remove('input-error');
-      if (errorDiv) {
-        errorDiv.classList.remove('visible');
-        errorDiv.textContent = '';
-      }
-    }, { once: true });
-  }
-};
-
-UI.updateAuthSubmitBtn = function () {
-  const cb = document.getElementById('authAcceptTos');
-  const btn = document.getElementById('authRegisterBtn');
-  if (btn) btn.disabled = !cb.checked;
 };
 
 UI.updateGameInfo = function (profiles, myIndex) {
@@ -1492,7 +1314,7 @@ UI.openMyProfile = function () {
   if (this.currentUser && this.currentUser.username) {
     this.showProfilePage(this.currentUser.username);
   } else {
-    this.openAuthModal('login');
+    window.location.href = '/login';
   }
 };
 

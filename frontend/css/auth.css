@@ -1,16 +1,4 @@
-/* Modal Specifics */
-.auth-content {
-    width: 350px;
-    padding: 30px;
-    padding-top: 50px;
-    /* Space for close button */
-    background: #222;
-    border: 1px solid #444;
-    position: relative;
-    border-radius: 12px;
-}
-
-/* Old tabs removed, replaced by title and footer nav */
+/* Auth form shared styles */
 .auth-title {
     text-align: center;
     color: var(--wall, #e09f3e);
@@ -142,25 +130,6 @@
 .auth-link.action-link {
     font-weight: bold;
     cursor: pointer;
-}
-
-.auth-content .close-panel-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #333;
-    border: 1px solid #555;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 24px;
-    cursor: pointer;
-    z-index: 1000;
-    line-height: 1;
 }
 
 #profileModal .profile-modal-content {

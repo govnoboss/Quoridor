@@ -267,7 +267,7 @@ const Net = {
 
         if (this.lastIsRanked && !UI.currentUser) {
             UI.showToast(UI.translate('toast_ranked_requires_login') || 'Login required for ranked', 'warning');
-            UI.openAuthModal();
+            window.location.href = '/login';
             return;
         }
 
@@ -289,15 +289,6 @@ const Net = {
         if (!lobbyCode) return;
         this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken, replay });
     }
-};
-
-Net.reconnectSocket = function () {
-    if (this.socket) {
-        this.socket.disconnect();
-        this.socket.removeAllListeners();
-        this.socket = null;
-    }
-    this.init();
 };
 
 Net.init();
