@@ -137,7 +137,8 @@ const Game = {
   saveHistoryLocal() {
     try {
       if (this.state.gameId) {
-        localStorage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
+        const storage = this.state.gameId.startsWith('local_') ? sessionStorage : localStorage;
+        storage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
       }
     } catch (e) {
     }
@@ -146,7 +147,8 @@ const Game = {
   loadHistoryLocal() {
     try {
       if (this.state.gameId) {
-        const saved = localStorage.getItem(`quoridor_hist_${this.state.gameId}`);
+        const storage = this.state.gameId.startsWith('local_') ? sessionStorage : localStorage;
+        const saved = storage.getItem(`quoridor_hist_${this.state.gameId}`);
         if (saved) {
           this.state.history = JSON.parse(saved);
           if (typeof UI !== 'undefined' && UI.renderHistory) {
@@ -292,7 +294,6 @@ const Game = {
       UI.showRematchBtn(false);
       UI.showNewGameBtn(false);
       UI.showReplayBtn(true);
-      this.saveGameSummary(winnerIdx, reason);
     }
 
     // Rating changes display
@@ -329,26 +330,6 @@ const Game = {
 
       }
     }
-  },
-
-  saveGameSummary(winnerIdx, reason) {
-    try {
-      const summary = {
-        gameId: this.state.gameId,
-        date: Date.now(),
-        gameMode: this.state.gameMode || 'local',
-        winner: winnerIdx,
-        reason: reason || 'Goal reached',
-        turns: (this.state.history || []).length,
-        playerWhite: { name: this.state.playerProfiles?.[0]?.name || 'White' },
-        playerBlack: { name: this.state.playerProfiles?.[1]?.name || 'Black' },
-        botDifficulty: this.state.botDifficulty || 'none'
-      };
-      const list = JSON.parse(localStorage.getItem('quoridor_games_list') || '[]');
-      list.unshift(summary);
-      if (list.length > 50) list.length = 50;
-      localStorage.setItem('quoridor_games_list', JSON.stringify(list));
-    } catch (e) {}
   },
 
   goToMainMenu() {
@@ -702,7 +683,11 @@ const Game = {
     this.isGameOver = false; // Сброс флага окончания игры
     this.state.playerProfiles = [null, null];
     if (this.state.gameId) {
-      localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      if (this.state.gameId.startsWith('local_')) {
+        sessionStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      } else {
+        localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      }
     }
     this.state.gameId = "local_" + Date.now();
     UI.showReplayBtn(false);
