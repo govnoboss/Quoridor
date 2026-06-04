@@ -369,7 +369,8 @@ async function exportVideo() {
     var encoder = new VideoEncoder({
       output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
       error: function () {
-        progressEl.innerHTML = '<p>Encoder error, trying fallback...</p>';
+        var msg = progressEl && progressEl.querySelector('p');
+        if (msg) msg.textContent = 'Encoder error, trying fallback...';
         muxer = null;
       }
     });
@@ -392,7 +393,8 @@ async function exportVideo() {
       }
       var pct = Math.round((i / (snapshots.length - 1)) * 100);
       progressBar.style.width = pct + '%';
-      progressEl.innerHTML = '<p>Encoding... ' + pct + '%</p>';
+      var msg = progressEl && progressEl.querySelector('p');
+      if (msg) msg.textContent = 'Encoding... ' + pct + '%';
       await new Promise(function (r) { setTimeout(r, 0); });
     }
 
@@ -406,10 +408,15 @@ async function exportVideo() {
 }
 
 function exportFallback() {
+  var modal = document.getElementById('exportModal');
   var progressEl = document.getElementById('exportProgress');
   var progressBar = document.getElementById('exportBar');
   var preview = document.getElementById('exportPreview');
-  progressEl.innerHTML = '<p>Using fallback encoder...</p>';
+  if (modal) modal.style.display = 'flex';
+  if (progressEl) progressEl.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+  var msg = progressEl && progressEl.querySelector('p');
+  if (msg) msg.textContent = 'Using fallback encoder...';
 
   var exportCanvas = document.createElement('canvas');
   exportCanvas.width = 1080;
