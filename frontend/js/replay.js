@@ -470,24 +470,8 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, bottomBarH) 
   var w = 1080;
   var h = 1920;
 
-  ectx.fillStyle = '#1a1a1a';
+  ectx.fillStyle = '#000';
   ectx.fillRect(0, 0, w, h);
-
-  if (topBarH > 0) {
-    var grad = ectx.createLinearGradient(0, 0, 0, topBarH);
-    grad.addColorStop(0, '#262421');
-    grad.addColorStop(1, '#1a1a1a');
-    ectx.fillStyle = grad;
-    ectx.fillRect(0, 0, w, topBarH);
-  }
-
-  if (bottomBarH > 0) {
-    var grad2 = ectx.createLinearGradient(0, h - bottomBarH, 0, h);
-    grad2.addColorStop(0, '#1a1a1a');
-    grad2.addColorStop(1, '#262421');
-    ectx.fillStyle = grad2;
-    ectx.fillRect(0, h - bottomBarH, w, bottomBarH);
-  }
 
   var boardX = Math.floor((w - boardSize) / 2);
   var boardY = topBarH;
@@ -557,12 +541,21 @@ function drawExportPlayerBar(ectx, w, player, colorName, state, isTop) {
   var playerIdx = colorName === 'white' ? 0 : 1;
   var isActive = state.currentPlayer === playerIdx;
 
-  var barH = 80;
+  var barH = 70;
   var barX = 30;
   var barW = w - 60;
-  var barY = isTop ? 50 : 1920 - 50 - barH;
-  var invH = 26;
-  var invY = isTop ? barY + barH + 14 : barY - 14 - invH;
+  var invH = 24;
+  var gap = 6;
+  var boardTop = Math.floor((1920 - 1080) / 2);
+  var boardBottom = boardTop + 1080;
+  var invY, barY;
+  if (isTop) {
+    invY = boardTop - gap - invH;
+    barY = invY - gap - barH;
+  } else {
+    invY = boardBottom + gap;
+    barY = invY + invH + gap;
+  }
 
   ectx.fillStyle = isActive ? '#3c3a37' : '#262421';
   roundRect(ectx, barX, barY, barW, barH, 6);
