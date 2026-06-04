@@ -705,6 +705,7 @@ app.use(cors({
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
+app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
 
 // Standalone pages (not SPA)
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));
@@ -715,6 +716,7 @@ app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/t
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
 app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
+app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
 
 // --- BUG REPORT API ---
 

@@ -1610,62 +1610,11 @@ UI._currentViewingProfile = null;
  * Open Fullscreen Replay for a specific game.
  * Replaces old modal-based replay.
  */
-UI.openReplayModal = async function (gameId) {
-  try {
-    this.showToast('Загрузка повтора...', 'info');
-
-    const res = await fetch(`/api/games/${gameId}`);
-    if (!res.ok) throw new Error('Game not found');
-
-    const gameData = await res.json();
-
-    if (!gameData.history || gameData.history.length === 0) {
-      this.showToast('Replay unavailable for this game (no history).', 'error');
-      return;
-    }
-
-    // Get current profile username for return navigation
-    const returnProfile = this._currentViewingProfile || null;
-
-    // Use new fullscreen replay system
-    Game.startReplay(gameData, returnProfile);
-
-    // Setup keyboard handler for ESC and arrow keys
-    this._replayEscHandler = (e) => {
-      if (!Game.isReplayMode) return;
-
-      if (e.key === 'Escape') {
-        Game.exitReplay();
-      } else if (e.key === 'ArrowLeft') {
-        Game.replayNavigate(-1);
-      } else if (e.key === 'ArrowRight') {
-        Game.replayNavigate(1);
-      } else if (e.key === 'Home') {
-        Game.replayGoToStart();
-      } else if (e.key === 'End') {
-        Game.replayGoToEnd();
-      }
-    };
-    document.addEventListener('keydown', this._replayEscHandler);
-
-  } catch (err) {
-    console.error('[REPLAY] Error:', err);
-    this.showToast('Ошибка загрузки повтора', 'error');
-  }
+UI.openReplayModal = function (gameId) {
+  window.location.href = `/replay/${gameId}`;
 };
 
-// Legacy close function - now delegates to Game
-UI.closeReplayModal = function () {
-  if (Game.isReplayMode) {
-    Game.exitReplay();
-  }
-
-  // Clean up ESC handler
-  if (this._replayEscHandler) {
-    document.removeEventListener('keydown', this._replayEscHandler);
-    this._replayEscHandler = null;
-  }
-};
+UI.closeReplayModal = function () {};
 
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';

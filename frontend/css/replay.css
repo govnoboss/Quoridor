@@ -1,0 +1,277 @@
+:root {
+    --bg: #0f0f0f;
+    --panel: #1a1a2e;
+    --text: #eee;
+    --wall: #e09f3e;
+    --border: #333;
+    --muted: #888;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+}
+
+.replay-page { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+.replay-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.replay-back {
+    color: var(--wall);
+    text-decoration: none;
+    font-size: 14px;
+}
+.replay-back:hover { text-decoration: underline; }
+
+.replay-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--wall);
+    letter-spacing: 2px;
+}
+
+.replay-body {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.replay-board-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#replayCanvas {
+    width: 540px;
+    height: 540px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: block;
+}
+
+.replay-player-bar {
+    width: 540px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.top-bar {
+    background: linear-gradient(180deg, var(--panel), transparent);
+    border-radius: 8px 8px 0 0;
+}
+
+.bottom-bar {
+    background: linear-gradient(0deg, var(--panel), transparent);
+    border-radius: 0 0 8px 8px;
+}
+
+.player-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    flex-shrink: 0;
+}
+.player-avatar.white { background: #f0f0f0; }
+.player-avatar.black { background: #222; }
+
+.player-name {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.replay-sidebar {
+    flex: 1;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.replay-info {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.replay-result {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.replay-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 16px;
+    border-radius: 30px;
+}
+
+.replay-controls button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.replay-controls button:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--wall);
+}
+
+.replay-controls button:active {
+    transform: scale(0.9);
+}
+
+#moveCounter {
+    font-family: monospace;
+    font-size: 1rem;
+    min-width: 60px;
+    text-align: center;
+}
+
+.replay-row {
+    display: flex;
+    gap: 8px;
+}
+
+.replay-action-btn {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.replay-action-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: var(--wall);
+}
+
+.replay-select {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.replay-export-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: bold;
+    background: var(--wall);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: filter 0.2s;
+    margin-top: 4px;
+}
+
+.replay-export-btn:hover {
+    filter: brightness(1.15);
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    max-width: 600px;
+    width: 90%;
+}
+
+.modal-content h2 {
+    margin-bottom: 16px;
+    color: var(--wall);
+}
+
+.modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 12px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--wall);
+    border-radius: 4px;
+    transition: width 0.3s;
+}
+
+.export-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 12px 24px;
+    background: var(--wall);
+    color: #000;
+    font-weight: bold;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+@media (max-width: 860px) {
+    .replay-body { flex-direction: column; align-items: center; }
+    #replayCanvas { width: 360px; height: 360px; }
+    .replay-player-bar { width: 360px; }
+    .replay-sidebar { width: 100%; }
+}
