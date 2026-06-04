@@ -52,12 +52,18 @@
                 <div id="replayInfo" class="replay-info"></div>
                 <div id="gameResult" class="replay-result"></div>
 
-                <div class="replay-controls">
-                    <button onclick="goToStart()" title="Start">&laquo;</button>
-                    <button onclick="prevMove()" title="Previous">&lsaquo;</button>
-                    <span id="moveCounter">0 / 0</span>
-                    <button onclick="nextMove()" title="Next">&rsaquo;</button>
-                    <button onclick="goToEnd()" title="End">&raquo;</button>
+                <div id="moveHistory">
+                    <div class="history-header">
+                        <span>White</span>
+                        <span>Black</span>
+                    </div>
+                    <div class="history-list" id="historyList"></div>
+                    <div class="history-controls">
+                        <button onclick="goToStart()" title="Start">&laquo;</button>
+                        <button onclick="prevMove()" title="Previous">&lsaquo;</button>
+                        <button onclick="nextMove()" title="Next">&rsaquo;</button>
+                        <button onclick="goToEnd()" title="End">&raquo;</button>
+                    </div>
                 </div>
 
                 <div class="replay-row">
