@@ -573,7 +573,8 @@ function showExportResult(blob, progressEl, progressBar, preview) {
   progressEl.style.display = 'none';
   progressBar.style.width = '0%';
   var url = URL.createObjectURL(blob);
-  preview.innerHTML = '<video src="' + url + '" controls style="max-width:100%;max-height:60vh"></video><br><a href="' + url + '" download="quoridor_replay.mp4" class="export-btn">\u2B07 Download MP4</a>';
+  var ext = blob.type.indexOf('webm') !== -1 ? 'webm' : 'mp4';
+  preview.innerHTML = '<video src="' + url + '" controls style="max-width:100%;max-height:60vh"></video><br><a href="' + url + '" download="quoridor_replay.' + ext + '" class="export-btn">\u2B07 Download ' + ext.toUpperCase() + '</a>';
   preview.style.display = 'block';
 }
 
