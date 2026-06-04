@@ -282,6 +282,7 @@ function goToStart() { goToMove(0); }
 function goToEnd() { goToMove(snapshots.length - 1); }
 
 function togglePlay() {
+  if (isNaN(playSpeed) || playSpeed < 50) playSpeed = 1000;
   var btn = document.getElementById('playBtn');
   if (isPlaying) {
     clearInterval(playTimer);
@@ -304,6 +305,8 @@ function togglePlay() {
 }
 
 function setSpeed(speed) {
+  speed = Number(speed);
+  if (isNaN(speed) || speed < 50) speed = 1000;
   playSpeed = speed;
   if (isPlaying) {
     clearInterval(playTimer);
@@ -383,7 +386,7 @@ async function exportVideo() {
     });
 
     for (var i = 1; i < snapshots.length; i++) {
-      drawExportFrame(ectx, snapshots[i], i, cellSize, boardSize, topBarH, bottomBarH);
+      drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH, bottomBarH);
       for (var f = 0; f < framesPerMove; f++) {
         var frame = new VideoFrame(exportCanvas, {
           timestamp: ((i - 1) * framesPerMove + f) * 1_000_000 / fps
@@ -451,7 +454,7 @@ function exportFallback() {
       recorder.stop();
       return;
     }
-    drawExportFrame(ectx, snapshots[moveIdx], moveIdx, cellSize, boardSize, topBarH, bottomBarH);
+    drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, bottomBarH);
     frameCount++;
     if (frameCount >= fps) {
       frameCount = 0;
@@ -463,7 +466,7 @@ function exportFallback() {
   loop();
 }
 
-function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bottomBarH) {
+function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, bottomBarH) {
   var w = 1080;
   var h = 1920;
 
@@ -530,43 +533,103 @@ function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bot
   var bottomIdx = perspective === 1 ? 1 : 0;
   var topPlayerData = perspective === 1 ? gameData?.playerWhite : gameData?.playerBlack;
   var bottomPlayerData = perspective === 1 ? gameData?.playerBlack : gameData?.playerWhite;
-  drawExportPlayerBar(ectx, w, topBarH, topPlayerData, topIdx === 0 ? 'white' : 'black', moveIdx, true);
-  drawExportPlayerBar(ectx, w, bottomBarH, bottomPlayerData, bottomIdx === 0 ? 'white' : 'black', moveIdx, false);
+  drawExportPlayerBar(ectx, w, topPlayerData, topIdx === 0 ? 'white' : 'black', state, true);
+  drawExportPlayerBar(ectx, w, bottomPlayerData, bottomIdx === 0 ? 'white' : 'black', state, false);
 }
 
-function drawExportPlayerBar(ectx, w, barH, player, colorName, moveIdx, isTop) {
-  if (barH < 40) return;
-  var label = player?.username || (colorName === 'white' ? 'White' : 'Black');
-  var textY = isTop ? barH / 2 : 1920 - barH / 2;
-  var playerIdx = colorName === 'white' ? 0 : 1;
-
+function roundRect(ectx, x, y, w, h, r) {
   ectx.beginPath();
-  ectx.arc(60, textY, 24, 0, Math.PI * 2);
-  ectx.fillStyle = colorName === 'white' ? '#f0f0f0' : '#222';
-  ectx.strokeStyle = colorName === 'white' ? '#888' : '#555';
-  ectx.lineWidth = 2;
+  ectx.moveTo(x + r, y);
+  ectx.lineTo(x + w - r, y);
+  ectx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ectx.lineTo(x + w, y + h - r);
+  ectx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ectx.lineTo(x + r, y + h);
+  ectx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ectx.lineTo(x, y + r);
+  ectx.quadraticCurveTo(x, y, x + r, y);
+  ectx.closePath();
+}
+
+function drawExportPlayerBar(ectx, w, player, colorName, state, isTop) {
+  if (!state) return;
+  var label = player?.username || (colorName === 'white' ? 'White' : 'Black');
+  var playerIdx = colorName === 'white' ? 0 : 1;
+  var isActive = state.currentPlayer === playerIdx;
+
+  var barH = 80;
+  var barX = 30;
+  var barW = w - 60;
+  var barY = isTop ? 50 : 1920 - 50 - barH;
+  var invH = 26;
+  var invY = isTop ? barY + barH + 14 : barY - 14 - invH;
+
+  ectx.fillStyle = isActive ? '#3c3a37' : '#262421';
+  roundRect(ectx, barX, barY, barW, barH, 6);
   ectx.fill();
-  ectx.stroke();
 
-  ectx.fillStyle = '#fff';
-  ectx.font = 'bold 36px Arial, sans-serif';
-  ectx.textAlign = 'left';
-  ectx.textBaseline = 'middle';
-  ectx.fillText(label, 100, textY);
-
-  var wallsLeft = snapshots[moveIdx] ? snapshots[moveIdx].players[playerIdx].wallsLeft : 10;
-  var wallX = w - 220;
-  var wallY = textY - 5;
-  for (var i = 0; i < 10; i++) {
-    ectx.fillStyle = i < wallsLeft ? '#e09f3e' : 'rgba(224,159,62,0.15)';
-    ectx.fillRect(wallX + i * 18, wallY, 14, 10);
+  if (isActive) {
+    ectx.fillStyle = '#e09f3e';
+    roundRect(ectx, barX + 12, barY + barH - 3, barW - 24, 3, 1.5);
+    ectx.fill();
   }
 
-  var timerVal = snapshots[moveIdx]?.timers ? formatTime(snapshots[moveIdx].timers[playerIdx]) : '10:00';
-  ectx.fillStyle = '#fff';
-  ectx.font = 'bold 32px monospace';
-  ectx.textAlign = 'right';
-  ectx.fillText(timerVal, w - 40, textY);
+  var cy = barY + barH / 2;
+  var avatarR = 26;
+  ectx.beginPath();
+  ectx.arc(66, cy, avatarR, 0, Math.PI * 2);
+  ectx.fillStyle = colorName === 'white' ? '#f0f0f0' : '#222';
+  ectx.fill();
+  ectx.strokeStyle = colorName === 'white' ? '#999' : '#555';
+  ectx.lineWidth = 2;
+  ectx.stroke();
+
+  ectx.fillStyle = colorName === 'white' ? '#222' : '#f0f0f0';
+  ectx.font = 'bold 24px Arial, sans-serif';
+  ectx.textAlign = 'center';
+  ectx.textBaseline = 'middle';
+  ectx.fillText(label.charAt(0).toUpperCase(), 66, cy);
+
+  ectx.fillStyle = '#eee';
+  ectx.font = 'bold 24px Arial, sans-serif';
+  ectx.textAlign = 'left';
+  ectx.textBaseline = 'middle';
+  ectx.fillText(label, 108, cy);
+
+  var timerText = state.timers ? formatTime(state.timers[playerIdx]) : '10:00';
+  var timerBX = w - 200;
+  var timerBY = barY + 12;
+  var timerBW = 160;
+  var timerBH = barH - 24;
+
+  ectx.fillStyle = isActive ? '#eee' : '#1a1a1a';
+  roundRect(ectx, timerBX, timerBY, timerBW, timerBH, 6);
+  ectx.fill();
+
+  ectx.fillStyle = isActive ? '#111' : '#fff';
+  ectx.font = 'bold 28px monospace';
+  ectx.textAlign = 'center';
+  ectx.textBaseline = 'middle';
+  ectx.fillText(timerText, timerBX + timerBW / 2, timerBY + timerBH / 2);
+
+  var wallsLeft = state.players[playerIdx] ? state.players[playerIdx].wallsLeft : 10;
+  var invBgW = 340;
+  var invBgX = (w - invBgW) / 2;
+  var pieceW = 26;
+  var pieceGap = 6;
+  var piecesW = 10 * pieceW + 9 * pieceGap;
+  var pieceStartX = (w - piecesW) / 2;
+  var pieceY = invY + (invH - 12) / 2;
+
+  ectx.fillStyle = '#333';
+  roundRect(ectx, invBgX, invY, invBgW, invH, 4);
+  ectx.fill();
+
+  for (var i = 0; i < 10; i++) {
+    ectx.fillStyle = i < wallsLeft ? '#e09f3e' : 'rgba(224,159,62,0.15)';
+    roundRect(ectx, pieceStartX + i * (pieceW + pieceGap), pieceY, pieceW, 12, 2);
+    ectx.fill();
+  }
 }
 
 function showExportResult(blob, progressEl, progressBar, preview) {
