@@ -99,8 +99,6 @@ function buildSnapshots() {
 
 function tr(r) { return perspective === 1 ? 8 - r : r; }
 
-function wallDR(r) { return perspective === 1 ? 7 - r : r; }
-
 function draw() {
   var state = snapshots[currentMove];
   if (!state) return;
@@ -115,7 +113,7 @@ function drawGrid(state) {
   for (var r = 0; r < 9; r++) {
     for (var c = 0; c < 9; c++) {
       var x = c * CELL + 4;
-      var y = tr(r) * CELL + 4;
+      var y = r * CELL + 4;
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(x, y, CELL - 8, CELL - 8);
     }
@@ -129,26 +127,25 @@ function drawCoords() {
   ctx.textAlign = 'left';
   var padding = CELL * 0.08;
   for (var r = 0; r < 9; r++) {
-    ctx.fillText((9 - r).toString(), 4 + padding, tr(r) * CELL + 4 + padding);
+    ctx.fillText((9 - r).toString(), 4 + padding, r * CELL + 4 + padding);
   }
   var letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'right';
   for (var c = 0; c < 9; c++) {
-    ctx.fillText(letters[c], (c + 1) * CELL - 4 - padding, (tr(8) + 1) * CELL - 4 - padding);
+    ctx.fillText(letters[c], (c + 1) * CELL - 4 - padding, 9 * CELL - 4 - padding);
   }
 }
 
 function drawWalls(state) {
   ctx.fillStyle = '#e09f3e';
   for (var r = 0; r < 8; r++) {
-    var dR = wallDR(r);
     for (var c = 0; c < 8; c++) {
       if (state.hWalls[r][c]) {
-        ctx.fillRect(c * CELL + GAP, (dR + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
+        ctx.fillRect(c * CELL + GAP, (r + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
       }
       if (state.vWalls[r][c]) {
-        ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, dR * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
+        ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
       }
     }
   }
@@ -533,19 +530,18 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, bottomBarH) 
   for (var r = 0; r < 9; r++) {
     for (var c = 0; c < 9; c++) {
       ectx.fillStyle = '#2a2a2a';
-      ectx.fillRect(c * cellSize + 4, (perspective === 1 ? 8 - r : r) * cellSize + 4, cellSize - 8, cellSize - 8);
+      ectx.fillRect(c * cellSize + 4, r * cellSize + 4, cellSize - 8, cellSize - 8);
     }
   }
 
   ectx.fillStyle = '#e09f3e';
   for (var r2 = 0; r2 < 8; r2++) {
-    var dR = perspective === 1 ? 7 - r2 : r2;
     for (var c2 = 0; c2 < 8; c2++) {
       if (state.hWalls[r2][c2]) {
-        ectx.fillRect(c2 * cellSize + GAP, (dR + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
+        ectx.fillRect(c2 * cellSize + GAP, (r2 + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
       }
       if (state.vWalls[r2][c2]) {
-        ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, dR * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
+        ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
       }
     }
   }
