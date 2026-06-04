@@ -10,6 +10,8 @@ let isPlaying = false;
 let playTimer = null;
 let playSpeed = 1000;
 let perspective = 0;
+let cachedBlob = null;
+let cachedURL = null;
 
 const canvas = document.getElementById('replayCanvas');
 const ctx = canvas.getContext('2d');
@@ -326,6 +328,12 @@ function togglePerspective() {
   perspective = perspective === 0 ? 1 : 0;
   updatePlayerBars();
   draw();
+  if (cachedURL) {
+    var video = document.getElementById('exportVideo');
+    if (video) {
+      video.style.transform = perspective === 1 ? 'scaleY(-1)' : '';
+    }
+  }
 }
 
 function copyLink() {
@@ -344,6 +352,14 @@ async function exportVideo() {
   var modal = document.getElementById('exportModal');
   var preview = document.getElementById('exportPreview');
   modal.style.display = 'flex';
+
+  if (cachedBlob) {
+    progressEl.style.display = 'none';
+    preview.style.display = 'block';
+    showExportResult(cachedBlob, progressEl, progressBar, preview);
+    return;
+  }
+
   progressEl.style.display = 'block';
   preview.style.display = 'none';
 
@@ -378,8 +394,6 @@ async function exportVideo() {
       },
       error: function () {
         encoderFailed = true;
-        var msg = progressEl && progressEl.querySelector('p');
-        if (msg) msg.textContent = 'Encoder error, trying fallback...';
       }
     });
 
@@ -401,17 +415,17 @@ async function exportVideo() {
       }
       var pct = Math.round((i / (snapshots.length - 1)) * 100);
       progressBar.style.width = pct + '%';
-      var msg = progressEl && progressEl.querySelector('p');
-      if (msg) msg.textContent = 'Encoding... ' + pct + '%';
       await new Promise(function (r) { setTimeout(r, 0); });
     }
 
     await encoder.flush();
     muxer.finalize();
     var blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-    showExportResult(blob, progressEl, progressBar, preview);
+    if (cachedURL) URL.revokeObjectURL(cachedURL);
+    cachedBlob = blob;
+    cachedURL = URL.createObjectURL(blob);
+    showExportResult(cachedBlob, progressEl, progressBar, preview);
   } catch (e) {
-    console.warn('[export] WebCodecs failed:', e);
     exportFallback();
   }
 }
@@ -424,8 +438,6 @@ function exportFallback() {
   if (modal) modal.style.display = 'flex';
   if (progressEl) progressEl.style.display = 'block';
   if (preview) preview.style.display = 'none';
-  var msg = progressEl && progressEl.querySelector('p');
-  if (msg) msg.textContent = 'Using fallback encoder (MediaRecorder)...';
   console.log('[export] using MediaRecorder fallback');
 
   var exportCanvas = document.createElement('canvas');
@@ -452,7 +464,11 @@ function exportFallback() {
   recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
 
   recorder.onstop = function () {
-    showExportResult(new Blob(chunks, { type: mime }), progressEl, progressBar, preview);
+    var blob = new Blob(chunks, { type: mime });
+    if (cachedURL) URL.revokeObjectURL(cachedURL);
+    cachedBlob = blob;
+    cachedURL = URL.createObjectURL(blob);
+    showExportResult(cachedBlob, progressEl, progressBar, preview);
   };
 
   recorder.start();
@@ -636,10 +652,26 @@ function drawExportPlayerBar(ectx, w, player, colorName, state, isTop) {
 function showExportResult(blob, progressEl, progressBar, preview) {
   progressEl.style.display = 'none';
   progressBar.style.width = '0%';
-  var url = URL.createObjectURL(blob);
+
   var ext = blob.type.indexOf('webm') !== -1 ? 'webm' : 'mp4';
-  preview.innerHTML = '<video src="' + url + '" controls style="max-width:100%;max-height:60vh"></video><br><a href="' + url + '" download="quoridor_replay.' + ext + '" class="export-btn">\u2B07 Download ' + ext.toUpperCase() + '</a>';
+  var video = document.getElementById('exportVideo');
+  var link = document.getElementById('downloadLink');
+  video.src = cachedURL;
+  video.load();
+  link.href = cachedURL;
+  link.download = 'quoridor_replay.' + ext;
+  link.textContent = '\u2B07 Download ' + ext.toUpperCase();
+
   preview.style.display = 'block';
+}
+
+function setVideoSpeed(speed) {
+  var video = document.getElementById('exportVideo');
+  if (video) video.playbackRate = speed;
+  var btns = document.querySelectorAll('#exportPreview .speed-btn');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle('active', Number(btns[i].getAttribute('onclick').match(/[\d.]+/)[0]) === speed);
+  }
 }
 
 function closeExportModal() {

@@ -282,9 +282,8 @@ body {
     width: 90%;
 }
 
-.modal-content h2 {
-    margin-bottom: 16px;
-    color: var(--wall);
+.modal-content--narrow {
+    max-width: 480px;
 }
 
 .modal-close {
@@ -294,6 +293,18 @@ body {
     color: var(--muted);
     font-size: 28px;
     cursor: pointer;
+}
+
+.rendering-label {
+    text-align: center;
+    color: var(--wall);
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+#exportProgress {
+    text-align: center;
 }
 
 .progress-bar {
@@ -313,9 +324,51 @@ body {
     transition: width 0.3s;
 }
 
+#exportPreview {
+    text-align: center;
+}
+
+.export-video {
+    max-width: 100%;
+    max-height: 60vh;
+    border-radius: 6px;
+    display: block;
+    margin: 0 auto;
+}
+
+.video-speed-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.speed-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.speed-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: var(--wall);
+}
+
+.speed-btn.active {
+    background: var(--wall);
+    color: #000;
+    border-color: var(--wall);
+}
+
 .export-btn {
     display: inline-block;
-    margin-top: 12px;
+    margin: 12px auto;
     padding: 12px 24px;
     background: var(--wall);
     color: #000;
