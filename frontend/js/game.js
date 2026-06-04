@@ -1,4 +1,4 @@
-﻿
+
 const Game = {
   /** @type {HTMLCanvasElement} Ссылка на элемент Canvas. */
   canvas: document.getElementById('board'),
@@ -281,8 +281,10 @@ const Game = {
 
     // Show rematch + new game buttons for online games
     const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
+    const analyzeBtn = document.getElementById('analyzeGameBtn');
     if (isOnlineGame) {
       UI.showRematchBtn(true);
+      if (analyzeBtn) analyzeBtn.classList.add('hidden');
       if (Net.lastTimeControl) {
         UI.showNewGameBtn(true);
       } else {
@@ -291,6 +293,25 @@ const Game = {
     } else {
       UI.showRematchBtn(false);
       UI.showNewGameBtn(false);
+      if (analyzeBtn) analyzeBtn.classList.remove('hidden');
+
+      // Save local game replay
+      try {
+        const p1Name = this.state.gameMode === 'bot' && this.myPlayerIndex === 1 ? 'Bot' : 'Player 1';
+        const p2Name = this.state.gameMode === 'bot' && this.myPlayerIndex === 0 ? 'Bot' : 'Player 2';
+        const replayData = {
+          gameType: 'local',
+          date: new Date().toISOString(),
+          playerWhite: { username: p1Name },
+          playerBlack: { username: p2Name },
+          history: this.state.history,
+          winner: winnerIdx,
+          reason: reason || "Goal"
+        };
+        localStorage.setItem('quoridor_replay_local', JSON.stringify(replayData));
+      } catch (e) {
+        console.error('Failed to save local replay', e);
+      }
     }
 
     // Rating changes display
@@ -327,6 +348,10 @@ const Game = {
 
       }
     }
+  },
+
+  analyzeLocalGame() {
+    window.location.href = '/replay.html?local=true';
   },
 
   goToMainMenu() {

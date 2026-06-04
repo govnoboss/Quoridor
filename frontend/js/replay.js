@@ -26,6 +26,33 @@ canvas.height = BOARD;
 function loadGame(gameId) {
   var info = document.getElementById('replayInfo');
   info.textContent = 'Loading...';
+
+  if (gameId === 'local') {
+    try {
+      var stored = localStorage.getItem('quoridor_replay_local');
+      if (stored) {
+        gameData = JSON.parse(stored);
+        info.textContent = '';
+        if (gameData.history && gameData.history.length > 0) {
+          buildSnapshots();
+          currentMove = 0;
+          renderMoveHistory();
+          updatePlayerBars();
+          draw();
+          updateResult();
+        } else {
+          info.textContent = 'No replay data for this game.';
+        }
+      } else {
+        info.textContent = 'No local game found.';
+      }
+    } catch (e) {
+      console.error(e);
+      info.textContent = 'Failed to load local game.';
+    }
+    return;
+  }
+
   fetch('/api/games/' + gameId)
     .then(function (r) { if (!r.ok) throw new Error('Not found'); return r.json(); })
     .then(function (data) {
