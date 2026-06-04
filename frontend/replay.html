@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Replay — Quoridor</title>
+    <link rel="stylesheet" href="/css/replay.css" />
+</head>
+<body>
+    <div class="replay-page">
+        <div class="replay-header">
+            <a href="/" class="replay-back">&larr; Home</a>
+            <span class="replay-title">Replay</span>
+        </div>
+
+        <div class="replay-body">
+            <div class="replay-board-wrap">
+                <div class="replay-player-bar top-bar">
+                    <span class="player-avatar white"></span>
+                    <span class="player-name" id="playerBlackName">Black</span>
+                </div>
+                <canvas id="replayCanvas"></canvas>
+                <div class="replay-player-bar bottom-bar">
+                    <span class="player-avatar black"></span>
+                    <span class="player-name" id="playerWhiteName">White</span>
+                </div>
+            </div>
+
+            <div class="replay-sidebar">
+                <div id="replayInfo" class="replay-info"></div>
+                <div id="gameResult" class="replay-result"></div>
+
+                <div class="replay-controls">
+                    <button onclick="goToStart()" title="Start">&laquo;</button>
+                    <button onclick="prevMove()" title="Previous">&lsaquo;</button>
+                    <span id="moveCounter">0 / 0</span>
+                    <button onclick="nextMove()" title="Next">&rsaquo;</button>
+                    <button onclick="goToEnd()" title="End">&raquo;</button>
+                </div>
+
+                <div class="replay-row">
+                    <button id="playBtn" class="replay-action-btn" onclick="togglePlay()">&#9654;</button>
+                    <select class="replay-select" onchange="setSpeed(Number(this.value))">
+                        <option value="2000">0.5x</option>
+                        <option value="1000" selected>1x</option>
+                        <option value="500">2x</option>
+                        <option value="250">4x</option>
+                    </select>
+                </div>
+
+                <div class="replay-row">
+                    <button class="replay-action-btn" onclick="togglePerspective()">&#x21C4; Flip</button>
+                    <button id="copyBtn" class="replay-action-btn" onclick="copyLink()">&#x1F4CB; Copy Link</button>
+                </div>
+
+                <button class="replay-export-btn" onclick="exportVideo()">&#x1F3AC; Export MP4</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeExportModal()">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeExportModal()">&times;</button>
+            <h2>Export Video</h2>
+            <div id="exportProgress">
+                <div class="progress-bar"><div id="exportBar" class="progress-fill"></div></div>
+                <p>Encoding...</p>
+            </div>
+            <div id="exportPreview" style="display:none"></div>
+        </div>
+    </div>
+
+    <script src="/shared.js"></script>
+    <script src="/js/mp4-muxer.js"></script>
+    <script src="/js/replay.js"></script>
+    <script>
+        var gameId = window.location.pathname.split('/').pop();
+        if (gameId && gameId.length > 5) loadGame(gameId);
+    </script>
+</body>
+</html>
