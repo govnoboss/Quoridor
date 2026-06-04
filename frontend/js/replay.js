@@ -419,7 +419,7 @@ function goToMove(idx, animate) {
     animPrevSnap = snapshots[idx - 1];
     animNextSnap = snapshots[idx];
     animMove = getMoveData(idx);
-    animDuration = animMove && animMove.type === 'wall' ? 250 : 200;
+    animDuration = animMove && animMove.type === 'wall' ? 150 : 120;
     animStart = performance.now();
   } else {
     cancelAnimationFrame(animFrame);
