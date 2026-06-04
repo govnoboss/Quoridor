@@ -17,26 +17,18 @@ canvas.width = BOARD;
 canvas.height = BOARD;
 
 function loadGame(gameId) {
-  const info = document.getElementById('replayInfo');
+  var info = document.getElementById('replayInfo');
   info.textContent = 'Loading...';
   fetch('/api/games/' + gameId)
     .then(function (r) { if (!r.ok) throw new Error('Not found'); return r.json(); })
     .then(function (data) {
       gameData = data;
-      document.getElementById('topPlayerName').textContent = data.playerBlack?.username || 'Black';
-      document.getElementById('bottomPlayerName').textContent = data.playerWhite?.username || 'White';
-      var topAvatar = document.getElementById('topPlayerAvatar');
-      var bottomAvatar = document.getElementById('bottomPlayerAvatar');
-      if (data.playerBlack?.avatar) topAvatar.src = data.playerBlack.avatar;
-      else topAvatar.src = 'https://ui-avatars.com/api/?name=B&background=333&color=fff';
-      if (data.playerWhite?.avatar) bottomAvatar.src = data.playerWhite.avatar;
-      else bottomAvatar.src = 'https://ui-avatars.com/api/?name=W&background=333&color=fff';
       info.textContent = '';
       if (data.history && data.history.length > 0) {
         buildSnapshots();
+        currentMove = 0;
         updateCounter();
-        updateTimers();
-        renderWallInventory();
+        updatePlayerBars();
         draw();
         updateResult();
       } else {
@@ -56,31 +48,46 @@ function getBaseTime() {
 
 function buildSnapshots() {
   snapshots = [];
-  var initial = Shared.createInitialState({ base: getBaseTime() });
+  var base = getBaseTime();
+  var initial = Shared.createInitialState({ base: base });
   snapshots.push(Shared.cloneState(initial));
   var state = Shared.cloneState(initial);
   var history = gameData.history || [];
+  var timers = [base, base];
+  var lastTimestamp = gameData.date ? new Date(gameData.date).getTime() : Date.now();
+
   for (var i = 0; i < history.length; i++) {
     var record = history[i];
     if (!record.move) continue;
+
+    var playerIdx = record.playerIdx;
+    if (record.timestamp && lastTimestamp) {
+      var elapsed = (record.timestamp - lastTimestamp) / 1000;
+      if (elapsed > 0) {
+        timers[playerIdx] = Math.max(0, timers[playerIdx] - elapsed);
+      }
+    }
+    lastTimestamp = record.timestamp;
+
     var action = {
       type: record.move.type,
       r: record.move.r,
       c: record.move.c,
       isVertical: record.move.isVertical || false,
-      playerIdx: record.playerIdx
+      playerIdx: playerIdx
     };
     try {
       state = Shared.gameReducer(state, action);
-      snapshots.push(Shared.cloneState(state));
+      var snapshot = Shared.cloneState(state);
+      snapshot.timers = [timers[0], timers[1]];
+      snapshots.push(snapshot);
     } catch (e) { break; }
   }
-  currentMove = 0;
 }
 
 function tr(r) { return perspective === 1 ? 8 - r : r; }
 
-function wallDisplayR(r) { return perspective === 1 ? 7 - r : r; }
+function wallDR(r) { return perspective === 1 ? 7 - r : r; }
 
 function draw() {
   var state = snapshots[currentMove];
@@ -110,35 +117,26 @@ function drawCoords() {
   ctx.textAlign = 'left';
   var padding = CELL * 0.08;
   for (var r = 0; r < 9; r++) {
-    var x = 0 + 4;
-    var y = tr(r) * CELL + 4;
-    var label = (9 - r).toString();
-    ctx.fillText(label, x + padding, y + padding);
+    ctx.fillText((9 - r).toString(), 4 + padding, tr(r) * CELL + 4 + padding);
   }
   var letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'right';
   for (var c = 0; c < 9; c++) {
-    var x2 = (c + 1) * CELL - 4;
-    var y2 = (tr(8) + 1) * CELL - 4;
-    ctx.fillText(letters[c], x2 - padding, y2 - padding);
+    ctx.fillText(letters[c], (c + 1) * CELL - 4 - padding, (tr(8) + 1) * CELL - 4 - padding);
   }
 }
 
 function drawWalls(state) {
   ctx.fillStyle = '#e09f3e';
   for (var r = 0; r < 8; r++) {
-    var dR = wallDisplayR(r);
+    var dR = wallDR(r);
     for (var c = 0; c < 8; c++) {
       if (state.hWalls[r][c]) {
-        var x = c * CELL + GAP;
-        var y = (dR + 1) * CELL - WALL_THICK / 2;
-        ctx.fillRect(x, y, CELL * 2 - GAP * 2, WALL_THICK);
+        ctx.fillRect(c * CELL + GAP, (dR + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
       }
       if (state.vWalls[r][c]) {
-        var x2 = (c + 1) * CELL - WALL_THICK / 2;
-        var y2 = dR * CELL + GAP;
-        ctx.fillRect(x2, y2, WALL_THICK, CELL * 2 - GAP * 2);
+        ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, dR * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
       }
     }
   }
@@ -160,6 +158,58 @@ function drawPawns(state) {
   }
 }
 
+function formatTime(s) {
+  var min = Math.floor(s / 60);
+  var sec = Math.floor(s % 60);
+  return min + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function updatePlayerBars() {
+  var state = snapshots[currentMove];
+  if (!state || !gameData) return;
+
+  var topIdx = perspective === 1 ? 0 : 1;
+  var bottomIdx = perspective === 1 ? 1 : 0;
+
+  var topPlayer = gameData.playerBlack;
+  var bottomPlayer = gameData.playerWhite;
+  if (perspective === 1) {
+    topPlayer = gameData.playerWhite;
+    bottomPlayer = gameData.playerBlack;
+  }
+
+  document.getElementById('topPlayerName').textContent = topPlayer?.username || 'Black';
+  document.getElementById('bottomPlayerName').textContent = bottomPlayer?.username || 'White';
+
+  var topAvatar = document.getElementById('topPlayerAvatar');
+  var bottomAvatar = document.getElementById('bottomPlayerAvatar');
+  if (topPlayer?.avatar) topAvatar.src = topPlayer.avatar;
+  else topAvatar.src = 'https://ui-avatars.com/api/?name=B&background=333&color=fff';
+  if (bottomPlayer?.avatar) bottomAvatar.src = bottomPlayer.avatar;
+  else bottomAvatar.src = 'https://ui-avatars.com/api/?name=W&background=333&color=fff';
+
+  document.getElementById('topPlayerTimer').textContent = formatTime(state.timers[topIdx]);
+  document.getElementById('bottomPlayerTimer').textContent = formatTime(state.timers[bottomIdx]);
+
+  var topInv = document.getElementById('topWallInventory');
+  var bottomInv = document.getElementById('bottomWallInventory');
+  topInv.innerHTML = '';
+  bottomInv.innerHTML = '';
+  renderWallsFor(topInv, state.players[topIdx].wallsLeft);
+  renderWallsFor(bottomInv, state.players[bottomIdx].wallsLeft);
+
+  document.getElementById('topPlayerBar').classList.toggle('active-turn', state.currentPlayer === topIdx);
+  document.getElementById('bottomPlayerBar').classList.toggle('active-turn', state.currentPlayer === bottomIdx);
+}
+
+function renderWallsFor(el, wallsLeft) {
+  for (var w = 0; w < 10; w++) {
+    var piece = document.createElement('div');
+    piece.className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
+    el.appendChild(piece);
+  }
+}
+
 function updateCounter() {
   document.getElementById('moveCounter').textContent = currentMove + ' / ' + (snapshots.length - 1);
 }
@@ -174,43 +224,13 @@ function updateResult() {
   el.textContent = label + ' \u00B7 ' + (gameData.reason || 'goal') + ' \u00B7 ' + (gameData.turns || snapshots.length - 1) + ' moves';
 }
 
-function formatTime(s) {
-  var min = Math.floor(s / 60);
-  var sec = s % 60;
-  return min + ':' + (sec < 10 ? '0' : '') + sec;
-}
-
-function updateTimers() {
-  var state = snapshots[currentMove];
-  if (!state || !state.timers) return;
-  document.getElementById('topPlayerTimer').textContent = formatTime(state.timers[1]);
-  document.getElementById('bottomPlayerTimer').textContent = formatTime(state.timers[0]);
-}
-
-function renderWallInventory() {
-  var state = snapshots[currentMove];
-  if (!state) return;
-  var topInv = document.getElementById('topWallInventory');
-  var bottomInv = document.getElementById('bottomWallInventory');
-  [topInv, bottomInv].forEach(function (el, idx) {
-    var wallsLeft = state.players[idx === 0 ? 1 : 0].wallsLeft;
-    el.innerHTML = '';
-    for (var w = 0; w < 10; w++) {
-      var piece = document.createElement('div');
-      piece.className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
-      el.appendChild(piece);
-    }
-  });
-}
-
 function goToMove(idx) {
   if (idx < 0) idx = 0;
   if (idx >= snapshots.length) idx = snapshots.length - 1;
   currentMove = idx;
   draw();
   updateCounter();
-  updateTimers();
-  renderWallInventory();
+  updatePlayerBars();
 }
 
 function prevMove() { goToMove(currentMove - 1); }
@@ -258,6 +278,7 @@ function setSpeed(speed) {
 
 function togglePerspective() {
   perspective = perspective === 0 ? 1 : 0;
+  updatePlayerBars();
   draw();
 }
 
@@ -304,7 +325,7 @@ async function exportVideo() {
     var encoder = new VideoEncoder({
       output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
       error: function () {
-        progressEl.textContent = 'Encoder error, trying fallback...';
+        progressEl.innerHTML = '<p>Encoder error, trying fallback...</p>';
         muxer = null;
       }
     });
@@ -358,7 +379,6 @@ function exportFallback() {
   var fps = 15;
   var moveIdx = 1;
   var frameCount = 0;
-  var totalFrames = totalMoves * fps;
 
   var stream = exportCanvas.captureStream(fps);
   var mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E')
@@ -370,13 +390,12 @@ function exportFallback() {
   recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
 
   recorder.onstop = function () {
-    var blob2 = new Blob(chunks, { type: mime });
-    showExportResult(blob2, progressEl, progressBar, preview);
+    showExportResult(new Blob(chunks, { type: mime }), progressEl, progressBar, preview);
   };
 
   recorder.start();
 
-  function renderLoop() {
+  function loop() {
     if (moveIdx >= snapshots.length) {
       recorder.stop();
       return;
@@ -386,13 +405,11 @@ function exportFallback() {
     if (frameCount >= fps) {
       frameCount = 0;
       moveIdx++;
-      var pct2 = Math.round(((moveIdx - 1) / totalMoves) * 100);
-      progressBar.style.width = pct2 + '%';
-      progressEl.innerHTML = '<p>Rendering... ' + pct2 + '%</p>';
+      progressBar.style.width = Math.round(((moveIdx - 1) / totalMoves) * 100) + '%';
     }
-    requestAnimationFrame(renderLoop);
+    requestAnimationFrame(loop);
   }
-  renderLoop();
+  loop();
 }
 
 function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bottomBarH) {
@@ -425,10 +442,8 @@ function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bot
 
   for (var r = 0; r < 9; r++) {
     for (var c = 0; c < 9; c++) {
-      var x = c * cellSize + 4;
-      var y = (perspective === 1 ? 8 - r : r) * cellSize + 4;
       ectx.fillStyle = '#2a2a2a';
-      ectx.fillRect(x, y, cellSize - 8, cellSize - 8);
+      ectx.fillRect(c * cellSize + 4, (perspective === 1 ? 8 - r : r) * cellSize + 4, cellSize - 8, cellSize - 8);
     }
   }
 
@@ -437,14 +452,10 @@ function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bot
     var dR = perspective === 1 ? 7 - r2 : r2;
     for (var c2 = 0; c2 < 8; c2++) {
       if (state.hWalls[r2][c2]) {
-        var hx = c2 * cellSize + GAP;
-        var hy = (dR + 1) * cellSize - WALL_THICK / 2;
-        ectx.fillRect(hx, hy, cellSize * 2 - GAP * 2, WALL_THICK);
+        ectx.fillRect(c2 * cellSize + GAP, (dR + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
       }
       if (state.vWalls[r2][c2]) {
-        var vx = (c2 + 1) * cellSize - WALL_THICK / 2;
-        var vy = dR * cellSize + GAP;
-        ectx.fillRect(vx, vy, WALL_THICK, cellSize * 2 - GAP * 2);
+        ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, dR * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
       }
     }
   }
@@ -453,16 +464,10 @@ function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bot
     var p = state.players[i];
     var px = p.pos.c * cellSize + cellSize / 2;
     var py = (perspective === 1 ? 8 - p.pos.r : p.pos.r) * cellSize + cellSize / 2;
-    var rad = cellSize * 0.35;
     ectx.beginPath();
-    ectx.arc(px, py, rad, 0, Math.PI * 2);
-    if (p.color === 'white') {
-      ectx.fillStyle = '#fff';
-      ectx.strokeStyle = '#ccc';
-    } else {
-      ectx.fillStyle = '#000';
-      ectx.strokeStyle = '#444';
-    }
+    ectx.arc(px, py, cellSize * 0.35, 0, Math.PI * 2);
+    ectx.fillStyle = p.color === 'white' ? '#fff' : '#000';
+    ectx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
     ectx.lineWidth = 3;
     ectx.fill();
     ectx.stroke();
@@ -470,14 +475,19 @@ function drawExportFrame(ectx, state, moveIdx, cellSize, boardSize, topBarH, bot
 
   ectx.restore();
 
-  drawExportPlayerBar(ectx, w, topBarH, gameData?.playerBlack, 'white', moveIdx, cellSize, boardSize, true);
-  drawExportPlayerBar(ectx, w, bottomBarH, gameData?.playerWhite, 'black', moveIdx, cellSize, boardSize, false);
+  var topIdx = perspective === 1 ? 0 : 1;
+  var bottomIdx = perspective === 1 ? 1 : 0;
+  var topPlayerData = perspective === 1 ? gameData?.playerWhite : gameData?.playerBlack;
+  var bottomPlayerData = perspective === 1 ? gameData?.playerBlack : gameData?.playerWhite;
+  drawExportPlayerBar(ectx, w, topBarH, topPlayerData, topIdx === 0 ? 'white' : 'black', moveIdx, true);
+  drawExportPlayerBar(ectx, w, bottomBarH, bottomPlayerData, bottomIdx === 0 ? 'white' : 'black', moveIdx, false);
 }
 
-function drawExportPlayerBar(ectx, w, barH, player, colorName, moveIdx, cellSize, boardSize, isTop) {
+function drawExportPlayerBar(ectx, w, barH, player, colorName, moveIdx, isTop) {
   if (barH < 40) return;
   var label = player?.username || (colorName === 'white' ? 'White' : 'Black');
   var textY = isTop ? barH / 2 : 1920 - barH / 2;
+  var playerIdx = colorName === 'white' ? 0 : 1;
 
   ectx.beginPath();
   ectx.arc(60, textY, 24, 0, Math.PI * 2);
@@ -493,22 +503,15 @@ function drawExportPlayerBar(ectx, w, barH, player, colorName, moveIdx, cellSize
   ectx.textBaseline = 'middle';
   ectx.fillText(label, 100, textY);
 
-  var whiteWalls = 10;
-  var blackWalls = 10;
-  if (snapshots[moveIdx]) {
-    whiteWalls = snapshots[moveIdx].players[0].wallsLeft;
-    blackWalls = snapshots[moveIdx].players[1].wallsLeft;
-  }
-  var showWalls = isTop ? blackWalls : whiteWalls;
-
+  var wallsLeft = snapshots[moveIdx] ? snapshots[moveIdx].players[playerIdx].wallsLeft : 10;
   var wallX = w - 220;
   var wallY = textY - 5;
   for (var i = 0; i < 10; i++) {
-    ectx.fillStyle = i < showWalls ? '#e09f3e' : 'rgba(224,159,62,0.15)';
+    ectx.fillStyle = i < wallsLeft ? '#e09f3e' : 'rgba(224,159,62,0.15)';
     ectx.fillRect(wallX + i * 18, wallY, 14, 10);
   }
 
-  var timerVal = formatTime(snapshots[moveIdx]?.timers ? snapshots[moveIdx].timers[isTop ? 1 : 0] : 600);
+  var timerVal = snapshots[moveIdx]?.timers ? formatTime(snapshots[moveIdx].timers[playerIdx]) : '10:00';
   ectx.fillStyle = '#fff';
   ectx.font = 'bold 32px monospace';
   ectx.textAlign = 'right';
