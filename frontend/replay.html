@@ -14,15 +14,37 @@
         </div>
 
         <div class="replay-body">
-            <div class="replay-board-wrap">
-                <div class="replay-player-bar top-bar">
-                    <span class="player-avatar white"></span>
-                    <span class="player-name" id="playerBlackName">Black</span>
+            <div class="board-area">
+                <div class="player-bar" id="topPlayerBar">
+                    <div class="avatar-container">
+                        <img class="avatar" id="topPlayerAvatar" src="https://ui-avatars.com/api/?name=?&background=333&color=fff" alt="Avatar">
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name-row">
+                            <span class="player-name" id="topPlayerName">Black</span>
+                        </div>
+                    </div>
+                    <div class="timer" id="topPlayerTimer">10:00</div>
                 </div>
-                <canvas id="replayCanvas"></canvas>
-                <div class="replay-player-bar bottom-bar">
-                    <span class="player-avatar black"></span>
-                    <span class="player-name" id="playerWhiteName">White</span>
+
+                <div class="wall-inventory" id="topWallInventory"></div>
+
+                <div id="game-container">
+                    <canvas id="replayCanvas"></canvas>
+                </div>
+
+                <div class="wall-inventory" id="bottomWallInventory"></div>
+
+                <div class="player-bar" id="bottomPlayerBar">
+                    <div class="avatar-container">
+                        <img class="avatar" id="bottomPlayerAvatar" src="https://ui-avatars.com/api/?name=?&background=333&color=fff" alt="Avatar">
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name-row">
+                            <span class="player-name" id="bottomPlayerName">White</span>
+                        </div>
+                    </div>
+                    <div class="timer" id="bottomPlayerTimer">10:00</div>
                 </div>
             </div>
 
