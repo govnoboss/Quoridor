@@ -569,8 +569,8 @@ async function exportVideo() {
       var moveData = getMoveData(i);
       for (var f = 0; f < framesPerMove; f++) {
         if (framesPerMove > 1 && f < framesPerMove - 1) {
-          var t = f / (framesPerMove - 1);
-          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH, snapshots[i - 1], t, moveData);
+          var elapsedMs = (f / fps) * 1000;
+          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH, snapshots[i - 1], elapsedMs, moveData);
         } else {
           drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH);
         }
@@ -617,7 +617,7 @@ function exportFallback() {
   var bottomBarH = 1920 - boardSize - topBarH;
   var totalMoves = snapshots.length - 1;
   var fps = 15;
-  var framesPerMove = 60;
+  var framesPerMove = 15;
   var moveIdx = 1;
   var frameCount = 0;
 
@@ -647,8 +647,8 @@ function exportFallback() {
     }
     var moveData = getMoveData(moveIdx);
     if (framesPerMove > 1 && frameCount < framesPerMove - 1) {
-      var t = frameCount / (framesPerMove - 1);
-      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, snapshots[moveIdx - 1], t, moveData);
+      var elapsedMs = (frameCount / fps) * 1000;
+      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, snapshots[moveIdx - 1], elapsedMs, moveData);
     } else {
       drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH);
     }
@@ -683,7 +683,7 @@ function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
   }
 }
 
-function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t, move) {
+function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, elapsedMs, move) {
   var w = 1080;
   var h = 1920;
   var boardX = Math.floor((w - boardSize) / 2);
@@ -709,7 +709,9 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t
     }
   }
 
-  var isAnimating = prevState && t !== undefined && t < 1 && move;
+  var isAnimating = prevState && elapsedMs !== undefined && move;
+  var animDuration = move ? (move.type === 'wall' ? 150 : 120) : 0;
+  var progress = isAnimating ? Math.min(elapsedMs / animDuration, 1) : 1;
 
   ectx.fillStyle = '#e09f3e';
   for (var r2 = 0; r2 < 8; r2++) {
@@ -718,7 +720,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t
         var isNew = isAnimating && move.type === 'wall' && !move.isVertical
           && move.r === r2 && move.c === c2 && prevState && !prevState.hWalls[r2][c2];
         if (isNew) {
-          var bs = backOut(t);
+          var bs = backOut(progress);
           var len = cellSize * 2 - GAP * 2;
           var curLen = len * bs;
           var off = (len - curLen) / 2;
@@ -731,7 +733,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t
         var isNew = isAnimating && move.type === 'wall' && move.isVertical
           && move.r === r2 && move.c === c2 && prevState && !prevState.vWalls[r2][c2];
         if (isNew) {
-          var bs = backOut(t);
+          var bs = backOut(progress);
           var len = cellSize * 2 - GAP * 2;
           var curLen = len * bs;
           var off = (len - curLen) / 2;
@@ -743,7 +745,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t
     }
   }
 
-  var pawnEase = isAnimating ? 1 - (1 - t) * (1 - t) : 1;
+  var pawnEase = isAnimating ? 1 - (1 - progress) * (1 - progress) : 1;
   for (var i = 0; i < state.players.length; i++) {
     var p = state.players[i];
     var px, py;
