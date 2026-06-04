@@ -13,6 +13,14 @@ let perspective = 0;
 let cachedBlob = null;
 let cachedURL = null;
 
+// Animation state
+let animFrame = null;
+let animStart = 0;
+let animDuration = 250;
+let animPrevSnap = null;
+let animNextSnap = null;
+let animMove = null;
+
 const canvas = document.getElementById('replayCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = BOARD;
@@ -100,13 +108,38 @@ function buildSnapshots() {
 function tr(r) { return perspective === 1 ? 8 - r : r; }
 
 function draw() {
-  var state = snapshots[currentMove];
-  if (!state) return;
   ctx.clearRect(0, 0, BOARD, BOARD);
-  drawGrid(state);
-  drawCoords();
-  drawWalls(state);
-  drawPawns(state);
+
+  if (animPrevSnap && animNextSnap && animMove) {
+    var now = performance.now();
+    var t = Math.min((now - animStart) / animDuration, 1);
+    var ease = 1 - (1 - t) * (1 - t);
+
+    drawGrid(animNextSnap);
+    drawCoords();
+    drawAnimatedWalls(animPrevSnap, animNextSnap, t, animMove);
+    drawAnimatedPawns(animPrevSnap, animNextSnap, ease, animMove);
+
+    if (t < 1) {
+      animFrame = requestAnimationFrame(draw);
+    } else {
+      animPrevSnap = null;
+      animNextSnap = null;
+      animMove = null;
+      animFrame = null;
+      drawGrid(snapshots[currentMove]);
+      drawCoords();
+      drawWalls(snapshots[currentMove]);
+      drawPawns(snapshots[currentMove]);
+    }
+  } else {
+    var state = snapshots[currentMove];
+    if (!state) return;
+    drawGrid(state);
+    drawCoords();
+    drawWalls(state);
+    drawPawns(state);
+  }
 }
 
 function drawGrid(state) {
@@ -165,6 +198,85 @@ function drawPawns(state) {
     ctx.lineWidth = 3;
     ctx.stroke();
   }
+}
+
+function drawAnimatedPawns(prevSnap, nextSnap, ease, move) {
+  var radius = CELL * 0.35;
+  for (var i = 0; i < nextSnap.players.length; i++) {
+    var p = nextSnap.players[i];
+    var x = (p.pos.c + 0.5) * CELL;
+    var y;
+
+    if (move && i === move.playerIdx && prevSnap && prevSnap.players[i]) {
+      var prevPos = prevSnap.players[i].pos;
+      var curR = prevPos.r + (p.pos.r - prevPos.r) * ease;
+      var curC = prevPos.c + (p.pos.c - prevPos.c) * ease;
+      x = (curC + 0.5) * CELL;
+      y = (tr(curR) + 0.5) * CELL;
+    } else {
+      y = (tr(p.pos.r) + 0.5) * CELL;
+    }
+
+    ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+function backOut(t) {
+  var c1 = 1.70158;
+  var c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function drawAnimatedWalls(prevSnap, nextSnap, t, move) {
+  for (var r = 0; r < 8; r++) {
+    for (var c = 0; c < 8; c++) {
+      if (nextSnap.hWalls[r][c]) {
+        var isNew = move && move.type === 'wall' && !move.isVertical && move.r === r && move.c === c
+          && prevSnap && !prevSnap.hWalls[r][c];
+        if (isNew) {
+          var scale = backOut(t);
+          var len = CELL * 2 - GAP * 2;
+          var currentLen = len * scale;
+          var offset = (len - currentLen) / 2;
+          ctx.fillStyle = '#e09f3e';
+          ctx.fillRect(c * CELL + GAP + offset, (r + 1) * CELL - WALL_THICK / 2, currentLen, WALL_THICK);
+        } else {
+          ctx.fillStyle = '#e09f3e';
+          ctx.fillRect(c * CELL + GAP, (r + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
+        }
+      }
+      if (nextSnap.vWalls[r][c]) {
+        var isNew = move && move.type === 'wall' && move.isVertical && move.r === r && move.c === c
+          && prevSnap && !prevSnap.vWalls[r][c];
+        if (isNew) {
+          var scale = backOut(t);
+          var len = CELL * 2 - GAP * 2;
+          var currentLen = len * scale;
+          var offset = (len - currentLen) / 2;
+          ctx.fillStyle = '#e09f3e';
+          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP + offset, WALL_THICK, currentLen);
+        } else {
+          ctx.fillStyle = '#e09f3e';
+          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
+        }
+      }
+    }
+  }
+}
+
+function getMoveData(idx) {
+  if (idx <= 0 || !gameData || !gameData.history) return null;
+  var histIdx = idx - 1;
+  if (histIdx < gameData.history.length) {
+    return gameData.history[histIdx].move || null;
+  }
+  return null;
 }
 
 function formatTime(s) {
@@ -295,17 +407,34 @@ function updateResult() {
   el.textContent = label + ' \u00B7 ' + (gameData.reason || 'goal') + ' \u00B7 ' + (gameData.turns || snapshots.length - 1) + ' moves';
 }
 
-function goToMove(idx) {
+function goToMove(idx, animate) {
   if (idx < 0) idx = 0;
   if (idx >= snapshots.length) idx = snapshots.length - 1;
+
+  var oldMove = currentMove;
   currentMove = idx;
+
+  if (animate && idx === oldMove + 1 && idx > 0 && idx < snapshots.length) {
+    cancelAnimationFrame(animFrame);
+    animPrevSnap = snapshots[idx - 1];
+    animNextSnap = snapshots[idx];
+    animMove = getMoveData(idx);
+    animDuration = animMove && animMove.type === 'wall' ? 250 : 200;
+    animStart = performance.now();
+  } else {
+    cancelAnimationFrame(animFrame);
+    animPrevSnap = null;
+    animNextSnap = null;
+    animMove = null;
+  }
+
   draw();
   renderMoveHistory();
   updatePlayerBars();
 }
 
 function prevMove() { goToMove(currentMove - 1); }
-function nextMove() { goToMove(currentMove + 1); }
+function nextMove() { goToMove(currentMove + 1, true); }
 function goToStart() { goToMove(0); }
 function goToEnd() { goToMove(snapshots.length - 1); }
 
@@ -351,6 +480,10 @@ function setSpeed(speed) {
 
 function togglePerspective() {
   perspective = perspective === 0 ? 1 : 0;
+  cancelAnimationFrame(animFrame);
+  animPrevSnap = null;
+  animNextSnap = null;
+  animMove = null;
   updatePlayerBars();
   draw();
   if (cachedURL) {
@@ -430,8 +563,14 @@ async function exportVideo() {
     });
 
     for (var i = 1; i < snapshots.length; i++) {
-      drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH);
+      var moveData = getMoveData(i);
       for (var f = 0; f < framesPerMove; f++) {
+        if (framesPerMove > 1 && f < framesPerMove - 1) {
+          var t = f / (framesPerMove - 1);
+          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH, snapshots[i - 1], t, moveData);
+        } else {
+          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH);
+        }
         var frame = new VideoFrame(exportCanvas, {
           timestamp: ((i - 1) * framesPerMove + f) * 1_000_000 / fps
         });
@@ -503,7 +642,13 @@ function exportFallback() {
       recorder.stop();
       return;
     }
-    drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH);
+    var moveData = getMoveData(moveIdx);
+    if (framesPerMove > 1 && frameCount < framesPerMove - 1) {
+      var t = frameCount / (framesPerMove - 1);
+      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, snapshots[moveIdx - 1], t, moveData);
+    } else {
+      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH);
+    }
     frameCount++;
     if (frameCount >= framesPerMove) {
       frameCount = 0;
@@ -515,15 +660,42 @@ function exportFallback() {
   loop();
 }
 
-function drawExportFrame(ectx, state, cellSize, boardSize, topBarH) {
+function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
+  var panelH = 42;
+  ectx.fillStyle = '#333';
+  ectx.fillRect(x, y, w, panelH);
+
+  var pieceW = 34;
+  var pieceH = 10;
+  var gap = 4;
+  var totalW = 10 * pieceW + 9 * gap;
+  var startX = x + Math.floor((w - totalW) / 2);
+  var pieceY = y + Math.floor((panelH - pieceH) / 2);
+
+  for (var i = 0; i < 10; i++) {
+    if (i >= wallsLeft) ectx.globalAlpha = 0.15;
+    ectx.fillStyle = '#e09f3e';
+    ectx.fillRect(startX + i * (pieceW + gap), pieceY, pieceW, pieceH);
+    ectx.globalAlpha = 1;
+  }
+}
+
+function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, t, move) {
   var w = 1080;
   var h = 1920;
+  var boardX = Math.floor((w - boardSize) / 2);
+  var boardY = topBarH;
 
   ectx.fillStyle = '#000';
   ectx.fillRect(0, 0, w, h);
 
-  var boardX = Math.floor((w - boardSize) / 2);
-  var boardY = topBarH;
+  // Wall panels
+  var topIdx = perspective === 1 ? 0 : 1;
+  var bottomIdx = perspective === 1 ? 1 : 0;
+  drawExportWallPanel(ectx, boardX, boardY - 48, boardSize, state.players[topIdx].wallsLeft);
+  drawExportWallPanel(ectx, boardX, boardY + boardSize + 6, boardSize, state.players[bottomIdx].wallsLeft);
+
+  // Board
   ectx.save();
   ectx.translate(boardX, boardY);
 
@@ -534,22 +706,56 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH) {
     }
   }
 
+  var isAnimating = prevState && t !== undefined && t < 1 && move;
+
   ectx.fillStyle = '#e09f3e';
   for (var r2 = 0; r2 < 8; r2++) {
     for (var c2 = 0; c2 < 8; c2++) {
       if (state.hWalls[r2][c2]) {
-        ectx.fillRect(c2 * cellSize + GAP, (r2 + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
+        var isNew = isAnimating && move.type === 'wall' && !move.isVertical
+          && move.r === r2 && move.c === c2 && prevState && !prevState.hWalls[r2][c2];
+        if (isNew) {
+          var bs = backOut(t);
+          var len = cellSize * 2 - GAP * 2;
+          var curLen = len * bs;
+          var off = (len - curLen) / 2;
+          ectx.fillRect(c2 * cellSize + GAP + off, (r2 + 1) * cellSize - WALL_THICK / 2, curLen, WALL_THICK);
+        } else {
+          ectx.fillRect(c2 * cellSize + GAP, (r2 + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
+        }
       }
       if (state.vWalls[r2][c2]) {
-        ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
+        var isNew = isAnimating && move.type === 'wall' && move.isVertical
+          && move.r === r2 && move.c === c2 && prevState && !prevState.vWalls[r2][c2];
+        if (isNew) {
+          var bs = backOut(t);
+          var len = cellSize * 2 - GAP * 2;
+          var curLen = len * bs;
+          var off = (len - curLen) / 2;
+          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP + off, WALL_THICK, curLen);
+        } else {
+          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
+        }
       }
     }
   }
 
+  var pawnEase = isAnimating ? 1 - (1 - t) * (1 - t) : 1;
   for (var i = 0; i < state.players.length; i++) {
     var p = state.players[i];
-    var px = p.pos.c * cellSize + cellSize / 2;
-    var py = (perspective === 1 ? 8 - p.pos.r : p.pos.r) * cellSize + cellSize / 2;
+    var px, py;
+
+    if (isAnimating && move && i === move.playerIdx && prevState && prevState.players[i]) {
+      var prevP = prevState.players[i];
+      var curR = prevP.pos.r + (p.pos.r - prevP.pos.r) * pawnEase;
+      var curC = prevP.pos.c + (p.pos.c - prevP.pos.c) * pawnEase;
+      px = curC * cellSize + cellSize / 2;
+      py = (perspective === 1 ? 8 - curR : curR) * cellSize + cellSize / 2;
+    } else {
+      px = p.pos.c * cellSize + cellSize / 2;
+      py = (perspective === 1 ? 8 - p.pos.r : p.pos.r) * cellSize + cellSize / 2;
+    }
+
     ectx.beginPath();
     ectx.arc(px, py, cellSize * 0.35, 0, Math.PI * 2);
     ectx.fillStyle = p.color === 'white' ? '#fff' : '#000';
