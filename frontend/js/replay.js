@@ -536,8 +536,8 @@ async function exportVideo() {
   var boardSize = cellSize * 9;
   var topBarH = Math.floor((1920 - boardSize) / 2);
   var bottomBarH = 1920 - boardSize - topBarH;
-  var fps = 30;
-  var framesPerMove = fps;
+  var fps = 60;
+  var framesPerMove = Math.floor(fps * 1.2);
 
   console.log('[export] using WebCodecs + mp4-muxer, fps=' + fps + ', framesPerMove=' + framesPerMove);
   try {
@@ -616,8 +616,8 @@ function exportFallback() {
   var topBarH = Math.floor((1920 - boardSize) / 2);
   var bottomBarH = 1920 - boardSize - topBarH;
   var totalMoves = snapshots.length - 1;
-  var fps = 15;
-  var framesPerMove = 15;
+  var fps = 60;
+  var framesPerMove = Math.floor(fps * 1.2);
   var moveIdx = 1;
   var frameCount = 0;
 
@@ -710,7 +710,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   }
 
   var isAnimating = prevState && elapsedMs !== undefined && move;
-  var animDuration = move ? (move.type === 'wall' ? 150 : 120) : 0;
+  var animDuration = move ? (move.type === 'wall' ? 250 : 200) : 0;
   var progress = isAnimating ? Math.min(elapsedMs / animDuration, 1) : 1;
 
   ectx.fillStyle = '#e09f3e';
