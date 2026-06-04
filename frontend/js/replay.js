@@ -362,6 +362,7 @@ async function exportVideo() {
   var fps = 30;
   var framesPerMove = fps;
 
+  console.log('[export] using WebCodecs + mp4-muxer, fps=' + fps + ', framesPerMove=' + framesPerMove);
   try {
     var muxer = new Mp4Muxer.Muxer({
       target: new Mp4Muxer.ArrayBufferTarget(),
@@ -369,12 +370,16 @@ async function exportVideo() {
       fastStart: 'in-memory'
     });
 
+    var encoderFailed = false;
     var encoder = new VideoEncoder({
-      output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
+      output: function (chunk, meta) {
+        if (encoderFailed || !muxer) return;
+        muxer.addVideoChunk(chunk, meta);
+      },
       error: function () {
+        encoderFailed = true;
         var msg = progressEl && progressEl.querySelector('p');
         if (msg) msg.textContent = 'Encoder error, trying fallback...';
-        muxer = null;
       }
     });
 
@@ -406,6 +411,7 @@ async function exportVideo() {
     var blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
     showExportResult(blob, progressEl, progressBar, preview);
   } catch (e) {
+    console.warn('[export] WebCodecs failed:', e);
     exportFallback();
   }
 }
@@ -419,7 +425,8 @@ function exportFallback() {
   if (progressEl) progressEl.style.display = 'block';
   if (preview) preview.style.display = 'none';
   var msg = progressEl && progressEl.querySelector('p');
-  if (msg) msg.textContent = 'Using fallback encoder...';
+  if (msg) msg.textContent = 'Using fallback encoder (MediaRecorder)...';
+  console.log('[export] using MediaRecorder fallback');
 
   var exportCanvas = document.createElement('canvas');
   exportCanvas.width = 1080;
@@ -431,6 +438,7 @@ function exportFallback() {
   var bottomBarH = 1920 - boardSize - topBarH;
   var totalMoves = snapshots.length - 1;
   var fps = 15;
+  var framesPerMove = 60;
   var moveIdx = 1;
   var frameCount = 0;
 
@@ -456,7 +464,7 @@ function exportFallback() {
     }
     drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, bottomBarH);
     frameCount++;
-    if (frameCount >= fps) {
+    if (frameCount >= framesPerMove) {
       frameCount = 0;
       moveIdx++;
       progressBar.style.width = Math.round(((moveIdx - 1) / totalMoves) * 100) + '%';
