@@ -670,7 +670,7 @@ app.use(helmet.contentSecurityPolicy({
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "img-src": ["'self'", "https://ui-avatars.com"],
-        "media-src": ["'self'", "data:"],
+        "media-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io", "https://analytics.playquor.org"]
     }
 })); // CLOSED Correctly
