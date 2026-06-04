@@ -1388,6 +1388,8 @@ UI.showProfilePage = async function (username, pushState = true) {
     } else {
       history.forEach(game => {
         const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => UI.openReplayModal(game._id);
 
         const isWhite = game.playerWhite && game.playerWhite.username === user.username; // Robust check
         // Handle missing player objects if schema changed or legacy data
@@ -1436,7 +1438,6 @@ UI.showProfilePage = async function (username, pushState = true) {
                 <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
                 <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
                 <td>${game.turns}</td>
-                <td><button class="mini-btn-view" onclick="UI.openReplayModal('${game._id}')" title="View Replay">👁️</button></td>
             `;
         historyBody.appendChild(row);
       });
