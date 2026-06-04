@@ -464,33 +464,6 @@ const UI = {
     this.showDynamicPanel('panelMode');
   },
 
-  showLocalHistory() {
-    const list = document.getElementById('localHistoryList');
-    if (!list) return;
-
-    try {
-      const games = JSON.parse(localStorage.getItem('quoridor_games_list') || '[]');
-      if (games.length === 0) {
-        list.innerHTML = '<p style="color: #888; text-align: center;">No games yet.</p>';
-      } else {
-        list.innerHTML = games.map(function (g) {
-          const date = new Date(g.date);
-          const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const mode = g.gameMode === 'bot' ? 'vs ' + g.botDifficulty : 'PvP';
-          const result = g.winner === 0 ? 'White won' : g.winner === 1 ? 'Black won' : 'Draw';
-          return '<button class="history-game-btn" onclick="window.location.href=\'/replay/' + g.gameId + '\'">' +
-            '<span class="hgb-left">' + mode + ' · ' + g.turns + ' moves</span>' +
-            '<span class="hgb-right">' + result + ' · ' + dateStr + '</span>' +
-            '</button>';
-        }).join('');
-      }
-    } catch (e) {
-      list.innerHTML = '<p style="color: #888; text-align: center;">No games yet.</p>';
-    }
-
-    this.showDynamicPanel('panelLocalHistory');
-  },
-
   showSettings() { this.showDynamicPanel('panelSettings'); },
 
   showInfoPanel(panelId) {

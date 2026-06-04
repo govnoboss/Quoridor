@@ -2052,36 +2052,6 @@ canvas {
     background: #4a4a4a;
 }
 
-/* Local game history buttons */
-.history-game-btn {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    border-radius: 8px;
-    background: #3a3a3a;
-    border: none;
-    color: var(--text);
-    cursor: pointer;
-    transition: background 0.2s;
-    width: 100%;
-    text-align: left;
-}
-.history-game-btn:hover {
-    background: #4a4a4a;
-}
-.history-game-btn .hgb-left {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.history-game-btn .hgb-right {
-    text-align: right;
-    color: #aaa;
-    font-size: 0.8rem;
-}
-
 /* How to Play panel */
 .howto-content {
     display: flex;

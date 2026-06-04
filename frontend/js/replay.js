@@ -50,7 +50,7 @@ function loadLocalGame(gameId) {
   info.textContent = 'Loading local replay...';
 
   try {
-    var saved = localStorage.getItem('quoridor_hist_' + gameId);
+    var saved = sessionStorage.getItem('quoridor_hist_' + gameId);
     if (!saved) {
       info.textContent = 'Local replay data not found.';
       return;
@@ -61,24 +61,16 @@ function loadLocalGame(gameId) {
       return;
     }
 
-    var summary = null;
-    try {
-      var list = JSON.parse(localStorage.getItem('quoridor_games_list') || '[]');
-      for (var i = 0; i < list.length; i++) {
-        if (list[i].gameId === gameId) { summary = list[i]; break; }
-      }
-    } catch (e) {}
-
     gameData = {
       _local: true,
       history: history,
-      playerWhite: { username: summary?.playerWhite?.name || 'White', avatar: null },
-      playerBlack: { username: summary?.playerBlack?.name || 'Black', avatar: null },
-      winner: summary?.winner ?? -1,
-      reason: summary?.reason || 'goal',
-      turns: summary?.turns || history.length,
+      playerWhite: { username: 'White', avatar: null },
+      playerBlack: { username: 'Black', avatar: null },
+      winner: -1,
+      reason: 'goal',
+      turns: history.length,
       gameType: 'rapid',
-      date: summary?.date ? new Date(summary.date).toISOString() : new Date().toISOString()
+      date: new Date().toISOString()
     };
 
     info.textContent = '';
