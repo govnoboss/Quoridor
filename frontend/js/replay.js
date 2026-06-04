@@ -27,7 +27,7 @@ function loadGame(gameId) {
       if (data.history && data.history.length > 0) {
         buildSnapshots();
         currentMove = 0;
-        updateCounter();
+        renderMoveHistory();
         updatePlayerBars();
         draw();
         updateResult();
@@ -210,8 +210,51 @@ function renderWallsFor(el, wallsLeft) {
   }
 }
 
-function updateCounter() {
-  document.getElementById('moveCounter').textContent = currentMove + ' / ' + (snapshots.length - 1);
+function getNotation(move) {
+  if (move.type === 'pawn') {
+    var col = String.fromCharCode('a'.charCodeAt(0) + move.c);
+    var row = 9 - move.r;
+    return col + row;
+  }
+  if (move.type === 'wall') {
+    var col2 = String.fromCharCode('a'.charCodeAt(0) + move.c);
+    var row2 = 9 - move.r;
+    return col2 + row2 + (move.isVertical ? 'v' : 'h');
+  }
+  return '?';
+}
+
+function renderMoveHistory() {
+  var list = document.getElementById('historyList');
+  if (!list || !gameData) return;
+  list.innerHTML = '';
+
+  var startRow = document.createElement('div');
+  startRow.className = 'history-row start-row';
+  startRow.innerHTML = '<span class="move' + (currentMove === 0 ? ' active' : '') + '" onclick="goToMove(0)">Start</span>';
+  list.appendChild(startRow);
+
+  var history = gameData.history || [];
+  for (var i = 0; i < history.length; i += 2) {
+    var row = document.createElement('div');
+    row.className = 'history-row';
+
+    var move1 = history[i];
+    var move2 = history[i + 1];
+
+    var n1 = move1 ? getNotation(move1.move) : '';
+    var n2 = move2 ? getNotation(move2.move) : '';
+
+    var active1 = currentMove === i + 1 ? ' active' : '';
+    var active2 = currentMove === i + 2 ? ' active' : '';
+
+    row.innerHTML = '<span class="move' + active1 + '" onclick="goToMove(' + (i + 1) + ')">' + n1 + '</span>' +
+                    '<span class="move' + active2 + '" onclick="goToMove(' + (i + 2) + ')">' + n2 + '</span>';
+    list.appendChild(row);
+  }
+
+  var active = list.querySelector('.move.active');
+  if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 function updateResult() {
@@ -229,7 +272,7 @@ function goToMove(idx) {
   if (idx >= snapshots.length) idx = snapshots.length - 1;
   currentMove = idx;
   draw();
-  updateCounter();
+  renderMoveHistory();
   updatePlayerBars();
 }
 

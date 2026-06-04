@@ -197,44 +197,104 @@ body {
     line-height: 1.5;
 }
 
-.replay-controls {
+#moveHistory {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: rgba(255,255,255,0.05);
-    padding: 10px 16px;
-    border-radius: 30px;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    overflow: hidden;
 }
 
-.replay-controls button {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #fff;
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    font-size: 1rem;
+.history-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    font-weight: bold;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    padding: 6px 5px;
+    color: var(--muted);
+    font-size: 0.9em;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    font-family: monospace;
+    min-height: 0;
+}
+
+.history-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px 0;
+    font-size: 0.85rem;
+}
+
+.history-row:nth-child(odd) {
+    background: rgba(255,255,255,0.03);
+}
+
+.history-row .move {
+    text-align: center;
+    padding: 2px 5px;
+    color: var(--text);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.2s;
+    border-radius: 4px;
 }
 
-.replay-controls button:hover {
+.history-row .move:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.history-row .move.active {
+    background: #e09f3e;
+    color: #000;
+    font-weight: bold;
+}
+
+.history-row.start-row {
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+}
+
+.history-row.start-row .move {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.history-controls {
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 5px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.4);
+    flex-shrink: 0;
+}
+
+.history-controls button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    transition: all 0.2s;
+    flex: 1;
+    margin: 0 2px;
+}
+
+.history-controls button:hover {
     background: rgba(255,255,255,0.1);
     border-color: var(--wall);
-}
-
-.replay-controls button:active {
-    transform: scale(0.9);
-}
-
-#moveCounter {
-    font-family: monospace;
-    font-size: 1rem;
-    min-width: 60px;
-    text-align: center;
 }
 
 .replay-row {
