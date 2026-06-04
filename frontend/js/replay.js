@@ -60,7 +60,10 @@ function buildSnapshots() {
 
   for (var i = 0; i < history.length; i++) {
     var record = history[i];
-    if (!record.move) continue;
+    if (!record.move) {
+      console.warn('[replay] history[' + i + '] missing move, skipping');
+      continue;
+    }
 
     var playerIdx = record.playerIdx;
     if (record.timestamp && lastTimestamp) {
@@ -71,19 +74,26 @@ function buildSnapshots() {
     }
     lastTimestamp = record.timestamp;
 
+    var px = typeof record.move.playerIdx === 'number' ? record.move.playerIdx : playerIdx;
     var action = {
       type: record.move.type,
       r: record.move.r,
       c: record.move.c,
       isVertical: record.move.isVertical || false,
-      playerIdx: playerIdx
+      playerIdx: px
     };
     try {
       state = Shared.gameReducer(state, action);
       var snapshot = Shared.cloneState(state);
       snapshot.timers = [timers[0], timers[1]];
       snapshots.push(snapshot);
-    } catch (e) { break; }
+    } catch (e) {
+      console.error('[replay] gameReducer error at history[' + i + ']:', e.message, action);
+      break;
+    }
+  }
+  if (snapshots.length < 2) {
+    console.warn('[replay] no valid moves in history, snapshots=', snapshots.length);
   }
 }
 
@@ -195,8 +205,6 @@ function updatePlayerBars() {
 
   var topInv = document.getElementById('topWallInventory');
   var bottomInv = document.getElementById('bottomWallInventory');
-  topInv.innerHTML = '';
-  bottomInv.innerHTML = '';
   renderWallsFor(topInv, state.players[topIdx].wallsLeft);
   renderWallsFor(bottomInv, state.players[bottomIdx].wallsLeft);
 
@@ -205,10 +213,17 @@ function updatePlayerBars() {
 }
 
 function renderWallsFor(el, wallsLeft) {
-  for (var w = 0; w < 10; w++) {
-    var piece = document.createElement('div');
-    piece.className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
-    el.appendChild(piece);
+  if (el.childNodes.length === 10) {
+    for (var w = 0; w < 10; w++) {
+      el.childNodes[w].className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
+    }
+  } else {
+    el.innerHTML = '';
+    for (var w = 0; w < 10; w++) {
+      var piece = document.createElement('div');
+      piece.className = 'wall-piece' + (w >= wallsLeft ? ' used' : '');
+      el.appendChild(piece);
+    }
   }
 }
 
@@ -229,34 +244,48 @@ function getNotation(move) {
 function renderMoveHistory() {
   var list = document.getElementById('historyList');
   if (!list || !gameData) return;
-  list.innerHTML = '';
-
-  var startRow = document.createElement('div');
-  startRow.className = 'history-row start-row';
-  startRow.innerHTML = '<span class="move' + (currentMove === 0 ? ' active' : '') + '" onclick="goToMove(0)">Start</span>';
-  list.appendChild(startRow);
 
   var history = gameData.history || [];
-  for (var i = 0; i < history.length; i += 2) {
-    var row = document.createElement('div');
-    row.className = 'history-row';
+  var rowCount = Math.ceil(history.length / 2) + 1;
 
-    var move1 = history[i];
-    var move2 = history[i + 1];
+  if (list.childNodes.length !== rowCount) {
+    list.innerHTML = '';
 
-    var n1 = move1 ? getNotation(move1.move) : '';
-    var n2 = move2 ? getNotation(move2.move) : '';
+    var startRow = document.createElement('div');
+    startRow.className = 'history-row start-row';
+    startRow.innerHTML = '<span class="move' + (currentMove === 0 ? ' active' : '') + '" onclick="goToMove(0)">Start</span>';
+    list.appendChild(startRow);
 
-    var active1 = currentMove === i + 1 ? ' active' : '';
-    var active2 = currentMove === i + 2 ? ' active' : '';
+    for (var i = 0; i < history.length; i += 2) {
+      var row = document.createElement('div');
+      row.className = 'history-row';
 
-    row.innerHTML = '<span class="move' + active1 + '" onclick="goToMove(' + (i + 1) + ')">' + n1 + '</span>' +
-                    '<span class="move' + active2 + '" onclick="goToMove(' + (i + 2) + ')">' + n2 + '</span>';
-    list.appendChild(row);
+      var move1 = history[i];
+      var move2 = history[i + 1];
+
+      var n1 = move1 ? getNotation(move1.move) : '';
+      var n2 = move2 ? getNotation(move2.move) : '';
+
+      var active1 = currentMove === i + 1 ? ' active' : '';
+      var active2 = currentMove === i + 2 ? ' active' : '';
+
+      row.innerHTML = '<span class="move' + active1 + '" onclick="goToMove(' + (i + 1) + ')">' + n1 + '</span>' +
+                      '<span class="move' + active2 + '" onclick="goToMove(' + (i + 2) + ')">' + n2 + '</span>';
+      list.appendChild(row);
+    }
+  } else {
+    var allSpans = list.querySelectorAll('.move');
+    for (var s = 0; s < allSpans.length; s++) {
+      var span = allSpans[s];
+      var idx = Number(span.getAttribute('onclick').match(/\d+/)[0]);
+      span.classList.toggle('active', idx === currentMove);
+    }
   }
 
-  var active = list.querySelector('.move.active');
-  if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (!isPlaying) {
+    var active = list.querySelector('.move.active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+  }
 }
 
 function updateResult() {
@@ -283,26 +312,33 @@ function nextMove() { goToMove(currentMove + 1); }
 function goToStart() { goToMove(0); }
 function goToEnd() { goToMove(snapshots.length - 1); }
 
+function scheduleNextTick() {
+  if (!isPlaying) return;
+  if (currentMove >= snapshots.length - 1) {
+    isPlaying = false;
+    var btn = document.getElementById('playBtn');
+    if (btn) btn.textContent = '\u25B6';
+    return;
+  }
+  playTimer = setTimeout(function () {
+    if (!isPlaying) return;
+    nextMove();
+    scheduleNextTick();
+  }, playSpeed);
+}
+
 function togglePlay() {
   if (isNaN(playSpeed) || playSpeed < 50) playSpeed = 1000;
   var btn = document.getElementById('playBtn');
   if (isPlaying) {
-    clearInterval(playTimer);
+    clearTimeout(playTimer);
     isPlaying = false;
     btn.textContent = '\u25B6';
   } else {
     if (currentMove >= snapshots.length - 1) goToMove(0);
     isPlaying = true;
     btn.textContent = '\u23F8';
-    playTimer = setInterval(function () {
-      if (currentMove >= snapshots.length - 1) {
-        clearInterval(playTimer);
-        isPlaying = false;
-        btn.textContent = '\u25B6';
-        return;
-      }
-      nextMove();
-    }, playSpeed);
+    scheduleNextTick();
   }
 }
 
@@ -311,16 +347,8 @@ function setSpeed(speed) {
   if (isNaN(speed) || speed < 50) speed = 1000;
   playSpeed = speed;
   if (isPlaying) {
-    clearInterval(playTimer);
-    playTimer = setInterval(function () {
-      if (currentMove >= snapshots.length - 1) {
-        clearInterval(playTimer);
-        isPlaying = false;
-        document.getElementById('playBtn').textContent = '\u25B6';
-        return;
-      }
-      nextMove();
-    }, playSpeed);
+    clearTimeout(playTimer);
+    scheduleNextTick();
   }
 }
 
