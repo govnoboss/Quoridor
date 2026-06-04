@@ -13,13 +13,10 @@ let perspective = 0;
 let cachedBlob = null;
 let cachedURL = null;
 
-// Animation state
-let animFrame = null;
-let animStart = 0;
-let animDuration = 250;
-let animPrevSnap = null;
-let animNextSnap = null;
-let animMove = null;
+// Animation state (matching game.js architecture)
+let activeAnimations = {};   // { [playerIdx]: { start: {r,c}, end: {r,c}, startTime, duration } }
+let activeWallAnimations = {}; // { [key]: { startTime, duration } } where key = r-c-v/h
+let animFrame = null;       // requestAnimationFrame ID
 
 const canvas = document.getElementById('replayCanvas');
 const ctx = canvas.getContext('2d');
@@ -109,37 +106,12 @@ function tr(r) { return perspective === 1 ? 8 - r : r; }
 
 function draw() {
   ctx.clearRect(0, 0, BOARD, BOARD);
-
-  if (animPrevSnap && animNextSnap && animMove) {
-    var now = performance.now();
-    var t = Math.min((now - animStart) / animDuration, 1);
-    var ease = 1 - (1 - t) * (1 - t);
-
-    drawGrid(animNextSnap);
-    drawCoords();
-    drawAnimatedWalls(animPrevSnap, animNextSnap, t, animMove);
-    drawAnimatedPawns(animPrevSnap, animNextSnap, ease, animMove);
-
-    if (t < 1) {
-      animFrame = requestAnimationFrame(draw);
-    } else {
-      animPrevSnap = null;
-      animNextSnap = null;
-      animMove = null;
-      animFrame = null;
-      drawGrid(snapshots[currentMove]);
-      drawCoords();
-      drawWalls(snapshots[currentMove]);
-      drawPawns(snapshots[currentMove]);
-    }
-  } else {
-    var state = snapshots[currentMove];
-    if (!state) return;
-    drawGrid(state);
-    drawCoords();
-    drawWalls(state);
-    drawPawns(state);
-  }
+  var state = snapshots[currentMove];
+  if (!state) return;
+  drawGrid(state);
+  drawCoords();
+  drawWalls(state);
+  drawPawns(state);
 }
 
 function drawGrid(state) {
@@ -170,105 +142,118 @@ function drawCoords() {
   }
 }
 
-function drawWalls(state) {
-  ctx.fillStyle = '#e09f3e';
-  for (var r = 0; r < 8; r++) {
-    for (var c = 0; c < 8; c++) {
-      if (state.hWalls[r][c]) {
-        ctx.fillRect(c * CELL + GAP, (r + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
-      }
-      if (state.vWalls[r][c]) {
-        ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
-      }
-    }
-  }
-}
-
-function drawPawns(state) {
-  var radius = CELL * 0.35;
-  for (var i = 0; i < state.players.length; i++) {
-    var p = state.players[i];
-    var x = (p.pos.c + 0.5) * CELL;
-    var y = (tr(p.pos.r) + 0.5) * CELL;
-    ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  }
-}
-
-function drawAnimatedPawns(prevSnap, nextSnap, ease, move) {
-  var radius = CELL * 0.35;
-  for (var i = 0; i < nextSnap.players.length; i++) {
-    var p = nextSnap.players[i];
-    var x = (p.pos.c + 0.5) * CELL;
-    var y;
-
-    if (move && i === move.playerIdx && prevSnap && prevSnap.players[i]) {
-      var prevPos = prevSnap.players[i].pos;
-      var curR = prevPos.r + (p.pos.r - prevPos.r) * ease;
-      var curC = prevPos.c + (p.pos.c - prevPos.c) * ease;
-      x = (curC + 0.5) * CELL;
-      y = (tr(curR) + 0.5) * CELL;
-    } else {
-      y = (tr(p.pos.r) + 0.5) * CELL;
-    }
-
-    ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-  }
-}
-
+// [Animation] Helper for BackOut easing
 function backOut(t) {
   var c1 = 1.70158;
   var c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-function drawAnimatedWalls(prevSnap, nextSnap, t, move) {
+function drawWalls(state) {
+  ctx.fillStyle = '#e09f3e';
   for (var r = 0; r < 8; r++) {
     for (var c = 0; c < 8; c++) {
-      if (nextSnap.hWalls[r][c]) {
-        var isNew = move && move.type === 'wall' && !move.isVertical && move.r === r && move.c === c
-          && prevSnap && !prevSnap.hWalls[r][c];
-        if (isNew) {
-          var scale = backOut(t);
+      if (state.hWalls[r][c]) {
+        var key = r + '-' + c + '-h';
+        var anim = activeWallAnimations[key];
+        if (anim) {
+          // Wall is animating (appearing)
+          var now = performance.now();
+          var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+          var scale = backOut(progress);
           var len = CELL * 2 - GAP * 2;
           var currentLen = len * scale;
           var offset = (len - currentLen) / 2;
-          ctx.fillStyle = '#e09f3e';
           ctx.fillRect(c * CELL + GAP + offset, (r + 1) * CELL - WALL_THICK / 2, currentLen, WALL_THICK);
+
+          if (progress >= 1) {
+            delete activeWallAnimations[key];
+          } else {
+            animFrame = requestAnimationFrame(draw);
+          }
         } else {
-          ctx.fillStyle = '#e09f3e';
+          // Normal wall
           ctx.fillRect(c * CELL + GAP, (r + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
         }
       }
-      if (nextSnap.vWalls[r][c]) {
-        var isNew = move && move.type === 'wall' && move.isVertical && move.r === r && move.c === c
-          && prevSnap && !prevSnap.vWalls[r][c];
-        if (isNew) {
-          var scale = backOut(t);
+      if (state.vWalls[r][c]) {
+        var key = r + '-' + c + '-v';
+        var anim = activeWallAnimations[key];
+        if (anim) {
+          // Wall is animating (appearing)
+          var now = performance.now();
+          var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+          var scale = backOut(progress);
           var len = CELL * 2 - GAP * 2;
           var currentLen = len * scale;
           var offset = (len - currentLen) / 2;
-          ctx.fillStyle = '#e09f3e';
           ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP + offset, WALL_THICK, currentLen);
+
+          if (progress >= 1) {
+            delete activeWallAnimations[key];
+          } else {
+            animFrame = requestAnimationFrame(draw);
+          }
         } else {
-          ctx.fillStyle = '#e09f3e';
+          // Normal wall
           ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
         }
       }
     }
   }
 }
+
+// [Animation] Helper for linear interpolation
+function lerp(start, end, t) {
+  return start + (end - start) * t;
+}
+
+function drawPawns(state) {
+  var radius = CELL * 0.35;
+  for (var i = 0; i < state.players.length; i++) {
+    var p = state.players[i];
+    var x, y;
+    
+    // [Animation] Check if this pawn is currently animating
+    var anim = activeAnimations[i];
+    if (anim) {
+      // Interpolate position
+      var now = performance.now();
+      var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+      
+      // Use QuadEaseOut easing (same as game)
+      var ease = 1 - (1 - progress) * (1 - progress);
+      
+      // Logical coordinates lerp from start to end position
+      var curR = lerp(anim.start.r, p.pos.r, ease);
+      var curC = lerp(anim.start.c, p.pos.c, ease);
+      
+      x = (curC + 0.5) * CELL;
+      y = (tr(curR) + 0.5) * CELL;
+      
+      // Clean up if finished
+      if (progress >= 1) {
+        delete activeAnimations[i];
+      } else {
+        // Keep animating
+        animFrame = requestAnimationFrame(draw);
+      }
+    } else {
+      // Static position
+      x = (p.pos.c + 0.5) * CELL;
+      y = (tr(p.pos.r) + 0.5) * CELL;
+    }
+    
+    ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
 
 function getMoveData(idx) {
   if (idx <= 0 || !gameData || !gameData.history) return null;
@@ -416,16 +401,35 @@ function goToMove(idx, animate) {
 
   if (animate && idx === oldMove + 1 && idx > 0 && idx < snapshots.length) {
     cancelAnimationFrame(animFrame);
-    animPrevSnap = snapshots[idx - 1];
-    animNextSnap = snapshots[idx];
-    animMove = getMoveData(idx);
-    animDuration = animMove && animMove.type === 'wall' ? 150 : 120;
-    animStart = performance.now();
+    var prevSnap = snapshots[idx - 1];
+    var newSnap = snapshots[idx];
+    var move = getMoveData(idx);
+    
+    if (move) {
+      if (move.type === 'wall') {
+        var key = move.r + '-' + move.c + '-' + (move.isVertical ? 'v' : 'h');
+        activeWallAnimations[key] = {
+          startTime: performance.now(),
+          duration: 150
+        };
+        animFrame = requestAnimationFrame(draw);
+      } else if (move.type === 'pawn') {
+        var playerIdx = typeof move.playerIdx === 'number' ? move.playerIdx : prevSnap.currentPlayer;
+        var prevPos = prevSnap.players[playerIdx].pos;
+        var newPos = newSnap.players[playerIdx].pos;
+        activeAnimations[playerIdx] = {
+          start: { r: prevPos.r, c: prevPos.c },
+          end: { r: newPos.r, c: newPos.c },
+          startTime: performance.now(),
+          duration: 120
+        };
+        animFrame = requestAnimationFrame(draw);
+      }
+    }
   } else {
     cancelAnimationFrame(animFrame);
-    animPrevSnap = null;
-    animNextSnap = null;
-    animMove = null;
+    activeAnimations = {};
+    activeWallAnimations = {};
   }
 
   draw();
@@ -481,9 +485,8 @@ function setSpeed(speed) {
 function togglePerspective() {
   perspective = perspective === 0 ? 1 : 0;
   cancelAnimationFrame(animFrame);
-  animPrevSnap = null;
-  animNextSnap = null;
-  animMove = null;
+  activeAnimations = {};
+  activeWallAnimations = {};
   updatePlayerBars();
   draw();
   if (cachedURL) {
