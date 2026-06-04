@@ -291,6 +291,8 @@ const Game = {
     } else {
       UI.showRematchBtn(false);
       UI.showNewGameBtn(false);
+      UI.showReplayBtn(true);
+      this.saveGameSummary(winnerIdx, reason);
     }
 
     // Rating changes display
@@ -329,6 +331,26 @@ const Game = {
     }
   },
 
+  saveGameSummary(winnerIdx, reason) {
+    try {
+      const summary = {
+        gameId: this.state.gameId,
+        date: Date.now(),
+        gameMode: this.state.gameMode || 'local',
+        winner: winnerIdx,
+        reason: reason || 'Goal reached',
+        turns: (this.state.history || []).length,
+        playerWhite: { name: this.state.playerProfiles?.[0]?.name || 'White' },
+        playerBlack: { name: this.state.playerProfiles?.[1]?.name || 'Black' },
+        botDifficulty: this.state.botDifficulty || 'none'
+      };
+      const list = JSON.parse(localStorage.getItem('quoridor_games_list') || '[]');
+      list.unshift(summary);
+      if (list.length > 50) list.length = 50;
+      localStorage.setItem('quoridor_games_list', JSON.stringify(list));
+    } catch (e) {}
+  },
+
   goToMainMenu() {
     const modal = document.getElementById('resultModal');
     if (modal) {
@@ -346,6 +368,7 @@ const Game = {
     }
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
+    UI.showReplayBtn(false);
 
     if (typeof UI !== 'undefined') {
       UI.clearLobbyRoute();
@@ -682,6 +705,7 @@ const Game = {
       localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
     }
     this.state.gameId = "local_" + Date.now();
+    UI.showReplayBtn(false);
 
     this._initialSnapshot = Shared.cloneState(this.state);
     this.restoreGameUI();

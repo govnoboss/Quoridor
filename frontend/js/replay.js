@@ -45,6 +45,58 @@ function loadGame(gameId) {
     .catch(function () { info.textContent = 'Failed to load game.'; });
 }
 
+function loadLocalGame(gameId) {
+  var info = document.getElementById('replayInfo');
+  info.textContent = 'Loading local replay...';
+
+  try {
+    var saved = localStorage.getItem('quoridor_hist_' + gameId);
+    if (!saved) {
+      info.textContent = 'Local replay data not found.';
+      return;
+    }
+    var history = JSON.parse(saved);
+    if (!history || !history.length) {
+      info.textContent = 'Local replay is empty.';
+      return;
+    }
+
+    var summary = null;
+    try {
+      var list = JSON.parse(localStorage.getItem('quoridor_games_list') || '[]');
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].gameId === gameId) { summary = list[i]; break; }
+      }
+    } catch (e) {}
+
+    gameData = {
+      _local: true,
+      history: history,
+      playerWhite: { username: summary?.playerWhite?.name || 'White', avatar: null },
+      playerBlack: { username: summary?.playerBlack?.name || 'Black', avatar: null },
+      winner: summary?.winner ?? -1,
+      reason: summary?.reason || 'goal',
+      turns: summary?.turns || history.length,
+      gameType: 'rapid',
+      date: summary?.date ? new Date(summary.date).toISOString() : new Date().toISOString()
+    };
+
+    info.textContent = '';
+    if (gameData.history && gameData.history.length > 0) {
+      buildSnapshots();
+      currentMove = 0;
+      renderMoveHistory();
+      updatePlayerBars();
+      draw();
+      updateResult();
+    } else {
+      info.textContent = 'No replay data for this game.';
+    }
+  } catch (e) {
+    info.textContent = 'Failed to load local replay.';
+  }
+}
+
 function getBaseTime() {
   var t = gameData?.gameType;
   if (t === 'bullet') return 120;
@@ -291,9 +343,9 @@ function updatePlayerBars() {
   var topAvatar = document.getElementById('topPlayerAvatar');
   var bottomAvatar = document.getElementById('bottomPlayerAvatar');
   if (topPlayer?.avatar) topAvatar.src = topPlayer.avatar;
-  else topAvatar.src = 'https://ui-avatars.com/api/?name=B&background=333&color=fff';
+  else topAvatar.src = 'https://ui-avatars.com/api/?name=' + (topPlayer?.username?.[0] || 'B') + '&background=333&color=fff';
   if (bottomPlayer?.avatar) bottomAvatar.src = bottomPlayer.avatar;
-  else bottomAvatar.src = 'https://ui-avatars.com/api/?name=W&background=333&color=fff';
+  else bottomAvatar.src = 'https://ui-avatars.com/api/?name=' + (bottomPlayer?.username?.[0] || 'W') + '&background=333&color=fff';
 
   document.getElementById('topPlayerTimer').textContent = formatTime(state.timers[topIdx]);
   document.getElementById('bottomPlayerTimer').textContent = formatTime(state.timers[bottomIdx]);
@@ -502,6 +554,12 @@ function togglePerspective() {
 }
 
 function copyLink() {
+  if (gameData?._local) {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = 'Local replay';
+    setTimeout(function () { btn.textContent = '\uD83D\uDCCB Copy Link'; }, 2000);
+    return;
+  }
   navigator.clipboard.writeText(window.location.href).then(function () {
     var btn = document.getElementById('copyBtn');
     btn.textContent = '\u2713 Copied!';

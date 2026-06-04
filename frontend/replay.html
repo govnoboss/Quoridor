@@ -111,7 +111,13 @@
     <script src="/js/replay.js"></script>
     <script>
         var gameId = window.location.pathname.split('/').pop();
-        if (gameId && gameId.length > 5) loadGame(gameId);
+        if (gameId && gameId.length > 5) {
+            if (gameId.startsWith('local_')) {
+                loadLocalGame(gameId);
+            } else {
+                loadGame(gameId);
+            }
+        }
     </script>
 </body>
 </html>

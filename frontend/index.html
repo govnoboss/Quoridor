@@ -105,6 +105,7 @@
           <button id="playFriendBtn" onclick="UI.onPlayFriendClick()" data-i18n="menu_play_friend">Играть с
             другом</button>
           <button onclick="UI.onPlayLocalClick()" data-i18n="menu_local_game">Локальная игра</button>
+          <button onclick="UI.showLocalHistory()">История игр</button>
           <button onclick="UI.showDynamicPanel('panelSettings')" data-i18n="menu_settings">Настройки</button>
           <button onclick="UI.showDynamicPanel('panelHowToPlay')" data-i18n="menu_howtoplay">Как играть</button>
         </div>
@@ -188,6 +189,15 @@
             <button onclick="Game.startVsBot('black')" class="primary-btn" data-i18n="btn_color_black">Чёрные</button>
             <button onclick="UI.showDynamicPanel('panelMode')" data-i18n="btn_back">← Назад</button>
           </div>
+        </div>
+
+        <!-- Панель: История локальных игр -->
+        <div id="panelLocalHistory" class="dynamic-content hidden">
+          <h3>История игр</h3>
+          <div id="localHistoryList" class="panel-buttons" style="max-height: 300px; overflow-y: auto;">
+            <p style="color: #888; text-align: center;">No games yet.</p>
+          </div>
+          <button onclick="UI.hideDynamicPanel()" data-i18n="btn_back">← Назад</button>
         </div>
 
         <!-- Панель: Как играть -->
@@ -522,6 +532,7 @@
         <button class="result-btn primary hidden" id="newGameBtn" onclick="Net.startNewGame()" data-i18n="btn_new_game">New Game</button>
         <div class="result-secondary-row">
           <button class="result-btn primary hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
+          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.state.gameId)">View Replay</button>
           <button class="result-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">Exit</button>
         </div>
       </div>
