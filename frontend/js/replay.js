@@ -335,6 +335,15 @@ function copyLink() {
 
 async function exportVideo() {
   if (snapshots.length < 2) return;
+
+  var progressEl = document.getElementById('exportProgress');
+  var progressBar = document.getElementById('exportBar');
+  var modal = document.getElementById('exportModal');
+  var preview = document.getElementById('exportPreview');
+  modal.style.display = 'flex';
+  progressEl.style.display = 'block';
+  preview.style.display = 'none';
+
   if (typeof VideoEncoder === 'undefined') {
     exportFallback();
     return;
@@ -349,14 +358,6 @@ async function exportVideo() {
   var bottomBarH = 1920 - boardSize - topBarH;
   var fps = 30;
   var framesPerMove = fps;
-
-  var progressEl = document.getElementById('exportProgress');
-  var progressBar = document.getElementById('exportBar');
-  var modal = document.getElementById('exportModal');
-  var preview = document.getElementById('exportPreview');
-  modal.style.display = 'flex';
-  progressEl.style.display = 'block';
-  preview.style.display = 'none';
 
   try {
     var muxer = new Mp4Muxer.Muxer({
