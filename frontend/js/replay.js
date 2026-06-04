@@ -153,6 +153,7 @@ function drawWalls(state) {
   ctx.fillStyle = '#e09f3e';
   for (var r = 0; r < 8; r++) {
     for (var c = 0; c < 8; c++) {
+      var displayRWall = perspective === 1 ? 7 - r : r;
       if (state.hWalls[r][c]) {
         var key = r + '-' + c + '-h';
         var anim = activeWallAnimations[key];
@@ -164,7 +165,7 @@ function drawWalls(state) {
           var len = CELL * 2 - GAP * 2;
           var currentLen = len * scale;
           var offset = (len - currentLen) / 2;
-          ctx.fillRect(c * CELL + GAP + offset, (r + 1) * CELL - WALL_THICK / 2, currentLen, WALL_THICK);
+          ctx.fillRect(c * CELL + GAP + offset, (displayRWall + 1) * CELL - WALL_THICK / 2, currentLen, WALL_THICK);
 
           if (progress >= 1) {
             delete activeWallAnimations[key];
@@ -173,7 +174,7 @@ function drawWalls(state) {
           }
         } else {
           // Normal wall
-          ctx.fillRect(c * CELL + GAP, (r + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
+          ctx.fillRect(c * CELL + GAP, (displayRWall + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
         }
       }
       if (state.vWalls[r][c]) {
@@ -187,7 +188,7 @@ function drawWalls(state) {
           var len = CELL * 2 - GAP * 2;
           var currentLen = len * scale;
           var offset = (len - currentLen) / 2;
-          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP + offset, WALL_THICK, currentLen);
+          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, displayRWall * CELL + GAP + offset, WALL_THICK, currentLen);
 
           if (progress >= 1) {
             delete activeWallAnimations[key];
@@ -196,7 +197,7 @@ function drawWalls(state) {
           }
         } else {
           // Normal wall
-          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, r * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
+          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, displayRWall * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
         }
       }
     }
@@ -490,10 +491,13 @@ function togglePerspective() {
   updatePlayerBars();
   draw();
   if (cachedURL) {
-    var video = document.getElementById('exportVideo');
-    if (video) {
-      video.style.transform = perspective === 1 ? 'scaleY(-1)' : '';
-    }
+    URL.revokeObjectURL(cachedURL);
+    cachedURL = null;
+    cachedBlob = null;
+    var preview = document.getElementById('exportPreview');
+    if (preview) preview.style.display = 'none';
+    var progressEl = document.getElementById('exportProgress');
+    if (progressEl) progressEl.style.display = 'none';
   }
 }
 
@@ -716,6 +720,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   ectx.fillStyle = '#e09f3e';
   for (var r2 = 0; r2 < 8; r2++) {
     for (var c2 = 0; c2 < 8; c2++) {
+      var displayRWall = perspective === 1 ? 7 - r2 : r2;
       if (state.hWalls[r2][c2]) {
         var isNew = isAnimating && move.type === 'wall' && !move.isVertical
           && move.r === r2 && move.c === c2 && prevState && !prevState.hWalls[r2][c2];
@@ -724,9 +729,9 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
           var len = cellSize * 2 - GAP * 2;
           var curLen = len * bs;
           var off = (len - curLen) / 2;
-          ectx.fillRect(c2 * cellSize + GAP + off, (r2 + 1) * cellSize - WALL_THICK / 2, curLen, WALL_THICK);
+          ectx.fillRect(c2 * cellSize + GAP + off, (displayRWall + 1) * cellSize - WALL_THICK / 2, curLen, WALL_THICK);
         } else {
-          ectx.fillRect(c2 * cellSize + GAP, (r2 + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
+          ectx.fillRect(c2 * cellSize + GAP, (displayRWall + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
         }
       }
       if (state.vWalls[r2][c2]) {
@@ -737,9 +742,9 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
           var len = cellSize * 2 - GAP * 2;
           var curLen = len * bs;
           var off = (len - curLen) / 2;
-          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP + off, WALL_THICK, curLen);
+          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, displayRWall * cellSize + GAP + off, WALL_THICK, curLen);
         } else {
-          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, r2 * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
+          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, displayRWall * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
         }
       }
     }
