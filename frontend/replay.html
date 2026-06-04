@@ -82,20 +82,27 @@
                     <button id="copyBtn" class="replay-action-btn" onclick="copyLink()">&#x1F4CB; Copy Link</button>
                 </div>
 
-                <button class="replay-export-btn" onclick="exportVideo()">&#x1F3AC; Export MP4</button>
+                <button class="replay-export-btn" onclick="exportVideo()">&#x2B07; Download</button>
             </div>
         </div>
     </div>
 
     <div id="exportModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeExportModal()">
-        <div class="modal-content">
+        <div class="modal-content modal-content--narrow">
             <button class="modal-close" onclick="closeExportModal()">&times;</button>
-            <h2>Export Video</h2>
             <div id="exportProgress">
+                <p class="rendering-label">Rendering video</p>
                 <div class="progress-bar"><div id="exportBar" class="progress-fill"></div></div>
-                <p>Encoding...</p>
             </div>
-            <div id="exportPreview" style="display:none"></div>
+            <div id="exportPreview" style="display:none">
+                <video id="exportVideo" controls class="export-video"></video>
+                <div class="video-speed-row">
+                    <button class="speed-btn" onclick="setVideoSpeed(0.5)">0.5x</button>
+                    <button class="speed-btn active" onclick="setVideoSpeed(1)">1x</button>
+                    <button class="speed-btn" onclick="setVideoSpeed(2)">2x</button>
+                </div>
+                <a id="downloadLink" class="export-btn">&#x2B07; Download MP4</a>
+            </div>
         </div>
     </div>
 
