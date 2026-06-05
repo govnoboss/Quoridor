@@ -288,6 +288,13 @@ class GameSimulator {
         }
     }
 
+    async refreshBotNames() {
+        const docs = await this.User.find({ isBot: true, seedId: { $regex: /^qbot-/ } });
+        for (const bot of docs) {
+            this.botNameMap[bot._id.toString()] = bot.username;
+        }
+    }
+
     getStats() {
         return {
             activeGames: this.activeGames.size,
