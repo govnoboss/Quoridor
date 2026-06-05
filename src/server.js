@@ -41,6 +41,10 @@ const GameResult = require('./models/GameResult'); // Архив игр
 const BotSettings = require('./models/BotSettings');
 const { ACCOUNT_BOTS } = require('./bots/defaultBots');
 const { upsertAccountBot } = require('./bots/botSeed');
+const BotActivitySchedule = require('./simulation/BotActivitySchedule');
+const PresenceSimulator = require('./simulation/PresenceSimulator');
+const GameSimulator = require('./simulation/GameSimulator');
+const { syncRankedBots } = require('./simulation/PopulationManager');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -335,6 +339,11 @@ async function seedBotAccounts(password = null) {
         else result.updated++;
     }
 
+    // Also sync all 20 ranked bots
+    const popResult = await syncRankedBots(User, password);
+    result.created += popResult.created;
+    result.updated += popResult.updated;
+
     return result;
 }
 
@@ -351,6 +360,12 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
         res.json({
             settings,
             runtime: botManager.getRuntimeStats(),
+            simulation: {
+                enabled: process.env.SIMULATION_ENABLED !== 'false' && botActivitySchedule !== null,
+                schedule: botActivitySchedule ? botActivitySchedule.getStats() : null,
+                presence: presenceSimulator ? presenceSimulator.getStats() : null,
+                games: gameSimulator ? gameSimulator.getStats() : null,
+            },
             bots: bots.map(bot => ({
                 id: bot._id,
                 username: bot.username,
@@ -358,6 +373,7 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
                 avatarUrl: bot.avatarUrl,
                 country: bot.country,
                 stats: bot.stats || {},
+                seedId: bot.seedId,
             })),
         });
     } catch (err) {
@@ -449,11 +465,11 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     }
 });
 
-// Leaderboard API - top humans and bot accounts by rating
+// Leaderboard API - top players (humans + bots) by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
+        const topPlayers = await User.find({ isAdmin: { $ne: true } })
             .select('username rating avatarUrl isBot')
             .sort({ rating: -1 })
             .limit(limit);
@@ -1133,6 +1149,10 @@ const botManager = new BotManager({
     applyBotMove,
 });
 
+let botActivitySchedule = null;
+let presenceSimulator = null;
+let gameSimulator = null;
+
 async function collectPresenceStats() {
     const gameIds = await Redis.getActiveGameIds();
     const liveGames = [];
@@ -1171,13 +1191,23 @@ async function collectPresenceStats() {
         });
     });
 
-    return {
+    const base = {
         online: humans.length,
         playing: gameIds.length * 2,
         humans,
         bots: [],
         liveGames,
     };
+
+    if (presenceSimulator) {
+        const sim = presenceSimulator.getPresence(humans.length);
+        base.online = sim.online;
+        base.playing += sim.playing;
+        base.bots = sim.bots;
+        base.liveGames = base.liveGames.concat(sim.liveGames);
+    }
+
+    return base;
 }
 
 function schedulePresenceBroadcast() {
@@ -2304,6 +2334,35 @@ async function startServer() {
         await cleanupStaleGames();
         console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
 
+        // Sync ranked bot population
+        const popResult = await syncRankedBots(User);
+        console.log(`[POPULATION] Synced ranked bots: created=${popResult.created} updated=${popResult.updated}`);
+
+        // Initialize simulation system
+        const rankedBotDocs = await User.find({ isBot: true, seedId: { $regex: /^qbot-/ } });
+        const rankedBotIds = rankedBotDocs.map(b => b._id.toString());
+        console.log(`[SIMULATION] Found ${rankedBotIds.length} ranked bots in DB`);
+
+        if (rankedBotIds.length >= 2 && process.env.SIMULATION_ENABLED !== 'false') {
+            botActivitySchedule = new BotActivitySchedule(rankedBotIds);
+            presenceSimulator = new PresenceSimulator();
+            gameSimulator = new GameSimulator({
+                Shared,
+                AICore: require('./core/ai-core'),
+                User,
+                GameResult,
+                BotActivitySchedule: botActivitySchedule,
+                PresenceSimulator: presenceSimulator,
+            });
+
+            botActivitySchedule.update();
+            presenceSimulator.start();
+            gameSimulator.start(rankedBotDocs);
+            console.log('[SIMULATION] Started presence simulator + game simulator');
+        } else {
+            console.log('[SIMULATION] Skipped — need >=2 ranked bots in DB');
+        }
+
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
         const env = process.env.NODE_ENV || 'development';
@@ -2321,6 +2380,8 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
+    if (presenceSimulator) presenceSimulator.stop();
+    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
@@ -2328,6 +2389,8 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
     console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
+    if (presenceSimulator) presenceSimulator.stop();
+    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
