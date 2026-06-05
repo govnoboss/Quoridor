@@ -493,7 +493,7 @@ app.get('/api/profiles/:username/games', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true } })
+        const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
             .select('username rating avatarUrl')
             .sort({ rating: -1 })
             .limit(limit);
@@ -2364,24 +2364,12 @@ async function startServer() {
         console.log(`[SIMULATION] Found ${rankedBotIds.length} ranked bots in DB`);
 
         if (rankedBotIds.length >= 2 && process.env.SIMULATION_ENABLED !== 'false') {
-            botActivitySchedule = new BotActivitySchedule(rankedBotIds);
             presenceSimulator = new PresenceSimulator({
-                onlineMin: parseInt(process.env.SIM_ONLINE_MIN) || 100,
-                onlineMax: parseInt(process.env.SIM_ONLINE_MAX) || 200,
+                onlineMin: parseInt(process.env.SIM_ONLINE_MIN) || 10,
+                onlineMax: parseInt(process.env.SIM_ONLINE_MAX) || 20,
             });
-            gameSimulator = new GameSimulator({
-                Shared,
-                AICore: require('./core/ai-core'),
-                User,
-                GameResult,
-                BotActivitySchedule: botActivitySchedule,
-                PresenceSimulator: presenceSimulator,
-            });
-
-            botActivitySchedule.update();
             presenceSimulator.start();
-            gameSimulator.start(rankedBotDocs);
-            console.log('[SIMULATION] Started presence simulator + game simulator');
+            console.log('[SIMULATION] Started presence simulator (no bot games)');
         } else {
             console.log('[SIMULATION] Skipped — need >=2 ranked bots in DB');
         }
