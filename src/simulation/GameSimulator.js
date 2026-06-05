@@ -125,6 +125,10 @@ class GameSimulator {
     async _tickActiveGames() {
         for (const [gameId, game] of this.activeGames) {
             if (!game.aiReady || game.finished) continue;
+
+            const state = game.state;
+            const over = this.Shared.isGameOver(state);
+
             if (over.over) {
                 await this._finalizeGame(gameId, over);
                 continue;
@@ -140,12 +144,12 @@ class GameSimulator {
                     continue;
                 }
 
-                const result = this.Shared.gameReducer(state, { ...move, playerIdx: botIdx });
-                Object.assign(state, result.state);
+                const newState = this.Shared.gameReducer(state, { ...move, playerIdx: botIdx });
+                game.state = newState;
                 game.currentMoveIdx++;
 
-                if (this.Shared.isGameOver(state).over) {
-                    await this._finalizeGame(gameId, this.Shared.isGameOver(state));
+                if (this.Shared.isGameOver(newState).over) {
+                    await this._finalizeGame(gameId, this.Shared.isGameOver(newState));
                 }
             } catch (err) {
                 this.logger.error(`[SIM] Move error ${gameId}:`, err);
