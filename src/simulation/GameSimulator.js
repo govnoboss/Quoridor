@@ -51,7 +51,7 @@ class GameSimulator {
         const useRanked = Math.random() < 0.65;
         const pool = useRanked ? this.rankedBotIds : this.guestBotIds;
 
-        if (pool.length < 2) { console.log('[SIM] pool < 2'); return; }
+        if (pool.length < 2) return;
 
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         let botA = null;
@@ -65,7 +65,7 @@ class GameSimulator {
             else if (botB === null) { botB = id; break; }
         }
 
-        if (botA === null || botB === null) { console.log('[SIM] no bots available'); return; }
+        if (botA === null || botB === null) return;
 
         const gameId = `sim-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         this.activeGames.set(gameId, {
@@ -116,7 +116,6 @@ class GameSimulator {
 
             game.state = state;
             game.aiReady = true;
-            console.log('[SIM] Game created:', gameId, game.isRanked ? 'ranked' : 'casual');
         } catch (err) {
             this.logger.error('[SIM] Failed to init game:', err);
             this.activeGames.delete(gameId);
@@ -126,9 +125,6 @@ class GameSimulator {
     async _tickActiveGames() {
         for (const [gameId, game] of this.activeGames) {
             if (!game.aiReady || game.finished) continue;
-
-            const state = game.state;
-            const over = this.Shared.isGameOver(state);
             if (over.over) {
                 await this._finalizeGame(gameId, over);
                 continue;
@@ -144,7 +140,7 @@ class GameSimulator {
                     continue;
                 }
 
-                const result = this.Shared.gameReducer(state, { playerIdx: botIdx, move });
+                const result = this.Shared.gameReducer(state, { ...move, playerIdx: botIdx });
                 Object.assign(state, result.state);
                 game.currentMoveIdx++;
 
