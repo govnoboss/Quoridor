@@ -2365,7 +2365,10 @@ async function startServer() {
 
         if (rankedBotIds.length >= 2 && process.env.SIMULATION_ENABLED !== 'false') {
             botActivitySchedule = new BotActivitySchedule(rankedBotIds);
-            presenceSimulator = new PresenceSimulator();
+            presenceSimulator = new PresenceSimulator({
+                onlineMin: parseInt(process.env.SIM_ONLINE_MIN) || 100,
+                onlineMax: parseInt(process.env.SIM_ONLINE_MAX) || 200,
+            });
             gameSimulator = new GameSimulator({
                 Shared,
                 AICore: require('./core/ai-core'),
