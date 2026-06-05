@@ -51,7 +51,7 @@ class GameSimulator {
         const useRanked = Math.random() < 0.65;
         const pool = useRanked ? this.rankedBotIds : this.guestBotIds;
 
-        if (pool.length < 2) return;
+        if (pool.length < 2) { console.log('[SIM] pool < 2'); return; }
 
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         let botA = null;
@@ -65,7 +65,7 @@ class GameSimulator {
             else if (botB === null) { botB = id; break; }
         }
 
-        if (botA === null || botB === null) return;
+        if (botA === null || botB === null) { console.log('[SIM] no bots available'); return; }
 
         const gameId = `sim-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         this.activeGames.set(gameId, {
@@ -116,6 +116,7 @@ class GameSimulator {
 
             game.state = state;
             game.aiReady = true;
+            console.log('[SIM] Game created:', gameId, game.isRanked ? 'ranked' : 'casual');
         } catch (err) {
             this.logger.error('[SIM] Failed to init game:', err);
             this.activeGames.delete(gameId);
