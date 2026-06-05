@@ -209,10 +209,7 @@
 
             // 2. Base Distance Score
             // Reduce own distance, increase opponent distance.
-            score += (dHuman - dBot) * 120;
-
-            // Extra penalty when bot is behind opponent (discourages retreating)
-            if (dBot > dHuman) score -= (dBot - dHuman) * 30;
+            score += (dHuman - dBot) * 100;
 
             // 3. Progressive Urgency (Quadratic-like)
             // Replaces the "Cliff" (+/- 500 at dist 3).
@@ -251,7 +248,7 @@
             else score -= 60;
 
             // Ahead Bonus (Push harder if winning)
-            if (dBot < dHuman) score += 80;
+            if (dBot < dHuman) score += 50;
 
             // 6. Mobility Score — penalize being cornered or in a narrow corridor.
             // Count reachable moves from current position; fewer options = worse position.
@@ -615,7 +612,7 @@
             const historySource = state.history || [];
             const myMoves = historySource
                 .filter(h => h.playerIdx === botIdx && h.move && h.move.type === 'pawn')
-                .slice(-10); // track last 10 pawn moves to prevent cycling
+                .slice(-6); // FIX 2: track last 6 moves (was 4) for wider oscillation detection
             for (const m of myMoves) {
                 avoidPositions.add(`${m.move.r},${m.move.c}`);
             }
@@ -656,7 +653,7 @@
 
                         // FIX 2: Penalize loop moves with stronger penalty (was 500, now 2000)
                         if (move.type === 'pawn' && avoidPositions.has(`${move.r},${move.c}`)) {
-                            score -= 5000;
+                            score -= 2000;
                         }
 
                         this.undoMove(state, move, botIdx);
@@ -701,14 +698,6 @@
             this.debugLog(`Chosen: ${this.formatMove(bestGlobalMove)}`);
             this.debugLog(`Score: ${bestGlobalScore.toFixed(0)}`);
             this.debugLog(`Depth: ${finalDepth}, Nodes: ${this.nodesVisited}, Time: ${totalTime}ms`);
-
-            const epsilon = { easy: 0.4, medium: 0.12, hard: 0.03 }[difficulty] || 0;
-            if (Math.random() < epsilon && moves.length > 1) {
-                const subset = moves.slice(0, Math.min(3, moves.length));
-                const pick = subset[Math.floor(Math.random() * subset.length)];
-                this.debugLog(`Epsilon-greedy: picked ${this.formatMove(pick)} instead of ${this.formatMove(bestGlobalMove)}`);
-                return pick;
-            }
 
             return bestGlobalMove;
         }
