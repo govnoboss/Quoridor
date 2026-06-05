@@ -138,10 +138,20 @@ class GameSimulator {
             const difficulty = botIdx === 0 ? game.difficultyA : game.difficultyB;
 
             try {
-                const move = this.AICore.think(state, botIdx, difficulty);
+                let move = this.AICore.think(state, botIdx, difficulty);
                 if (!move) {
                     this.logger.warn(`[SIM] AI returned null move for ${gameId}`);
                     continue;
+                }
+
+                if (Math.random() < 0.15) {
+                    const allMoves = this.AICore.generateMoves(state, botIdx, 5);
+                    if (allMoves.length > 1) {
+                        const others = allMoves.filter(m => m.type !== move.type || m.r !== move.r || m.c !== move.c);
+                        if (others.length > 0) {
+                            move = others[Math.floor(Math.random() * others.length)];
+                        }
+                    }
                 }
 
                 const newState = this.Shared.gameReducer(state, { ...move, playerIdx: botIdx });
@@ -235,8 +245,8 @@ class GameSimulator {
     }
 
     _difficultyForBot(botId) {
-        if (typeof botId === 'string' && botId.startsWith('guest-')) return 'easy';
-        return 'medium';
+        const difficulties = ['easy', 'medium', 'hard'];
+        return difficulties[Math.floor(Math.random() * difficulties.length)];
     }
 
     _isBotBusy(botId) {
