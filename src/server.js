@@ -421,20 +421,6 @@ app.post('/api/admin/bots/seed', requireAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/admin/bots/reset', async (req, res) => {
-    try {
-        const del = await GameResult.deleteMany({ gameType: 'bot' });
-        const upd = await User.updateMany(
-            { isBot: true },
-            { $set: { rating: 1200, 'stats.totalGames': 0, 'stats.wins': 0, 'stats.losses': 0 } }
-        );
-        res.json({ deletedGames: del.deletedCount, resetBots: upd.modifiedCount });
-    } catch (err) {
-        console.error('[ADMIN] Failed to reset bot data:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
 app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
     try {
         const { id, username } = req.body;
