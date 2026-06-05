@@ -699,6 +699,14 @@
             this.debugLog(`Score: ${bestGlobalScore.toFixed(0)}`);
             this.debugLog(`Depth: ${finalDepth}, Nodes: ${this.nodesVisited}, Time: ${totalTime}ms`);
 
+            const epsilon = { easy: 0.4, medium: 0.12, hard: 0.03 }[difficulty] || 0;
+            if (Math.random() < epsilon && moves.length > 1) {
+                const subset = moves.slice(0, Math.min(3, moves.length));
+                const pick = subset[Math.floor(Math.random() * subset.length)];
+                this.debugLog(`Epsilon-greedy: picked ${this.formatMove(pick)} instead of ${this.formatMove(bestGlobalMove)}`);
+                return pick;
+            }
+
             return bestGlobalMove;
         }
     };
