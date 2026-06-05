@@ -12,14 +12,11 @@ async function syncRankedBots(User, passwordOverride) {
         const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(bot.username)}&background=random`;
 
         if (existing) {
-            existing.username = bot.username;
             existing.isBot = true;
-            existing.rating = bot.rating;
-            existing.country = bot.country;
-            existing.avatarUrl = existing.avatarUrl || avatarUrl;
             existing.seedId = bot.seedId;
-            existing.bio = existing.bio || '';
-            existing.status = existing.status || '';
+            if (!existing.avatarUrl) existing.avatarUrl = avatarUrl;
+            if (!existing.bio) existing.bio = '';
+            if (!existing.status) existing.status = '';
             if (!existing.stats) existing.stats = { totalGames: 0, wins: 0, losses: 0, playTimeSeconds: 0 };
             await existing.save();
             results.updated++;
