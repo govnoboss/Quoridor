@@ -134,6 +134,17 @@
         .badge-offline { background: #451a03; color: #fbbf24; }
         .badge-playing { background: #1e3a5f; color: #93c5fd; }
         .badge-cooldown { background: #3b0764; color: #d8b4fe; }
+        .btn-small {
+            background: none;
+            border: 1px solid #555;
+            color: #aaa;
+            cursor: pointer;
+            padding: 0 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .btn-small:hover { background: #333; color: #fff; }
+        .bot-name-text { margin-right: 6px; }
     </style>
 </head>
 <body>
@@ -266,8 +277,10 @@
                 const statusBadge = isRanked
                     ? '<span class="status-badge badge-online">ranked</span>'
                     : '<span class="status-badge badge-offline">legacy</span>';
-                tr.innerHTML = `
-                    <td>${bot.username}</td>
+                const nameCell = document.createElement('td');
+                nameCell.innerHTML = `<span class="bot-name-text">${bot.username}</span> <button class="btn-small" onclick="renameBot('${bot.id}', '${bot.username}')">✎</button>`;
+                tr.appendChild(nameCell);
+                tr.innerHTML += `
                     <td>${bot.rating || 1200}</td>
                     <td>${bot.country || 'XX'}</td>
                     <td class="meta">${bot.seedId || '-'}</td>
@@ -365,6 +378,24 @@
             const data = await res.json();
             renderBots(data.bots || []);
             setStatus('seedStatus', `Populated. Total bots in DB: ${(data.bots || []).length}`, 'ok');
+        }
+
+        async function renameBot(id, currentName) {
+            const newName = prompt('New username for bot:', currentName);
+            if (!newName || newName === currentName) return;
+            const res = await fetch('/api/admin/bots/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ id, username: newName })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert('Error: ' + (err.error || res.statusText));
+                return;
+            }
+            setStatus('seedStatus', `Bot renamed to ${newName}`, 'ok');
+            loadPanel();
         }
 
         document.getElementById('saveSettingsBtn').addEventListener('click', () => {

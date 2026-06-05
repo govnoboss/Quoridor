@@ -421,6 +421,30 @@ app.post('/api/admin/bots/seed', requireAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
+    try {
+        const { id, username } = req.body;
+        if (!id || !username) return res.status(400).json({ error: 'Missing id or username' });
+        if (username.length < 3 || username.length > 20) return res.status(400).json({ error: 'Username must be 3-20 chars' });
+
+        const bot = await User.findOne({ _id: id, isBot: true });
+        if (!bot) return res.status(404).json({ error: 'Bot not found' });
+
+        const existing = await User.findOne({ username });
+        if (existing && existing._id.toString() !== id) return res.status(409).json({ error: 'Username taken' });
+
+        bot.username = username;
+        await bot.save();
+
+        if (gameSimulator) await gameSimulator.refreshBotNames();
+
+        res.json({ success: true, username });
+    } catch (err) {
+        console.error('[ADMIN] Failed to rename bot:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // --- PROFILE API ---
 
 // Public Profile Data
