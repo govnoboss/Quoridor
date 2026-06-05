@@ -470,7 +470,7 @@ app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
         const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl isBot')
+            .select('username rating avatarUrl')
             .sort({ rating: -1 })
             .limit(limit);
         res.json(topPlayers);
@@ -1169,14 +1169,8 @@ async function collectPresenceStats() {
         liveGames.push({
             lobbyId,
             players: [
-                {
-                    name: player0Name,
-                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 0),
-                },
-                {
-                    name: player1Name,
-                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 1),
-                },
+                { name: player0Name },
+                { name: player1Name },
             ],
         });
     }
@@ -1186,7 +1180,6 @@ async function collectPresenceStats() {
         if (socket.username === 'admin-botops') return;
         humans.push({
             name: socket.username || 'Guest',
-            isBot: false,
             inQueue: Boolean(socket.searchToken),
         });
     });
@@ -1203,8 +1196,11 @@ async function collectPresenceStats() {
         const sim = presenceSimulator.getPresence(humans.length);
         base.online = sim.online;
         base.playing += sim.playing;
-        base.bots = sim.bots;
-        base.liveGames = base.liveGames.concat(sim.liveGames);
+        base.bots = sim.bots.map(b => { const { isBot, ...rest } = b; return rest; });
+        base.liveGames = base.liveGames.concat(sim.liveGames.map(g => ({
+            ...g,
+            players: g.players.map(p => { const { isBot, ...rest } = p; return rest; }),
+        })));
     }
 
     return base;

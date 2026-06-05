@@ -34,7 +34,7 @@ const UI = {
       info_games_list_title: "Матчи",
       presence_empty: "Пока никого",
       presence_no_games: "Нет активных партий",
-      presence_bot_tag: "бот",
+
       info_leaderboard_title: "Лидеры",
       info_hint: "Рейтинг обновляется в реальном времени",
       screen_mode_title: "Выберите режим",
@@ -188,7 +188,7 @@ const UI = {
       info_games_list_title: "Live games",
       presence_empty: "Nobody here yet",
       presence_no_games: "No active games",
-      presence_bot_tag: "bot",
+
       info_leaderboard_title: "Leaderboard",
       info_hint: "Ratings update in real-time",
       screen_mode_title: "Choose Mode",
@@ -356,12 +356,9 @@ const UI = {
       onlineList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_empty'))}</li>`;
     } else {
       onlineList.innerHTML = entries.map((entry) => {
-        const tag = entry.isBot
-          ? `<span class="presence-tag">${this.escapeHtml(this.translate('presence_bot_tag'))}</span>`
-          : '';
         const queue = entry.inQueue ? '<span class="presence-queue">…</span>' : '';
-        return `<li class="presence-row ${entry.isBot ? 'presence-bot' : 'presence-human'}" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
-          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${tag}${queue}
+        return `<li class="presence-row" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
+          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${queue}
         </li>`;
       }).join('');
     }
@@ -374,12 +371,10 @@ const UI = {
         gamesList.innerHTML = games.map((game) => {
           const left = game.players[0];
           const right = game.players[1];
-          const leftClass = left.isBot ? 'presence-bot' : 'presence-human';
-          const rightClass = right.isBot ? 'presence-bot' : 'presence-human';
           return `<li class="presence-game">
-            <span class="${leftClass}" onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
+            <span onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
             <span class="presence-vs">vs</span>
-            <span class="${rightClass}" onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
+            <span onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
           </li>`;
         }).join('');
       }
@@ -1601,7 +1596,7 @@ UI.loadLeaderboard = async function () {
     container.innerHTML = players.map((p, i) => `
             <div class="leaderboard-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">
                 <span class="rank">${i + 1}</span>
-                <span class="name">${UI.escapeHtml(p.username)}${p.isBot ? ' <span class="presence-tag">' + UI.escapeHtml(UI.translate('presence_bot_tag')) + '</span>' : ''}</span>
+                <span class="name">${UI.escapeHtml(p.username)}</span>
                 <span class="score">${p.rating}</span>
             </div>
         `).join('');
