@@ -26,6 +26,7 @@ async function syncRankedBots(User, passwordOverride) {
         } else {
             await new User({
                 username: bot.username,
+                email: `bot-${bot.username}@quoridor.local`,
                 seedId: bot.seedId,
                 passwordHash,
                 isBot: true,

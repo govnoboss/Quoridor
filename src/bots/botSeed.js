@@ -23,6 +23,7 @@ async function upsertAccountBot(User, bot, passwordHash) {
 
     await new User({
         username: bot.username,
+        email: `bot-${bot.username}@quoridor.local`,
         seedId: bot.seedId,
         passwordHash,
         isBot: true,
