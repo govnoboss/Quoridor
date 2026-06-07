@@ -159,92 +159,44 @@ function draw() {
 }
 
 function drawGrid(state) {
-  for (var r = 0; r < 9; r++) {
-    for (var c = 0; c < 9; c++) {
-      var x = c * CELL + 4;
-      var y = r * CELL + 4;
-      ctx.fillStyle = '#2a2a2a';
-      ctx.fillRect(x, y, CELL - 8, CELL - 8);
-    }
-  }
+  BoardRenderer.drawGrid(ctx, { cellSize: CELL });
 }
 
 function drawCoords() {
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px Arial, sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  var padding = CELL * 0.08;
-  for (var r = 0; r < 9; r++) {
-    ctx.fillText((9 - r).toString(), 4 + padding, r * CELL + 4 + padding);
-  }
-  var letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
-  ctx.textBaseline = 'bottom';
-  ctx.textAlign = 'right';
-  for (var c = 0; c < 9; c++) {
-    ctx.fillText(letters[c], (c + 1) * CELL - 4 - padding, 9 * CELL - 4 - padding);
-  }
-}
-
-// [Animation] Helper for BackOut easing
-function backOut(t) {
-  var c1 = 1.70158;
-  var c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  BoardRenderer.drawCoordinates(ctx, {
+    cellSize: CELL,
+    fontFamily: 'Inter, sans-serif',
+  });
 }
 
 function drawWalls(state) {
-  ctx.fillStyle = '#e09f3e';
-  for (var r = 0; r < 8; r++) {
-    for (var c = 0; c < 8; c++) {
-      var displayRWall = perspective === 1 ? 7 - r : r;
-      if (state.hWalls[r][c]) {
-        var key = r + '-' + c + '-h';
-        var anim = activeWallAnimations[key];
-        if (anim) {
-          // Wall is animating (appearing)
-          var now = performance.now();
-          var progress = Math.min((now - anim.startTime) / anim.duration, 1);
-          var scale = backOut(progress);
-          var len = CELL * 2 - GAP * 2;
-          var currentLen = len * scale;
-          var offset = (len - currentLen) / 2;
-          ctx.fillRect(c * CELL + GAP + offset, (displayRWall + 1) * CELL - WALL_THICK / 2, currentLen, WALL_THICK);
+  var wallAnims = {};
+  var now = performance.now();
+  var needsRedraw = false;
 
-          if (progress >= 1) {
-            delete activeWallAnimations[key];
-          } else {
-            animFrame = requestAnimationFrame(draw);
-          }
-        } else {
-          // Normal wall
-          ctx.fillRect(c * CELL + GAP, (displayRWall + 1) * CELL - WALL_THICK / 2, CELL * 2 - GAP * 2, WALL_THICK);
-        }
-      }
-      if (state.vWalls[r][c]) {
-        var key = r + '-' + c + '-v';
-        var anim = activeWallAnimations[key];
-        if (anim) {
-          // Wall is animating (appearing)
-          var now = performance.now();
-          var progress = Math.min((now - anim.startTime) / anim.duration, 1);
-          var scale = backOut(progress);
-          var len = CELL * 2 - GAP * 2;
-          var currentLen = len * scale;
-          var offset = (len - currentLen) / 2;
-          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, displayRWall * CELL + GAP + offset, WALL_THICK, currentLen);
-
-          if (progress >= 1) {
-            delete activeWallAnimations[key];
-          } else {
-            animFrame = requestAnimationFrame(draw);
-          }
-        } else {
-          // Normal wall
-          ctx.fillRect((c + 1) * CELL - WALL_THICK / 2, displayRWall * CELL + GAP, WALL_THICK, CELL * 2 - GAP * 2);
-        }
+  for (var key in activeWallAnimations) {
+    if (activeWallAnimations.hasOwnProperty(key)) {
+      var anim = activeWallAnimations[key];
+      var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+      wallAnims[key] = progress;
+      if (progress >= 1) {
+        delete activeWallAnimations[key];
+      } else {
+        needsRedraw = true;
       }
     }
+  }
+
+  BoardRenderer.drawPlacedWalls(ctx, state, {
+    cellSize: CELL,
+    gap: GAP,
+    wallThick: WALL_THICK,
+    transformWallRow: function(r) { return perspective === 1 ? 7 - r : r; },
+    wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
+  });
+
+  if (needsRedraw) {
+    animFrame = requestAnimationFrame(draw);
   }
 }
 
@@ -254,48 +206,35 @@ function lerp(start, end, t) {
 }
 
 function drawPawns(state) {
-  var radius = CELL * 0.35;
+  var pawnPositions = {};
+  var needsRedraw = false;
+
   for (var i = 0; i < state.players.length; i++) {
-    var p = state.players[i];
-    var x, y;
-    
-    // [Animation] Check if this pawn is currently animating
     var anim = activeAnimations[i];
     if (anim) {
-      // Interpolate position
       var now = performance.now();
       var progress = Math.min((now - anim.startTime) / anim.duration, 1);
-      
-      // Use QuadEaseOut easing (same as game)
       var ease = 1 - (1 - progress) * (1 - progress);
-      
-      // Logical coordinates lerp from start to end position
-      var curR = lerp(anim.start.r, p.pos.r, ease);
-      var curC = lerp(anim.start.c, p.pos.c, ease);
-      
-      x = (curC + 0.5) * CELL;
-      y = (tr(curR) + 0.5) * CELL;
-      
-      // Clean up if finished
+      pawnPositions[i] = {
+        r: lerp(anim.start.r, state.players[i].pos.r, ease),
+        c: lerp(anim.start.c, state.players[i].pos.c, ease),
+      };
       if (progress >= 1) {
         delete activeAnimations[i];
       } else {
-        // Keep animating
-        animFrame = requestAnimationFrame(draw);
+        needsRedraw = true;
       }
-    } else {
-      // Static position
-      x = (p.pos.c + 0.5) * CELL;
-      y = (tr(p.pos.r) + 0.5) * CELL;
     }
-    
-    ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+  }
+
+  BoardRenderer.drawPawns(ctx, state, {
+    cellSize: CELL,
+    transformRow: function(r) { return tr(r); },
+    pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
+  });
+
+  if (needsRedraw) {
+    animFrame = requestAnimationFrame(draw);
   }
 }
 
@@ -756,74 +695,45 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   ectx.save();
   ectx.translate(boardX, boardY);
 
-  for (var r = 0; r < 9; r++) {
-    for (var c = 0; c < 9; c++) {
-      ectx.fillStyle = '#2a2a2a';
-      ectx.fillRect(c * cellSize + 4, r * cellSize + 4, cellSize - 8, cellSize - 8);
-    }
-  }
-
   var isAnimating = prevState && elapsedMs !== undefined && move;
   var animDuration = move ? (move.type === 'wall' ? 250 : 200) : 0;
   var progress = isAnimating ? Math.min(elapsedMs / animDuration, 1) : 1;
 
-  ectx.fillStyle = '#e09f3e';
-  for (var r2 = 0; r2 < 8; r2++) {
-    for (var c2 = 0; c2 < 8; c2++) {
-      var displayRWall = perspective === 1 ? 7 - r2 : r2;
-      if (state.hWalls[r2][c2]) {
-        var isNew = isAnimating && move.type === 'wall' && !move.isVertical
-          && move.r === r2 && move.c === c2 && prevState && !prevState.hWalls[r2][c2];
-        if (isNew) {
-          var bs = backOut(progress);
-          var len = cellSize * 2 - GAP * 2;
-          var curLen = len * bs;
-          var off = (len - curLen) / 2;
-          ectx.fillRect(c2 * cellSize + GAP + off, (displayRWall + 1) * cellSize - WALL_THICK / 2, curLen, WALL_THICK);
-        } else {
-          ectx.fillRect(c2 * cellSize + GAP, (displayRWall + 1) * cellSize - WALL_THICK / 2, cellSize * 2 - GAP * 2, WALL_THICK);
-        }
-      }
-      if (state.vWalls[r2][c2]) {
-        var isNew = isAnimating && move.type === 'wall' && move.isVertical
-          && move.r === r2 && move.c === c2 && prevState && !prevState.vWalls[r2][c2];
-        if (isNew) {
-          var bs = backOut(progress);
-          var len = cellSize * 2 - GAP * 2;
-          var curLen = len * bs;
-          var off = (len - curLen) / 2;
-          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, displayRWall * cellSize + GAP + off, WALL_THICK, curLen);
-        } else {
-          ectx.fillRect((c2 + 1) * cellSize - WALL_THICK / 2, displayRWall * cellSize + GAP, WALL_THICK, cellSize * 2 - GAP * 2);
-        }
-      }
+  // Wall animation map
+  var wallAnims = {};
+  if (isAnimating && move && move.type === 'wall') {
+    var checkGrid = move.isVertical ? prevState.vWalls : prevState.hWalls;
+    if (!checkGrid[move.r][move.c]) {
+      var key = move.r + '-' + move.c + '-' + (move.isVertical ? 'v' : 'h');
+      wallAnims[key] = progress;
     }
   }
 
+  BoardRenderer.drawGrid(ectx, { cellSize: cellSize });
+  BoardRenderer.drawCoordinates(ectx, { cellSize: cellSize });
+  BoardRenderer.drawPlacedWalls(ectx, state, {
+    cellSize: cellSize,
+    gap: 8,
+    wallThick: 20,
+    transformWallRow: function(r) { return perspective === 1 ? 7 - r : r; },
+    wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
+  });
+
+  // Pawn animation
+  var pawnPositions = {};
   var pawnEase = isAnimating ? 1 - (1 - progress) * (1 - progress) : 1;
-  for (var i = 0; i < state.players.length; i++) {
-    var p = state.players[i];
-    var px, py;
-
-    if (isAnimating && move && i === move.playerIdx && prevState && prevState.players[i]) {
-      var prevP = prevState.players[i];
-      var curR = prevP.pos.r + (p.pos.r - prevP.pos.r) * pawnEase;
-      var curC = prevP.pos.c + (p.pos.c - prevP.pos.c) * pawnEase;
-      px = curC * cellSize + cellSize / 2;
-      py = (perspective === 1 ? 8 - curR : curR) * cellSize + cellSize / 2;
-    } else {
-      px = p.pos.c * cellSize + cellSize / 2;
-      py = (perspective === 1 ? 8 - p.pos.r : p.pos.r) * cellSize + cellSize / 2;
-    }
-
-    ectx.beginPath();
-    ectx.arc(px, py, cellSize * 0.35, 0, Math.PI * 2);
-    ectx.fillStyle = p.color === 'white' ? '#fff' : '#000';
-    ectx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
-    ectx.lineWidth = 3;
-    ectx.fill();
-    ectx.stroke();
+  if (isAnimating && move && move.type === 'pawn' && prevState && prevState.players[move.playerIdx]) {
+    var prevP = prevState.players[move.playerIdx];
+    var curR = prevP.pos.r + (state.players[move.playerIdx].pos.r - prevP.pos.r) * pawnEase;
+    var curC = prevP.pos.c + (state.players[move.playerIdx].pos.c - prevP.pos.c) * pawnEase;
+    pawnPositions[move.playerIdx] = { r: curR, c: curC };
   }
+
+  BoardRenderer.drawPawns(ectx, state, {
+    cellSize: cellSize,
+    transformRow: function(r) { return perspective === 1 ? 8 - r : r; },
+    pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
+  });
 
   ectx.restore();
 }
