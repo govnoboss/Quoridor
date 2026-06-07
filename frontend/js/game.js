@@ -922,52 +922,18 @@ const Game = {
   /**
    * Рисует сетку игрового поля 9x9 (темные квадраты).
    */
-  drawGrid(state) {
-    state = state || this.state;
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        const x = c * this.CONFIG.cellSize + 4;
-        const y = this.transformRow(r) * this.CONFIG.cellSize + 4;
-        this.ctx.fillStyle = '#2a2a2a';
-        this.ctx.fillRect(x, y, this.CONFIG.cellSize - 8, this.CONFIG.cellSize - 8);
-      }
-    }
+  drawGrid() {
+    BoardRenderer.drawGrid(this.ctx, {
+      cellSize: this.CONFIG.cellSize,
+      transformRow: (r) => this.transformRow(r),
+    });
   },
 
   drawCoordinates() {
-    this.ctx.fillStyle = "#ffffff";
-    this.ctx.font = `bold ${this.CONFIG.cellSize * 0.2}px Inter, sans-serif`;
-    this.ctx.textBaseline = "top";
-    this.ctx.textAlign = "left";
-
-    const padding = this.CONFIG.cellSize * 0.08;
-
-    // Цифры (ranks) 1-9. Рисуем на левом столбце (c=0).
-    // r=0 -> 9, r=8 -> 1
-    for (let r = 0; r < 9; r++) {
-      // Вычисляем визуальную позицию клетки (r, 0)
-      const x = 0 + 4; // Отступ как у клетки
-      const y = this.transformRow(r) * this.CONFIG.cellSize + 4;
-
-      // Рисуем цифру в левом верхнем углу
-      // +padding
-      const label = (9 - r).toString();
-      this.ctx.fillText(label, x + padding, y + padding);
-    }
-
-    // Буквы (files) a-i. Рисуем на нижней строке (r=8).
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
-    this.ctx.textBaseline = "bottom";
-    this.ctx.textAlign = "right";
-
-    for (let c = 0; c < 9; c++) {
-      const r = 8;
-      const x = (c + 1) * this.CONFIG.cellSize - 4;
-      const y = (this.transformRow(r) + 1) * this.CONFIG.cellSize - 4; // Нижний край клетки
-
-      const label = letters[c];
-      this.ctx.fillText(label, x - padding, y - padding);
-    }
+    BoardRenderer.drawCoordinates(this.ctx, {
+      cellSize: this.CONFIG.cellSize,
+      transformRow: (r) => this.transformRow(r),
+    });
   },
 
   /**
@@ -975,51 +941,38 @@ const Game = {
    */
   drawPawns(state) {
     state = state || this.state;
-    // [Animation] Ensure we have a container for animations if not exists
     if (!this.activeAnimations) this.activeAnimations = {};
 
-    const radius = this.CONFIG.cellSize * 0.35;
-    state.players.forEach((p, idx) => {
-      let x, y;
+    var pawnPositions = {};
+    var needsRedraw = false;
 
-      // [Animation] Check if this pawn is currently animating
-      const anim = this.activeAnimations[idx];
+    for (var i = 0; i < state.players.length; i++) {
+      var anim = this.activeAnimations[i];
       if (anim) {
-        // Interpolate position
-        const now = performance.now();
-        const progress = Math.min((now - anim.startTime) / anim.duration, 1);
-
-        // Use a simple easing function (QuadEaseOut) for smoother movement
-        const ease = 1 - (1 - progress) * (1 - progress);
-
-        // Logical coordinates lerp
-        const curR = this.lerp(anim.start.r, anim.end.r, ease);
-        const curC = this.lerp(anim.start.c, anim.end.c, ease);
-
-        x = (curC + 0.5) * this.CONFIG.cellSize;
-        y = (this.transformRow(curR) + 0.5) * this.CONFIG.cellSize;
-
-        // Clean up if finished
+        var now = performance.now();
+        var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+        var ease = 1 - (1 - progress) * (1 - progress);
+        pawnPositions[i] = {
+          r: this.lerp(anim.start.r, anim.end.r, ease),
+          c: this.lerp(anim.start.c, anim.end.c, ease),
+        };
         if (progress >= 1) {
-          delete this.activeAnimations[idx];
+          delete this.activeAnimations[i];
         } else {
-          // Keep animating
-          requestAnimationFrame(() => this.draw());
+          needsRedraw = true;
         }
-      } else {
-        // Static position
-        x = (p.pos.c + 0.5) * this.CONFIG.cellSize;
-        y = (this.transformRow(p.pos.r) + 0.5) * this.CONFIG.cellSize;
       }
+    }
 
-      this.ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
-      this.ctx.lineWidth = 3;
-      this.ctx.stroke();
+    BoardRenderer.drawPawns(this.ctx, state, {
+      cellSize: this.CONFIG.cellSize,
+      transformRow: (r) => this.transformRow(r),
+      pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
     });
+
+    if (needsRedraw) {
+      requestAnimationFrame(() => this.draw());
+    }
   },
 
   // [Animation] Helper for linear interpolation
@@ -1044,64 +997,35 @@ const Game = {
    */
   drawPlacedWalls(state) {
     state = state || this.state;
-    // [Animation] Lazy init container
     if (!this.activeWallAnimations) this.activeWallAnimations = {};
 
-    this.ctx.fillStyle = '#e09f3e';
-    const fullLen = this.CONFIG.cellSize * 2;
-    const now = performance.now();
+    var wallAnims = {};
+    var now = performance.now();
+    var needsRedraw = false;
 
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-
-      // НОВЫЙ КОД: Переворот индекса стены R_WALL
-      const displayRWall = this.myPlayerIndex === 1 ? 7 - r : r;
-
-      // Helper to draw with animation
-      const drawAnimated = (wallR, wallC, isVert) => {
-        const key = `${wallR}-${wallC}-${isVert ? 'v' : 'h'}`;
-        const anim = this.activeWallAnimations[key];
-
-        let scale = 1;
-        if (anim) {
-          const progress = Math.min((now - anim.startTime) / anim.duration, 1);
-          // BackOut easing for "pop" effect
-          const c1 = 1.70158;
-          const c3 = c1 + 1;
-          const ease = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
-
-          scale = progress < 1 ? ease : 1;
-
-          if (progress >= 1) {
-            delete this.activeWallAnimations[key];
-          } else {
-            requestAnimationFrame(() => this.draw());
-          }
-        }
-
-        const len = fullLen - this.CONFIG.gap * 2;
-        // Scale relative to center
-        const currentLen = len * scale;
-        const offset = (len - currentLen) / 2;
-
-        if (isVert) {
-          const x = (wallC + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-          const y = displayRWall * this.CONFIG.cellSize + this.CONFIG.gap;
-          this.ctx.fillRect(x, y + offset, this.CONFIG.wallThick, currentLen);
+    for (var key in this.activeWallAnimations) {
+      if (this.activeWallAnimations.hasOwnProperty(key)) {
+        var anim = this.activeWallAnimations[key];
+        var progress = Math.min((now - anim.startTime) / anim.duration, 1);
+        wallAnims[key] = progress;
+        if (progress >= 1) {
+          delete this.activeWallAnimations[key];
         } else {
-          const x = wallC * this.CONFIG.cellSize + this.CONFIG.gap;
-          const y = (displayRWall + 1) * this.CONFIG.cellSize - this.CONFIG.wallThick / 2;
-          this.ctx.fillRect(x + offset, y, currentLen, this.CONFIG.wallThick);
+          needsRedraw = true;
         }
-      };
+      }
+    }
 
-      // Горизонтальные стены
-      if (state.hWalls[r][c]) {
-        drawAnimated(r, c, false);
-      }
-      // Вертикальные стены
-      if (state.vWalls[r][c]) {
-        drawAnimated(r, c, true);
-      }
+    BoardRenderer.drawPlacedWalls(this.ctx, state, {
+      cellSize: this.CONFIG.cellSize,
+      gap: this.CONFIG.gap,
+      wallThick: this.CONFIG.wallThick,
+      transformWallRow: (r) => this.myPlayerIndex === 1 ? 7 - r : r,
+      wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
+    });
+
+    if (needsRedraw) {
+      requestAnimationFrame(() => this.draw());
     }
   },
 
@@ -2354,83 +2278,33 @@ const DemoBoard = {
   },
 
   drawGrid() {
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        const x = c * this.cellSize + 2;
-        const y = r * this.cellSize + 2;
-        this.ctx.fillStyle = '#2a2a2a';
-        this.ctx.fillRect(x, y, this.cellSize - 4, this.cellSize - 4);
-      }
-    }
+    BoardRenderer.drawGrid(this.ctx, {
+      cellSize: this.cellSize,
+      padding: 2,
+    });
   },
 
   drawCoordinates() {
-    this.ctx.fillStyle = "#ffffff";
-    this.ctx.font = `bold ${this.cellSize * 0.18}px Inter, sans-serif`;
-    const padding = this.cellSize * 0.08;
-
-    // Цифры 1-9 в левом столбце (верхний левый угол клетки)
-    this.ctx.textBaseline = "top";
-    this.ctx.textAlign = "left";
-    for (let r = 0; r < 9; r++) {
-      const x = 0 + 2;
-      const y = r * this.cellSize + 2;
-      const label = (9 - r).toString();
-      this.ctx.fillText(label, x + padding, y + padding);
-    }
-
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
-    this.ctx.textBaseline = "bottom";
-    this.ctx.textAlign = "right";
-    for (let c = 0; c < 9; c++) {
-      const x = (c + 1) * this.cellSize - 2;
-      const y = 9 * this.cellSize - 2;
-      this.ctx.fillText(letters[c], x - padding, y - padding);
-    }
+    BoardRenderer.drawCoordinates(this.ctx, {
+      cellSize: this.cellSize,
+      padding: 2,
+      fontSize: this.cellSize * 0.18,
+    });
   },
 
   drawWalls() {
-    this.ctx.fillStyle = '#e09f3e';
-
-    // Горизонтальные стены
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        if (this.state.hWalls[r][c]) {
-          const x = c * this.cellSize + 4;
-          const y = (r + 1) * this.cellSize - 5;
-          this.ctx.fillRect(x, y, this.cellSize * 2 - 8, 10);
-        }
-      }
-    }
-
-    // Вертикальные стены
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        if (this.state.vWalls[r][c]) {
-          const x = (c + 1) * this.cellSize - 5;
-          const y = r * this.cellSize + 4;
-          this.ctx.fillRect(x, y, 10, this.cellSize * 2 - 8);
-        }
-      }
-    }
+    BoardRenderer.drawPlacedWalls(this.ctx, this.state, {
+      cellSize: this.cellSize,
+      gap: 4,
+      wallThick: 10,
+    });
   },
 
   drawPawns() {
-    const colors = ['#f0f0f0', '#1a1a1a'];
-    const strokes = ['#888', '#444'];
-
-    this.state.players.forEach((player, idx) => {
-      const x = (player.pos.c + 0.5) * this.cellSize;
-      const y = (player.pos.r + 0.5) * this.cellSize;
-      const radius = this.cellSize * 0.35;
-
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-      this.ctx.fillStyle = colors[idx];
-      this.ctx.fill();
-      this.ctx.strokeStyle = strokes[idx];
-      this.ctx.lineWidth = 3;
-      this.ctx.stroke();
+    BoardRenderer.drawPawns(this.ctx, this.state, {
+      cellSize: this.cellSize,
+      pawnFillColors: ['#f0f0f0', '#1a1a1a'],
+      pawnStrokeColors: ['#888', '#444'],
     });
   }
 };
