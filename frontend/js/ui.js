@@ -817,7 +817,7 @@ const UI = {
 
 
   // --- NOTIFICATIONS (Toasts) ---
-  showToast(msg, type = 'info', duration = 3000) {
+  showToast(msg, type = 'info', duration = 3000, onClick = null) {
     const container = document.getElementById('notificationContainer');
 
     // 1. Remove duplicate message (so we can move it to bottom)
@@ -835,9 +835,18 @@ const UI = {
     toast.className = `notification-toast ${type}`;
     toast.textContent = msg;
 
+    if (onClick) {
+      toast.classList.add('clickable');
+      toast.addEventListener('click', () => {
+        onClick();
+        toast.classList.add('fading');
+        toast.addEventListener('animationend', () => toast.remove());
+      });
+    }
+
     container.appendChild(toast);
 
-    if (duration > 0) {
+    if (duration > 0 && !onClick) {
       setTimeout(() => {
         toast.classList.add('fading');
         toast.addEventListener('animationend', () => toast.remove());

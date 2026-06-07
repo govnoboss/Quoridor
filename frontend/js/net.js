@@ -165,8 +165,9 @@ const Net = {
 
         this.socket.on('opponentWantsRematch', () => {
             console.log('[NET] Противник хочет реванш!');
-            UI.showToast(UI.translate('toast_opponent_wants_rematch') || 'Opponent wants a rematch!', 'info', 5000);
-            // Re-enable rematch button in case it was disabled
+            UI.showToast(UI.translate('toast_opponent_wants_rematch') || 'Opponent wants a rematch!', 'info', 0, () => {
+                this.requestRematch();
+            });
             UI.showRematchBtn(true);
         });
         this.socket.on('serverMove', (data) => {
