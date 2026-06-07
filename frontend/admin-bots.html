@@ -15,6 +15,7 @@
             --ok: #22c55e;
             --danger: #ef4444;
             --border: #334155;
+            --info: #3b82f6;
         }
         body {
             margin: 0;
@@ -23,11 +24,11 @@
             color: var(--text);
         }
         .container {
-            max-width: 980px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 24px 16px 40px;
         }
-        h1, h2 {
+        h1, h2, h3 {
             margin-top: 0;
         }
         .panel {
@@ -47,7 +48,7 @@
         .row label {
             color: var(--muted);
         }
-        input[type="number"], input[type="password"] {
+        input[type="number"], input[type="password"], input[type="text"] {
             width: 100%;
             background: #0b1220;
             color: var(--text);
@@ -75,6 +76,10 @@
             background: #64748b;
             color: #fff;
         }
+        button.info {
+            background: var(--info);
+            color: #fff;
+        }
         .status {
             min-height: 20px;
             margin: 10px 0;
@@ -96,27 +101,86 @@
             color: var(--muted);
             font-size: 13px;
         }
-        .hidden {
-            display: none;
+        .hidden { display: none; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin: 12px 0;
         }
+        .stat-card {
+            background: #0b1220;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-online { background: #065f46; color: #6ee7b7; }
+        .badge-offline { background: #451a03; color: #fbbf24; }
+        .badge-playing { background: #1e3a5f; color: #93c5fd; }
+        .badge-cooldown { background: #3b0764; color: #d8b4fe; }
+        .btn-small {
+            background: none;
+            border: 1px solid #555;
+            color: #aaa;
+            cursor: pointer;
+            padding: 0 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .btn-small:hover { background: #333; color: #fff; }
+        .bot-name-text { margin-right: 6px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Bot Control Panel</h1>
         <div id="authError" class="panel hidden">
-            <h2>Доступ закрыт</h2>
-            <p class="meta">Нужна авторизованная админ-сессия на этом же домене.</p>
+            <h2>Access denied</h2>
+            <p class="meta">Admin session required on the same domain.</p>
         </div>
 
         <div id="mainContent" class="hidden">
+            <!-- Runtime -->
             <div class="panel">
                 <h2>Runtime</h2>
                 <div id="runtime" class="meta">-</div>
             </div>
 
+            <!-- Simulation Dashboard -->
             <div class="panel">
-                <h2>Настройки ботов</h2>
+                <h2>Simulation Dashboard</h2>
+                <div id="simStats" class="stat-grid">
+                    <div class="stat-card"><div class="value" id="simTotalBots">-</div><div class="label">Total Bots</div></div>
+                    <div class="stat-card"><div class="value" id="simOnline">-</div><div class="label">Online Now</div></div>
+                    <div class="stat-card"><div class="value" id="simInCooldown">-</div><div class="label">In Cooldown</div></div>
+                    <div class="stat-card"><div class="value" id="simAtLimit">-</div><div class="label">At Daily Limit</div></div>
+                    <div class="stat-card"><div class="value" id="simPresenceCount">-</div><div class="label">Presence Slots</div></div>
+                    <div class="stat-card"><div class="value" id="simActiveGames">-</div><div class="label">Active Sim Games</div></div>
+                    <div class="stat-card"><div class="value" id="simOnlineCount">-</div><div class="label">Simulated Online</div></div>
+                </div>
+                <div class="status" id="simStatus"></div>
+                <p class="meta">Simulation status: <span id="simEnabled">-</span></p>
+            </div>
+
+            <!-- Bot settings -->
+            <div class="panel">
+                <h2>Bot Settings</h2>
                 <div class="row"><label for="enabled">BOTS_ENABLED</label><input id="enabled" type="checkbox"></div>
                 <div class="row"><label for="rankedEnabled">BOT_RANKED_ENABLED</label><input id="rankedEnabled" type="checkbox"></div>
                 <div class="row"><label for="fallbackMinWaitMs">BOT_FALLBACK_MIN_WAIT_MS</label><input id="fallbackMinWaitMs" type="number" min="0"></div>
@@ -127,28 +191,34 @@
                 <div class="row"><label for="maxRecentMatches">BOT_MAX_RECENT_MATCHES</label><input id="maxRecentMatches" type="number" min="0"></div>
                 <div class="row"><label for="recentWindowMs">BOT_RECENT_WINDOW_MS</label><input id="recentWindowMs" type="number" min="60000"></div>
                 <div class="status" id="settingsStatus"></div>
-                <button id="saveSettingsBtn">Сохранить настройки</button>
-                <button id="reloadBtn" class="secondary">Обновить</button>
+                <button id="saveSettingsBtn">Save settings</button>
+                <button id="reloadBtn" class="secondary">Reload</button>
             </div>
 
+            <!-- Seed bots -->
             <div class="panel">
-                <h2>Seed bot-аккаунтов</h2>
+                <h2>Seed bot accounts</h2>
                 <div class="row">
-                    <label for="seedPassword">Пароль для новых аккаунтов (опционально)</label>
-                    <input id="seedPassword" type="password" placeholder="Оставьте пустым для BOT_ACCOUNT_PASSWORD/random">
+                    <label for="seedPassword">Password (optional)</label>
+                    <input id="seedPassword" type="password" placeholder="Leave empty for auto">
                 </div>
                 <div class="status" id="seedStatus"></div>
-                <button id="seedBtn">Seed bots</button>
+                <button id="seedBtn" class="info">Seed (6 original)</button>
+                <button id="populateBtn" class="secondary">Populate (20 ranked)</button>
             </div>
 
+            <!-- Bot accounts list -->
             <div class="panel">
-                <h2>Текущие bot-аккаунты</h2>
+                <h2>Bot accounts</h2>
                 <table>
                     <thead>
                         <tr>
                             <th>Username</th>
                             <th>Rating</th>
                             <th>Country</th>
+                            <th>SeedId</th>
+                            <th>Stats (W/L)</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody id="botsTableBody"></tbody>
@@ -159,15 +229,8 @@
 
     <script>
         const fieldIds = [
-            'enabled',
-            'rankedEnabled',
-            'fallbackMinWaitMs',
-            'fallbackMaxWaitMs',
-            'maxActiveGames',
-            'moveMinDelayMs',
-            'moveMaxDelayMs',
-            'maxRecentMatches',
-            'recentWindowMs'
+            'enabled', 'rankedEnabled', 'fallbackMinWaitMs', 'fallbackMaxWaitMs',
+            'maxActiveGames', 'moveMinDelayMs', 'moveMaxDelayMs', 'maxRecentMatches', 'recentWindowMs'
         ];
 
         function setStatus(elementId, message, cls = '') {
@@ -207,7 +270,22 @@
             body.innerHTML = '';
             for (const bot of bots) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${bot.username}</td><td>${bot.rating || 1200}</td><td>${bot.country || 'XX'}</td>`;
+                const stats = bot.stats || {};
+                const w = stats.wins || 0;
+                const l = stats.losses || 0;
+                const isRanked = bot.seedId && bot.seedId.startsWith('qbot-');
+                const statusBadge = isRanked
+                    ? '<span class="status-badge badge-online">ranked</span>'
+                    : '<span class="status-badge badge-offline">legacy</span>';
+                const nameCell = document.createElement('td');
+                nameCell.innerHTML = `<span class="bot-name-text">${bot.username}</span> <button class="btn-small" onclick="renameBot('${bot.id}', '${bot.username}')">✎</button>`;
+                tr.appendChild(nameCell);
+                tr.innerHTML += `
+                    <td>${bot.rating || 1200}</td>
+                    <td>${bot.country || 'XX'}</td>
+                    <td class="meta">${bot.seedId || '-'}</td>
+                    <td>${w}/${l}</td>
+                    <td>${statusBadge}</td>`;
                 body.appendChild(tr);
             }
         }
@@ -218,28 +296,47 @@
                 `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
         }
 
+        function renderSimulation(sim) {
+            if (!sim) {
+                document.getElementById('simEnabled').textContent = 'DISABLED';
+                return;
+            }
+            document.getElementById('simEnabled').textContent = sim.enabled ? 'ENABLED' : 'DISABLED';
+
+            const s = sim.schedule || {};
+            const p = sim.presence || {};
+            const g = sim.games || {};
+
+            document.getElementById('simTotalBots').textContent = s.totalBots ?? '-';
+            document.getElementById('simOnline').textContent = s.online ?? '-';
+            document.getElementById('simInCooldown').textContent = s.inCooldown ?? '-';
+            document.getElementById('simAtLimit').textContent = s.atDailyLimit ?? '-';
+            document.getElementById('simPresenceCount').textContent = p.botPresenceCount ?? '-';
+            document.getElementById('simActiveGames').textContent = g.activeGames ?? '-';
+            document.getElementById('simOnlineCount').textContent = p.simulatedOnline ?? '-';
+        }
+
         async function loadPanel() {
-            setStatus('settingsStatus', 'Загрузка...');
+            setStatus('settingsStatus', 'Loading...');
             const res = await fetch('/api/admin/bots', { credentials: 'include' });
             if (res.status === 401 || res.status === 403) {
                 document.getElementById('authError').classList.remove('hidden');
                 document.getElementById('mainContent').classList.add('hidden');
                 return;
             }
-            if (!res.ok) {
-                throw new Error(`Failed to load: HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             fillSettings(data.settings);
             renderRuntime(data.runtime || {});
+            renderSimulation(data.simulation);
             renderBots(data.bots || []);
             document.getElementById('mainContent').classList.remove('hidden');
             document.getElementById('authError').classList.add('hidden');
-            setStatus('settingsStatus', 'Данные обновлены', 'ok');
+            setStatus('settingsStatus', 'Updated', 'ok');
         }
 
         async function saveSettings() {
-            setStatus('settingsStatus', 'Сохраняем...');
+            setStatus('settingsStatus', 'Saving...');
             const payload = readSettingsPayload();
             const res = await fetch('/api/admin/bots/settings', {
                 method: 'PUT',
@@ -247,13 +344,11 @@
                 credentials: 'include',
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) {
-                throw new Error(`Save failed: HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             fillSettings(data.settings);
             renderRuntime(data.runtime || {});
-            setStatus('settingsStatus', 'Настройки сохранены', 'ok');
+            setStatus('settingsStatus', 'Settings saved', 'ok');
         }
 
         async function seedBots() {
@@ -265,25 +360,59 @@
                 credentials: 'include',
                 body: JSON.stringify(password ? { password } : {})
             });
-            if (!res.ok) {
-                throw new Error(`Seed failed: HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             renderBots(data.bots || []);
             setStatus('seedStatus', `Done. created=${data.created || 0}, updated=${data.updated || 0}`, 'ok');
         }
 
+        async function populateBots() {
+            setStatus('seedStatus', 'Populating 20 ranked bots...');
+            const res = await fetch('/api/admin/bots/seed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({})
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            renderBots(data.bots || []);
+            setStatus('seedStatus', `Populated. Total bots in DB: ${(data.bots || []).length}`, 'ok');
+        }
+
+        async function renameBot(id, currentName) {
+            const newName = prompt('New username for bot:', currentName);
+            if (!newName || newName === currentName) return;
+            const res = await fetch('/api/admin/bots/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ id, username: newName })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert('Error: ' + (err.error || res.statusText));
+                return;
+            }
+            setStatus('seedStatus', `Bot renamed to ${newName}`, 'ok');
+            loadPanel();
+        }
+
         document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-            saveSettings().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+            saveSettings().catch(err => setStatus('settingsStatus', err.message, 'error'));
         });
         document.getElementById('reloadBtn').addEventListener('click', () => {
-            loadPanel().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+            loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));
         });
         document.getElementById('seedBtn').addEventListener('click', () => {
-            seedBots().catch((err) => setStatus('seedStatus', err.message, 'error'));
+            seedBots().catch(err => setStatus('seedStatus', err.message, 'error'));
+        });
+        document.getElementById('populateBtn').addEventListener('click', () => {
+            populateBots().catch(err => setStatus('seedStatus', err.message, 'error'));
         });
 
-        loadPanel().catch((err) => setStatus('settingsStatus', err.message, 'error'));
+        loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));
+        setInterval(() => loadPanel().catch(() => {}), 10000);
     </script>
 </body>
 </html>

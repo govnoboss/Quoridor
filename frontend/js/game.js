@@ -1,4 +1,4 @@
-﻿
+
 const Game = {
   /** @type {HTMLCanvasElement} Ссылка на элемент Canvas. */
   canvas: document.getElementById('board'),
@@ -137,7 +137,8 @@ const Game = {
   saveHistoryLocal() {
     try {
       if (this.state.gameId) {
-        localStorage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
+        const storage = this.state.gameId.startsWith('local_') ? sessionStorage : localStorage;
+        storage.setItem(`quoridor_hist_${this.state.gameId}`, JSON.stringify(this.state.history));
       }
     } catch (e) {
     }
@@ -146,7 +147,8 @@ const Game = {
   loadHistoryLocal() {
     try {
       if (this.state.gameId) {
-        const saved = localStorage.getItem(`quoridor_hist_${this.state.gameId}`);
+        const storage = this.state.gameId.startsWith('local_') ? sessionStorage : localStorage;
+        const saved = storage.getItem(`quoridor_hist_${this.state.gameId}`);
         if (saved) {
           this.state.history = JSON.parse(saved);
           if (typeof UI !== 'undefined' && UI.renderHistory) {
@@ -291,6 +293,7 @@ const Game = {
     } else {
       UI.showRematchBtn(false);
       UI.showNewGameBtn(false);
+      UI.showReplayBtn(true);
     }
 
     // Rating changes display
@@ -346,6 +349,7 @@ const Game = {
     }
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
+    UI.showReplayBtn(false);
 
     if (typeof UI !== 'undefined') {
       UI.clearLobbyRoute();
@@ -679,9 +683,14 @@ const Game = {
     this.isGameOver = false; // Сброс флага окончания игры
     this.state.playerProfiles = [null, null];
     if (this.state.gameId) {
-      localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      if (this.state.gameId.startsWith('local_')) {
+        sessionStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      } else {
+        localStorage.removeItem(`quoridor_hist_${this.state.gameId}`);
+      }
     }
     this.state.gameId = "local_" + Date.now();
+    UI.showReplayBtn(false);
 
     this._initialSnapshot = Shared.cloneState(this.state);
     this.restoreGameUI();

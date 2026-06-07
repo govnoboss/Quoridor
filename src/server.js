@@ -41,6 +41,10 @@ const GameResult = require('./models/GameResult'); // Архив игр
 const BotSettings = require('./models/BotSettings');
 const { ACCOUNT_BOTS } = require('./bots/defaultBots');
 const { upsertAccountBot } = require('./bots/botSeed');
+const BotActivitySchedule = require('./simulation/BotActivitySchedule');
+const PresenceSimulator = require('./simulation/PresenceSimulator');
+const GameSimulator = require('./simulation/GameSimulator');
+const { syncRankedBots } = require('./simulation/PopulationManager');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -335,6 +339,11 @@ async function seedBotAccounts(password = null) {
         else result.updated++;
     }
 
+    // Also sync all 20 ranked bots
+    const popResult = await syncRankedBots(User, password);
+    result.created += popResult.created;
+    result.updated += popResult.updated;
+
     return result;
 }
 
@@ -351,6 +360,12 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
         res.json({
             settings,
             runtime: botManager.getRuntimeStats(),
+            simulation: {
+                enabled: process.env.SIMULATION_ENABLED !== 'false' && botActivitySchedule !== null,
+                schedule: botActivitySchedule ? botActivitySchedule.getStats() : null,
+                presence: presenceSimulator ? presenceSimulator.getStats() : null,
+                games: gameSimulator ? gameSimulator.getStats() : null,
+            },
             bots: bots.map(bot => ({
                 id: bot._id,
                 username: bot.username,
@@ -358,6 +373,7 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
                 avatarUrl: bot.avatarUrl,
                 country: bot.country,
                 stats: bot.stats || {},
+                seedId: bot.seedId,
             })),
         });
     } catch (err) {
@@ -401,6 +417,30 @@ app.post('/api/admin/bots/seed', requireAdmin, async (req, res) => {
         });
     } catch (err) {
         console.error('[ADMIN] Failed to seed bot accounts:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
+    try {
+        const { id, username } = req.body;
+        if (!id || !username) return res.status(400).json({ error: 'Missing id or username' });
+        if (username.length < 3 || username.length > 20) return res.status(400).json({ error: 'Username must be 3-20 chars' });
+
+        const bot = await User.findOne({ _id: id, isBot: true });
+        if (!bot) return res.status(404).json({ error: 'Bot not found' });
+
+        const existing = await User.findOne({ username });
+        if (existing && existing._id.toString() !== id) return res.status(409).json({ error: 'Username taken' });
+
+        bot.username = username;
+        await bot.save();
+
+        if (gameSimulator) await gameSimulator.refreshBotNames();
+
+        res.json({ success: true, username });
+    } catch (err) {
+        console.error('[ADMIN] Failed to rename bot:', err);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -449,12 +489,12 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     }
 });
 
-// Leaderboard API - top humans and bot accounts by rating
+// Leaderboard API - top players (humans + bots) by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
         const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
-            .select('username rating avatarUrl isBot')
+            .select('username rating avatarUrl')
             .sort({ rating: -1 })
             .limit(limit);
         res.json(topPlayers);
@@ -670,7 +710,7 @@ app.use(helmet.contentSecurityPolicy({
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "img-src": ["'self'", "https://ui-avatars.com"],
-        "media-src": ["'self'", "data:"],
+        "media-src": ["'self'", "data:", "blob:"],
         "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io", "https://analytics.playquor.org"]
     }
 })); // CLOSED Correctly
@@ -705,6 +745,7 @@ app.use(cors({
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
+app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
 
 // Standalone pages (not SPA)
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));
@@ -715,6 +756,7 @@ app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/t
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
 app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
+app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
 
 // --- BUG REPORT API ---
 
@@ -1131,6 +1173,10 @@ const botManager = new BotManager({
     applyBotMove,
 });
 
+let botActivitySchedule = null;
+let presenceSimulator = null;
+let gameSimulator = null;
+
 async function collectPresenceStats() {
     const gameIds = await Redis.getActiveGameIds();
     const liveGames = [];
@@ -1147,14 +1193,8 @@ async function collectPresenceStats() {
         liveGames.push({
             lobbyId,
             players: [
-                {
-                    name: player0Name,
-                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 0),
-                },
-                {
-                    name: player1Name,
-                    isBot: Boolean(game.hasBot && game.botPlayerIdx === 1),
-                },
+                { name: player0Name },
+                { name: player1Name },
             ],
         });
     }
@@ -1164,18 +1204,30 @@ async function collectPresenceStats() {
         if (socket.username === 'admin-botops') return;
         humans.push({
             name: socket.username || 'Guest',
-            isBot: false,
             inQueue: Boolean(socket.searchToken),
         });
     });
 
-    return {
+    const base = {
         online: humans.length,
         playing: gameIds.length * 2,
         humans,
         bots: [],
         liveGames,
     };
+
+    if (presenceSimulator) {
+        const sim = presenceSimulator.getPresence(humans.length);
+        base.online = sim.online;
+        base.playing += sim.playing;
+        base.bots = sim.bots.map(b => { const { isBot, ...rest } = b; return rest; });
+        base.liveGames = base.liveGames.concat(sim.liveGames.map(g => ({
+            ...g,
+            players: g.players.map(p => { const { isBot, ...rest } = p; return rest; }),
+        })));
+    }
+
+    return base;
 }
 
 function schedulePresenceBroadcast() {
@@ -2302,6 +2354,26 @@ async function startServer() {
         await cleanupStaleGames();
         console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
 
+        // Sync ranked bot population
+        const popResult = await syncRankedBots(User);
+        console.log(`[POPULATION] Synced ranked bots: created=${popResult.created} updated=${popResult.updated}`);
+
+        // Initialize simulation system
+        const rankedBotDocs = await User.find({ isBot: true, seedId: { $regex: /^qbot-/ } });
+        const rankedBotIds = rankedBotDocs.map(b => b._id.toString());
+        console.log(`[SIMULATION] Found ${rankedBotIds.length} ranked bots in DB`);
+
+        if (rankedBotIds.length >= 2 && process.env.SIMULATION_ENABLED !== 'false') {
+            presenceSimulator = new PresenceSimulator({
+                onlineMin: parseInt(process.env.SIM_ONLINE_MIN) || 10,
+                onlineMax: parseInt(process.env.SIM_ONLINE_MAX) || 20,
+            });
+            presenceSimulator.start();
+            console.log('[SIMULATION] Started presence simulator (no bot games)');
+        } else {
+            console.log('[SIMULATION] Skipped — need >=2 ranked bots in DB');
+        }
+
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
         const env = process.env.NODE_ENV || 'development';
@@ -2319,6 +2391,8 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
+    if (presenceSimulator) presenceSimulator.stop();
+    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
@@ -2326,6 +2400,8 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
     console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
+    if (presenceSimulator) presenceSimulator.stop();
+    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
