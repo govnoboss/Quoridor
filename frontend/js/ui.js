@@ -34,7 +34,7 @@ const UI = {
       info_games_list_title: "Матчи",
       presence_empty: "Пока никого",
       presence_no_games: "Нет активных партий",
-      presence_bot_tag: "бот",
+
       info_leaderboard_title: "Лидеры",
       info_hint: "Рейтинг обновляется в реальном времени",
       screen_mode_title: "Выберите режим",
@@ -188,7 +188,7 @@ const UI = {
       info_games_list_title: "Live games",
       presence_empty: "Nobody here yet",
       presence_no_games: "No active games",
-      presence_bot_tag: "bot",
+
       info_leaderboard_title: "Leaderboard",
       info_hint: "Ratings update in real-time",
       screen_mode_title: "Choose Mode",
@@ -356,12 +356,9 @@ const UI = {
       onlineList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_empty'))}</li>`;
     } else {
       onlineList.innerHTML = entries.map((entry) => {
-        const tag = entry.isBot
-          ? `<span class="presence-tag">${this.escapeHtml(this.translate('presence_bot_tag'))}</span>`
-          : '';
         const queue = entry.inQueue ? '<span class="presence-queue">…</span>' : '';
-        return `<li class="presence-row ${entry.isBot ? 'presence-bot' : 'presence-human'}" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
-          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${tag}${queue}
+        return `<li class="presence-row" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
+          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${queue}
         </li>`;
       }).join('');
     }
@@ -374,12 +371,10 @@ const UI = {
         gamesList.innerHTML = games.map((game) => {
           const left = game.players[0];
           const right = game.players[1];
-          const leftClass = left.isBot ? 'presence-bot' : 'presence-human';
-          const rightClass = right.isBot ? 'presence-bot' : 'presence-human';
           return `<li class="presence-game">
-            <span class="${leftClass}" onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
+            <span onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
             <span class="presence-vs">vs</span>
-            <span class="${rightClass}" onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
+            <span onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
           </li>`;
         }).join('');
       }
@@ -688,6 +683,17 @@ const UI = {
 
   showNewGameBtn(show) {
     const btn = document.getElementById('newGameBtn');
+    if (btn) {
+      if (show) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+  },
+
+  showReplayBtn(show) {
+    const btn = document.getElementById('replayBtn');
     if (btn) {
       if (show) {
         btn.classList.remove('hidden');
@@ -1397,6 +1403,8 @@ UI.showProfilePage = async function (username, pushState = true) {
     } else {
       history.forEach(game => {
         const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => UI.openReplayModal(game._id);
 
         const isWhite = game.playerWhite && game.playerWhite.username === user.username; // Robust check
         // Handle missing player objects if schema changed or legacy data
@@ -1445,7 +1453,6 @@ UI.showProfilePage = async function (username, pushState = true) {
                 <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
                 <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
                 <td>${game.turns}</td>
-                <td><button class="mini-btn-view" onclick="UI.openReplayModal('${game._id}')" title="View Replay">👁️</button></td>
             `;
         historyBody.appendChild(row);
       });
@@ -1598,7 +1605,7 @@ UI.loadLeaderboard = async function () {
     container.innerHTML = players.map((p, i) => `
             <div class="leaderboard-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">
                 <span class="rank">${i + 1}</span>
-                <span class="name">${UI.escapeHtml(p.username)}${p.isBot ? ' <span class="presence-tag">' + UI.escapeHtml(UI.translate('presence_bot_tag')) + '</span>' : ''}</span>
+                <span class="name">${UI.escapeHtml(p.username)}</span>
                 <span class="score">${p.rating}</span>
             </div>
         `).join('');
@@ -1618,62 +1625,11 @@ UI._currentViewingProfile = null;
  * Open Fullscreen Replay for a specific game.
  * Replaces old modal-based replay.
  */
-UI.openReplayModal = async function (gameId) {
-  try {
-    this.showToast('Загрузка повтора...', 'info');
-
-    const res = await fetch(`/api/games/${gameId}`);
-    if (!res.ok) throw new Error('Game not found');
-
-    const gameData = await res.json();
-
-    if (!gameData.history || gameData.history.length === 0) {
-      this.showToast('Replay unavailable for this game (no history).', 'error');
-      return;
-    }
-
-    // Get current profile username for return navigation
-    const returnProfile = this._currentViewingProfile || null;
-
-    // Use new fullscreen replay system
-    Game.startReplay(gameData, returnProfile);
-
-    // Setup keyboard handler for ESC and arrow keys
-    this._replayEscHandler = (e) => {
-      if (!Game.isReplayMode) return;
-
-      if (e.key === 'Escape') {
-        Game.exitReplay();
-      } else if (e.key === 'ArrowLeft') {
-        Game.replayNavigate(-1);
-      } else if (e.key === 'ArrowRight') {
-        Game.replayNavigate(1);
-      } else if (e.key === 'Home') {
-        Game.replayGoToStart();
-      } else if (e.key === 'End') {
-        Game.replayGoToEnd();
-      }
-    };
-    document.addEventListener('keydown', this._replayEscHandler);
-
-  } catch (err) {
-    console.error('[REPLAY] Error:', err);
-    this.showToast('Ошибка загрузки повтора', 'error');
-  }
+UI.openReplayModal = function (gameId) {
+  window.location.href = `/replay/${gameId}`;
 };
 
-// Legacy close function - now delegates to Game
-UI.closeReplayModal = function () {
-  if (Game.isReplayMode) {
-    Game.exitReplay();
-  }
-
-  // Clean up ESC handler
-  if (this._replayEscHandler) {
-    document.removeEventListener('keydown', this._replayEscHandler);
-    this._replayEscHandler = null;
-  }
-};
+UI.closeReplayModal = function () {};
 
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';

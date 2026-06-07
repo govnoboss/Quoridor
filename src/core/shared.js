@@ -268,6 +268,17 @@
         return false;
     };
 
+    exports.isGameOver = function (state) {
+        const grid = exports.CONFIG.gridCount;
+        for (let i = 0; i < 2; i++) {
+            const pos = state.players[i].pos;
+            if ((i === 0 && pos.r === 0) || (i === 1 && pos.r === grid - 1)) {
+                return { over: true, winner: i, reason: 'goal' };
+            }
+        }
+        return { over: false, winner: -1, reason: null };
+    };
+
     exports.createInitialState = function (timeControl, isRanked = false) {
         const base = timeControl?.base || 600;
         const inc = timeControl?.inc || 0;

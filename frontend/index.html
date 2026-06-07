@@ -522,6 +522,7 @@
         <button class="result-btn primary hidden" id="newGameBtn" onclick="Net.startNewGame()" data-i18n="btn_new_game">New Game</button>
         <div class="result-secondary-row">
           <button class="result-btn primary hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
+          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.state.gameId)">View Replay</button>
           <button class="result-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">Exit</button>
         </div>
       </div>
@@ -637,14 +638,6 @@
 
   <!-- Toasts Container -->
   <div id="notificationContainer" class="notification-container"></div>
-
-  <footer class="site-footer">
-    <a href="/report" data-i18n="menu_found_bug">Found a bug?</a>
-    <span class="footer-sep">·</span>
-    <a href="/terms">Terms of Service</a>
-    <span class="footer-sep">·</span>
-    <a href="/privacy">Privacy Policy</a>
-  </footer>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/ui.js?v=1.0.2"></script>

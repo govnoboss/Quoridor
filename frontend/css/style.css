@@ -1337,16 +1337,6 @@ canvas {
     white-space: nowrap;
 }
 
-.presence-tag {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.15);
-    padding: 2px 5px;
-    border-radius: 4px;
-}
-
 .presence-queue {
     color: #4ade80;
     font-size: 0.75rem;
@@ -1367,11 +1357,6 @@ canvas {
     color: #888;
     font-size: 0.75rem;
     cursor: default !important;
-}
-
-.presence-bot .presence-name,
-.presence-game .presence-bot {
-    color: #fbbf24;
 }
 
 .presence-empty {
@@ -3092,23 +3077,4 @@ canvas {
         /* Slightly smaller walls in inventory */
         height: 8px;
     }
-}
-
-.site-footer {
-    text-align: center;
-    padding: 24px 16px 32px;
-    font-size: 13px;
-    color: #666;
-}
-.site-footer a {
-    color: #888;
-    text-decoration: none;
-}
-.site-footer a:hover {
-    color: var(--wall);
-    text-decoration: underline;
-}
-.footer-sep {
-    margin: 0 8px;
-    color: #555;
 }
