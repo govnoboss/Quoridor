@@ -807,6 +807,15 @@ canvas {
     border-left-color: #2196f3;
 }
 
+.notification-toast.clickable {
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.notification-toast.clickable:hover {
+    background: rgba(50, 50, 50, 0.98);
+    transform: scale(1.03);
+}
+
 .notification-toast.fading {
     animation: fadeOut 0.3s ease-in forwards;
 }
