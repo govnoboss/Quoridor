@@ -722,7 +722,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   // Pawn animation
   var pawnPositions = {};
   var pawnEase = isAnimating ? 1 - (1 - progress) * (1 - progress) : 1;
-  if (isAnimating && move && move.type === 'pawn' && prevState && prevState.players[move.playerIdx]) {
+  if (isAnimating && move && move.type !== 'wall' && prevState && prevState.players[move.playerIdx]) {
     var prevP = prevState.players[move.playerIdx];
     var curR = prevP.pos.r + (state.players[move.playerIdx].pos.r - prevP.pos.r) * pawnEase;
     var curC = prevP.pos.c + (state.players[move.playerIdx].pos.c - prevP.pos.c) * pawnEase;
