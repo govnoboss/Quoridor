@@ -720,13 +720,16 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   });
 
   // Pawn animation
+  var animPlayerIdx = move && typeof move.playerIdx === 'number'
+    ? move.playerIdx
+    : (prevState ? prevState.currentPlayer : undefined);
   var pawnPositions = {};
   var pawnEase = isAnimating ? 1 - (1 - progress) * (1 - progress) : 1;
-  if (isAnimating && move && move.type !== 'wall' && prevState && prevState.players[move.playerIdx]) {
-    var prevP = prevState.players[move.playerIdx];
-    var curR = prevP.pos.r + (state.players[move.playerIdx].pos.r - prevP.pos.r) * pawnEase;
-    var curC = prevP.pos.c + (state.players[move.playerIdx].pos.c - prevP.pos.c) * pawnEase;
-    pawnPositions[move.playerIdx] = { r: curR, c: curC };
+  if (isAnimating && move && move.type !== 'wall' && prevState && animPlayerIdx !== undefined && prevState.players[animPlayerIdx]) {
+    var prevP = prevState.players[animPlayerIdx];
+    var curR = prevP.pos.r + (state.players[animPlayerIdx].pos.r - prevP.pos.r) * pawnEase;
+    var curC = prevP.pos.c + (state.players[animPlayerIdx].pos.c - prevP.pos.c) * pawnEase;
+    pawnPositions[animPlayerIdx] = { r: curR, c: curC };
   }
 
   BoardRenderer.drawPawns(ectx, state, {
