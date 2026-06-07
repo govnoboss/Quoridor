@@ -609,33 +609,6 @@
 
   </div>
 
-  <!-- REPLAY MODAL -->
-  <div id="replayModal" class="modal-overlay hidden">
-    <div class="replay-modal-content">
-      <button class="close-panel-btn" onclick="UI.closeReplayModal()">×</button>
-      <div class="replay-header">
-        <h2 data-i18n="replay_title">Replay</h2>
-        <div class="replay-players">
-          <span id="replayWhitePlayer">White</span> vs <span id="replayBlackPlayer">Black</span>
-        </div>
-      </div>
-
-      <div class="replay-board-container">
-        <canvas id="replayBoard" width="720" height="720"></canvas>
-      </div>
-
-      <div class="replay-controls">
-        <button onclick="UI.replayNavigate('start')">«</button>
-        <button onclick="UI.replayNavigate('prev')">‹</button>
-        <span id="replayMoveCounter">0 / 0</span>
-        <button onclick="UI.replayNavigate('next')">›</button>
-        <button onclick="UI.replayNavigate('end')">»</button>
-        <button onclick="UI.closeReplayModal()"
-          style="margin-left: 10px; border-radius: 5px; width: auto; padding: 0 15px; font-size: 0.9rem;">Exit</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toasts Container -->
   <div id="notificationContainer" class="notification-container"></div>
 
