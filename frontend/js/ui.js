@@ -1629,8 +1629,6 @@ UI.openReplayModal = function (gameId) {
   window.location.href = `/replay/${gameId}`;
 };
 
-UI.closeReplayModal = function () {};
-
 document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('quoridor-theme') || 'dark';
   const savedLang = localStorage.getItem('quoridor-lang') || 'en';
