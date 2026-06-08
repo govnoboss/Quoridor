@@ -371,3 +371,67 @@
 .mini-btn-view:hover {
     transform: scale(1.2);
 }
+
+/* Friend tabs */
+.pp-friends-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid #333; margin-bottom: 16px;
+}
+.pp-friend-tab {
+    flex: 1; padding: 10px; background: transparent; border: none;
+    color: #888; cursor: pointer; font-size: 14px; font-weight: 600;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.pp-friend-tab.active { color: #e09f3e; border-bottom-color: #e09f3e; }
+.pp-friend-tab-content { display: none; }
+.pp-friend-tab-content.active { display: block; }
+
+/* Friend item */
+.pp-friend-item {
+    display: flex; align-items: center; padding: 10px 12px; gap: 10px;
+    border-radius: 8px; cursor: pointer; position: relative;
+}
+.pp-friend-item:hover { background: rgba(255,255,255,0.05); }
+.pp-friend-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.pp-friend-name { flex: 1; font-weight: 500; }
+.pp-friend-status { font-size: 12px; color: #888; }
+.pp-friend-online-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
+.pp-friend-offline-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
+
+/* Dropdown menu */
+.pp-friend-menu-btn {
+    background: none; border: none; color: #888; cursor: pointer;
+    font-size: 18px; padding: 4px 8px; border-radius: 4px;
+}
+.pp-friend-menu-btn:hover { background: rgba(255,255,255,0.1); }
+.pp-friend-dropdown {
+    display: none; position: absolute; right: 0; top: 100%;
+    background: #2a2a2a; border: 1px solid #444; border-radius: 8px;
+    z-index: 100; min-width: 160px; overflow: hidden;
+}
+.pp-friend-dropdown.show { display: block; }
+.pp-friend-dropdown button {
+    display: block; width: 100%; padding: 10px 16px; background: none;
+    border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 13px;
+}
+.pp-friend-dropdown button:hover { background: rgba(255,255,255,0.08); }
+.pp-friend-dropdown .danger { color: #f44336; }
+
+/* Request buttons */
+.pp-request-btn {
+    padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 12px; transition: all 0.2s;
+}
+.pp-request-btn.accept { background: #4caf50; color: #fff; }
+.pp-request-btn.decline { background: #f44336; color: #fff; }
+.pp-request-btn.cancel { background: #555; color: #ddd; }
+
+/* Add friend section */
+.pp-add-friend-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid #333; }
+.pp-add-friend-row { display: flex; gap: 8px; margin-top: 8px; }
+.pp-add-friend-row input {
+    flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #444;
+    background: #222; color: #fff; font-size: 14px;
+}
+.pp-error-msg { color: #f44336; font-size: 13px; margin-top: 6px; }
+.pp-error-msg.hidden { display: none; }
+.pp-empty-state { text-align: center; padding: 30px; color: #666; }

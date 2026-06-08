@@ -52,6 +52,7 @@ const redisPkg = require('redis');
 const session = require('express-session');
 const { RedisStore } = require('connect-redis');
 const path = require('path');
+const Friendship = require('./models/Friendship');
 
 const sessionRedisClient = redisPkg.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -127,6 +128,7 @@ app.post('/api/auth/register', async (req, res) => {
         // Auto login
         req.session.userId = newUser._id;
         req.session.username = newUser.username;
+        req.session.avatarUrl = newUser.avatarUrl;
 
         res.status(201).json({ message: 'User created', user: { username: newUser.username, email: newUser.email, id: newUser._id } });
     } catch (err) {
@@ -150,6 +152,7 @@ app.post('/api/auth/login', async (req, res) => {
         // Create session
         req.session.userId = user._id;
         req.session.username = user.username;
+        req.session.avatarUrl = user.avatarUrl;
 
         res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
     } catch (err) {
@@ -456,7 +459,31 @@ app.get('/api/profiles/:username', async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json(user);
+
+        let friendshipStatus = null;
+        if (req.session?.userId) {
+            if (String(req.session.userId) === String(user._id)) {
+                friendshipStatus = 'self';
+            } else {
+                const friendship = await Friendship.findOne({
+                    $or: [
+                        { requester: req.session.userId, recipient: user._id },
+                        { requester: user._id, recipient: req.session.userId }
+                    ]
+                });
+                if (friendship) {
+                    if (friendship.status === 'accepted') friendshipStatus = 'friends';
+                    else if (String(friendship.requester) === String(req.session.userId)) friendshipStatus = 'requested';
+                    else friendshipStatus = 'received';
+                } else {
+                    friendshipStatus = 'none';
+                }
+            }
+        }
+
+        const result = user.toObject();
+        result.friendshipStatus = friendshipStatus;
+        res.json(result);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -590,6 +617,7 @@ app.post('/api/user/update-avatar', async (req, res) => {
         }
 
         await User.findByIdAndUpdate(req.session.userId, { avatarUrl });
+        req.session.avatarUrl = avatarUrl;
         res.json({ message: 'Avatar updated' });
     } catch (err) {
         res.status(500).json({ error: 'Server error' });
@@ -693,6 +721,183 @@ app.post('/api/auth/reset-password', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+// --- FRIENDSHIP API ---
+
+function findSocketByUserId(userId) {
+    const sid = String(userId);
+    for (const s of io.sockets.sockets.values()) {
+        if (s.userId && String(s.userId) === sid) return s;
+    }
+    return null;
+}
+
+async function getAcceptedFriendIds(userId) {
+    const friendships = await Friendship.find({
+        $or: [{ requester: userId }, { recipient: userId }],
+        status: 'accepted'
+    }).select('requester recipient').lean();
+    return friendships.map(f => {
+        const id = String(f.requester) === String(userId) ? f.recipient : f.requester;
+        return String(id);
+    });
+}
+
+// POST /api/friends/request — send friend request
+app.post('/api/friends/request', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { recipientId } = req.body;
+        if (!recipientId) return res.status(400).json({ error: 'recipientId required' });
+        if (String(req.session.userId) === String(recipientId)) return res.status(400).json({ error: 'Cannot add yourself' });
+
+        const recipient = await User.findById(recipientId);
+        if (!recipient) return res.status(404).json({ error: 'User not found' });
+
+        const existing = await Friendship.findOne({
+            $or: [
+                { requester: req.session.userId, recipient: recipientId },
+                { requester: recipientId, recipient: req.session.userId }
+            ]
+        });
+        if (existing) return res.status(409).json({ error: 'Request already exists' });
+
+        const friendship = new Friendship({ requester: req.session.userId, recipient: recipientId, status: 'pending' });
+        await friendship.save();
+
+        const requester = await User.findById(req.session.userId).select('username avatarUrl');
+        const friendSocket = findSocketByUserId(recipientId);
+        if (friendSocket) {
+            friendSocket.emit('friendRequest', {
+                from: { _id: req.session.userId, username: requester.username, avatarUrl: requester.avatarUrl }
+            });
+        }
+
+        res.json({ message: 'ok', friendship });
+    } catch (err) {
+        console.error('[FRIENDS REQUEST ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/accept — accept friend request
+app.post('/api/friends/accept', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { requesterId } = req.body;
+        if (!requesterId) return res.status(400).json({ error: 'requesterId required' });
+
+        const friendship = await Friendship.findOne({ requester: requesterId, recipient: req.session.userId, status: 'pending' });
+        if (!friendship) return res.status(404).json({ error: 'Request not found' });
+
+        friendship.status = 'accepted';
+        await friendship.save();
+
+        await User.findByIdAndUpdate(req.session.userId, { $inc: { friendCount: 1 } });
+        await User.findByIdAndUpdate(requesterId, { $inc: { friendCount: 1 } });
+
+        const requester = await User.findById(requesterId).select('username avatarUrl');
+        const requesterSocket = findSocketByUserId(requesterId);
+        if (requesterSocket) {
+            requesterSocket.emit('friendRequestAccepted', { _id: req.session.userId, username: req.session.username, avatarUrl: requester.avatarUrl });
+        }
+
+        res.json({ message: 'ok' });
+    } catch (err) {
+        console.error('[FRIENDS ACCEPT ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/decline — decline friend request
+app.post('/api/friends/decline', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { requesterId } = req.body;
+        if (!requesterId) return res.status(400).json({ error: 'requesterId required' });
+
+        await Friendship.deleteOne({ requester: requesterId, recipient: req.session.userId, status: 'pending' });
+
+        res.json({ message: 'ok' });
+    } catch (err) {
+        console.error('[FRIENDS DECLINE ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/friends/remove/:userId — remove friend
+app.delete('/api/friends/remove/:userId', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { userId } = req.params;
+
+        const friendship = await Friendship.findOne({
+            $or: [
+                { requester: req.session.userId, recipient: userId },
+                { requester: userId, recipient: req.session.userId }
+            ],
+            status: 'accepted'
+        });
+        if (!friendship) return res.status(404).json({ error: 'Friendship not found' });
+
+        await Friendship.deleteOne({ _id: friendship._id });
+
+        await User.findByIdAndUpdate(req.session.userId, { $inc: { friendCount: -1 } });
+        await User.findByIdAndUpdate(userId, { $inc: { friendCount: -1 } });
+
+        res.json({ message: 'ok' });
+    } catch (err) {
+        console.error('[FRIENDS REMOVE ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/friends/list — get friends list
+app.get('/api/friends/list', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const userId = req.session.userId;
+
+        const accepted = await Friendship.find({ $or: [{ requester: userId }, { recipient: userId }], status: 'accepted' }).lean();
+        const friendIds = accepted.map(f => String(f.requester) === String(userId) ? f.recipient : f.requester);
+        const friendUsers = await User.find({ _id: { $in: friendIds } }).select('username avatarUrl online lastSeen').lean();
+        const friendMap = {};
+        friendUsers.forEach(u => { friendMap[String(u._id)] = u; });
+        const friends = accepted.map(f => {
+            const fid = String(f.requester) === String(userId) ? f.recipient : f.requester;
+            const u = friendMap[fid] || {};
+            return {
+                _id: fid,
+                username: u.username || 'Unknown',
+                avatarUrl: u.avatarUrl || '',
+                online: u.online || false,
+                lastSeen: u.lastSeen || null,
+                friendSince: f.createdAt
+            };
+        });
+
+        const incomingDocs = await Friendship.find({ recipient: userId, status: 'pending' }).populate('requester', 'username avatarUrl').lean();
+        const incoming = incomingDocs.map(f => ({
+            _id: f.requester._id,
+            username: f.requester.username,
+            avatarUrl: f.requester.avatarUrl,
+            requestedAt: f.createdAt
+        }));
+
+        const outgoingDocs = await Friendship.find({ requester: userId, status: 'pending' }).populate('recipient', 'username avatarUrl').lean();
+        const outgoing = outgoingDocs.map(f => ({
+            _id: f.recipient._id,
+            username: f.recipient.username,
+            avatarUrl: f.recipient.avatarUrl,
+            requestedAt: f.createdAt
+        }));
+
+        res.json({ friends, incoming, outgoing });
+    } catch (err) {
+        console.error('[FRIENDS LIST ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // -----------------------
 
 // LAN-friendly Helmet Configuration
@@ -737,7 +942,7 @@ app.use(cors({
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
 }));
 
@@ -847,7 +1052,7 @@ const io = socketIo(server, {
                 callback(new Error('Not allowed by CORS'));
             }
         },
-        methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         credentials: true
     },
     transports: ['polling', 'websocket'],
@@ -880,6 +1085,7 @@ io.use((socket, next) => {
     if (session && session.userId) {
         socket.userId = session.userId;
         socket.username = session.username;
+        socket.avatarUrl = session.avatarUrl;
     }
     if (!socket.userId) {
         socket.username = `Guest-${socket.id.substr(0, 4)}`;
@@ -1265,6 +1471,17 @@ io.on('connection', (socket) => {
     // Привязываем токен к userId, если игрок авторизован
     if (socket.userId) {
         Redis.setTokenUserMapping(token, socket.userId).catch(console.error);
+    }
+
+    // Online tracking for friends
+    if (socket.userId) {
+        User.findByIdAndUpdate(socket.userId, { online: true, lastSeen: new Date() }).catch(console.error);
+        getAcceptedFriendIds(socket.userId).then(friendIds => {
+            for (const fid of friendIds) {
+                const fs = findSocketByUserId(fid);
+                if (fs) fs.emit('friendOnline', { _id: socket.userId, username: socket.username });
+            }
+        }).catch(console.error);
     }
 
     // Очистка памяти при отключении
@@ -1913,8 +2130,120 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- FRIENDS: INVITE TO GAME ---
+    socket.on('inviteToGame', async ({ friendId }) => {
+        if (!socket.userId) return;
+        try {
+            const friendship = await Friendship.findOne({
+                $or: [
+                    { requester: socket.userId, recipient: friendId },
+                    { requester: friendId, recipient: socket.userId }
+                ],
+                status: 'accepted'
+            });
+            if (!friendship) return;
+
+            const friendSocket = findSocketByUserId(friendId);
+            if (!friendSocket) {
+                socket.emit('inviteFailed', { reason: 'Friend is offline' });
+                return;
+            }
+            friendSocket.emit('gameInvite', {
+                from: { _id: socket.userId, username: socket.username, avatarUrl: socket.avatarUrl || '' }
+            });
+        } catch (err) {
+            console.error('[INVITE ERROR]', err);
+        }
+    });
+
+    socket.on('acceptGameInvite', async ({ fromId }) => {
+        if (!socket.userId) return;
+        try {
+            const friendship = await Friendship.findOne({
+                $or: [
+                    { requester: socket.userId, recipient: fromId },
+                    { requester: fromId, recipient: socket.userId }
+                ],
+                status: 'accepted'
+            });
+            if (!friendship) return;
+
+            const fromSocket = findSocketByUserId(fromId);
+            if (!fromSocket) {
+                socket.emit('inviteFailed', { reason: 'Friend is offline' });
+                return;
+            }
+
+            const roomCode = await generateUniqueRoomCode();
+            await Redis.createRoom(roomCode, {
+                players: [{ socketId: fromSocket.id, token: fromSocket.playerToken }]
+            });
+            fromSocket.join(roomCode);
+            fromSocket.emit('roomCreated', { roomCode });
+
+            // Second player joins
+            const normalizedCode = roomCode;
+            const room = await Redis.getRoom(normalizedCode);
+            if (room && room.players.length < 2) {
+                room.players.push({ socketId: socket.id, token: socket.playerToken });
+                socket.join(normalizedCode);
+
+                const isSwap = Math.random() > 0.5;
+                const whitePlayer = isSwap ? room.players[1] : room.players[0];
+                const blackPlayer = isSwap ? room.players[0] : room.players[1];
+
+                const sWhite = io.sockets.sockets.get(whitePlayer.socketId);
+                const sBlack = io.sockets.sockets.get(blackPlayer.socketId);
+
+                if (sWhite && sBlack) {
+                    sWhite.join(normalizedCode);
+                    sBlack.join(normalizedCode);
+
+                    const gameState = Shared.createInitialState({ base: 600, inc: 0 });
+                    gameState.playerSockets[0] = whitePlayer.socketId;
+                    gameState.playerSockets[1] = blackPlayer.socketId;
+                    gameState.playerTokens[0] = whitePlayer.token;
+                    gameState.playerTokens[1] = blackPlayer.token;
+                    gameState.playerProfiles[0] = await getPlayerProfile(whitePlayer.token);
+                    gameState.playerProfiles[1] = await getPlayerProfile(blackPlayer.token);
+
+                    await Redis.saveGame(normalizedCode, gameState);
+                    await Redis.addActiveGame(normalizedCode);
+                    const timeoutAt = Date.now() + 600 * 1000;
+                    await Redis.setTurnTimeout(normalizedCode, timeoutAt);
+                    await linkPlayersToLobbyByToken([whitePlayer.token, blackPlayer.token], normalizedCode);
+
+                    sWhite.emit('gameStart', {
+                        lobbyId: normalizedCode, lobbyCode: normalizedCode,
+                        color: 'white', opponent: gameState.playerProfiles[1], me: gameState.playerProfiles[0]
+                    });
+                    sBlack.emit('gameStart', {
+                        lobbyId: normalizedCode, lobbyCode: normalizedCode,
+                        color: 'black', opponent: gameState.playerProfiles[0], me: gameState.playerProfiles[1]
+                    });
+
+                    await Redis.deleteRoom(normalizedCode);
+                    schedulePresenceBroadcast();
+                }
+            }
+        } catch (err) {
+            console.error('[ACCEPT INVITE ERROR]', err);
+        }
+    });
+
     socket.on('disconnect', async () => {
         // console.log(`[SOCKET] User disconnected: ${socket.id}`);
+
+        // Offline tracking for friends
+        if (socket.userId) {
+            User.findByIdAndUpdate(socket.userId, { online: false, lastSeen: new Date() }).catch(console.error);
+            getAcceptedFriendIds(socket.userId).then(friendIds => {
+                for (const fid of friendIds) {
+                    const fs = findSocketByUserId(fid);
+                    if (fs) fs.emit('friendOffline', { _id: socket.userId, username: socket.username });
+                }
+            }).catch(console.error);
+        }
 
         try {
             // Remove from search queues

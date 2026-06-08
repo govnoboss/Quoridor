@@ -30,7 +30,7 @@
   <header id="mainHeader" class="main-header">
     <div class="header-left">
       <span class="header-logo" onclick="UI.backToMenu()">QUORIDOR</span>
-      <span class="header-version">v1.02</span>
+      <span class="header-version">v1.04</span>
       <select id="headerLang" class="header-lang" onchange="UI.changeLanguage(this.value)">
         <option value="ru" data-i18n="lang_ru">RU</option>
         <option value="en" data-i18n="lang_en">EN</option>
@@ -367,8 +367,31 @@
 
       <!-- Tab Content: Friends -->
       <div id="ppTabFriends" class="pp-tab-content">
-        <div style="padding: 20px; text-align: center; color: #888;">
-          <p>Friends system coming soon!</p>
+        <div class="pp-friends-tabs">
+          <button class="pp-friend-tab active" onclick="UI.switchFriendTab('list', this)">
+            Friends <span id="ppFriendCount">0</span>
+          </button>
+          <button class="pp-friend-tab" onclick="UI.switchFriendTab('requests', this)">
+            Requests <span id="ppRequestCount">0</span>
+          </button>
+        </div>
+
+        <div id="ppFriendTabList" class="pp-friend-tab-content active">
+          <div id="ppFriendsList"></div>
+          <div id="ppFriendsEmpty" class="pp-empty-state">No friends yet</div>
+        </div>
+
+        <div id="ppFriendTabRequests" class="pp-friend-tab-content">
+          <div id="ppIncomingRequests"></div>
+          <div id="ppOutgoingRequests"></div>
+          <div class="pp-add-friend-section">
+            <h4>Add friend</h4>
+            <div class="pp-add-friend-row">
+              <input type="text" id="ppAddFriendInput" placeholder="Enter username" maxlength="20">
+              <button onclick="UI.addFriendFromInput()" class="secondary-btn">Send Request</button>
+            </div>
+            <div id="ppAddFriendError" class="pp-error-msg hidden"></div>
+          </div>
         </div>
       </div>
     </div>

@@ -210,6 +210,49 @@ const Net = {
             UI.hideRoomJoining();
         });
 
+        // Friend events
+        this.socket.on('friendRequest', (data) => {
+            UI.showToast(
+                `${data.from.username} wants to be your friend`,
+                'info', 0, null,
+                [
+                    { label: 'Accept', callback: () => UI.acceptFriend(data.from._id) },
+                    { label: 'Decline', callback: () => UI.declineFriend(data.from._id) }
+                ]
+            );
+            if (UI.friends) UI.loadFriends();
+        });
+
+        this.socket.on('friendRequestAccepted', (data) => {
+            UI.showToast(`${data.username} accepted your friend request`, 'success');
+            UI.loadFriends();
+        });
+
+        this.socket.on('friendOnline', (data) => {
+            const f = UI.friends?.friends?.find(f => f._id === data._id);
+            if (f) f.online = true;
+            UI.renderFriendsTab();
+        });
+
+        this.socket.on('friendOffline', (data) => {
+            const f = UI.friends?.friends?.find(f => f._id === data._id);
+            if (f) { f.online = false; f.lastSeen = new Date().toISOString(); }
+            UI.renderFriendsTab();
+        });
+
+        this.socket.on('gameInvite', (data) => {
+            UI.showToast(
+                `${data.from.username} invites you to play!`,
+                'info', 30000, null,
+                [
+                    {
+                        label: 'Join',
+                        callback: () => Net.socket.emit('acceptGameInvite', { fromId: data.from._id })
+                    }
+                ]
+            );
+        });
+
         // Online stats update (users online, games in progress, lists)
         this.socket.on('onlineStats', (data) => {
             UI.updateOnlineStats(data);
@@ -289,6 +332,10 @@ const Net = {
     rejoinLobbyByCode(lobbyCode, replay = false) {
         if (!lobbyCode) return;
         this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken, replay });
+    },
+
+    inviteToGame(friendId) {
+        this.socket.emit('inviteToGame', { friendId });
     }
 };
 

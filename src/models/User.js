@@ -58,6 +58,9 @@ const userSchema = new mongoose.Schema({
     achievements: [{
         type: String // Achievement IDs
     }],
+    lastSeen: { type: Date, default: Date.now },
+    online: { type: Boolean, default: false },
+    friendCount: { type: Number, default: 0 },
     stats: {
         totalGames: { type: Number, default: 0 },
         wins: { type: Number, default: 0 },
