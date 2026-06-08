@@ -904,6 +904,7 @@ app.get('/api/friends/list', async (req, res) => {
 app.use(helmet({
     generateContentSecurityPolicy: false,
     hsts: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
 app.use(helmet.contentSecurityPolicy({
