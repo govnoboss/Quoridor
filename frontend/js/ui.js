@@ -1473,6 +1473,21 @@ UI.showProfilePage = async function (username, pushState = true) {
     actionsContainer.innerHTML = '';
 
     const isOwnProfile = this.currentUser && this.currentUser.username === username;
+
+    // Show Friends tab only for own profile
+    const friendsTabBtn = document.querySelector('.pp-tab[onclick*="friends"]');
+    const friendsTabContent = document.getElementById('ppTabFriends');
+    if (isOwnProfile) {
+      if (friendsTabBtn) friendsTabBtn.style.display = '';
+    } else {
+      if (friendsTabBtn) friendsTabBtn.style.display = 'none';
+      // Switch to history tab if friends tab was active
+      if (friendsTabContent && friendsTabContent.classList.contains('active')) {
+        const historyTabBtn = document.querySelector('.pp-tab[onclick*="history"]');
+        UI.switchProfileTab('history', historyTabBtn);
+      }
+    }
+
     if (isOwnProfile) {
       const logoutBtn = document.createElement('button');
       logoutBtn.className = 'pp-logout-btn';
