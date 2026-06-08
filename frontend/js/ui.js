@@ -159,7 +159,36 @@ const UI = {
       placeholder_username_long: "Имя пользователя (минимум 3 символа)",
       placeholder_password_long: "Пароль (минимум 8 символов)",
       loading_text: "Загрузка...",
-      menu_found_bug: "Нашли баг?"
+      menu_found_bug: "Нашли баг?",
+      friends_tab_friends: "Друзья",
+      friends_tab_requests: "Заявки",
+      friends_add_title: "Добавить друга",
+      friends_add_placeholder: "Введите имя пользователя",
+      friends_add_btn: "Отправить заявку",
+      friends_empty: "Пока нет друзей",
+      friends_no_incoming: "Нет входящих заявок",
+      friends_no_outgoing: "Нет исходящих заявок",
+      friends_btn_accept: "Принять",
+      friends_btn_decline: "Отклонить",
+      friends_btn_cancel: "Отменить",
+      friends_btn_remove: "Удалить из друзей",
+      friends_btn_invite: "Пригласить в игру",
+      friends_request_sent: "Заявка отправлена!",
+      friends_request_error: "Ошибка отправки заявки",
+      friends_accept_success: "Заявка принята!",
+      friends_remove_success: "Пользователь удалён из друзей",
+      friends_toast_request: "{username} хочет добавить вас в друзья",
+      friends_toast_accepted: "{username} принял(а) вашу заявку",
+      friends_toast_invite: "{username} приглашает вас играть!",
+      friends_btn_join: "Присоединиться",
+      friends_add_friend: "Add Friend",
+      friends_remove_friend: "Remove Friend",
+      friends_cancel_request: "Cancel request",
+      friends_invite_to_game: "Invite to Game",
+      friends_send_request: "Send Request",
+      friends_requests: "Requests",
+      friends_online: "Online",
+      friends_offline: "Offline"
     },
     en: {
       menu_howtoplay: "How to Play",
@@ -313,7 +342,36 @@ const UI = {
       placeholder_username_long: "Username (at least 3 characters)",
       placeholder_password_long: "Password (at least 8 characters)",
       loading_text: "Loading...",
-      menu_found_bug: "Found a bug?"
+      menu_found_bug: "Found a bug?",
+      friends_tab_friends: "Friends",
+      friends_tab_requests: "Requests",
+      friends_add_title: "Add friend",
+      friends_add_placeholder: "Enter username",
+      friends_add_btn: "Send Request",
+      friends_empty: "No friends yet",
+      friends_no_incoming: "No incoming requests",
+      friends_no_outgoing: "No outgoing requests",
+      friends_btn_accept: "Accept",
+      friends_btn_decline: "Decline",
+      friends_btn_cancel: "Cancel",
+      friends_btn_remove: "Remove friend",
+      friends_btn_invite: "Invite to game",
+      friends_request_sent: "Request sent!",
+      friends_request_error: "Failed to send request",
+      friends_accept_success: "Request accepted!",
+      friends_remove_success: "Friend removed",
+      friends_toast_request: "{username} wants to be your friend",
+      friends_toast_accepted: "{username} accepted your request",
+      friends_toast_invite: "{username} invites you to play!",
+      friends_btn_join: "Join",
+      friends_add_friend: "Add Friend",
+      friends_remove_friend: "Remove Friend",
+      friends_cancel_request: "Cancel request",
+      friends_invite_to_game: "Invite to Game",
+      friends_send_request: "Send Request",
+      friends_requests: "Requests",
+      friends_online: "Online",
+      friends_offline: "Offline"
     }
   },
 
@@ -823,11 +881,15 @@ const UI = {
 
 
   // --- NOTIFICATIONS (Toasts) ---
-  showToast(msg, type = 'info', duration = 3000, onClick = null) {
+  showToast(msg, type = 'info', duration = 3000, onClick = null, actions = null) {
     const container = document.getElementById('notificationContainer');
 
     // 1. Remove duplicate message (so we can move it to bottom)
-    const existing = Array.from(container.children).find(child => child.textContent === msg);
+    const existing = Array.from(container.children).find(child => {
+      const msgEl = child.querySelector('.toast-msg');
+      const text = msgEl ? msgEl.textContent : child.textContent;
+      return text === msg;
+    });
     if (existing) {
       existing.remove();
     }
@@ -839,7 +901,31 @@ const UI = {
 
     const toast = document.createElement('div');
     toast.className = `notification-toast ${type}`;
-    toast.textContent = msg;
+
+    if (actions && actions.length > 0) {
+      const msgSpan = document.createElement('span');
+      msgSpan.className = 'toast-msg';
+      msgSpan.textContent = msg;
+      toast.appendChild(msgSpan);
+
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'toast-actions';
+      actions.forEach(action => {
+        const btn = document.createElement('button');
+        btn.className = `toast-btn ${action.class || ''}`;
+        btn.textContent = action.label;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (action.callback) action.callback();
+          toast.classList.add('fading');
+          toast.addEventListener('animationend', () => toast.remove());
+        });
+        actionsDiv.appendChild(btn);
+      });
+      toast.appendChild(actionsDiv);
+    } else {
+      toast.textContent = msg;
+    }
 
     if (onClick) {
       toast.classList.add('clickable');
@@ -852,10 +938,12 @@ const UI = {
 
     container.appendChild(toast);
 
-    if (duration > 0 && !onClick) {
+    if (duration > 0 && !(actions && actions.length > 0)) {
       setTimeout(() => {
-        toast.classList.add('fading');
-        toast.addEventListener('animationend', () => toast.remove());
+        if (!toast.classList.contains('fading')) {
+          toast.classList.add('fading');
+          toast.addEventListener('animationend', () => toast.remove());
+        }
       }, duration);
     }
     return toast; // Return element in case we want to remove it manually
@@ -1392,6 +1480,52 @@ UI.showProfilePage = async function (username, pushState = true) {
       logoutBtn.textContent = label;
       logoutBtn.onclick = () => this.logout();
       actionsContainer.appendChild(logoutBtn);
+    } else if (this.currentUser) {
+      // Friend action buttons for non-own profiles
+      const status = user.friendshipStatus;
+      if (status === 'friends') {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'pp-logout-btn';
+        removeBtn.textContent = UI.translate('friends_remove_friend');
+        removeBtn.style.cssText = 'background: rgba(244,67,54,0.1); color: #f44336; border-color: rgba(244,67,54,0.3);';
+        removeBtn.onclick = () => UI.removeFriend(user._id);
+        actionsContainer.appendChild(removeBtn);
+
+        const inviteBtn = document.createElement('button');
+        inviteBtn.className = 'pp-logout-btn';
+        inviteBtn.textContent = UI.translate('friends_invite_to_game');
+        inviteBtn.style.cssText = 'background: rgba(224,159,62,0.1); color: #e09f3e; border-color: rgba(224,159,62,0.3);';
+        inviteBtn.onclick = () => UI.inviteToGame(user._id);
+        actionsContainer.appendChild(inviteBtn);
+      } else if (status === 'requested') {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'pp-logout-btn';
+        cancelBtn.textContent = UI.translate('friends_cancel_request');
+        cancelBtn.style.cssText = 'background: rgba(255,255,255,0.05); color: #aaa; border-color: rgba(255,255,255,0.1);';
+        cancelBtn.onclick = () => UI.cancelRequest(user._id);
+        actionsContainer.appendChild(cancelBtn);
+      } else if (status === 'received') {
+        const acceptBtn = document.createElement('button');
+        acceptBtn.className = 'pp-logout-btn';
+        acceptBtn.textContent = UI.translate('friends_btn_accept');
+        acceptBtn.style.cssText = 'background: rgba(76,175,80,0.1); color: #4caf50; border-color: rgba(76,175,80,0.3);';
+        acceptBtn.onclick = () => UI.acceptFriend(user._id);
+        actionsContainer.appendChild(acceptBtn);
+
+        const declineBtn = document.createElement('button');
+        declineBtn.className = 'pp-logout-btn';
+        declineBtn.textContent = UI.translate('friends_btn_decline');
+        declineBtn.style.cssText = 'background: rgba(244,67,54,0.1); color: #f44336; border-color: rgba(244,67,54,0.3);';
+        declineBtn.onclick = () => UI.declineFriend(user._id);
+        actionsContainer.appendChild(declineBtn);
+      } else if (status === 'none') {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'pp-logout-btn';
+        addBtn.textContent = UI.translate('friends_add_friend');
+        addBtn.style.cssText = 'background: rgba(76,175,80,0.1); color: #4caf50; border-color: rgba(76,175,80,0.3);';
+        addBtn.onclick = () => UI.addFriend(user._id);
+        actionsContainer.appendChild(addBtn);
+      }
     }
 
     // Render History
@@ -1486,7 +1620,210 @@ UI.switchProfileTab = function (tabName, btn) {
   if (targetContent) targetContent.classList.add('active');
 
   if (btn) btn.classList.add('active');
+
+  // Load friends when switching to friends tab
+  if (tabName === 'friends') {
+    this.loadFriends();
+  }
 };
+
+// --- FRIENDS SYSTEM ---
+UI.friends = { friends: [], incoming: [], outgoing: [] };
+
+UI.loadFriends = async function () {
+  try {
+    const res = await fetch('/api/friends/list');
+    if (!res.ok) return;
+    const data = await res.json();
+    this.friends = data;
+
+    document.getElementById('ppFriendCount').textContent = data.friends ? data.friends.length : 0;
+    document.getElementById('ppRequestCount').textContent = (data.incoming ? data.incoming.length : 0) + (data.outgoing ? data.outgoing.length : 0);
+
+    this.renderFriendsTab();
+  } catch (err) {
+    console.error('[FRIENDS] Load error:', err);
+  }
+};
+
+UI.renderFriendsTab = function () {
+  const friendsList = document.getElementById('ppFriendsList');
+  const friendsEmpty = document.getElementById('ppFriendsEmpty');
+  const incomingContainer = document.getElementById('ppIncomingRequests');
+  const outgoingContainer = document.getElementById('ppOutgoingRequests');
+
+  if (!friendsList) return;
+
+  // Render friends
+  const data = this.friends || { friends: [], incoming: [], outgoing: [] };
+
+  if (data.friends && data.friends.length > 0) {
+    friendsList.innerHTML = data.friends.map(f => `
+      <div class="pp-friend-item" data-id="${UI.escapeJsString(f._id)}">
+        <img class="pp-friend-avatar" src="${UI.escapeHtml(f.avatarUrl || 'https://ui-avatars.com/api/?name=' + f.username + '&background=333&color=fff')}" alt="">
+        <div class="pp-friend-name">${UI.escapeHtml(f.username)}</div>
+        <span class="${f.online ? 'pp-friend-online-dot' : 'pp-friend-offline-dot'}"></span>
+        <span class="pp-friend-status">${f.online ? UI.translate('friends_online') : (f.lastSeen ? new Date(f.lastSeen).toLocaleDateString() : UI.translate('friends_offline'))}</span>
+        <button class="pp-friend-menu-btn" onclick="UI.toggleFriendMenu('${UI.escapeJsString(f._id)}')">⋮</button>
+        <div class="pp-friend-dropdown" id="friend-menu-${UI.escapeJsString(f._id)}">
+          ${f.online ? `<button onclick="UI.inviteToGame('${UI.escapeJsString(f._id)}')">${UI.translate('friends_invite_to_game')}</button>` : ''}
+          <button class="danger" onclick="UI.removeFriend('${UI.escapeJsString(f._id)}')">${UI.translate('friends_remove_friend')}</button>
+        </div>
+      </div>
+    `).join('');
+    friendsEmpty.classList.add('hidden');
+  } else {
+    friendsList.innerHTML = '';
+    friendsEmpty.classList.remove('hidden');
+  }
+
+  // Render incoming requests
+  if (data.incoming && data.incoming.length > 0) {
+    incomingContainer.innerHTML = data.incoming.map(r => `
+      <div class="pp-friend-item">
+        <img class="pp-friend-avatar" src="${UI.escapeHtml(r.avatarUrl || 'https://ui-avatars.com/api/?name=' + r.username + '&background=333&color=fff')}" alt="">
+        <div class="pp-friend-name">${UI.escapeHtml(r.username)}</div>
+        <button class="pp-request-btn accept" onclick="UI.acceptFriend('${UI.escapeJsString(r._id)}')">${UI.translate('friends_btn_accept')}</button>
+        <button class="pp-request-btn decline" onclick="UI.declineFriend('${UI.escapeJsString(r._id)}')">${UI.translate('friends_btn_decline')}</button>
+      </div>
+    `).join('');
+  } else {
+    incomingContainer.innerHTML = `<div class="pp-empty-state">${UI.translate('friends_no_incoming')}</div>`;
+  }
+
+  // Render outgoing requests
+  if (data.outgoing && data.outgoing.length > 0) {
+    outgoingContainer.innerHTML = data.outgoing.map(r => `
+      <div class="pp-friend-item">
+        <img class="pp-friend-avatar" src="${UI.escapeHtml(r.avatarUrl || 'https://ui-avatars.com/api/?name=' + r.username + '&background=333&color=fff')}" alt="">
+        <div class="pp-friend-name">${UI.escapeHtml(r.username)}</div>
+        <button class="pp-request-btn cancel" onclick="UI.cancelRequest('${UI.escapeJsString(r._id)}')">${UI.translate('friends_btn_cancel')}</button>
+      </div>
+    `).join('');
+  } else {
+    outgoingContainer.innerHTML = `<div class="pp-empty-state">${UI.translate('friends_no_outgoing')}</div>`;
+  }
+};
+
+UI.switchFriendTab = function (tab, btn) {
+  document.querySelectorAll('.pp-friend-tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.pp-friend-tab').forEach(el => el.classList.remove('active'));
+
+  const target = document.getElementById('ppFriendTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (target) target.classList.add('active');
+  if (btn) btn.classList.add('active');
+};
+
+UI.toggleFriendMenu = function (friendId) {
+  const menu = document.getElementById('friend-menu-' + friendId);
+  if (!menu) return;
+  const isOpen = menu.classList.contains('show');
+  // Close all menus
+  document.querySelectorAll('.pp-friend-dropdown').forEach(m => m.classList.remove('show'));
+  if (!isOpen) menu.classList.add('show');
+};
+
+UI.addFriend = async function (recipientId) {
+  try {
+    const res = await fetch('/api/friends/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipientId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      UI.showToast(UI.translate('friends_request_sent'), 'success');
+      UI.loadFriends();
+    } else {
+      UI.showToast(data.error || UI.translate('friends_request_error'), 'error');
+    }
+  } catch (err) {
+    console.error('[FRIENDS] Add error:', err);
+    UI.showToast(UI.translate('friends_request_error'), 'error');
+  }
+};
+
+UI.acceptFriend = async function (requesterId) {
+  try {
+    const res = await fetch('/api/friends/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requesterId })
+    });
+    if (res.ok) {
+      UI.showToast(UI.translate('friends_accept_success'), 'success');
+      UI.loadFriends();
+    }
+  } catch (err) {
+    console.error('[FRIENDS] Accept error:', err);
+  }
+};
+
+UI.declineFriend = async function (requesterId) {
+  try {
+    await fetch('/api/friends/decline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requesterId })
+    });
+    UI.loadFriends();
+  } catch (err) {
+    console.error('[FRIENDS] Decline error:', err);
+  }
+};
+
+UI.removeFriend = async function (userId) {
+  try {
+    const res = await fetch('/api/friends/remove/' + userId, { method: 'DELETE' });
+    if (res.ok) {
+      UI.showToast(UI.translate('friends_remove_success'), 'info');
+      UI.loadFriends();
+    }
+  } catch (err) {
+    console.error('[FRIENDS] Remove error:', err);
+  }
+};
+
+UI.cancelRequest = async function (userId) {
+  await this.declineFriend(userId);
+};
+
+UI.inviteToGame = function (friendId) {
+  if (typeof Net !== 'undefined' && Net.inviteToGame) {
+    Net.inviteToGame(friendId);
+    UI.showToast('Invitation sent!', 'info');
+  }
+};
+
+UI.addFriendFromInput = function () {
+  const input = document.getElementById('ppAddFriendInput');
+  const errorEl = document.getElementById('ppAddFriendError');
+  const username = input.value.trim();
+  if (!username) return;
+
+  // Find user by username first
+  fetch('/api/profiles/' + encodeURIComponent(username))
+    .then(res => {
+      if (!res.ok) throw new Error('User not found');
+      return res.json();
+    })
+    .then(user => {
+      UI.addFriend(user._id);
+      input.value = '';
+      errorEl.classList.add('hidden');
+    })
+    .catch(err => {
+      errorEl.textContent = 'User not found';
+      errorEl.classList.remove('hidden');
+    });
+};
+
+// Close friend dropdowns on click outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.pp-friend-dropdown') && !e.target.closest('.pp-friend-menu-btn')) {
+    document.querySelectorAll('.pp-friend-dropdown').forEach(m => m.classList.remove('show'));
+  }
+});
 
 UI.isValidLobbyCode = function (code) {
   return typeof code === 'string' && /^[A-Z0-9]{5}$/.test(code);
