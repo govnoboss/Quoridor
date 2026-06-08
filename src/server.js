@@ -939,7 +939,7 @@ app.use(cors({
         if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            callback(null, origin);
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
