@@ -188,7 +188,35 @@ const UI = {
       friends_send_request: "Send Request",
       friends_requests: "Requests",
       friends_online: "Online",
-      friends_offline: "Offline"
+      friends_offline: "Offline",
+      pp_back: "← Назад",
+      pp_no_bio: "Описание отсутствует",
+      pp_joined: "Регистрация:",
+      pp_games: "Игры",
+      pp_wl: "В/П",
+      pp_winrate: "% побед",
+      pp_history_tab: "История",
+      pp_friends_tab: "Друзья",
+      pp_th_date: "Дата",
+      pp_th_opponent: "Соперник",
+      pp_th_result: "Результат",
+      pp_th_moves: "Ходы",
+      pp_th_rating: "Рейтинг",
+      pp_no_friends: "Пока нет друзей",
+      pp_add_friend: "Добавить друга",
+      pp_enter_username: "Введите имя",
+      pp_send_request: "Отправить",
+      pp_no_games: "Партий ещё нет",
+      pp_draw: "Ничья",
+      pp_won: "Победа",
+      pp_lost: "Поражение",
+      pp_no_bio_js: "Биография не указана",
+      pp_invitation_sent: "Приглашение отправлено!",
+      pp_user_not_found: "Пользователь не найден",
+      pp_friends_title: "Друзья",
+      pp_requests_title: "Запросы",
+      pp_you: "Вы",
+      pp_opponent: "Оппонент"
     },
     en: {
       menu_howtoplay: "How to Play",
@@ -371,7 +399,35 @@ const UI = {
       friends_send_request: "Send Request",
       friends_requests: "Requests",
       friends_online: "Online",
-      friends_offline: "Offline"
+      friends_offline: "Offline",
+      pp_back: "← Back",
+      pp_no_bio: "No bio description yet.",
+      pp_joined: "Joined:",
+      pp_games: "Games",
+      pp_wl: "W/L",
+      pp_winrate: "Winrate",
+      pp_history_tab: "History",
+      pp_friends_tab: "Friends",
+      pp_th_date: "Date",
+      pp_th_opponent: "Opponent",
+      pp_th_result: "Result",
+      pp_th_moves: "Moves",
+      pp_th_rating: "Rating",
+      pp_no_friends: "No friends yet",
+      pp_add_friend: "Add friend",
+      pp_enter_username: "Enter username",
+      pp_send_request: "Send Request",
+      pp_no_games: "No games played yet",
+      pp_draw: "Draw",
+      pp_won: "WON",
+      pp_lost: "LOST",
+      pp_no_bio_js: "No bio available.",
+      pp_invitation_sent: "Invitation sent!",
+      pp_user_not_found: "User not found",
+      pp_friends_title: "Friends",
+      pp_requests_title: "Requests",
+      pp_you: "You",
+      pp_opponent: "Opponent"
     }
   },
 
@@ -1282,7 +1338,7 @@ UI.updateGameInfo = function (profiles, myIndex) {
   const topAvatar = document.getElementById('topPlayerAvatar');
 
   if (bottomProfile) {
-    let text = "Вы";
+    let text = UI.translate('pp_you');
     if (bottomProfile.name) text = bottomProfile.name;
     if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
     if (bottomName) bottomName.textContent = text;
@@ -1290,7 +1346,7 @@ UI.updateGameInfo = function (profiles, myIndex) {
   }
 
   if (topProfile) {
-    let text = "Оппонент";
+    let text = UI.translate('pp_opponent');
     if (topProfile.name) text = topProfile.name;
     if (topProfile.rating) text += ` (${topProfile.rating})`;
     if (topName) topName.textContent = text;
@@ -1381,7 +1437,7 @@ UI.loadGameHistory = async function () {
     tbody.innerHTML = '';
 
     if (games.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Партий еще нет</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center">${UI.translate('pp_no_games')}</td></tr>`;
       return;
     }
 
@@ -1389,11 +1445,11 @@ UI.loadGameHistory = async function () {
       const isWhite = game.playerWhite.id === this.currentUser._id;
       const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
 
-      let resultText = 'Ничья';
+      let resultText = UI.translate('pp_draw');
       let resultClass = '';
       if (game.winner !== -1) {
         const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
-        resultText = iWon ? 'Победа' : 'Поражение';
+        resultText = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
         resultClass = iWon ? 'archive-result-win' : 'archive-result-loss';
       }
 
@@ -1448,7 +1504,7 @@ UI.showProfilePage = async function (username, pushState = true) {
 
     // 3. Update UI
     document.getElementById('ppUsername').textContent = user.username;
-    document.getElementById('ppBio').textContent = user.bio || 'No bio available.';
+    document.getElementById('ppBio').textContent = user.bio || UI.translate('pp_no_bio_js');
     document.getElementById('ppJoinedDate').textContent = new Date(user.createdAt).toLocaleDateString();
 
     const avatarImg = document.getElementById('ppAvatar');
@@ -1548,7 +1604,7 @@ UI.showProfilePage = async function (username, pushState = true) {
     historyBody.innerHTML = '';
 
     if (!history || history.length === 0) {
-      historyBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #666;">No games played yet</td></tr>';
+      historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #666;">${UI.translate('pp_no_games')}</td></tr>`;
     } else {
       history.forEach(game => {
         const row = document.createElement('tr');
@@ -1562,12 +1618,12 @@ UI.showProfilePage = async function (username, pushState = true) {
           (game.playerWhite ? game.playerWhite.username : 'Unknown');
 
         let resultKey = 'draw';
-        let resultLabel = 'Draw';
+        let resultLabel = UI.translate('pp_draw');
 
         if (game.winner !== -1) {
           const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
           resultKey = iWon ? 'win' : 'loss';
-          resultLabel = iWon ? 'WON' : 'LOST';
+          resultLabel = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
         }
 
         // Calculate rating change for the profile owner
@@ -1806,7 +1862,7 @@ UI.cancelRequest = async function (userId) {
 UI.inviteToGame = function (friendId) {
   if (typeof Net !== 'undefined' && Net.inviteToGame) {
     Net.inviteToGame(friendId);
-    UI.showToast('Invitation sent!', 'info');
+    UI.showToast(UI.translate('pp_invitation_sent'), 'info');
   }
 };
 
@@ -1828,7 +1884,7 @@ UI.addFriendFromInput = function () {
       errorEl.classList.add('hidden');
     })
     .catch(err => {
-      errorEl.textContent = 'User not found';
+      errorEl.textContent = UI.translate('pp_user_not_found');
       errorEl.classList.remove('hidden');
     });
 };

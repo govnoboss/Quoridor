@@ -335,7 +335,7 @@
   <!-- PROFILE SCREEN (NEW) -->
   <div id="profileScreen" class="screen">
     <div class="profile-page-container">
-      <button class="btn-back-floating" onclick="UI.backToMenuFromProfile()">← Back</button>
+      <button class="btn-back-floating" data-i18n="pp_back" onclick="UI.backToMenuFromProfile()">← Back</button>
 
       <!-- Header -->
       <div class="profile-page-header">
@@ -345,8 +345,8 @@
         </div>
         <div class="pp-info-section">
           <h1 id="ppUsername">User</h1>
-          <p id="ppBio" class="pp-bio">No bio description yet.</p>
-          <p class="pp-joined">Joined: <span id="ppJoinedDate">--/--/----</span></p>
+          <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
+          <p class="pp-joined" data-i18n="pp_joined">Joined: <span id="ppJoinedDate">--/--/----</span></p>
         </div>
         <div class="pp-actions" id="ppActions">
           <!-- Buttons injected by JS (e.g. Add Friend, Edit Profile) -->
@@ -356,19 +356,19 @@
       <!-- Stats Overview -->
       <div class="pp-stats-overview">
         <div class="pp-stat-card">
-          <div class="label">Games</div>
+          <div class="label" data-i18n="pp_games">Games</div>
           <div class="value" id="ppTotalGames">0</div>
         </div>
         <div class="pp-stat-card">
-          <div class="label">W/L</div>
+          <div class="label" data-i18n="pp_wl">W/L</div>
           <div class="value" id="ppWins">0</div>
         </div>
         <div class="pp-stat-card">
-          <div class="label">Winrate</div>
+          <div class="label" data-i18n="pp_winrate">Winrate</div>
           <div class="value" id="ppWinrate">0%</div>
         </div>
         <div class="pp-stat-card rating">
-          <div class="label">Rating</div>
+          <div class="label" data-i18n="pp_rating">Rating</div>
           <div class="value" id="ppRating">1200</div>
         </div>
         <!-- Hidden internal stats for calculations -->
@@ -377,8 +377,8 @@
 
       <!-- Tabs -->
       <div class="pp-tabs">
-        <button class="pp-tab active" onclick="UI.switchProfileTab('history', this)">History</button>
-        <button class="pp-tab" onclick="UI.switchProfileTab('friends', this)">Friends</button>
+        <button class="pp-tab active" data-i18n="pp_history_tab" onclick="UI.switchProfileTab('history', this)">History</button>
+        <button class="pp-tab" data-i18n="pp_friends_tab" onclick="UI.switchProfileTab('friends', this)">Friends</button>
       </div>
 
       <!-- Tab Content: History -->
@@ -387,11 +387,11 @@
           <table class="pp-history-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Opponent</th>
-                <th>Result</th>
-                <th>Rating</th>
-                <th>Moves</th>
+                <th data-i18n="pp_th_date">Date</th>
+                <th data-i18n="pp_th_opponent">Opponent</th>
+                <th data-i18n="pp_th_result">Result</th>
+                <th data-i18n="pp_th_rating">Rating</th>
+                <th data-i18n="pp_th_moves">Moves</th>
               </tr>
             </thead>
             <tbody id="ppHistoryBody">
@@ -404,27 +404,27 @@
       <!-- Tab Content: Friends -->
       <div id="ppTabFriends" class="pp-tab-content">
         <div class="pp-friends-tabs">
-          <button class="pp-friend-tab active" onclick="UI.switchFriendTab('list', this)">
+          <button class="pp-friend-tab active" data-i18n="pp_friends_title" onclick="UI.switchFriendTab('list', this)">
             Friends <span id="ppFriendCount">0</span>
           </button>
-          <button class="pp-friend-tab" onclick="UI.switchFriendTab('requests', this)">
+          <button class="pp-friend-tab" data-i18n="pp_requests_title" onclick="UI.switchFriendTab('requests', this)">
             Requests <span id="ppRequestCount">0</span>
           </button>
         </div>
 
         <div id="ppFriendTabList" class="pp-friend-tab-content active">
           <div id="ppFriendsList"></div>
-          <div id="ppFriendsEmpty" class="pp-empty-state">No friends yet</div>
+          <div id="ppFriendsEmpty" class="pp-empty-state" data-i18n="pp_no_friends">No friends yet</div>
         </div>
 
         <div id="ppFriendTabRequests" class="pp-friend-tab-content">
           <div id="ppIncomingRequests"></div>
           <div id="ppOutgoingRequests"></div>
           <div class="pp-add-friend-section">
-            <h4>Add friend</h4>
+            <h4 data-i18n="pp_add_friend">Add friend</h4>
             <div class="pp-add-friend-row">
-              <input type="text" id="ppAddFriendInput" placeholder="Enter username" maxlength="20">
-              <button onclick="UI.addFriendFromInput()" class="secondary-btn">Send Request</button>
+              <input type="text" id="ppAddFriendInput" data-i18n="pp_enter_username" placeholder="Enter username" maxlength="20">
+              <button onclick="UI.addFriendFromInput()" class="secondary-btn" data-i18n="pp_send_request">Send Request</button>
             </div>
             <div id="ppAddFriendError" class="pp-error-msg hidden"></div>
           </div>
