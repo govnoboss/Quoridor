@@ -126,7 +126,7 @@ const Net = {
             this.myColor = null;
             UI.clearLobbyRoute();
 
-            Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges);
+            Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges, data.gameResultId);
         });
 
         this.socket.on('gameActiveError', (data) => {

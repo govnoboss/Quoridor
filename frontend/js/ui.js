@@ -66,6 +66,10 @@ const UI = {
       reason_timeout: "Время истекло",
       reason_surrender: "Противник сдался",
       reason_disconnected: "Противник покинул игру",
+      btn_lobby: "В лобби",
+      btn_replay: "Анализ игры",
+      btn_sign_up: "Зарегистрироваться",
+      signup_benefits: "Отслеживайте рейтинг, статистику и историю партий",
       btn_to_menu: "В меню",
       btn_rematch: "Реванш",
       btn_new_game: "Новая игра",
@@ -277,6 +281,10 @@ const UI = {
       reason_timeout: "Time out",
       reason_surrender: "Opponent surrendered",
       reason_disconnected: "Opponent disconnected",
+      btn_lobby: "Back to Lobby",
+      btn_replay: "Game Analysis",
+      btn_sign_up: "Sign Up",
+      signup_benefits: "Track your rating, match history and stats",
       btn_to_menu: "Exit",
       btn_rematch: "Rematch",
       btn_new_game: "New Game",
@@ -813,6 +821,28 @@ const UI = {
         btn.classList.remove('hidden');
       } else {
         btn.classList.add('hidden');
+      }
+    }
+  },
+
+  showLobbyBtn(show) {
+    const btn = document.getElementById('lobbyBtn');
+    if (btn) {
+      if (show) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+  },
+
+  showSignupSection(show) {
+    const section = document.getElementById('resultSignup');
+    if (section) {
+      if (show) {
+        section.classList.remove('hidden');
+      } else {
+        section.classList.add('hidden');
       }
     }
   },

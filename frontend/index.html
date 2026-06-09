@@ -578,11 +578,18 @@
       <div id="resultRatingChanges" class="rating-changes"></div>
 
       <div class="result-actions">
-        <button class="result-btn primary hidden" id="newGameBtn" onclick="Net.startNewGame()" data-i18n="btn_new_game">New Game</button>
+        <button class="result-btn primary hidden" id="newGameBtn" onclick="Game.startNewGame()" data-i18n="btn_new_game">New Game</button>
+
         <div class="result-secondary-row">
-          <button class="result-btn primary hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
-          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.state.gameId)">View Replay</button>
-          <button class="result-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">Exit</button>
+          <button class="result-btn hidden" id="lobbyBtn" onclick="Game.goToMainMenu()" data-i18n="btn_lobby">Back to Lobby</button>
+          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.lastGameResultId || Game.state.gameId)" data-i18n="btn_replay">Game Analysis</button>
+        </div>
+
+        <button class="result-btn rematch-btn hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
+
+        <div class="result-signup hidden" id="resultSignup">
+          <button class="result-btn signup-btn" onclick="window.location.href='/register'" data-i18n="btn_sign_up">Sign Up</button>
+          <p class="signup-subtitle" data-i18n="signup_benefits">Track your rating, match history and stats</p>
         </div>
       </div>
     </div>

@@ -32,6 +32,14 @@ Sentry.init({
 
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
+// Enforce HTTPS when behind a reverse proxy
+app.use((req, res, next) => {
+    if (req.protocol !== 'https' && process.env.NODE_ENV === 'production') {
+        return res.redirect(301, 'https://' + req.headers.host + req.url);
+    }
+    next();
+});
+
 app.disable('x-powered-by');
 
 // --- DATABASE & AUTH SETUP ---
@@ -89,6 +97,16 @@ const authLimiter = rateLimit({
 
 // Apply to auth routes
 app.use('/api/auth/', authLimiter);
+
+// Global HTTP rate limiter: 200 requests per minute
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 200,
+    message: { error: 'Too many requests. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(globalLimiter);
 
 // Serve Core Modules for Frontend
 app.get('/js/ai-core.js', (req, res) => {
@@ -940,7 +958,7 @@ app.use(cors({
         if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
             callback(null, true);
         } else {
-            callback(null, origin);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -1665,6 +1683,10 @@ io.on('connection', (socket) => {
 
     // --- ПРИВАТНЫЕ КОМНАТЫ ---
     socket.on('createRoom', async (data) => {
+        if (!checkRateLimit(socket.id, 'createRoom', 5, 60000)) {
+            socket.emit('error', { message: 'Too many requests. Please wait.' });
+            return;
+        }
         const token = data?.token || socket.playerToken;
         if (!isValidToken(token)) return;
         if (socket.searchToken === token) socket.searchToken = null;
@@ -1689,6 +1711,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', async (data) => {
+        if (!checkRateLimit(socket.id, 'joinRoom', 5, 60000)) {
+            socket.emit('joinRoomFailed', { reason: 'Too many requests. Please wait.' });
+            return;
+        }
         const { roomCode, token } = data;
         const playerToken = token || socket.playerToken;
 
@@ -1868,6 +1894,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('rejoinLobby', async (data) => {
+        if (!checkRateLimit(socket.id, 'rejoinLobby', 5, 60000)) {
+            return;
+        }
         const token = data?.token;
         const lobbyCode = (data?.lobbyCode || '').toUpperCase().trim();
         const isReplay = data?.replay === true;
@@ -2429,10 +2458,10 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         console.log(`[ARCHIVE] Game ${lobbyId} saved (Ranked: ${!!game.isRanked})`);
 
         return {
+            gameResultId: result._id,
             white: playerWhite,
             black: playerBlack
         };
-
     } catch (err) {
         console.error('[ARCHIVE ERROR]', err);
         return null;
@@ -2459,6 +2488,7 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
         io.to(lobbyId).emit('gameOver', {
             winnerIdx: winnerIdx,
             reason: reason,
+            gameResultId: resultData?.gameResultId || null,
             ratingChanges: (resultData && game.isRanked) ? {
                 playerWhite: resultData.white.ratingChange,
                 playerBlack: resultData.black.ratingChange,
