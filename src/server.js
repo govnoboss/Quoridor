@@ -34,8 +34,10 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
 // Enforce HTTPS when behind a reverse proxy
 app.use((req, res, next) => {
-    if (req.protocol !== 'https' && process.env.NODE_ENV === 'production') {
-        return res.redirect(301, 'https://' + req.headers.host + req.url);
+    const host = req.headers.host || '';
+    const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(host);
+    if (req.protocol !== 'https' && process.env.NODE_ENV === 'production' && !isLocal) {
+        return res.redirect(301, 'https://' + host + req.url);
     }
     next();
 });
