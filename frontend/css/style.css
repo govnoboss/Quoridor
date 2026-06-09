@@ -2745,12 +2745,15 @@ canvas {
 }
 
 .signup-btn {
-    border-color: #22c55e;
-    color: #22c55e;
+    background: #e09f3e;
+    color: #000;
+    border-color: #e09f3e;
+    opacity: 1;
 }
 
 .signup-btn:hover {
-    background: rgba(34, 197, 94, 0.1);
+    background: #d48f2e;
+    transform: scale(1.05);
 }
 
 .signup-subtitle {
