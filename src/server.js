@@ -948,11 +948,6 @@ app.use(cors({
 }));
 
 // Serve static files
-// ai-worker.js is loaded via new Worker() — no cache-busting param, so uncacheable
-app.get('/js/ai-worker.js', (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.sendFile(path.join(__dirname, '../frontend/js/ai-worker.js'));
-});
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
