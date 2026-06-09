@@ -2728,6 +2728,38 @@ canvas {
     transform: scale(1.05);
 }
 
+.rematch-btn {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    padding: 6px 32px;
+}
+
+.rematch-btn:hover {
+    opacity: 0.8;
+}
+
+.result-signup {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.signup-btn {
+    border-color: #22c55e;
+    color: #22c55e;
+}
+
+.signup-btn:hover {
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.signup-subtitle {
+    font-size: 0.7rem;
+    opacity: 0.45;
+    margin: 6px 0 0;
+    line-height: 1.4;
+}
+
 .result-reason {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.55);
