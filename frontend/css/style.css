@@ -1419,6 +1419,8 @@ canvas {
     right: 0;
     display: flex;
     align-items: center;
+    justify-content: center;
+    gap: 14px;
     padding: 10px 20px;
     z-index: 50;
     pointer-events: none;
@@ -1449,19 +1451,9 @@ canvas {
     pointer-events: none;
 }
 .social-group {
-    flex: 1;
     display: flex;
     align-items: center;
     gap: 14px;
-}
-.social-group--left {
-    justify-content: flex-start;
-}
-.social-group--center {
-    justify-content: center;
-}
-.social-group--right {
-    justify-content: flex-end;
 }
 .discord-link svg {
     width: 28px;
