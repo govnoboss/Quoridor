@@ -1419,29 +1419,11 @@ canvas {
     right: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 14px;
     padding: 10px 20px;
     z-index: 50;
     pointer-events: none;
-}
-.social-bar .social-left,
-.social-bar .social-center,
-.social-bar .social-right {
-    display: flex;
-    align-items: center;
-    pointer-events: auto;
-    flex: 1;
-}
-.social-bar .social-left {
-    justify-content: flex-start;
-    gap: 10px;
-}
-.social-bar .social-center {
-    justify-content: center;
-    gap: 14px;
-}
-.social-bar .social-right {
-    justify-content: flex-end;
 }
 .social-bar .social-link {
     color: #777;
@@ -1459,28 +1441,13 @@ canvas {
     width: 22px;
     height: 22px;
     fill: currentColor;
-    display: block;
-}
-.social-bar .social-link.social-discord svg {
-    width: 28px;
-    height: 28px;
-}
-.social-bar .social-link.social-discord:hover {
-    color: #5865F2;
 }
 .social-bar .social-text {
-    color: #777;
-    text-decoration: none;
-    font-size: 12px;
     letter-spacing: 0.5px;
-    transition: color 0.2s;
 }
-.social-bar .social-text:hover {
-    color: var(--wall);
-}
-.social-bar .social-sep {
+.social-bar .social-separator {
     color: #444;
-    font-size: 12px;
+    font-size: 13px;
     pointer-events: none;
 }
 
