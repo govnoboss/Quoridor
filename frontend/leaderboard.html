@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <title>Leaderboard — Quoridor</title>
+    <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="canonical" href="https://playquor.org/leaderboard" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/profile.css?v=1.0.4" type="text/css" />
+    <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+    <script src="/js/analytics.js?v=1.0.4"></script>
+    <style>
+        .lb-page {
+            min-height: calc(100vh - var(--header-h));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 16px 80px;
+        }
+        .lb-container {
+            width: 100%;
+            max-width: 520px;
+        }
+        .lb-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .lb-header h1 {
+            font-size: 1.4rem;
+            margin: 0;
+            flex: 1;
+        }
+        .lb-back-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            color: var(--text);
+            font-size: 1.2rem;
+            text-decoration: none;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .lb-back-btn:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        .lb-subtitle {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .lb-loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .lb-empty {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .leaderboard-row {
+            cursor: pointer;
+        }
+        .leaderboard-row .rank.top1 {
+            background: #e09f3e;
+            color: #1a1a1a;
+        }
+        .leaderboard-row .rank.top2 {
+            background: #b0b0b0;
+            color: #1a1a1a;
+        }
+        .leaderboard-row .rank.top3 {
+            background: #cd7f32;
+            color: #1a1a1a;
+        }
+        @media (max-width: 768px) {
+            .lb-page {
+                padding: 16px 12px 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-left">
+            <a href="/" class="header-logo">QUORIDOR</a>
+        </div>
+        <div class="header-right">
+            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="lb-page">
+        <div class="lb-container">
+            <div class="lb-header">
+                <a href="/" class="lb-back-btn" id="backBtn" aria-label="Back">&larr;</a>
+                <h1 id="pageTitle">Leaderboard</h1>
+            </div>
+            <p class="lb-subtitle" id="pageSubtitle">Top 100 players by rating</p>
+            <div class="leaderboard" id="leaderboardList">
+                <div class="lb-loading" id="loadingText">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var dict = {
+            ru: {
+                title: 'Лидеры',
+                subtitle: 'Топ-100 игроков по рейтингу',
+                loading: 'Загрузка...',
+                empty: 'Пока нет игроков',
+                error: 'Ошибка загрузки'
+            },
+            en: {
+                title: 'Leaderboard',
+                subtitle: 'Top 100 players by rating',
+                loading: 'Loading...',
+                empty: 'No players yet',
+                error: 'Failed to load'
+            }
+        };
+
+        function getLang() {
+            return localStorage.getItem('quoridor-lang') || 'en';
+        }
+
+        function setLanguage(lang) {
+            localStorage.setItem('quoridor-lang', lang);
+            var d = dict[lang];
+            document.title = d.title + ' — Quoridor';
+            document.documentElement.lang = lang;
+            document.getElementById('headerLang').value = lang;
+            document.getElementById('pageTitle').textContent = d.title;
+            document.getElementById('pageSubtitle').textContent = d.subtitle;
+            document.getElementById('loadingText').textContent = d.loading;
+        }
+
+        function applyLang() {
+            setLanguage(getLang());
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function loadLeaderboard() {
+            var container = document.getElementById('leaderboardList');
+            var lang = getLang();
+            var d = dict[lang];
+
+            fetch('/api/leaderboard?limit=100')
+                .then(function(r) { return r.json(); })
+                .then(function(players) {
+                    if (!players || players.length === 0) {
+                        container.innerHTML = '<div class="lb-empty">' + d.empty + '</div>';
+                        return;
+                    }
+
+                    container.innerHTML = players.map(function(p, i) {
+                        var rankClass = '';
+                        if (i === 0) rankClass = 'top1';
+                        else if (i === 1) rankClass = 'top2';
+                        else if (i === 2) rankClass = 'top3';
+
+                        return '<div class="leaderboard-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
+                            + '<span class="rank ' + rankClass + '">' + (i + 1) + '</span>'
+                            + '<span class="name">' + escapeHtml(p.username) + '</span>'
+                            + '<span class="score">' + p.rating + '</span>'
+                            + '</div>';
+                    }).join('');
+                })
+                .catch(function() {
+                    container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
+                });
+        }
+
+        applyLang();
+        loadLeaderboard();
+    </script>
+</body>
+</html>

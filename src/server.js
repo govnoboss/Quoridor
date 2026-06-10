@@ -539,7 +539,7 @@ app.get('/api/profiles/:username/games', async (req, res) => {
 // Leaderboard API - top players (humans + bots) by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
         const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
             .select('username rating avatarUrl')
             .sort({ rating: -1 })
@@ -983,6 +983,7 @@ app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend
 app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
 app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
 app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
+app.get('/leaderboard', (req, res) => res.sendFile(path.join(__dirname, '../frontend/leaderboard.html')));
 
 // --- BUG REPORT API ---
 
