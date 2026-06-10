@@ -2779,6 +2779,29 @@ canvas {
     line-height: 1.5;
 }
 
+.result-discord-cta {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.result-discord-cta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #777;
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: color 0.2s;
+}
+.result-discord-cta a:hover {
+    color: var(--wall);
+}
+.result-discord-cta svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
 /* --- FIXED PROFILE LAYOUT --- */
 .profile-modal-content {
     background: var(--bg-panel);
