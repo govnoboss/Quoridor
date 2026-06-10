@@ -1429,15 +1429,19 @@ canvas {
 .social-bar .social-right {
     display: flex;
     align-items: center;
-    gap: 10px;
     pointer-events: auto;
-    flex: 0 0 auto;
+    flex: 1;
+}
+.social-bar .social-left {
+    justify-content: flex-start;
+    gap: 10px;
 }
 .social-bar .social-center {
+    justify-content: center;
     gap: 14px;
 }
 .social-bar .social-right {
-    flex: 1;
+    justify-content: flex-end;
 }
 .social-bar .social-link {
     color: #777;
