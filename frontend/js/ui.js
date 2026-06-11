@@ -2032,7 +2032,7 @@ UI.initRouting = function () {
 // Leaderboard loader - fetches top players from API
 UI.loadLeaderboard = async function () {
   try {
-    const res = await fetch('/api/leaderboard');
+    const res = await fetch('/api/leaderboard?limit=10');
     const players = await res.json();
     const container = document.getElementById('leaderboard');
     if (!container) return;
