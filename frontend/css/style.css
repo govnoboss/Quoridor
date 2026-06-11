@@ -1264,12 +1264,7 @@ canvas {
     padding: 15px;
     text-align: center;
 }
-.info-panel .info-card:last-child {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
+
 
 .info-card-header {
     display: flex;
