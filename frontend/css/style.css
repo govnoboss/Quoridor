@@ -1015,9 +1015,10 @@ canvas {
 /* --- GLOBAL MENU ELEMENTS --- */
 #mainMenu {
     position: relative;
-    /* Anchor for absolute elements */
-    /* Ensure column layout is respected if overrides exist */
     flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
 }
 
 .main-title {
@@ -1253,7 +1254,6 @@ canvas {
     background: transparent;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 12px;
     padding: 15px 25px;
 }
@@ -1263,6 +1263,12 @@ canvas {
     border-radius: 10px;
     padding: 15px;
     text-align: center;
+}
+.info-panel .info-card:last-child {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .info-card-header {
@@ -1371,8 +1377,8 @@ canvas {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 320px;
-    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .leaderboard-row {
