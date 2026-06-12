@@ -381,6 +381,20 @@
         <span id="ppLosses" class="hidden">0</span>
       </div>
 
+      <!-- Rating Chart (collapsible) -->
+      <div class="pp-rating-chart-section">
+        <button class="pp-chart-toggle" onclick="UI.toggleRatingChart()">
+          <span><span data-i18n="pp_rating_chart">Rating Chart</span> <span id="ppChartGameCount"></span></span>
+          <span class="pp-chart-arrow">▾</span>
+        </button>
+        <div id="ppRatingChartContainer" class="pp-chart-container">
+          <div class="pp-chart-wrapper">
+            <canvas id="ppRatingChart"></canvas>
+          </div>
+          <div id="ppChartNoData" class="pp-chart-empty hidden" data-i18n="pp_no_ranked_games">No ranked games yet</div>
+        </div>
+      </div>
+
       <!-- Tabs -->
       <div class="pp-tabs">
         <button class="pp-tab active" data-i18n="pp_history_tab" onclick="UI.switchProfileTab('history', this)">History</button>
@@ -693,6 +707,7 @@
   <div id="notificationContainer" class="notification-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="/js/ui.js?v=1.0.4"></script>
   <script src="/js/net.js?v=1.0.4"></script>
   <script src="/shared.js?v=1.0.4"></script>
