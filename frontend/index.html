@@ -601,11 +601,11 @@
         <button class="result-btn primary hidden" id="newGameBtn" onclick="Game.startNewGame()" data-i18n="btn_new_game">New Game</button>
 
         <div class="result-secondary-row">
-          <button class="result-btn hidden" id="lobbyBtn" onclick="Game.goToMainMenu()" data-i18n="btn_lobby">Back to Lobby</button>
+          <button class="result-btn hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
           <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.lastGameResultId || Game.state.gameId)" data-i18n="btn_replay">Game Analysis</button>
         </div>
 
-        <button class="result-btn rematch-btn hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
+        <button class="result-btn hidden" id="lobbyBtn" onclick="Game.goToMainMenu()" data-i18n="btn_lobby">Back to Lobby</button>
 
         <div class="result-signup hidden" id="resultSignup">
           <button class="result-btn signup-btn" onclick="window.location.href='/register'" data-i18n="btn_sign_up">Sign Up</button>
