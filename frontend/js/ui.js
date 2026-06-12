@@ -1746,11 +1746,6 @@ UI._loadRatingChart = async function (username) {
         if (!res.ok) throw new Error('Failed to load rating history');
         const data = await res.json();
 
-        const gameCountEl = document.getElementById('ppChartGameCount');
-        if (gameCountEl) {
-            gameCountEl.textContent = data.length ? `(${data.length})` : '';
-        }
-
         if (!data || data.length < 2) {
             document.getElementById('ppChartNoData').classList.remove('hidden');
             return;
