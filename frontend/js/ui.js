@@ -221,7 +221,9 @@ const UI = {
       pp_friends_title: "Друзья",
       pp_requests_title: "Запросы",
       pp_you: "Вы",
-      pp_opponent: "Оппонент"
+      pp_opponent: "Оппонент",
+      pp_rating_chart: "График рейтинга",
+      pp_no_ranked_games: "Нет рейтинговых партий"
     },
     en: {
       menu_howtoplay: "How to Play",
@@ -437,7 +439,9 @@ const UI = {
       pp_friends_title: "Friends",
       pp_requests_title: "Requests",
       pp_you: "You",
-      pp_opponent: "Opponent"
+      pp_opponent: "Opponent",
+      pp_rating_chart: "Rating Chart",
+      pp_no_ranked_games: "No ranked games yet"
     }
   },
 
@@ -1695,6 +1699,9 @@ UI.showProfilePage = async function (username, pushState = true) {
       });
     }
 
+    // Load rating chart data
+    this._loadRatingChart(username);
+
     // 4. Show Screen
     this.showScreen('profileScreen');
 
@@ -1729,6 +1736,130 @@ UI.switchProfileTab = function (tabName, btn) {
     this.loadFriends();
   }
 };
+
+// --- RATING CHART ---
+UI._ratingChartInstance = null;
+
+UI._loadRatingChart = async function (username) {
+    try {
+        const res = await fetch(`/api/profiles/${username}/rating-history`);
+        if (!res.ok) throw new Error('Failed to load rating history');
+        const data = await res.json();
+
+        const gameCountEl = document.getElementById('ppChartGameCount');
+        if (gameCountEl) {
+            gameCountEl.textContent = data.length ? `(${data.length})` : '';
+        }
+
+        if (!data || data.length < 2) {
+            document.getElementById('ppChartNoData').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('ppChartNoData').classList.add('hidden');
+
+        const canvas = document.getElementById('ppRatingChart');
+        if (!canvas) return;
+
+        if (this._ratingChartInstance) {
+            this._ratingChartInstance.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+        const textColor = isDark ? '#aaa' : '#666';
+
+        this._ratingChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => new Date(d.date)),
+                datasets: [{
+                    label: 'Rating',
+                    data: data.map(d => d.ratingAfter),
+                    borderColor: '#e09f3e',
+                    backgroundColor: 'rgba(224, 159, 62, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: '#e09f3e',
+                    pointBorderColor: isDark ? '#1a1a1a' : '#fff',
+                    pointBorderWidth: 1.5,
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)',
+                        titleColor: isDark ? '#fff' : '#222',
+                        bodyColor: isDark ? '#ccc' : '#555',
+                        borderColor: 'rgba(224,159,62,0.4)',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                        titleFont: { weight: '600' },
+                        callbacks: {
+                            title: function (items) {
+                                if (!items.length) return '';
+                                const d = new Date(items[0].label);
+                                return d.toLocaleDateString();
+                            },
+                            label: function (item) {
+                                return 'Rating: ' + item.raw;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor,
+                            maxTicksLimit: 8,
+                            font: { size: 11 },
+                            callback: function (value, index) {
+                                const d = new Date(this.getLabelForValue(value));
+                                return d.toLocaleDateString();
+                            }
+                        },
+                        grid: { color: gridColor }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            font: { size: 11 }
+                        },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('[RATING CHART] Error:', err);
+    }
+};
+
+UI.toggleRatingChart = function () {
+    const container = document.getElementById('ppRatingChartContainer');
+    const arrow = document.querySelector('.pp-chart-arrow');
+    if (!container) return;
+
+    const isOpen = container.classList.toggle('open');
+    if (arrow) arrow.classList.toggle('open', isOpen);
+
+    if (isOpen && this._ratingChartInstance) {
+        this._ratingChartInstance.resize();
+    }
+};
+// --- END RATING CHART ---
 
 // --- FRIENDS SYSTEM ---
 UI.friends = { friends: [], incoming: [], outgoing: [] };

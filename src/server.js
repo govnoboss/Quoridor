@@ -536,6 +536,37 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     }
 });
 
+// Rating History for Chart
+app.get('/api/profiles/:username/rating-history', async (req, res) => {
+    try {
+        const { username } = req.params;
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const games = await GameResult.find({
+            isRanked: true,
+            $or: [{ 'playerWhite.id': user._id }, { 'playerBlack.id': user._id }]
+        }).sort({ date: 1 }).select('date playerWhite playerBlack');
+
+        const history = [];
+        let rating = 1200;
+
+        for (const game of games) {
+            const isWhite = game.playerWhite && game.playerWhite.id && game.playerWhite.id.toString() === user._id.toString();
+            const change = isWhite
+                ? (game.playerWhite?.ratingChange || 0)
+                : (game.playerBlack?.ratingChange || 0);
+            rating += change;
+            history.push({ date: game.date, ratingAfter: rating });
+        }
+
+        res.json(history);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Leaderboard API - top players (humans + bots) by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
