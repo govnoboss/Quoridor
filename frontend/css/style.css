@@ -333,6 +333,23 @@ button:hover {
     padding: 18px 50px
 }
 
+.menu-buttons .menu-link-btn {
+    display: block;
+    font-size: 1.6rem;
+    padding: 18px 50px;
+    background: #2a2a2a;
+    color: #eee;
+    border: none;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.menu-buttons .menu-link-btn:hover {
+    background: #3a3a3a;
+}
+
 /* РЎРІРµС‚Р»Р°СЏ С‚РµРјР° */
 body.light {
     --bg: #f0f0f0;
