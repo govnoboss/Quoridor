@@ -162,20 +162,13 @@
                 <div id="runtime" class="meta">-</div>
             </div>
 
-            <!-- Simulation Dashboard -->
+            <!-- Bot Presence Dashboard -->
             <div class="panel">
-                <h2>Simulation Dashboard</h2>
-                <div id="simStats" class="stat-grid">
-                    <div class="stat-card"><div class="value" id="simTotalBots">-</div><div class="label">Total Bots</div></div>
-                    <div class="stat-card"><div class="value" id="simOnline">-</div><div class="label">Online Now</div></div>
-                    <div class="stat-card"><div class="value" id="simInCooldown">-</div><div class="label">In Cooldown</div></div>
-                    <div class="stat-card"><div class="value" id="simAtLimit">-</div><div class="label">At Daily Limit</div></div>
-                    <div class="stat-card"><div class="value" id="simPresenceCount">-</div><div class="label">Presence Slots</div></div>
-                    <div class="stat-card"><div class="value" id="simActiveGames">-</div><div class="label">Active Sim Games</div></div>
-                    <div class="stat-card"><div class="value" id="simOnlineCount">-</div><div class="label">Simulated Online</div></div>
+                <h2>Bot Presence</h2>
+                <div id="presenceStats" class="stat-grid">
+                    <div class="stat-card"><div class="value" id="presTotalBots">-</div><div class="label">Total Bots</div></div>
+                    <div class="stat-card"><div class="value" id="presOnline">-</div><div class="label">Online Now</div></div>
                 </div>
-                <div class="status" id="simStatus"></div>
-                <p class="meta">Simulation status: <span id="simEnabled">-</span></p>
             </div>
 
             <!-- Bot settings -->
@@ -203,8 +196,8 @@
                     <input id="seedPassword" type="password" placeholder="Leave empty for auto">
                 </div>
                 <div class="status" id="seedStatus"></div>
-                <button id="seedBtn" class="info">Seed (6 original)</button>
-                <button id="populateBtn" class="secondary">Populate (20 ranked)</button>
+                <button id="seedAllBtn" class="info">Seed All (120 bots)</button>
+                <button id="recalcBtn" class="secondary">Recalculate Ratings</button>
             </div>
 
             <!-- Bot accounts list -->
@@ -273,10 +266,10 @@
                 const stats = bot.stats || {};
                 const w = stats.wins || 0;
                 const l = stats.losses || 0;
-                const isRanked = bot.seedId && bot.seedId.startsWith('qbot-');
-                const statusBadge = isRanked
-                    ? '<span class="status-badge badge-online">ranked</span>'
-                    : '<span class="status-badge badge-offline">legacy</span>';
+                const type = bot.seedId && bot.seedId.startsWith('qbot-') ? 'old' : bot.seedId && bot.seedId.startsWith('sbot-') ? 'social' : 'legacy';
+                const badgeClass = type === 'old' ? 'badge-online' : type === 'social' ? 'badge-playing' : 'badge-offline';
+                const badgeLabel = type === 'old' ? 'ranked' : type === 'social' ? 'social' : 'legacy';
+                const statusBadge = `<span class="status-badge ${badgeClass}">${badgeLabel}</span>`;
                 const nameCell = document.createElement('td');
                 nameCell.innerHTML = `<span class="bot-name-text">${bot.username}</span> <button class="btn-small" onclick="renameBot('${bot.id}', '${bot.username}')">✎</button>`;
                 tr.appendChild(nameCell);
@@ -296,24 +289,32 @@
                 `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
         }
 
-        function renderSimulation(sim) {
-            if (!sim) {
-                document.getElementById('simEnabled').textContent = 'DISABLED';
+        function renderPresence(presence) {
+            if (!presence) {
+                document.getElementById('presTotalBots').textContent = '-';
+                document.getElementById('presOnline').textContent = '-';
                 return;
             }
-            document.getElementById('simEnabled').textContent = sim.enabled ? 'ENABLED' : 'DISABLED';
+            document.getElementById('presTotalBots').textContent = presence.totalBots ?? '-';
+            document.getElementById('presOnline').textContent = presence.online ?? '-';
+        }
 
-            const s = sim.schedule || {};
-            const p = sim.presence || {};
-            const g = sim.games || {};
+        async function recalcRatings() {
+            setStatus('seedStatus', 'Recalculating...');
+            const res = await fetch('/api/admin/bots/recalc', {
+                method: 'POST',
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            renderBots(data.bots || []);
+            setStatus('seedStatus', `Recalculated ${data.updated} bot ratings`, 'ok');
+        }
 
-            document.getElementById('simTotalBots').textContent = s.totalBots ?? '-';
-            document.getElementById('simOnline').textContent = s.online ?? '-';
-            document.getElementById('simInCooldown').textContent = s.inCooldown ?? '-';
-            document.getElementById('simAtLimit').textContent = s.atDailyLimit ?? '-';
-            document.getElementById('simPresenceCount').textContent = p.botPresenceCount ?? '-';
-            document.getElementById('simActiveGames').textContent = g.activeGames ?? '-';
-            document.getElementById('simOnlineCount').textContent = p.simulatedOnline ?? '-';
+        function renderRuntime(runtime) {
+            const activeIds = (runtime.activeBotGameIds || []).join(', ') || '-';
+            document.getElementById('runtime').textContent =
+                `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
         }
 
         async function loadPanel() {
@@ -328,7 +329,7 @@
             const data = await res.json();
             fillSettings(data.settings);
             renderRuntime(data.runtime || {});
-            renderSimulation(data.simulation);
+            renderPresence(data.presence);
             renderBots(data.bots || []);
             document.getElementById('mainContent').classList.remove('hidden');
             document.getElementById('authError').classList.add('hidden');
@@ -366,20 +367,6 @@
             setStatus('seedStatus', `Done. created=${data.created || 0}, updated=${data.updated || 0}`, 'ok');
         }
 
-        async function populateBots() {
-            setStatus('seedStatus', 'Populating 20 ranked bots...');
-            const res = await fetch('/api/admin/bots/seed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({})
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            renderBots(data.bots || []);
-            setStatus('seedStatus', `Populated. Total bots in DB: ${(data.bots || []).length}`, 'ok');
-        }
-
         async function renameBot(id, currentName) {
             const newName = prompt('New username for bot:', currentName);
             if (!newName || newName === currentName) return;
@@ -404,11 +391,11 @@
         document.getElementById('reloadBtn').addEventListener('click', () => {
             loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));
         });
-        document.getElementById('seedBtn').addEventListener('click', () => {
+        document.getElementById('seedAllBtn').addEventListener('click', () => {
             seedBots().catch(err => setStatus('seedStatus', err.message, 'error'));
         });
-        document.getElementById('populateBtn').addEventListener('click', () => {
-            populateBots().catch(err => setStatus('seedStatus', err.message, 'error'));
+        document.getElementById('recalcBtn').addEventListener('click', () => {
+            recalcRatings().catch(err => setStatus('seedStatus', err.message, 'error'));
         });
 
         loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));

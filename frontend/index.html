@@ -37,11 +37,11 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=1.0.3" type="text/css" />
-  <link rel="stylesheet" href="/css/auth.css?v=1.0.3" type="text/css" />
-  <link rel="stylesheet" href="/css/profile.css?v=1.0.3" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
+  <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
+  <link rel="stylesheet" href="/css/profile.css?v=1.0.4" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
-  <script src="/js/analytics.js?v=1.0.3"></script>
+  <script src="/js/analytics.js?v=1.0.4"></script>
 </head>
 
 <body>
@@ -281,7 +281,7 @@
         <div class="info-card">
           <div class="info-card-header">
             <span class="info-icon"></span>
-            <h3 data-i18n="info_leaderboard_title">Лидерборд</h3>
+            <h3><a href="/leaderboard" style="color:inherit;text-decoration:none" data-i18n="info_leaderboard_title">Лидерборд</a></h3>
           </div>
           <div class="leaderboard" id="leaderboard">
             <div class="leaderboard-row loading">Loading...</div>
@@ -292,21 +292,32 @@
     </div> <!-- menu-layout -->
 
     <div class="social-bar">
-      <a href="https://www.tiktok.com/@playquor" target="_blank" rel="noopener" class="social-link" aria-label="TikTok">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
-        </svg>
-      </a>
-      <a href="https://www.youtube.com/@playquoridor" target="_blank" rel="noopener" class="social-link" aria-label="YouTube">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-        </svg>
-      </a>
+      <div class="social-group">
+        <a href="/terms" class="social-link social-text">Terms</a>
+        <a href="/privacy" class="social-link social-text">Privacy</a>
+      </div>
       <span class="social-separator">|</span>
-      <a href="/terms" class="social-link social-text">Terms</a>
-      <a href="/privacy" class="social-link social-text">Privacy</a>
+      <div class="social-group">
+        <a href="https://www.tiktok.com/@playquor" target="_blank" rel="noopener" class="social-link" aria-label="TikTok">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+          </svg>
+        </a>
+        <a href="https://www.youtube.com/@playquoridor" target="_blank" rel="noopener" class="social-link" aria-label="YouTube">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+        </a>
+        <a href="https://discord.gg/fbDtxcyg6B" target="_blank" rel="noopener" class="social-link discord-link" aria-label="Discord">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+        </a>
+      </div>
       <span class="social-separator">|</span>
-      <a href="/report" class="social-link social-text" data-i18n="menu_found_bug">Found a bug?</a>
+      <div class="social-group">
+        <a href="/report" class="social-link social-text" data-i18n="menu_found_bug">Found a bug?</a>
+      </div>
     </div>
   </div> <!-- mainMenu -->
 
@@ -330,7 +341,7 @@
   <!-- PROFILE SCREEN (NEW) -->
   <div id="profileScreen" class="screen">
     <div class="profile-page-container">
-      <button class="btn-back-floating" onclick="UI.backToMenuFromProfile()">← Back</button>
+      <button class="btn-back-floating" data-i18n="pp_back" onclick="UI.backToMenuFromProfile()">← Back</button>
 
       <!-- Header -->
       <div class="profile-page-header">
@@ -340,8 +351,8 @@
         </div>
         <div class="pp-info-section">
           <h1 id="ppUsername">User</h1>
-          <p id="ppBio" class="pp-bio">No bio description yet.</p>
-          <p class="pp-joined">Joined: <span id="ppJoinedDate">--/--/----</span></p>
+          <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
+          <p class="pp-joined"><span data-i18n="pp_joined">Joined:</span> <span id="ppJoinedDate">--/--/----</span></p>
         </div>
         <div class="pp-actions" id="ppActions">
           <!-- Buttons injected by JS (e.g. Add Friend, Edit Profile) -->
@@ -351,29 +362,43 @@
       <!-- Stats Overview -->
       <div class="pp-stats-overview">
         <div class="pp-stat-card">
-          <div class="label">Games</div>
+          <div class="label" data-i18n="pp_games">Games</div>
           <div class="value" id="ppTotalGames">0</div>
         </div>
         <div class="pp-stat-card">
-          <div class="label">W/L</div>
+          <div class="label" data-i18n="pp_wl">W/L</div>
           <div class="value" id="ppWins">0</div>
         </div>
         <div class="pp-stat-card">
-          <div class="label">Winrate</div>
+          <div class="label" data-i18n="pp_winrate">Winrate</div>
           <div class="value" id="ppWinrate">0%</div>
         </div>
         <div class="pp-stat-card rating">
-          <div class="label">Rating</div>
+          <div class="label" data-i18n="pp_rating">Rating</div>
           <div class="value" id="ppRating">1200</div>
         </div>
         <!-- Hidden internal stats for calculations -->
         <span id="ppLosses" class="hidden">0</span>
       </div>
 
+      <!-- Rating Chart (collapsible) -->
+      <div class="pp-rating-chart-section">
+        <button class="pp-chart-toggle" onclick="UI.toggleRatingChart()">
+          <span><span data-i18n="pp_rating_chart">Rating Chart</span> <span id="ppChartGameCount"></span></span>
+          <span class="pp-chart-arrow">▾</span>
+        </button>
+        <div id="ppRatingChartContainer" class="pp-chart-container">
+          <div class="pp-chart-wrapper">
+            <canvas id="ppRatingChart"></canvas>
+          </div>
+          <div id="ppChartNoData" class="pp-chart-empty hidden" data-i18n="pp_no_ranked_games">No ranked games yet</div>
+        </div>
+      </div>
+
       <!-- Tabs -->
       <div class="pp-tabs">
-        <button class="pp-tab active" onclick="UI.switchProfileTab('history', this)">History</button>
-        <button class="pp-tab" onclick="UI.switchProfileTab('friends', this)">Friends</button>
+        <button class="pp-tab active" data-i18n="pp_history_tab" onclick="UI.switchProfileTab('history', this)">History</button>
+        <button class="pp-tab" data-i18n="pp_friends_tab" onclick="UI.switchProfileTab('friends', this)">Friends</button>
       </div>
 
       <!-- Tab Content: History -->
@@ -382,11 +407,11 @@
           <table class="pp-history-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Opponent</th>
-                <th>Result</th>
-                <th>Rating</th>
-                <th>Moves</th>
+                <th data-i18n="pp_th_date">Date</th>
+                <th data-i18n="pp_th_opponent">Opponent</th>
+                <th data-i18n="pp_th_result">Result</th>
+                <th data-i18n="pp_th_rating">Rating</th>
+                <th data-i18n="pp_th_moves">Moves</th>
               </tr>
             </thead>
             <tbody id="ppHistoryBody">
@@ -400,26 +425,26 @@
       <div id="ppTabFriends" class="pp-tab-content">
         <div class="pp-friends-tabs">
           <button class="pp-friend-tab active" onclick="UI.switchFriendTab('list', this)">
-            Friends <span id="ppFriendCount">0</span>
+            <span data-i18n="pp_friends_title">Friends</span> <span id="ppFriendCount">0</span>
           </button>
           <button class="pp-friend-tab" onclick="UI.switchFriendTab('requests', this)">
-            Requests <span id="ppRequestCount">0</span>
+            <span data-i18n="pp_requests_title">Requests</span> <span id="ppRequestCount">0</span>
           </button>
         </div>
 
         <div id="ppFriendTabList" class="pp-friend-tab-content active">
           <div id="ppFriendsList"></div>
-          <div id="ppFriendsEmpty" class="pp-empty-state">No friends yet</div>
+          <div id="ppFriendsEmpty" class="pp-empty-state" data-i18n="pp_no_friends">No friends yet</div>
         </div>
 
         <div id="ppFriendTabRequests" class="pp-friend-tab-content">
           <div id="ppIncomingRequests"></div>
           <div id="ppOutgoingRequests"></div>
           <div class="pp-add-friend-section">
-            <h4>Add friend</h4>
+            <h4 data-i18n="pp_add_friend">Add friend</h4>
             <div class="pp-add-friend-row">
-              <input type="text" id="ppAddFriendInput" placeholder="Enter username" maxlength="20">
-              <button onclick="UI.addFriendFromInput()" class="secondary-btn">Send Request</button>
+              <input type="text" id="ppAddFriendInput" data-i18n="pp_enter_username" placeholder="Enter username" maxlength="20">
+              <button onclick="UI.addFriendFromInput()" class="secondary-btn" data-i18n="pp_send_request">Send Request</button>
             </div>
             <div id="ppAddFriendError" class="pp-error-msg hidden"></div>
           </div>
@@ -563,7 +588,7 @@
 
   <div id="resultModal" class="modal-overlay hidden">
     <div class="modal-content">
-      <button class="close-panel-btn" onclick="Game.closeResultModal()">×</button>
+      <button class="close-panel-btn" onclick="Game.goToMainMenu()">×</button>
       <h2 id="resultStatus" data-i18n="modal_win">ПОБЕДА</h2>
       <div class="result-divider"></div>
       <p class="result-reason">
@@ -573,12 +598,27 @@
       <div id="resultRatingChanges" class="rating-changes"></div>
 
       <div class="result-actions">
-        <button class="result-btn primary hidden" id="newGameBtn" onclick="Net.startNewGame()" data-i18n="btn_new_game">New Game</button>
+        <button class="result-btn primary hidden" id="newGameBtn" onclick="Game.startNewGame()" data-i18n="btn_new_game">New Game</button>
+
         <div class="result-secondary-row">
-          <button class="result-btn primary hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
-          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.state.gameId)">View Replay</button>
-          <button class="result-btn" onclick="Game.goToMainMenu()" data-i18n="btn_to_menu">Exit</button>
+          <button class="result-btn hidden" id="rematchBtn" onclick="Net.requestRematch()" data-i18n="btn_rematch">Rematch</button>
+          <button class="result-btn hidden" id="replayBtn" onclick="UI.openReplayModal(Game.lastGameResultId || Game.state.gameId)" data-i18n="btn_replay">Game Analysis</button>
         </div>
+
+        <button class="result-btn hidden" id="lobbyBtn" onclick="Game.goToMainMenu()" data-i18n="btn_lobby">Back to Lobby</button>
+
+        <div class="result-signup hidden" id="resultSignup">
+          <button class="result-btn signup-btn" onclick="window.location.href='/register'" data-i18n="btn_sign_up">Sign Up</button>
+          <p class="signup-subtitle" data-i18n="signup_benefits">Track your rating, match history and stats</p>
+        </div>
+      </div>
+      <div class="result-discord-cta">
+        <a href="https://discord.gg/fbDtxcyg6B" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+          <span data-i18n="discord_cta">More tactics on Discord</span>
+        </a>
       </div>
     </div>
   </div>
@@ -667,13 +707,14 @@
   <div id="notificationContainer" class="notification-container"></div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/ui.js?v=1.0.3"></script>
-  <script src="/js/net.js?v=1.0.3"></script>
-  <script src="/shared.js?v=1.0.3"></script>
-  <script src="/js/ai.js?v=1.0.3"></script>
-  <script src="/js/ai-core.js?v=1.0.3"></script>
-  <script src="/js/board-renderer.js?v=1.0.3"></script>
-  <script src="/js/game.js?v=1.0.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="/js/ui.js?v=1.0.4"></script>
+  <script src="/js/net.js?v=1.0.4"></script>
+  <script src="/shared.js?v=1.0.4"></script>
+  <script src="/js/ai.js?v=1.0.4"></script>
+  <script src="/js/ai-core.js?v=1.0.4"></script>
+  <script src="/js/board-renderer.js?v=1.0.4"></script>
+  <script src="/js/game.js?v=1.0.4"></script>
 </body>
 
 </html>

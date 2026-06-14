@@ -435,3 +435,75 @@
 .pp-error-msg { color: #f44336; font-size: 13px; margin-top: 6px; }
 .pp-error-msg.hidden { display: none; }
 .pp-empty-state { text-align: center; padding: 30px; color: #666; }
+
+/* Rating Chart Section */
+.pp-rating-chart-section {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(30, 30, 30, 0.4);
+}
+
+.pp-chart-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    color: #ccc;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.pp-chart-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.pp-chart-toggle span:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pp-chart-arrow {
+    font-size: 0.9rem;
+    transition: transform 0.25s ease;
+    color: #888;
+}
+
+.pp-chart-arrow.open {
+    transform: rotate(180deg);
+}
+
+.pp-chart-container {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+}
+
+.pp-chart-container.open {
+    max-height: 320px;
+}
+
+.pp-chart-wrapper {
+    padding: 8px 16px 16px;
+    height: 260px;
+    position: relative;
+}
+
+.pp-chart-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-style: italic;
+}
+
+#ppChartGameCount {
+    font-size: 0.8rem;
+    color: #888;
+    font-weight: 400;
+}

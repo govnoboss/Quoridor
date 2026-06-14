@@ -230,7 +230,7 @@ const Game = {
     // this.canvas.style.height = size + 'px';// <--- REMOVED
     this.ctx.scale(dpr, dpr);
   },
-  handleGameOver(winnerIdx, reason, ratingChanges) {
+  handleGameOver(winnerIdx, reason, ratingChanges, gameResultId) {
     this.stopTimer();
     this.isGameOver = true;
 
@@ -248,11 +248,9 @@ const Game = {
     let statusMessage = "";
 
     if (this.myPlayerIndex !== -1) {
-      // Сетевая игра: сравниваем с нашим индексом
       isWinner = (winnerIdx === this.myPlayerIndex);
       statusMessage = isWinner ? UI.translate('modal_win') : UI.translate('modal_lose');
     } else {
-      // Локальная игра: в PvP кто-то один всегда побеждает
       isWinner = true;
       const colorKey = (winnerIdx === 0) ? 'pname_white' : 'pname_black';
       const colorName = UI.translate(colorKey);
@@ -260,17 +258,28 @@ const Game = {
     }
     trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local' });
 
-    // Применяем стили
     const contentBox = modal.querySelector('.modal-content');
     contentBox.className = 'modal-content ' + (isWinner ? 'win-state' : 'lose-state');
 
     statusText.innerText = statusMessage;
 
-    // Вставляем причину отдельно, так как заголовок "Причина:" уже в HTML ( i18n )
     const reasonDetail = document.getElementById('resultReasonText');
     if (reasonDetail) {
       reasonDetail.innerText = reasons[reason] || reason;
     }
+
+    // Store gameResultId for replay button
+    if (gameResultId) {
+      this.lastGameResultId = gameResultId;
+    }
+
+    // Show buttons
+    const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
+    UI.showNewGameBtn(true);
+    UI.showLobbyBtn(true);
+    UI.showReplayBtn(!!gameResultId || !isOnlineGame);
+    UI.showRematchBtn(isOnlineGame);
+    UI.showSignupSection(typeof UI !== 'undefined' && !UI.currentUser);
 
     // Озвучка результата
     if (isWinner) {
@@ -280,21 +289,6 @@ const Game = {
     }
 
     modal.classList.remove('hidden');
-
-    // Show rematch + new game buttons for online games
-    const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
-    if (isOnlineGame) {
-      UI.showRematchBtn(true);
-      if (Net.lastTimeControl) {
-        UI.showNewGameBtn(true);
-      } else {
-        UI.showNewGameBtn(false);
-      }
-    } else {
-      UI.showRematchBtn(false);
-      UI.showNewGameBtn(false);
-      UI.showReplayBtn(true);
-    }
 
     // Rating changes display
     const ratingContainer = document.getElementById('resultRatingChanges');
@@ -350,10 +344,21 @@ const Game = {
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
     UI.showReplayBtn(false);
+    UI.showLobbyBtn(false);
+    UI.showSignupSection(false);
 
     if (typeof UI !== 'undefined') {
       UI.clearLobbyRoute();
       UI.backToMenu();
+    }
+  },
+
+  startNewGame() {
+    const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
+    if (isOnlineGame) {
+      Net.startNewGame();
+    } else {
+      this.goToMainMenu();
     }
   },
 

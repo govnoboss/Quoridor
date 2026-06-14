@@ -103,6 +103,7 @@
     "load-test": "node tests/load-test.js",
     "seed:bots": "node scripts/seed_bots.js",
     "lint": "eslint src/ frontend/js/ scripts/ tests/",
+    "audit": "npm audit --audit-level=high",
     "coverage": "jest --coverage"
   },
   "repository": {
