@@ -1015,9 +1015,10 @@ canvas {
 /* --- GLOBAL MENU ELEMENTS --- */
 #mainMenu {
     position: relative;
-    /* Anchor for absolute elements */
-    /* Ensure column layout is respected if overrides exist */
     flex-direction: column;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
 }
 
 .main-title {
@@ -1265,6 +1266,7 @@ canvas {
     text-align: center;
 }
 
+
 .info-card-header {
     display: flex;
     align-items: center;
@@ -1371,6 +1373,8 @@ canvas {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
+    min-height: 0;
 }
 
 .leaderboard-row {
@@ -1449,6 +1453,15 @@ canvas {
     color: #444;
     font-size: 13px;
     pointer-events: none;
+}
+.social-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.discord-link svg {
+    width: 28px;
+    height: 28px;
 }
 
 /* --- TABLET & MOBILE RESPONSIVE (Portrait) --- */
@@ -2728,11 +2741,69 @@ canvas {
     transform: scale(1.05);
 }
 
+.rematch-btn {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    padding: 6px 32px;
+}
+
+.rematch-btn:hover {
+    opacity: 0.8;
+}
+
+.result-signup {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.signup-btn {
+    background: #e09f3e;
+    color: #000;
+    border-color: #e09f3e;
+    opacity: 1;
+}
+
+.signup-btn:hover {
+    background: #d48f2e;
+    transform: scale(1.05);
+}
+
+.signup-subtitle {
+    font-size: 0.7rem;
+    opacity: 0.45;
+    margin: 6px 0 0;
+    line-height: 1.4;
+}
+
 .result-reason {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.55);
     margin: 0 0 8px;
     line-height: 1.5;
+}
+
+.result-discord-cta {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.result-discord-cta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #777;
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: color 0.2s;
+}
+.result-discord-cta a:hover {
+    color: var(--wall);
+}
+.result-discord-cta svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
 }
 
 /* --- FIXED PROFILE LAYOUT --- */

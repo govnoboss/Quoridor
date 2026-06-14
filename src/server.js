@@ -32,6 +32,16 @@ Sentry.init({
 
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
+// Enforce HTTPS when behind a reverse proxy
+app.use((req, res, next) => {
+    const host = req.headers.host || '';
+    const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(host);
+    if (req.protocol !== 'https' && process.env.NODE_ENV === 'production' && !isLocal) {
+        return res.redirect(301, 'https://' + host + req.url);
+    }
+    next();
+});
+
 app.disable('x-powered-by');
 
 // --- DATABASE & AUTH SETUP ---
@@ -39,12 +49,9 @@ const connectDB = require('./storage/db');
 const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
 const BotSettings = require('./models/BotSettings');
-const { ACCOUNT_BOTS } = require('./bots/defaultBots');
-const { upsertAccountBot } = require('./bots/botSeed');
-const BotActivitySchedule = require('./simulation/BotActivitySchedule');
-const PresenceSimulator = require('./simulation/PresenceSimulator');
+const BotPresenceManager = require('./bots/BotPresenceManager');
 const GameSimulator = require('./simulation/GameSimulator');
-const { syncRankedBots } = require('./simulation/PopulationManager');
+const { syncBotPopulation } = require('./simulation/PopulationManager');
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -89,6 +96,16 @@ const authLimiter = rateLimit({
 
 // Apply to auth routes
 app.use('/api/auth/', authLimiter);
+
+// Global HTTP rate limiter: 200 requests per minute
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 200,
+    message: { error: 'Too many requests. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(globalLimiter);
 
 // Serve Core Modules for Frontend
 app.get('/js/ai-core.js', (req, res) => {
@@ -330,23 +347,7 @@ async function applyPersistedBotSettings() {
 }
 
 async function seedBotAccounts(password = null) {
-    const passwordHash = await bcrypt.hash(
-        password || process.env.BOT_ACCOUNT_PASSWORD || `bot-${Date.now()}-${Math.random()}`,
-        10
-    );
-    const result = { created: 0, updated: 0 };
-
-    for (const bot of ACCOUNT_BOTS) {
-        const action = await upsertAccountBot(User, bot, passwordHash);
-        if (action === 'created') result.created++;
-        else result.updated++;
-    }
-
-    // Also sync all 20 ranked bots
-    const popResult = await syncRankedBots(User, password);
-    result.created += popResult.created;
-    result.updated += popResult.updated;
-
+    const result = await syncBotPopulation(User, password);
     return result;
 }
 
@@ -359,16 +360,11 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
         const settings = await getOrCreateBotSettings();
         botManager.setRuntimeConfig(settingsForBotManager(settings));
 
-        const bots = await User.find({ isBot: true });
+        const bots = await User.find({ isBot: true }).sort({ rating: -1 });
         res.json({
             settings,
             runtime: botManager.getRuntimeStats(),
-            simulation: {
-                enabled: process.env.SIMULATION_ENABLED !== 'false' && botActivitySchedule !== null,
-                schedule: botActivitySchedule ? botActivitySchedule.getStats() : null,
-                presence: presenceSimulator ? presenceSimulator.getStats() : null,
-                games: gameSimulator ? gameSimulator.getStats() : null,
-            },
+            presence: botPresenceManager ? botPresenceManager.getStats() : { totalBots: 0, online: 0 },
             bots: bots.map(bot => ({
                 id: bot._id,
                 username: bot.username,
@@ -448,6 +444,28 @@ app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/bots/recalc', requireAdmin, async (req, res) => {
+    try {
+        await recalculateBotRatings();
+        const bots = await User.find({ isBot: true }).sort({ rating: -1 });
+        res.json({
+            updated: bots.length,
+            bots: bots.map(bot => ({
+                id: bot._id,
+                username: bot.username,
+                rating: bot.rating,
+                avatarUrl: bot.avatarUrl,
+                country: bot.country,
+                stats: bot.stats || {},
+                seedId: bot.seedId,
+            })),
+        });
+    } catch (err) {
+        console.error('[ADMIN] Failed to recalculate bot ratings:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // --- PROFILE API ---
 
 // Public Profile Data
@@ -516,11 +534,42 @@ app.get('/api/profiles/:username/games', async (req, res) => {
     }
 });
 
+// Rating History for Chart
+app.get('/api/profiles/:username/rating-history', async (req, res) => {
+    try {
+        const { username } = req.params;
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const games = await GameResult.find({
+            isRanked: true,
+            $or: [{ 'playerWhite.id': user._id }, { 'playerBlack.id': user._id }]
+        }).sort({ date: 1 }).select('date playerWhite playerBlack');
+
+        const history = [];
+        let rating = 1200;
+
+        for (const game of games) {
+            const isWhite = game.playerWhite && game.playerWhite.id && game.playerWhite.id.toString() === user._id.toString();
+            const change = isWhite
+                ? (game.playerWhite?.ratingChange || 0)
+                : (game.playerBlack?.ratingChange || 0);
+            rating += change;
+            history.push({ date: game.date, ratingAfter: rating });
+        }
+
+        res.json(history);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Leaderboard API - top players (humans + bots) by rating
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
+        const topPlayers = await User.find({ isAdmin: { $ne: true } })
             .select('username rating avatarUrl')
             .sort({ rating: -1 })
             .limit(limit);
@@ -911,7 +960,7 @@ app.use(helmet.contentSecurityPolicy({
     useDefaults: false,
     directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com", "https://cdn.jsdelivr.net"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
@@ -940,7 +989,7 @@ app.use(cors({
         if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
             callback(null, true);
         } else {
-            callback(null, origin);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -966,6 +1015,7 @@ app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, '../frontend/r
 app.get('/how-to-play', (req, res) => res.redirect(301, '/rules'));
 app.get('/faq', (req, res) => res.sendFile(path.join(__dirname, '../frontend/faq.html')));
 app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
+app.get('/leaderboard', (req, res) => res.sendFile(path.join(__dirname, '../frontend/leaderboard.html')));
 
 // --- BUG REPORT API ---
 
@@ -1176,6 +1226,50 @@ function calculateEloChange(ratingA, ratingB, scoreA) { // scoreA: 1 (win), 0 (l
     const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
     return Math.round(K * (scoreA - expectedA));
 }
+async function recalculateBotRatings() {
+    try {
+        const bots = await User.find({ isBot: true });
+        let updated = 0;
+        for (const bot of bots) {
+            const games = await GameResult.find({
+                isRanked: true,
+                $or: [{ 'playerWhite.id': bot._id }, { 'playerBlack.id': bot._id }]
+            }).sort({ date: 1 }).select('playerWhite playerBlack winner date');
+
+            if (games.length === 0) continue;
+
+            let rating = 1200;
+            let totalGames = 0;
+            let wins = 0;
+            let losses = 0;
+
+            for (const game of games) {
+                const isWhite = game.playerWhite && game.playerWhite.id && game.playerWhite.id.toString() === bot._id.toString();
+                const change = isWhite
+                    ? (game.playerWhite?.ratingChange || 0)
+                    : (game.playerBlack?.ratingChange || 0);
+                rating += change;
+                totalGames++;
+
+                if (game.winner === 0 && isWhite) wins++;
+                else if (game.winner === 1 && !isWhite) wins++;
+                else if (game.winner !== -1) losses++;
+            }
+
+            bot.rating = rating;
+            bot.stats = bot.stats || {};
+            bot.stats.totalGames = totalGames;
+            bot.stats.wins = wins;
+            bot.stats.losses = losses;
+            await bot.save();
+            updated++;
+        }
+        console.log(`[RATING] Recalculated ratings for ${updated} bots`);
+    } catch (err) {
+        console.error('[RATING] Recalculation error:', err);
+    }
+}
+
 function checkVictory(state) {
     if (state.players[0].pos.r === 0) return 0;
     if (state.players[1].pos.r === 8) return 1;
@@ -1384,7 +1478,7 @@ const botManager = new BotManager({
 });
 
 let botActivitySchedule = null;
-let presenceSimulator = null;
+let botPresenceManager = null;
 let gameSimulator = null;
 
 async function collectPresenceStats() {
@@ -1418,24 +1512,21 @@ async function collectPresenceStats() {
         });
     });
 
+    let botCount = 0;
+    let botEntries = [];
+
+    if (botPresenceManager) {
+        botEntries = botPresenceManager.getOnlineBots();
+        botCount = botEntries.length;
+    }
+
     const base = {
-        online: humans.length,
+        online: humans.length + botCount,
         playing: gameIds.length * 2,
         humans,
-        bots: [],
+        bots: botEntries,
         liveGames,
     };
-
-    if (presenceSimulator) {
-        const sim = presenceSimulator.getPresence(humans.length);
-        base.online = sim.online;
-        base.playing += sim.playing;
-        base.bots = sim.bots.map(b => { const { isBot, ...rest } = b; return rest; });
-        base.liveGames = base.liveGames.concat(sim.liveGames.map(g => ({
-            ...g,
-            players: g.players.map(p => { const { isBot, ...rest } = p; return rest; }),
-        })));
-    }
 
     return base;
 }
@@ -1668,6 +1759,10 @@ io.on('connection', (socket) => {
 
     // --- ПРИВАТНЫЕ КОМНАТЫ ---
     socket.on('createRoom', async (data) => {
+        if (!checkRateLimit(socket.id, 'createRoom', 5, 60000)) {
+            socket.emit('error', { message: 'Too many requests. Please wait.' });
+            return;
+        }
         const token = data?.token || socket.playerToken;
         if (!isValidToken(token)) return;
         if (socket.searchToken === token) socket.searchToken = null;
@@ -1692,6 +1787,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', async (data) => {
+        if (!checkRateLimit(socket.id, 'joinRoom', 5, 60000)) {
+            socket.emit('joinRoomFailed', { reason: 'Too many requests. Please wait.' });
+            return;
+        }
         const { roomCode, token } = data;
         const playerToken = token || socket.playerToken;
 
@@ -1871,6 +1970,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('rejoinLobby', async (data) => {
+        if (!checkRateLimit(socket.id, 'rejoinLobby', 5, 60000)) {
+            return;
+        }
         const token = data?.token;
         const lobbyCode = (data?.lobbyCode || '').toUpperCase().trim();
         const isReplay = data?.replay === true;
@@ -2344,6 +2446,18 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         const uid0 = await Redis.getUserIdByToken(whiteToken);
         const uid1 = await Redis.getUserIdByToken(blackToken);
 
+        // Safety: reject bot-vs-bot games
+        if (uid0 && uid1) {
+            const [p0, p1] = await Promise.all([
+                User.findById(uid0).select('isBot'),
+                User.findById(uid1).select('isBot'),
+            ]);
+            if (p0 && p1 && p0.isBot && p1.isBot) {
+                console.warn(`[BLOCKED] Bot-vs-bot game ${lobbyId} rejected`);
+                return null;
+            }
+        }
+
         const playerWhite = { username: "Guest White", isGuest: true };
         const playerBlack = { username: "Guest Black", isGuest: true };
 
@@ -2432,10 +2546,10 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         console.log(`[ARCHIVE] Game ${lobbyId} saved (Ranked: ${!!game.isRanked})`);
 
         return {
+            gameResultId: result._id,
             white: playerWhite,
             black: playerBlack
         };
-
     } catch (err) {
         console.error('[ARCHIVE ERROR]', err);
         return null;
@@ -2462,6 +2576,7 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
         io.to(lobbyId).emit('gameOver', {
             winnerIdx: winnerIdx,
             reason: reason,
+            gameResultId: resultData?.gameResultId || null,
             ratingChanges: (resultData && game.isRanked) ? {
                 playerWhite: resultData.white.ratingChange,
                 playerBlack: resultData.black.ratingChange,
@@ -2687,24 +2802,21 @@ async function startServer() {
         await cleanupStaleGames();
         console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
 
-        // Sync ranked bot population
-        const popResult = await syncRankedBots(User);
-        console.log(`[POPULATION] Synced ranked bots: created=${popResult.created} updated=${popResult.updated}`);
+        // Sync all bot population (120 bots)
+        const popResult = await syncBotPopulation(User);
+        console.log(`[POPULATION] Synced bot population: created=${popResult.created} updated=${popResult.updated}`);
 
-        // Initialize simulation system
-        const rankedBotDocs = await User.find({ isBot: true, seedId: { $regex: /^qbot-/ } });
-        const rankedBotIds = rankedBotDocs.map(b => b._id.toString());
-        console.log(`[SIMULATION] Found ${rankedBotIds.length} ranked bots in DB`);
+        // Recalculate bot ratings from actual game history
+        await recalculateBotRatings();
 
-        if (rankedBotIds.length >= 2 && process.env.SIMULATION_ENABLED !== 'false') {
-            presenceSimulator = new PresenceSimulator({
-                onlineMin: parseInt(process.env.SIM_ONLINE_MIN) || 10,
-                onlineMax: parseInt(process.env.SIM_ONLINE_MAX) || 20,
-            });
-            presenceSimulator.start();
-            console.log('[SIMULATION] Started presence simulator (no bot games)');
+        // Initialize bot presence manager for realistic online/offline
+        const allBotDocs = await User.find({ isBot: true }).select('_id username');
+        if (allBotDocs.length >= 2) {
+            botPresenceManager = new BotPresenceManager(allBotDocs);
+            botPresenceManager.start();
+            console.log(`[PRESENCE] Started bot presence manager with ${allBotDocs.length} bots`);
         } else {
-            console.log('[SIMULATION] Skipped — need >=2 ranked bots in DB');
+            console.log('[PRESENCE] Skipped — need >=2 bots in DB');
         }
 
         // Запускаем HTTP сервер
@@ -2724,7 +2836,7 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
-    if (presenceSimulator) presenceSimulator.stop();
+    if (botPresenceManager) botPresenceManager.stop();
     if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
@@ -2733,7 +2845,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
     console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
-    if (presenceSimulator) presenceSimulator.stop();
+    if (botPresenceManager) botPresenceManager.stop();
     if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();

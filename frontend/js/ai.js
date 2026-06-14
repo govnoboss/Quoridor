@@ -3,7 +3,7 @@ const AI = {
 
     init() {
         if (this.worker) return;
-        this.worker = new Worker('js/ai-worker.js');
+        this.worker = new Worker('/js/ai-worker.js');
         this.worker.onmessage = (e) => {
             const data = e.data;
 

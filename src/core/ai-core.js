@@ -343,7 +343,7 @@
             if (this.killerMoves[depth].length > 2) this.killerMoves[depth].pop(); // Keep max 2
         },
 
-        generateMoves(state, forPlayer, depth = 0) {
+        generateMoves(state, forPlayer, depth = 0, avoidPositions = null) {
             const moves = [];
             const { r, c } = state.players[forPlayer].pos;
 
@@ -351,15 +351,17 @@
             // This handles simple moves, straight jumps, AND diagonal jumps
             const pawnTargets = this.Shared.getJumpTargets(state, r, c);
 
-            // Urgency bonus: if bot is close to winning, strongly prefer pawn moves
-            const dBot = this.shortestPathDistance(state, forPlayer);
-            const urgencyBonus = dBot <= 3 ? (4 - dBot) * 100 : 0; // dist 1 → +300, dist 2 → +200, dist 3 → +100
-
             // Build a real path-distance map for the entire board (one BFS, wall-aware).
             // Used for directionBonus so that a "backward" row move that is the only maze
             // exit gets a positive bonus instead of a Manhattan penalty.
+            // Also reused for urgencyBonus to avoid a separate BFS call.
             const distMap = this.pathDistanceMap(state, forPlayer);
             const currentPathDist = distMap[r][c];
+
+            // Urgency bonus: if player is close to winning, strongly prefer pawn moves
+            // Use distMap[r][c] instead of a separate shortestPathDistance BFS call
+            const dBot = currentPathDist === Infinity ? 9 : currentPathDist;
+            const urgencyBonus = dBot <= 3 ? (4 - dBot) * 100 : 0; // dist 1 → +300, dist 2 → +200, dist 3 → +100
 
             for (const target of pawnTargets) {
                 // Higher priority for straight-line jumps (moving towards goal)
@@ -374,7 +376,11 @@
                                      : newPathDist > currentPathDist ? -30
                                      : 0;
 
-                moves.push({ type: 'pawn', r: target.r, c: target.c, priority: basePriority + urgencyBonus + directionBonus });
+                // Loop penalty: discourage returning to recently visited positions.
+                // Applied here (move ordering) so minimax sees it at all depths, not just root.
+                const loopPenalty = (avoidPositions && avoidPositions.has(`${target.r},${target.c}`)) ? -3000 : 0;
+
+                moves.push({ type: 'pawn', r: target.r, c: target.c, priority: basePriority + urgencyBonus + directionBonus + loopPenalty });
             }
 
             if (state.players[forPlayer].wallsLeft > 0) {
@@ -493,7 +499,7 @@
             state.currentPlayer = 1 - state.currentPlayer;
         },
 
-        minimax(state, depth, alpha, beta, maximizing, botIdx) {
+        minimax(state, depth, alpha, beta, maximizing, botIdx, avoidPositions = null) {
             this.nodesVisited++;
             if ((this.nodesVisited & 4095) === 0) {
                 if (Date.now() > this.deadline) throw 'timeout';
@@ -518,7 +524,8 @@
             const current = maximizing ? botIdx : (1 - botIdx);
 
             // Pass Depth to generateMoves to use Killer Heuristic
-            const moves = this.generateMoves(state, current, depth);
+            // Pass avoidPositions so loop penalty affects move ordering at all depths
+            const moves = this.generateMoves(state, current, depth, avoidPositions);
 
             if (moves.length === 0) return this.evaluate(state, botIdx);
 
@@ -528,7 +535,7 @@
             if (maximizing) {
                 for (const m of moves) {
                     this.applyMove(state, m, current);
-                    const score = this.minimax(state, depth - 1, alpha, beta, false, botIdx);
+                    const score = this.minimax(state, depth - 1, alpha, beta, false, botIdx, avoidPositions);
                     this.undoMove(state, m, current);
 
                     if (score > bestScore) {
@@ -544,7 +551,7 @@
             } else {
                 for (const m of moves) {
                     this.applyMove(state, m, current);
-                    const score = this.minimax(state, depth - 1, alpha, beta, true, botIdx);
+                    const score = this.minimax(state, depth - 1, alpha, beta, true, botIdx, avoidPositions);
                     this.undoMove(state, m, current);
 
                     if (score < bestScore) {
@@ -607,18 +614,23 @@
                 return chosen;
             }
 
-            // FIX 2: Loop Detection — robust even when state.history is absent
+            // Loop Detection: build a set of positions to avoid to prevent oscillation.
+            // Strategy: penalize any pawn move that returns the bot to a cell it occupied
+            // in the last 4 half-moves (i.e. the last 2 full bot turns).
+            // This catches A→B→A and A→B→C→B patterns without over-restricting.
             const avoidPositions = new Set();
             const historySource = state.history || [];
             const myMoves = historySource
                 .filter(h => h.playerIdx === botIdx && h.move && h.move.type === 'pawn')
-                .slice(-6); // FIX 2: track last 6 moves (was 4) for wider oscillation detection
-            for (const m of myMoves) {
-                avoidPositions.add(`${m.move.r},${m.move.c}`);
-            }
-            // Always add starting position as a fallback avoid-target
-            if (myMoves.length === 0) {
-                avoidPositions.add(botIdx === 0 ? '8,4' : '0,4');
+                .slice(-4); // last 4 bot pawn moves = last 4 turns
+            // Add all positions the bot was AT (prevPos) during those moves — returning there is oscillation
+            for (const h of myMoves) {
+                if (h.prevPos) {
+                    avoidPositions.add(`${h.prevPos.r},${h.prevPos.c}`);
+                } else if (h.move) {
+                    // Fallback: avoid the destination itself if prevPos not stored
+                    avoidPositions.add(`${h.move.r},${h.move.c}`);
+                }
             }
 
             const timeLimit = 2000;
@@ -649,12 +661,8 @@
                         const moveStart = Date.now();
 
                         this.applyMove(state, move, botIdx);
-                        let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx);
-
-                        // FIX 2: Penalize loop moves with stronger penalty (was 500, now 2000)
-                        if (move.type === 'pawn' && avoidPositions.has(`${move.r},${move.c}`)) {
-                            score -= 2000;
-                        }
+                        // Pass avoidPositions so loop penalty propagates through all minimax depths
+                        let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx, avoidPositions);
 
                         this.undoMove(state, move, botIdx);
 

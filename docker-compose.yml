@@ -1,4 +1,16 @@
 services:
+  mongo:
+    image: mongo:7
+    container_name: quoridor-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: quoridor-redis
@@ -20,10 +32,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/quoridor}
       - SESSION_SECRET=${SESSION_SECRET}
       - REDIS_URL=redis://redis:6379
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
@@ -43,3 +57,4 @@ services:
 
 volumes:
   redis_data:
+  mongo_data:
