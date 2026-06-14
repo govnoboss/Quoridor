@@ -252,3 +252,140 @@ html {
 .lang-block.active {
     display: block;
 }
+
+/* SEO pages shared styles */
+.back-link {
+    color: #e09f3e;
+    text-decoration: none;
+    font-size: 14px;
+    display: inline-block;
+    margin-bottom: 20px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+.back-link:hover {
+    opacity: 1;
+}
+
+.content-page h2 {
+    margin-top: 40px;
+}
+.content-page h3 {
+    color: #fff;
+    font-size: 17px;
+    margin-top: 24px;
+    margin-bottom: 8px;
+}
+.content-page ul li strong {
+    color: #fff;
+}
+.content-page .highlight-box {
+    background: rgba(224, 159, 62, 0.08);
+    border-left: 3px solid #e09f3e;
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+}
+.content-page .highlight-box p {
+    margin-bottom: 0;
+}
+.content-page .note {
+    color: #999;
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* FAQ page */
+.faq-item {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 0;
+}
+.faq-item:first-of-type {
+    padding-top: 0;
+}
+.faq-question {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+.faq-answer {
+    color: #bbb;
+    font-size: 15px;
+    line-height: 1.7;
+}
+.faq-answer p {
+    margin-bottom: 8px;
+}
+.faq-answer p:last-child {
+    margin-bottom: 0;
+}
+
+/* CTA button for SEO pages */
+.cta-section {
+    text-align: center;
+    padding: 40px 0 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin-top: 40px;
+}
+.cta-section p {
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+.cta-button {
+    display: inline-block;
+    background: #e09f3e;
+    color: #1a1a1a;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 14px 36px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: filter 0.2s, transform 0.2s;
+    letter-spacing: 0.5px;
+}
+.cta-button:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+/* Internal links section */
+.internal-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 32px 0 16px;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.internal-links a {
+    color: #e09f3e;
+    font-size: 14px;
+    text-decoration: none;
+    padding: 8px 16px;
+    border: 1px solid rgba(224, 159, 62, 0.2);
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+.internal-links a:hover {
+    background: rgba(224, 159, 62, 0.1);
+}
+
+/* Responsive for content pages */
+@media (max-width: 600px) {
+    .content-page {
+        padding: 20px 16px 60px;
+    }
+    .content-page h1 {
+        font-size: 22px;
+    }
+    .content-page h2 {
+        font-size: 17px;
+    }
+    .cta-button {
+        width: 100%;
+        text-align: center;
+    }
+}
