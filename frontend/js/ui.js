@@ -8,7 +8,7 @@ const UI = {
 
   translations: {
     ru: {
-      menu_howtoplay: "Как играть",
+      menu_rules: "Правила",
       menu_play_online: "Играть онлайн",
       howto_title: "Как играть в Quoridor",
       howto_goal_title: "Цель игры",
@@ -226,7 +226,7 @@ const UI = {
       pp_no_ranked_games: "Нет рейтинговых партий"
     },
     en: {
-      menu_howtoplay: "How to Play",
+      menu_rules: "Rules",
       howto_title: "How to Play Quoridor",
       howto_goal_title: "Goal",
       howto_goal_text: "Move your pawn to the opposite side of the board. White starts at the bottom and moves up, Black starts at the top and moves down.",
