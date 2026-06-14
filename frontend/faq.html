@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Quoridor FAQ — Answers to Common Questions | PlayQuor</title>
+    <meta name="description" content="Frequently asked questions about Quoridor: jumping over pawns, wall placement, number of walls, blocking rules, game duration, and more." />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta property="og:title" content="Quoridor FAQ — Common Questions Answered | PlayQuor" />
+    <meta property="og:description" content="Answers to the most common Quoridor questions: can you jump, how many walls, can walls touch, and more." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://playquor.org/faq" />
+    <meta property="og:image" content="https://playquor.org/og-image.jpg" />
+    <meta property="og:site_name" content="Quoridor" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://playquor.org/faq" />
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "Can you jump over a pawn in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. If an opponent's pawn is directly adjacent to yours (orthogonally), you may jump over them to the square behind. If the square behind is blocked by a wall or another pawn, you may land diagonally instead. Jumping is optional — you can always make a normal move."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How many walls do you get in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "In a 2-player game, each player starts with 10 walls. In a 4-player game, each player starts with 5 walls. Once placed, walls cannot be moved or removed, so use them wisely."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can walls touch each other in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, walls can touch each other. You can place walls adjacent to other walls to form longer barriers. The only restriction is that you cannot place a wall that completely blocks any player from reaching their goal — at least one valid path must always remain."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can you block someone completely in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "No. The rules state that walls must always leave at least one clear path for every player to reach their goal. A move that would completely block a player is illegal. You can make it very difficult for your opponent, but you cannot trap them entirely."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How many players can play Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Quoridor supports 2 or 4 players. The 2-player version is the most common and competitive. In the 4-player version, players start on all four sides of the board with fewer walls each."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Is Quoridor a solved game?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "No, Quoridor is not a solved game. While there is no official perfect-play solution due to the game's complexity, computer analysis shows that with optimal play on a standard 9x9 board with 10 walls, the first player likely has a small advantage, but the game is far from solved in practice."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How long does a game of Quoridor take?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "A typical game of Quoridor takes 10–20 minutes. With time controls on PlayQuor, games can range from 2-minute blitz matches to longer 30-minute strategic games."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What happens if you run out of walls in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "If you run out of walls, you can no longer place walls. For the rest of the game, you can only move your pawn. Managing your wall count is an important strategic consideration."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can you move backwards in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes, you can move backwards in Quoridor. Pawns can move orthogonally in any direction — forward, backward, left, or right. Moving backwards is sometimes necessary to go around walls or to set up a jump over an opponent."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can you place a wall anywhere on the board in Quoridor?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Walls can be placed between any two adjacent squares on the board, as long as they do not completely block a player's path. They cannot overlap existing walls and cannot be placed outside the board boundaries. In the online version, valid wall positions are highlighted automatically."
+                }
+            }
+        ]
+    }
+    </script>
+    <link rel="stylesheet" href="/css/style.css?v=1.0.3" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.3" type="text/css" />
+    <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+</head>
+<body class="auth-page-body">
+    <header class="main-header">
+        <div class="header-left">
+            <a href="/" class="header-logo">QUORIDOR</a>
+        </div>
+        <div class="header-right">
+            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="content-page">
+        <a href="/" class="back-link">&larr; <span data-i18n="btn_back">Back to Home</span></a>
+
+        <!-- ENGLISH -->
+        <div id="content-en" class="lang-block active">
+            <h1>Quoridor FAQ — Frequently Asked Questions</h1>
+            <p class="last-updated">Last updated: June 14, 2026</p>
+            <p>Answers to the most common questions about Quoridor rules, gameplay, and strategy.</p>
+
+            <div class="faq-item">
+                <div class="faq-question">Can you jump over a pawn in Quoridor?</div>
+                <div class="faq-answer"><p>Yes. If an opponent's pawn is directly adjacent to yours (orthogonally), you may jump over them to the square behind. If the square behind is blocked by a wall or another pawn, you may land diagonally instead. Jumping is optional — you can always make a normal move.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How many walls do you get in Quoridor?</div>
+                <div class="faq-answer"><p>In a 2-player game, each player starts with <strong>10 walls</strong>. In a 4-player game, each player starts with <strong>5 walls</strong>. Once placed, walls cannot be moved or removed, so use them wisely.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can walls touch each other in Quoridor?</div>
+                <div class="faq-answer"><p>Yes, walls can touch each other. You can place walls adjacent to other walls to form longer barriers. The only restriction is that you cannot place a wall that completely blocks any player from reaching their goal — at least one valid path must always remain.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can you block someone completely in Quoridor?</div>
+                <div class="faq-answer"><p>No. The rules state that walls must always leave at least one clear path for every player to reach their goal. A move that would completely block a player is illegal. You can make it very difficult for your opponent, but you cannot trap them entirely.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How many players can play Quoridor?</div>
+                <div class="faq-answer"><p>Quoridor supports <strong>2 or 4 players</strong>. The 2-player version is the most common and competitive. In the 4-player version, players start on all four sides of the board with fewer walls each.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Is Quoridor a solved game?</div>
+                <div class="faq-answer"><p>No, Quoridor is <strong>not a solved game</strong>. While there is no official perfect-play solution due to the game's complexity, computer analysis shows that with optimal play on a standard 9x9 board with 10 walls, the first player likely has a small advantage, but the game is far from solved in practice.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How long does a game of Quoridor take?</div>
+                <div class="faq-answer"><p>A typical game of Quoridor takes <strong>10–20 minutes</strong>. With time controls on PlayQuor, games can range from 2-minute blitz matches to longer 30-minute strategic games.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">What happens if you run out of walls in Quoridor?</div>
+                <div class="faq-answer"><p>If you run out of walls, you can no longer place walls. For the rest of the game, you can <strong>only move your pawn</strong>. Managing your wall count is an important strategic consideration.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can you move backwards in Quoridor?</div>
+                <div class="faq-answer"><p>Yes, you can move backwards in Quoridor. Pawns can move orthogonally in any direction — forward, backward, left, or right. Moving backwards is sometimes necessary to go around walls or to set up a jump over an opponent.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can you place a wall anywhere on the board in Quoridor?</div>
+                <div class="faq-answer"><p>Walls can be placed between any two adjacent squares on the board, as long as they do not completely block a player's path. They cannot overlap existing walls and cannot be placed outside the board boundaries. In the <a href="/">online version</a>, valid wall positions are highlighted automatically.</p></div>
+            </div>
+
+            <div class="cta-section">
+                <p>Still have questions? Just start playing — it is the best way to learn.</p>
+                <a href="/" class="cta-button">Play Quoridor Online</a>
+            </div>
+
+            <div class="internal-links">
+                <a href="/rules">Quoridor Rules</a>
+                <a href="/strategy">Strategy Guide</a>
+                <a href="/multiplayer">Multiplayer Mode</a>
+            </div>
+        </div>
+
+        <!-- RUSSIAN -->
+        <div id="content-ru" class="lang-block">
+            <h1>FAQ по игре Коридор — частые вопросы</h1>
+            <p class="last-updated">Последнее обновление: 14 июня 2026 г.</p>
+            <p>Ответы на самые частые вопросы о правилах, игровом процессе и стратегии Коридора.</p>
+
+            <div class="faq-item">
+                <div class="faq-question">Можно ли перепрыгивать через пешку в Коридоре?</div>
+                <div class="faq-answer"><p>Да. Если пешка соперника находится рядом с вашей (ортогонально), вы можете перепрыгнуть через неё на поле за ней. Если поле за соперником занято стеной или другой пешкой, можно приземлиться по диагонали. Прыжок не обязателен — вы всегда можете сделать обычный ход.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Сколько стен в игре Коридор?</div>
+                <div class="faq-answer"><p>В игре на 2 игроков каждый получает по <strong>10 стен</strong>. В игре на 4 игроков — по <strong>5 стен</strong>. Поставленные стены нельзя перемещать или убирать, поэтому используйте их с умом.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Могут ли стены соприкасаться друг с другом?</div>
+                <div class="faq-answer"><p>Да, стены могут соприкасаться. Вы можете ставить стены рядом с другими стенами, образуя длинные барьеры. Единственное ограничение — нельзя ставить стену, которая полностью перекрывает путь к цели для любого игрока.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Можно ли полностью заблокировать соперника в Коридоре?</div>
+                <div class="faq-answer"><p>Нет. Правила требуют, чтобы стены всегда оставляли хотя бы один свободный путь к цели для каждого игрока. Ход, который полностью блокирует игрока, считается недопустимым. Вы можете сильно затруднить путь сопернику, но не можете запереть его полностью.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Сколько игроков может играть в Коридор?</div>
+                <div class="faq-answer"><p>Коридор поддерживает <strong>2 или 4 игроков</strong>. Версия для 2 игроков — самая популярная и соревновательная. В версии для 4 игроков участники начинают с четырёх сторон доски с меньшим количеством стен.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Является ли Коридор решённой игрой?</div>
+                <div class="faq-answer"><p>Нет, Коридор <strong>не является решённой игрой</strong>. Компьютерный анализ показывает, что при оптимальной игре на доске 9x9 первый игрок имеет небольшое преимущество, но игра далека от полного решения.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Сколько длится партия в Коридор?</div>
+                <div class="faq-answer"><p>Типичная партия занимает <strong>10–20 минут</strong>. С таймерами на PlayQuor длительность может варьироваться от 2-минутных блиц-партий до 30-минутных стратегических игр.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Что делать, если закончились стены?</div>
+                <div class="faq-answer"><p>Если у вас закончились стены, вы больше не можете их ставить. До конца игры вы можете <strong>только ходить пешкой</strong>. Управление количеством стен — важный стратегический аспект.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Можно ли ходить назад в Коридоре?</div>
+                <div class="faq-answer"><p>Да, в Коридоре можно ходить назад. Пешка может двигаться ортогонально в любом направлении — вперёд, назад, влево или вправо. Ход назад иногда необходим, чтобы обойти стены или подготовить прыжок через соперника.</p></div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Можно ли ставить стену в любом месте на доске?</div>
+                <div class="faq-answer"><p>Стены можно ставить между любыми двумя соседними полями, если они не перекрывают путь игроку к цели. Нельзя ставить стену поверх существующей или за пределами доски. В <a href="/">онлайн-версии</a> допустимые позиции подсвечиваются автоматически.</p></div>
+            </div>
+
+            <div class="cta-section">
+                <p>Остались вопросы? Начните играть — это лучший способ разобраться.</p>
+                <a href="/" class="cta-button">Играть в Коридор онлайн</a>
+            </div>
+
+            <div class="internal-links">
+                <a href="/rules">Правила игры</a>
+                <a href="/strategy">Стратегия</a>
+                <a href="/multiplayer">Мультиплеер</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getLang() { return localStorage.getItem('quoridor-lang') || 'en'; }
+        function setLanguage(lang) {
+            localStorage.setItem('quoridor-lang', lang);
+            document.documentElement.lang = lang;
+            document.getElementById('headerLang').value = lang;
+            document.querySelectorAll('.lang-block').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            document.getElementById('content-' + lang).classList.add('active');
+            var t = { ru: 'FAQ по игре Коридор — частые вопросы | PlayQuor', en: 'Quoridor FAQ — Answers to Common Questions | PlayQuor' };
+            document.title = t[lang] || t.en;
+            document.querySelector('[data-i18n="btn_back"]').textContent = lang === 'ru' ? 'На главную' : 'Back to Home';
+        }
+        var l = getLang();
+        document.getElementById('headerLang').value = l;
+        setLanguage(l);
+    </script>
+</body>
+</html>

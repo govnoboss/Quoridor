@@ -962,6 +962,9 @@ app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/t
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
 app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
+app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, '../frontend/rules.html')));
+app.get('/how-to-play', (req, res) => res.redirect(301, '/rules'));
+app.get('/faq', (req, res) => res.sendFile(path.join(__dirname, '../frontend/faq.html')));
 app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
 
 // --- BUG REPORT API ---
