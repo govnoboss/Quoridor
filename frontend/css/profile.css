@@ -516,6 +516,11 @@
     padding: 4px 0;
 }
 .pp-skeleton.hidden { display: none; }
+.pp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
 .pp-content.hidden { display: none; }
 
 @keyframes pp-shimmer {
