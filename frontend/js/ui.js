@@ -1775,6 +1775,8 @@ UI.showProfilePage = async function (username, pushState = true) {
   } catch (err) {
     console.error('Error loading profile:', err);
     this.showToast(this.translate('toast_profile_error'), 'error');
+    document.getElementById('ppSkeleton')?.classList.add('hidden');
+    document.getElementById('ppContent')?.classList.remove('hidden');
   }
 };
 
