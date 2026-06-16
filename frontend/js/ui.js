@@ -1550,14 +1550,15 @@ UI.openMyProfile = function () {
 
 UI.showProfilePage = async function (username, pushState = true) {
   try {
-    // 0. Show Screen Immediately (Skeleton / Loading State) to avoid FOUC
+    // 0. Show Screen Immediately to avoid FOUC
     this.showScreen('profileScreen');
 
     // Track current profile for replay return
     this._currentViewingProfile = username;
 
-    // Optional: Reset UI to "Loading" state if needed
-    // document.getElementById('ppUsername').textContent = 'Loading...';
+    // Show skeleton, hide content
+    document.getElementById('ppSkeleton').classList.remove('hidden');
+    document.getElementById('ppContent').classList.add('hidden');
 
     // 1. Fetch Profile Data
     const res = await fetch(`/api/profiles/${username}`);
@@ -1756,6 +1757,10 @@ UI.showProfilePage = async function (username, pushState = true) {
         historyBody.appendChild(row);
       });
     }
+
+    // Hide skeleton, show content
+    document.getElementById('ppSkeleton').classList.add('hidden');
+    document.getElementById('ppContent').classList.remove('hidden');
 
     // Load rating chart data
     this._loadRatingChart(username);
