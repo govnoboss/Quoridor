@@ -223,7 +223,10 @@ const UI = {
       pp_you: "Вы",
       pp_opponent: "Оппонент",
       pp_rating_chart: "График рейтинга",
-      pp_no_ranked_games: "Нет рейтинговых партий"
+      pp_no_ranked_games: "Нет рейтинговых партий",
+      pp_delete_account: "Удалить аккаунт",
+      pp_confirm_delete_title: "Подтверждение",
+      pp_delete_account_confirm: "Вы уверены? Это действие необратимо удалит ваш аккаунт и все данные."
     },
     en: {
       menu_rules: "Rules",
@@ -441,7 +444,10 @@ const UI = {
       pp_you: "You",
       pp_opponent: "Opponent",
       pp_rating_chart: "Rating Chart",
-      pp_no_ranked_games: "No ranked games yet"
+      pp_no_ranked_games: "No ranked games yet",
+      pp_delete_account: "Delete Account",
+      pp_confirm_delete_title: "Confirm",
+      pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data."
     }
   },
 
@@ -1313,6 +1319,33 @@ UI.logout = async function () {
   window.location.href = '/';
 };
 
+UI.deleteAccount = function () {
+  const password = prompt('Введите пароль для удаления аккаунта:');
+  if (!password) return;
+
+  UI.showConfirm(
+    UI.translate('pp_confirm_delete_title') || 'Confirm',
+    UI.translate('pp_delete_account_confirm') || 'Are you sure? This will permanently delete your account.',
+    async () => {
+      try {
+        const res = await fetch('/api/user/account', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          window.location.href = '/';
+        }
+      } catch (err) {
+        alert('Error deleting account');
+      }
+    }
+  );
+};
+
 UI.checkSession = async function () {
   try {
     const res = await fetch('/api/auth/me');
@@ -1587,6 +1620,31 @@ UI.showProfilePage = async function (username, pushState = true) {
       logoutBtn.textContent = label;
       logoutBtn.onclick = () => this.logout();
       actionsContainer.appendChild(logoutBtn);
+
+      // 3-dots dropdown menu
+      const dotsWrapper = document.createElement('div');
+      dotsWrapper.style.position = 'relative';
+      const dotsBtn = document.createElement('button');
+      dotsBtn.className = 'pp-friend-menu-btn';
+      dotsBtn.textContent = '⋮';
+      dotsBtn.onclick = (e) => {
+        e.stopPropagation();
+        const dd = dotsWrapper.querySelector('.pp-friend-dropdown');
+        dd.classList.toggle('show');
+      };
+      const dropdown = document.createElement('div');
+      dropdown.className = 'pp-friend-dropdown';
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'danger';
+      deleteBtn.textContent = UI.translate('pp_delete_account') || 'Delete Account';
+      deleteBtn.onclick = () => {
+        dropdown.classList.remove('show');
+        UI.deleteAccount();
+      };
+      dropdown.appendChild(deleteBtn);
+      dotsWrapper.appendChild(dotsBtn);
+      dotsWrapper.appendChild(dropdown);
+      actionsContainer.appendChild(dotsWrapper);
     } else if (this.currentUser) {
       // Friend action buttons for non-own profiles
       const status = user.friendshipStatus;
