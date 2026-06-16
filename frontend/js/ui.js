@@ -1685,7 +1685,7 @@ UI.showProfilePage = async function (username, pushState = true) {
 
         // Create clickable link for opponent (skip if Unknown)
         const opponentLink = opponentName !== 'Unknown'
-          ? `<a href="javascript:void(0)" class="opponent-link" onclick="UI.showProfilePage('${opponentName}')">${opponentName}</a>`
+          ? `<a href="javascript:void(0)" class="opponent-link" onclick="event.stopPropagation(); UI.showProfilePage('${opponentName}')">${opponentName}</a>`
           : opponentName;
 
         row.innerHTML = `
