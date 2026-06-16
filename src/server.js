@@ -686,6 +686,48 @@ app.get('/api/user/history', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+// Delete Account
+app.delete('/api/user/account', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Password required' });
+
+    const user = await User.findById(req.session.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) return res.status(403).json({ error: 'Wrong password' });
+
+    const userId = req.session.userId;
+
+    await Friendship.deleteMany({
+      $or: [{ requester: userId }, { recipient: userId }]
+    });
+
+    await GameResult.updateMany(
+      { 'playerWhite.id': userId },
+      { $set: { 'playerWhite.username': '[deleted]', 'playerWhite.id': null } }
+    );
+    await GameResult.updateMany(
+      { 'playerBlack.id': userId },
+      { $set: { 'playerBlack.username': '[deleted]', 'playerBlack.id': null } }
+    );
+
+    await User.findByIdAndDelete(userId);
+
+    req.session.destroy(err => {
+      if (err) console.error('[DELETE ACCOUNT] Session destroy error:', err);
+      res.clearCookie('connect.sid');
+      res.json({ message: 'Account deleted' });
+    });
+  } catch (err) {
+    console.error('[DELETE ACCOUNT] Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) return res.status(500).json({ error: 'Could not log out' });
