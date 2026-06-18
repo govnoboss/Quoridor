@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Daily Puzzle — Quoridor</title>
+    <meta name="description" content="Solve a daily Quoridor puzzle. Find the best move in a real game position and improve your strategy." />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta property="og:title" content="Daily Quoridor Puzzle — PlayQuor" />
+    <meta property="og:description" content="Solve a daily Quoridor puzzle. Find the winning move." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://playquor.org/daily-puzzle" />
+    <meta property="og:image" content="https://playquor.org/og-image.jpg" />
+    <meta property="og:site_name" content="Quoridor" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://playquor.org/daily-puzzle" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.4" type="text/css" />
+    <style>
+        .puzzle-page {
+            min-height: calc(100vh - var(--header-h));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: calc(var(--header-h) + 20px) 16px 40px;
+            position: relative;
+        }
+        .puzzle-container {
+            display: flex;
+            gap: 32px;
+            max-width: 960px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .puzzle-board-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .puzzle-board-area canvas {
+            border-radius: 8px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+        .puzzle-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 240px;
+            max-width: 300px;
+        }
+        .puzzle-header {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .puzzle-header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            color: #e09f3e;
+        }
+        .puzzle-header .puzzle-date {
+            font-size: 0.85rem;
+            color: #999;
+            margin-top: 4px;
+        }
+        .difficulty-stars {
+            font-size: 1.1rem;
+            color: #e09f3e;
+            letter-spacing: 2px;
+        }
+        .streak-display {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+        }
+        .streak-display .streak-count {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #e09f3e;
+        }
+        .streak-display .streak-label {
+            font-size: 0.8rem;
+            color: #999;
+        }
+        .puzzle-status {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .puzzle-status .status-text {
+            font-size: 1rem;
+            color: #ddd;
+        }
+        .puzzle-status .status-detail {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 4px;
+        }
+        .puzzle-status.solved {
+            border-color: #2ecc40;
+        }
+        .puzzle-status.solved .status-text {
+            color: #2ecc40;
+        }
+        .puzzle-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .puzzle-controls button {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .puzzle-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        #checkBtn {
+            background: #2ecc40;
+            color: #fff;
+        }
+        #checkBtn:hover:not(:disabled) {
+            background: #27ae35;
+        }
+        #hintBtn {
+            background: #3498db;
+            color: #fff;
+        }
+        #hintBtn:hover:not(:disabled) {
+            background: #2980b9;
+        }
+        .mode-toggle {
+            display: flex;
+            gap: 4px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 3px;
+        }
+        .mode-toggle button {
+            flex: 1;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            background: transparent;
+            color: #999;
+            transition: all 0.2s;
+        }
+        .mode-toggle button.active {
+            background: #e09f3e;
+            color: #fff;
+        }
+        .mode-toggle button:hover:not(.active) {
+            color: #ddd;
+        }
+        .attempts-display {
+            font-size: 0.8rem;
+            color: #888;
+            text-align: center;
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .calendar .day-label {
+            text-align: center;
+            font-size: 0.65rem;
+            color: #666;
+            font-weight: 600;
+            padding: 2px;
+        }
+        .calendar .day-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #2a2a3e;
+            color: #555;
+        }
+        .calendar .day-cell.solved {
+            background: #2ecc40;
+            color: #fff;
+        }
+        .calendar .day-cell.missed {
+            background: #e74c3c;
+            color: #fff;
+        }
+        .calendar .day-cell.today {
+            border: 2px solid #e09f3e;
+        }
+        .calendar .day-cell.future {
+            background: transparent;
+            color: transparent;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .calendar-header span {
+            font-size: 0.85rem;
+            color: #ccc;
+            font-weight: 600;
+        }
+        .puzzle-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #2a2a3e;
+            color: #e09f3e;
+            border: 1px solid #e09f3e33;
+        }
+        .solution-display {
+            background: #1a1a2e;
+            border: 1px solid #2ecc40;
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: none;
+        }
+        .solution-display.visible {
+            display: block;
+        }
+        .solution-display .solution-title {
+            color: #2ecc40;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .solution-display .solution-text {
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #999;
+            padding: 40px;
+        }
+        .loading .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #333;
+            border-top-color: #e09f3e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .puzzle-notice {
+            font-size: 0.75rem;
+            color: #666;
+            text-align: center;
+            margin-top: 8px;
+        }
+        @media (max-width: 768px) {
+            .puzzle-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .puzzle-sidebar {
+                min-width: unset;
+                width: 100%;
+                max-width: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-left">
+            <a href="/" class="header-logo">QUORIDOR</a>
+        </div>
+        <div class="header-right">
+            <a href="/daily-puzzle" class="header-nav-link" style="color:#e09f3e;font-weight:600;margin-right:16px;">Daily Puzzle</a>
+            <a href="/leaderboard" class="header-nav-link" style="color:#ccc;margin-right:16px;">Leaderboard</a>
+            <a href="/rules" class="header-nav-link" style="color:#ccc;margin-right:16px;">Rules</a>
+            <span id="authDisplay" style="color:#999;font-size:0.85rem;"></span>
+        </div>
+    </header>
+
+    <main class="puzzle-page">
+        <div id="puzzleLoading" class="loading">
+            <div class="spinner"></div>
+            <span>Loading today's puzzle...</span>
+        </div>
+
+        <div id="puzzleContent" style="display:none;">
+            <div class="puzzle-header">
+                <h1>Daily Puzzle</h1>
+                <div class="puzzle-date" id="puzzleDate"></div>
+                <div class="difficulty-stars" id="difficultyStars"></div>
+            </div>
+
+            <div class="puzzle-container">
+                <div class="puzzle-board-area">
+                    <canvas id="board" width="600" height="600"></canvas>
+                    <div class="puzzle-notice">Click a cell to move your pawn, or click a wall slot after selecting "Wall"</div>
+                </div>
+
+                <div class="puzzle-sidebar">
+                    <div class="streak-display">
+                        <div class="streak-count" id="streakCount">0</div>
+                        <div class="streak-label">day streak</div>
+                        <div style="font-size:0.75rem;color:#666;margin-top:4px;">Solved: <span id="totalSolved">0</span></div>
+                    </div>
+
+                    <div class="puzzle-status" id="puzzleStatus">
+                        <div class="status-text" id="statusText">Find the best move!</div>
+                        <div class="status-detail" id="statusDetail"></div>
+                    </div>
+
+                    <div class="mode-toggle" id="modeToggle">
+                        <button class="active" data-mode="pawn" id="modePawn">Pawn</button>
+                        <button data-mode="wall" id="modeWall">Wall</button>
+                    </div>
+
+                    <div class="puzzle-controls">
+                        <button id="checkBtn" disabled>Check</button>
+                        <button id="hintBtn">Hint</button>
+                    </div>
+
+                    <div class="attempts-display">
+                        Attempts: <span id="attemptsCount">0</span>
+                        &middot; Hints: <span id="hintsCount">0</span>
+                    </div>
+
+                    <div class="puzzle-type-badge" id="puzzleTypeBadge"></div>
+
+                    <div class="solution-display" id="solutionDisplay">
+                        <div class="solution-title">Solution</div>
+                        <div class="solution-text" id="solutionText"></div>
+                    </div>
+
+                    <div class="calendar-header">
+                        <span>Last 30 days</span>
+                    </div>
+                    <div class="calendar" id="streakCalendar"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/shared.js"></script>
+    <script src="/js/board-renderer.js"></script>
+    <script>
+    // ====================================================================
+    // PUZZLE PAGE — Vanilla JS
+    // ====================================================================
+    (function() {
+        'use strict';
+
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+
+        let puzzleData = null;
+        let selectedMove = null;
+        let mode = 'pawn'; // 'pawn' | 'wall'
+        let isSolved = false;
+        let attempts = 0;
+        let hintsUsed = 0;
+        let currentStreak = 0;
+
+        const CELL_SIZE = 60;
+        const PADDING = 4;
+        const WALL_THICK = 10;
+        const GAP = 8;
+
+        // Auth check & load
+        (async function init() {
+            try {
+                const authRes = await fetch('/api/auth/me');
+                const auth = await authRes.json();
+                if (!auth.isAuthenticated) {
+                    window.location.href = '/login?redirect=/daily-puzzle';
+                    return;
+                }
+                document.getElementById('authDisplay').textContent = auth.user.username;
+
+                const res = await fetch('/api/puzzles/today');
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        showError('No puzzle available today. Check back tomorrow!');
+                    } else {
+                        showError('Failed to load puzzle');
+                    }
+                    return;
+                }
+                puzzleData = await res.json();
+
+                isSolved = puzzleData.isSolved;
+                attempts = puzzleData.attempts || 0;
+                hintsUsed = puzzleData.hintsUsed || 0;
+                currentStreak = puzzleData.streak || 0;
+
+                render();
+                bindEvents();
+                loadStats();
+
+                document.getElementById('puzzleLoading').style.display = 'none';
+                document.getElementById('puzzleContent').style.display = 'block';
+            } catch (err) {
+                console.error('Init error:', err);
+                showError('Failed to load puzzle');
+            }
+        })();
+
+        function showError(msg) {
+            document.getElementById('puzzleLoading').innerHTML = '<span style="color:#e74c3c;">' + msg + '</span>';
+        }
+
+        function render() {
+            document.getElementById('puzzleDate').textContent = puzzleData.date;
+
+            const stars = '★'.repeat(puzzleData.difficulty) + '☆'.repeat(5 - puzzleData.difficulty);
+            document.getElementById('difficultyStars').textContent = stars;
+            document.getElementById('streakCount').textContent = currentStreak;
+            document.getElementById('totalSolved').textContent = puzzleData.puzzleCount || 0;
+            document.getElementById('attemptsCount').textContent = attempts;
+            document.getElementById('hintsCount').textContent = hintsUsed;
+
+            const typeLabels = {
+                breakthrough: 'Breakthrough',
+                blocking_wall: 'Blocking Wall',
+                positional_wall: 'Positional Wall',
+                fork: 'Fork',
+                positional: 'Positional'
+            };
+            document.getElementById('puzzleTypeBadge').textContent = typeLabels[puzzleData.puzzleType] || puzzleData.puzzleType;
+
+            if (isSolved) {
+                document.getElementById('statusText').textContent = 'Solved!';
+                document.getElementById('puzzleStatus').classList.add('solved');
+                document.getElementById('checkBtn').disabled = true;
+            }
+
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const state = puzzleData.boardState;
+            canvas.width = CELL_SIZE * 9 + PADDING * 2;
+            canvas.height = CELL_SIZE * 9 + PADDING * 2;
+
+            const opts = {
+                cellSize: CELL_SIZE,
+                padding: PADDING,
+                wallThick: WALL_THICK,
+                gap: GAP
+            };
+
+            BoardRenderer.drawGrid(ctx, opts);
+            BoardRenderer.drawPlacedWalls(ctx, state, opts);
+            BoardRenderer.drawPawns(ctx, state, opts);
+
+            if (selectedMove) {
+                drawSelection(selectedMove);
+            }
+
+            drawPlayerIndicators(state);
+        }
+
+        function drawPlayerIndicators(state) {
+            const playerToMove = state.currentPlayer;
+            const color = state.players[playerToMove].color;
+            ctx.fillStyle = playerToMove === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)';
+            ctx.fillRect(PADDING, PADDING, CELL_SIZE * 9 - GAP, 4);
+            ctx.fillStyle = '#e09f3e';
+            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('▼ ' + color.charAt(0).toUpperCase() + color.slice(1) + ' to move',
+                canvas.width / 2, PADDING + 20);
+        }
+
+        function drawSelection(move) {
+            if (move.type === 'pawn') {
+                const x = move.c * CELL_SIZE + PADDING;
+                const y = move.r * CELL_SIZE + PADDING;
+                ctx.strokeStyle = '#2ecc40';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+            } else if (move.type === 'wall') {
+                const x = move.c * CELL_SIZE;
+                const y = move.r * CELL_SIZE;
+                ctx.strokeStyle = '#2ecc40';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([4, 4]);
+                if (move.isVertical) {
+                    ctx.strokeRect(x + CELL_SIZE - WALL_THICK / 2 - 2, y + PADDING + 2, WALL_THICK + 4, CELL_SIZE - 4);
+                } else {
+                    ctx.strokeRect(x + PADDING + 2, y + CELL_SIZE - WALL_THICK / 2 - 2, CELL_SIZE - 4, WALL_THICK + 4);
+                }
+                ctx.setLineDash([]);
+            }
+        }
+
+        function getClickCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function getCellFromPixel(x, y) {
+            const c = Math.floor(x / CELL_SIZE);
+            const r = Math.floor(y / CELL_SIZE);
+            if (r >= 0 && r < 9 && c >= 0 && c < 9) return { r, c };
+            return null;
+        }
+
+        function getWallSlotFromPixel(x, y) {
+            const c = Math.floor((x - PADDING) / CELL_SIZE);
+            const r = Math.floor((y - PADDING) / CELL_SIZE);
+            if (r >= 0 && r < 8 && c >= 0 && c < 8) return { r, c };
+            return null;
+        }
+
+        function handleCanvasClick(e) {
+            if (isSolved) return;
+
+            const pos = getClickCoords(e);
+
+            if (mode === 'wall') {
+                const slot = getWallSlotFromPixel(pos.x, pos.y);
+                if (slot) {
+                    selectedMove = {
+                        type: 'wall',
+                        r: slot.r,
+                        c: slot.c,
+                        isVertical: false
+                    };
+                    document.getElementById('checkBtn').disabled = false;
+                    updateStatus('Wall selected at (' + slot.r + ', ' + slot.c + ')', '');
+                    renderBoard();
+                }
+            } else {
+                const cell = getCellFromPixel(pos.x, pos.y);
+                if (cell) {
+                    const state = puzzleData.boardState;
+                    const playerIdx = state.currentPlayer;
+                    const player = state.players[playerIdx];
+                    if (cell.r === player.pos.r && cell.c === player.pos.c) {
+                        selectedMove = null;
+                        document.getElementById('checkBtn').disabled = true;
+                        updateStatus('Click a destination for your pawn', '');
+                        renderBoard();
+                        return;
+                    }
+                    if (Shared.canMovePawn(state, player.pos.r, player.pos.c, cell.r, cell.c)) {
+                        selectedMove = {
+                            type: 'pawn',
+                            r: cell.r,
+                            c: cell.c
+                        };
+                        document.getElementById('checkBtn').disabled = false;
+                        updateStatus('Move to (' + cell.r + ', ' + cell.c + ') selected', '');
+                        renderBoard();
+
+                        showValidMoves(state, player.pos.r, player.pos.c);
+                    } else {
+                        updateStatus('Invalid move', 'Pawn cannot reach this cell');
+                    }
+                }
+            }
+        }
+
+        function showValidMoves(state, pr, pc) {
+            const moves = Shared.getJumpTargets(state, pr, pc);
+            ctx.save();
+            for (const m of moves) {
+                const x = m.c * CELL_SIZE + PADDING + 2;
+                const y = m.r * CELL_SIZE + PADDING + 2;
+                ctx.fillStyle = 'rgba(46, 204, 64, 0.25)';
+                ctx.fillRect(x, y, CELL_SIZE - 4, CELL_SIZE - 4);
+            }
+            ctx.restore();
+        }
+
+        function updateStatus(text, detail) {
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('statusDetail').textContent = detail;
+        }
+
+        async function checkMove() {
+            if (!selectedMove || isSolved) return;
+
+            document.getElementById('checkBtn').disabled = true;
+            updateStatus('Checking...', '');
+
+            try {
+                const res = await fetch('/api/puzzles/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ move: selectedMove })
+                });
+                const data = await res.json();
+
+                attempts++;
+
+                if (data.correct) {
+                    isSolved = true;
+                    currentStreak = data.streak || currentStreak;
+                    document.getElementById('statusText').textContent = 'Correct!';
+                    document.getElementById('puzzleStatus').classList.add('solved');
+                    document.getElementById('streakCount').textContent = data.streak || currentStreak;
+                    document.getElementById('totalSolved').textContent = data.puzzlesSolved || 0;
+
+                    const solDiv = document.getElementById('solutionDisplay');
+                    solDiv.classList.add('visible');
+                    const solText = data.solution.map(m => {
+                        if (m.type === 'pawn') return 'Pawn → (' + m.r + ', ' + m.c + ')';
+                        return 'Wall at (' + m.r + ', ' + m.c + ') ' + (m.isVertical ? 'vertical' : 'horizontal');
+                    }).join(' → ');
+                    document.getElementById('solutionText').textContent = solText + '. ' + (data.solution[0]?.description || '');
+                    document.getElementById('checkBtn').disabled = true;
+                    updateStatus('Solved!', 'Great find!');
+                } else {
+                    document.getElementById('checkBtn').disabled = false;
+                    updateStatus('Not the best move', 'Try a different approach');
+                }
+
+                document.getElementById('attemptsCount').textContent = attempts;
+            } catch (err) {
+                console.error('Check error:', err);
+                updateStatus('Error', 'Failed to check move');
+                document.getElementById('checkBtn').disabled = false;
+            }
+        }
+
+        async function requestHint() {
+            if (isSolved) return;
+
+            try {
+                const res = await fetch('/api/puzzles/hint', { method: 'POST' });
+                const data = await res.json();
+                hintsUsed++;
+                document.getElementById('hintsCount').textContent = hintsUsed;
+                updateStatus('Hint', data.hint || 'Think about what your opponent is threatening');
+            } catch (err) {
+                console.error('Hint error:', err);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/puzzles/stats');
+                if (!res.ok) return;
+                const stats = await res.json();
+                renderCalendar(stats.recentHistory || []);
+            } catch (err) {
+                console.error('Stats error:', err);
+            }
+        }
+
+        function renderCalendar(history) {
+            const cal = document.getElementById('streakCalendar');
+            cal.innerHTML = '';
+
+            const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            dayLabels.forEach(l => {
+                const div = document.createElement('div');
+                div.className = 'day-label';
+                div.textContent = l;
+                cal.appendChild(div);
+            });
+
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 29);
+            startDate.setHours(0, 0, 0, 0);
+
+            const historyMap = {};
+            if (history) {
+                for (const h of history) {
+                    historyMap[h.date] = h;
+                }
+            }
+
+            const todayStr = today.toISOString().slice(0, 10);
+
+            for (let i = 0; i < 30; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().slice(0, 10);
+
+                const div = document.createElement('div');
+                div.className = 'day-cell';
+                div.textContent = date.getDate();
+
+                const entry = historyMap[dateStr];
+
+                if (dateStr > todayStr) {
+                    div.classList.add('future');
+                } else if (dateStr === todayStr && isSolved) {
+                    div.classList.add('solved');
+                    div.classList.add('today');
+                } else if (dateStr === todayStr && attempts > 0) {
+                    div.classList.add('today');
+                } else if (dateStr === todayStr) {
+                    div.classList.add('today');
+                } else if (entry && entry.solved) {
+                    div.classList.add('solved');
+                } else if (entry && entry.attempts > 0 && !entry.solved) {
+                    div.classList.add('missed');
+                }
+
+                cal.appendChild(div);
+            }
+        }
+
+        function bindEvents() {
+            canvas.addEventListener('click', handleCanvasClick);
+
+            document.getElementById('checkBtn').addEventListener('click', checkMove);
+            document.getElementById('hintBtn').addEventListener('click', requestHint);
+
+            document.getElementById('modePawn').addEventListener('click', function() {
+                mode = 'pawn';
+                document.getElementById('modePawn').classList.add('active');
+                document.getElementById('modeWall').classList.remove('active');
+                updateStatus('Click a destination cell for your pawn', '');
+            });
+            document.getElementById('modeWall').addEventListener('click', function() {
+                mode = 'wall';
+                document.getElementById('modeWall').classList.add('active');
+                document.getElementById('modePawn').classList.remove('active');
+                updateStatus('Click a slot to place a wall', '');
+            });
+        }
+    })();
+    </script>
+</body>
+</html>
