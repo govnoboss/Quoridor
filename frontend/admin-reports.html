@@ -398,7 +398,7 @@ function sendReply() {
     fetch('/api/admin/reports/' + _currentReportId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply: reply, status: 'closed' })
+        body: JSON.stringify({ reply: reply })
     }).then(function(r) {
         if (!r.ok) throw new Error();
         return r.json();

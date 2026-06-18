@@ -217,11 +217,13 @@ function checkSession() {
             if (!r.ok) throw new Error('Not authenticated');
             return r.json();
         })
-        .then(function(user) {
+        .then(function(resp) {
+            if (!resp.isAuthenticated) throw new Error('Not authenticated');
+            var u = resp.user;
             document.getElementById('reportForm').style.display = 'block';
             document.getElementById('notLoggedIn').style.display = 'none';
-            document.getElementById('reportUsername').textContent = user.username;
-            document.getElementById('reportProfileLink').href = '/profile/' + user.username;
+            document.getElementById('reportUsername').textContent = u.username;
+            document.getElementById('reportProfileLink').href = '/profile/' + u.username;
             document.getElementById('reportProfileLink').textContent = dict[getLang()].view_profile;
         })
         .catch(function() {
