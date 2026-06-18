@@ -60,8 +60,6 @@ const session = require('express-session');
 const { RedisStore } = require('connect-redis');
 const path = require('path');
 const Friendship = require('./models/Friendship');
-const DailyPuzzle = require('./models/DailyPuzzle');
-const PuzzleScheduler = require('./puzzles/PuzzleScheduler');
 
 const sessionRedisClient = redisPkg.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -1060,181 +1058,6 @@ app.get('/how-to-play', (req, res) => res.redirect(301, '/rules'));
 app.get('/faq', (req, res) => res.sendFile(path.join(__dirname, '../frontend/faq.html')));
 app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
 app.get('/leaderboard', (req, res) => res.sendFile(path.join(__dirname, '../frontend/leaderboard.html')));
-app.get('/daily-puzzle', (req, res) => res.sendFile(path.join(__dirname, '../frontend/daily-puzzle.html')));
-
-// --- PUZZLE API ---
-
-function requirePuzzleAuth(req, res, next) {
-    if (!req.session?.userId) {
-        return res.status(401).json({ error: 'Login required' });
-    }
-    next();
-}
-
-app.get('/api/puzzles/today', requirePuzzleAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().slice(0, 10);
-        const puzzle = await DailyPuzzle.findOne({ date: today, isActive: true }).lean();
-        if (!puzzle) {
-            return res.status(404).json({ error: 'No puzzle available today' });
-        }
-
-        const user = await User.findById(req.session.userId).select('puzzleStreak puzzleMaxStreak puzzlesSolved puzzleLastSolvedDate puzzleHistory');
-        const todayEntry = user?.puzzleHistory?.find(h => h.date === today);
-
-        res.json({
-            date: puzzle.date,
-            difficulty: puzzle.difficulty,
-            puzzleType: puzzle.puzzleType,
-            boardState: puzzle.boardState,
-            hint: puzzle.hint,
-            isSolved: todayEntry?.solved || false,
-            attempts: todayEntry?.attempts || 0,
-            hintsUsed: todayEntry?.hintsUsed || 0,
-            streak: user?.puzzleStreak || 0,
-            puzzleCount: user?.puzzlesSolved || 0
-        });
-    } catch (err) {
-        console.error('[PUZZLE] today error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.post('/api/puzzles/check', requirePuzzleAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().slice(0, 10);
-        const puzzle = await DailyPuzzle.findOne({ date: today, isActive: true });
-        if (!puzzle) {
-            return res.status(404).json({ error: 'No puzzle available' });
-        }
-
-        const { move } = req.body;
-        if (!move || !move.type) {
-            return res.status(400).json({ error: 'Invalid move format' });
-        }
-
-        const user = await User.findById(req.session.userId);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        const correctMove = puzzle.solution.moves[0];
-        const isCorrect = (
-            move.type === correctMove.type &&
-            move.r === correctMove.r &&
-            move.c === correctMove.c &&
-            (move.type !== 'wall' || move.isVertical === correctMove.isVertical)
-        );
-
-        let todayEntry = user.puzzleHistory?.find(h => h.date === today);
-        if (!todayEntry) {
-            todayEntry = { date: today, solved: false, attempts: 0, hintsUsed: 0 };
-            user.puzzleHistory.push(todayEntry);
-        }
-        todayEntry.attempts++;
-
-        if (isCorrect) {
-            todayEntry.solved = true;
-            todayEntry.solvedAt = new Date();
-
-            if (user.puzzleLastSolvedDate === today) {
-            } else if (user.puzzleLastSolvedDate) {
-                const lastDate = new Date(user.puzzleLastSolvedDate);
-                const todayDate = new Date(today);
-                const diffDays = Math.round((todayDate - lastDate) / 86400000);
-                if (diffDays === 1) {
-                    user.puzzleStreak++;
-                } else {
-                    user.puzzleStreak = 1;
-                }
-            } else {
-                user.puzzleStreak = 1;
-            }
-
-            if (user.puzzleStreak > user.puzzleMaxStreak) {
-                user.puzzleMaxStreak = user.puzzleStreak;
-            }
-
-            user.puzzlesSolved = (user.puzzlesSolved || 0) + 1;
-            user.puzzleLastSolvedDate = today;
-
-            await user.save();
-
-            puzzle.timesSolved = (puzzle.timesSolved || 0) + 1;
-            puzzle.timesAttempted = (puzzle.timesAttempted || 0) + 1;
-            await puzzle.save();
-
-            return res.json({
-                correct: true,
-                message: 'Correct! Well played.',
-                solution: puzzle.solution.moves,
-                streak: user.puzzleStreak,
-                puzzlesSolved: user.puzzlesSolved
-            });
-        }
-
-        await user.save();
-
-        puzzle.timesAttempted = (puzzle.timesAttempted || 0) + 1;
-        await puzzle.save();
-
-        res.json({
-            correct: false,
-            message: 'Not the best move. Try again!',
-            attempts: todayEntry.attempts
-        });
-    } catch (err) {
-        console.error('[PUZZLE] check error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.post('/api/puzzles/hint', requirePuzzleAuth, async (req, res) => {
-    try {
-        const today = new Date().toISOString().slice(0, 10);
-        const puzzle = await DailyPuzzle.findOne({ date: today, isActive: true }).lean();
-        if (!puzzle) {
-            return res.status(404).json({ error: 'No puzzle available' });
-        }
-
-        const user = await User.findById(req.session.userId);
-        if (user) {
-            let todayEntry = user.puzzleHistory?.find(h => h.date === today);
-            if (!todayEntry) {
-                todayEntry = { date: today, solved: false, attempts: 0, hintsUsed: 0 };
-                user.puzzleHistory.push(todayEntry);
-            }
-            todayEntry.hintsUsed++;
-            await user.save();
-        }
-
-        res.json({ hint: puzzle.hint });
-    } catch (err) {
-        console.error('[PUZZLE] hint error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.get('/api/puzzles/stats', requirePuzzleAuth, async (req, res) => {
-    try {
-        const user = await User.findById(req.session.userId)
-            .select('puzzleStreak puzzleMaxStreak puzzlesSolved puzzleLastSolvedDate puzzleHistory');
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        const last30 = (user.puzzleHistory || [])
-            .sort((a, b) => b.date - a.date)
-            .slice(0, 30);
-
-        res.json({
-            streak: user.puzzleStreak,
-            maxStreak: user.puzzleMaxStreak,
-            puzzlesSolved: user.puzzlesSolved,
-            lastSolvedDate: user.puzzleLastSolvedDate,
-            recentHistory: last30
-        });
-    } catch (err) {
-        console.error('[PUZZLE] stats error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
 
 // --- BUG REPORT API ---
 
@@ -3037,11 +2860,6 @@ async function startServer() {
         } else {
             console.log('[PRESENCE] Skipped — need >=2 bots in DB');
         }
-
-        // Initialize daily puzzle system (non-blocking)
-        PuzzleScheduler.init().catch(err => {
-            console.error('[PUZZLE] Scheduler init error:', err);
-        });
 
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
