@@ -75,17 +75,6 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    puzzleStreak: { type: Number, default: 0 },
-    puzzleMaxStreak: { type: Number, default: 0 },
-    puzzlesSolved: { type: Number, default: 0 },
-    puzzleLastSolvedDate: { type: String, default: null },
-    puzzleHistory: [{
-        date: { type: String },
-        solved: { type: Boolean, default: false },
-        attempts: { type: Number, default: 0 },
-        hintsUsed: { type: Number, default: 0 },
-        solvedAt: { type: Date }
-    }],
     resetPasswordToken: {
         type: String,
         index: true
