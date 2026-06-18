@@ -186,6 +186,14 @@ const UI = {
       friends_toast_accepted: "{username} принял(а) вашу заявку",
       friends_toast_invite: "{username} приглашает вас играть!",
       friends_btn_join: "Присоединиться",
+      notifications_title: "Уведомления",
+      notifications_empty: "Нет уведомлений",
+      notifications_mark_read: "Прочитано всё",
+      notification_friend_request: "{username} хочет добавить вас в друзья",
+      notification_friend_accepted: "{username} принял(а) вашу заявку",
+      notification_game_invite: "{username} приглашает вас играть!",
+      notification_rematch: "{username} хочет реванш!",
+      notification_admin_message: "Сообщение от администратора: {message}",
       friends_add_friend: "Add Friend",
       friends_remove_friend: "Remove Friend",
       friends_cancel_request: "Cancel request",
@@ -407,6 +415,14 @@ const UI = {
       friends_toast_accepted: "{username} accepted your request",
       friends_toast_invite: "{username} invites you to play!",
       friends_btn_join: "Join",
+      notifications_title: "Notifications",
+      notifications_empty: "No notifications",
+      notifications_mark_read: "Mark all read",
+      notification_friend_request: "{username} wants to be your friend",
+      notification_friend_accepted: "{username} accepted your request",
+      notification_game_invite: "{username} invites you to play!",
+      notification_rematch: "{username} wants a rematch!",
+      notification_admin_message: "Message from admin: {message}",
       friends_add_friend: "Add Friend",
       friends_remove_friend: "Remove Friend",
       friends_cancel_request: "Cancel request",
@@ -1047,6 +1063,199 @@ const UI = {
     return toast; // Return element in case we want to remove it manually
   },
 
+  // --- NOTIFICATION BELL ---
+  notifications: [],
+
+  toggleNotifications(event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById('notifDropdown');
+    if (dropdown) dropdown.classList.toggle('hidden');
+    if (!dropdown.classList.contains('hidden')) {
+      this.renderNotifications();
+    }
+  },
+
+  closeNotifications(event) {
+    const dropdown = document.getElementById('notifDropdown');
+    const bell = document.getElementById('notificationBell');
+    if (!dropdown || dropdown.classList.contains('hidden')) return;
+    if (bell && bell.contains(event.target)) return;
+    if (dropdown && !dropdown.contains(event.target)) {
+      dropdown.classList.add('hidden');
+    }
+  },
+
+  loadNotifications(notifications) {
+    this.notifications = notifications || [];
+    this.updateNotifBadge();
+  },
+
+  addNotification(notif) {
+    this.notifications.unshift(notif);
+    this.updateNotifBadge();
+    this.renderNotifications();
+  },
+
+  renderNotifications() {
+    const list = document.getElementById('notifList');
+    const empty = document.getElementById('notifEmpty');
+    if (!list) return;
+    list.innerHTML = '';
+    if (this.notifications.length === 0) {
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+    this.notifications.slice(0, 20).forEach(n => {
+      const item = this.renderNotificationItem(n);
+      list.appendChild(item);
+    });
+  },
+
+  renderNotificationItem(notif) {
+    const item = document.createElement('div');
+    item.className = 'notif-item' + (notif.read ? '' : ' unread');
+    item.dataset.id = notif._id;
+
+    const iconMap = {
+      friend_request: '👤',
+      friend_request_accepted: '✅',
+      game_invite: '🎮',
+      rematch_request: '🔄',
+      admin_message: '📢',
+      bug_report_update: '📋'
+    };
+    const iconClassMap = {
+      friend_request: 'friend',
+      friend_request_accepted: 'friend',
+      game_invite: 'game',
+      rematch_request: 'game',
+      admin_message: 'admin',
+      bug_report_update: 'admin'
+    };
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'notif-icon ' + (iconClassMap[notif.type] || '');
+    iconDiv.textContent = iconMap[notif.type] || '🔔';
+
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'notif-body';
+
+    const titleSpan = document.createElement('div');
+    titleSpan.className = 'notif-title';
+    titleSpan.textContent = notif.title;
+
+    const timeSpan = document.createElement('div');
+    timeSpan.className = 'notif-time';
+    const diff = Date.now() - new Date(notif.createdAt).getTime();
+    if (diff < 60000) timeSpan.textContent = 'just now';
+    else if (diff < 3600000) timeSpan.textContent = Math.floor(diff / 60000) + 'm ago';
+    else if (diff < 86400000) timeSpan.textContent = Math.floor(diff / 3600000) + 'h ago';
+    else timeSpan.textContent = new Date(notif.createdAt).toLocaleDateString();
+
+    bodyDiv.appendChild(titleSpan);
+    bodyDiv.appendChild(timeSpan);
+
+    if (!notif.read) {
+      item.addEventListener('click', () => {
+        this.markNotifRead(notif._id);
+      });
+    }
+
+    if (notif.type === 'friend_request' && !notif.read) {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'notif-actions';
+      const acceptBtn = document.createElement('button');
+      acceptBtn.className = 'notif-btn notif-btn-accept';
+      acceptBtn.textContent = UI.translate('friends_btn_accept');
+      acceptBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        UI.acceptFriend(notif.data.requesterId);
+        UI.markNotifRead(notif._id);
+      });
+      const declineBtn = document.createElement('button');
+      declineBtn.className = 'notif-btn notif-btn-decline';
+      declineBtn.textContent = UI.translate('friends_btn_decline');
+      declineBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        UI.declineFriend(notif.data.requesterId);
+        UI.markNotifRead(notif._id);
+      });
+      actionsDiv.appendChild(acceptBtn);
+      actionsDiv.appendChild(declineBtn);
+      bodyDiv.appendChild(actionsDiv);
+    }
+
+    if (notif.type === 'game_invite' && !notif.read) {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'notif-actions';
+      const joinBtn = document.createElement('button');
+      joinBtn.className = 'notif-btn notif-btn-join';
+      joinBtn.textContent = UI.translate('friends_btn_join');
+      joinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Net.socket.emit('acceptGameInvite', { fromId: notif.data.requesterId });
+        UI.markNotifRead(notif._id);
+      });
+      actionsDiv.appendChild(joinBtn);
+      bodyDiv.appendChild(actionsDiv);
+    }
+
+    if (notif.type === 'rematch_request' && !notif.read) {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'notif-actions';
+      const rematchBtn = document.createElement('button');
+      rematchBtn.className = 'notif-btn notif-btn-rematch';
+      rematchBtn.textContent = UI.translate('btn_rematch');
+      rematchBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        Net.requestRematch();
+        UI.markNotifRead(notif._id);
+      });
+      actionsDiv.appendChild(rematchBtn);
+      bodyDiv.appendChild(actionsDiv);
+    }
+
+    item.appendChild(iconDiv);
+    item.appendChild(bodyDiv);
+    return item;
+  },
+
+  markNotifRead(id) {
+    fetch('/api/notifications/' + id + '/read', { method: 'PATCH' }).catch(() => {});
+    const item = document.querySelector('.notif-item[data-id="' + id + '"]');
+    if (item) {
+      item.classList.remove('unread');
+      item.querySelectorAll('.notif-actions').forEach(el => el.remove());
+    }
+    const notif = this.notifications.find(n => n._id === id);
+    if (notif) notif.read = true;
+    this.updateNotifBadge();
+  },
+
+  markAllNotifRead() {
+    fetch('/api/notifications/read-all', { method: 'PATCH' }).catch(() => {});
+    document.querySelectorAll('.notif-item.unread').forEach(el => {
+      el.classList.remove('unread');
+      el.querySelectorAll('.notif-actions').forEach(a => a.remove());
+    });
+    this.notifications.forEach(n => n.read = true);
+    this.updateNotifBadge();
+  },
+
+  updateNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    const bell = document.getElementById('notificationBell');
+    if (!badge || !bell) return;
+    const unread = this.notifications.filter(n => !n.read).length;
+    if (unread > 0) {
+      badge.textContent = unread > 99 ? '99+' : unread;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  },
+
   // --- DISCONNECT OVERLAY ---
   showDisconnectOverlay() {
     const el = document.getElementById('disconnectModal');
@@ -1380,6 +1589,7 @@ UI.updateAuthUI = function () {
   const headerProfile = document.getElementById('headerProfile');
   const usernameEl = document.getElementById('headerUsername');
   const avatarImg = document.getElementById('headerAvatarImg');
+  const notifBell = document.getElementById('notificationBell');
 
   if (this.currentUser) {
     if (headerAuth) headerAuth.classList.add('hidden');
@@ -1388,10 +1598,27 @@ UI.updateAuthUI = function () {
     if (avatarImg && this.currentUser.avatarUrl) {
       avatarImg.src = this.currentUser.avatarUrl;
     }
+    if (notifBell) notifBell.classList.remove('hidden');
+    this.loadNotificationsFromServer();
   } else {
     if (headerAuth) headerAuth.classList.remove('hidden');
     if (headerProfile) headerProfile.classList.add('hidden');
+    if (notifBell) notifBell.classList.add('hidden');
+    this.notifications = [];
+    this.updateNotifBadge();
   }
+};
+
+UI.loadNotificationsFromServer = function () {
+  fetch('/api/notifications')
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data)) {
+        this.loadNotifications(data);
+        this.renderNotifications();
+      }
+    })
+    .catch(() => {});
 };
 
 UI.updateGameInfo = function (profiles, myIndex) {
@@ -2340,6 +2567,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       UI.closeProfileModal();
       UI.hideDisconnectOverlay();
+      const notifDropdown = document.getElementById('notifDropdown');
+      if (notifDropdown && !notifDropdown.classList.contains('hidden')) {
+        notifDropdown.classList.add('hidden');
+      }
       const confirmModal = document.getElementById('confirmModal');
       if (confirmModal) confirmModal.style.display = 'none';
 
@@ -2349,6 +2580,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // Close notification dropdown on outside click
+  document.addEventListener('click', (e) => UI.closeNotifications(e));
 
 });
 
