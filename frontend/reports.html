@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Reports — Quoridor</title>
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .container {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+        }
+        h1 { margin-top: 0; font-size: 22px; }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .report-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .report-card:hover { border-color: var(--accent); }
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .report-card-subject {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-new { background: #3b82f6; color: #fff; }
+        .badge-in_progress { background: #f59e0b; color: #000; }
+        .badge-closed { background: #64748b; color: #fff; }
+        .report-card-meta {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .report-card-msgs {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 16px;
+            color: var(--muted);
+        }
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--muted);
+        }
+
+        /* Detail view */
+        .detail-view {
+            display: none;
+        }
+        .detail-view.active {
+            display: block;
+        }
+        .list-view.hidden {
+            display: none;
+        }
+        .msg-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .msg {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .msg-user {
+            align-self: flex-end;
+            background: #3b82f6;
+            color: #fff;
+        }
+        .msg-admin {
+            align-self: flex-start;
+            background: #334155;
+            color: var(--text);
+        }
+        .msg-role {
+            font-size: 10px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 2px;
+        }
+        .msg-time {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+        }
+        .reply-section {
+            margin-top: 16px;
+        }
+        .reply-section textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 70px;
+            background: #0f172a;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .reply-section .btn-sm {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .btn-ok-sm { background: var(--ok); color: #000; }
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            margin-bottom: 16px;
+        }
+        .back-btn:hover { text-decoration: underline; }
+        .detail-info {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+        .detail-status {
+            display: inline-block;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="listView" class="list-view">
+        <a href="/" class="back-link">← Home</a>
+        <h1 id="pageTitle">My Reports</h1>
+        <div id="reportList"></div>
+    </div>
+
+    <div id="detailView" class="detail-view">
+        <button class="back-btn" id="backToListBtn" onclick="showList()">← Back to reports</button>
+        <h2 id="detailSubject"></h2>
+        <div class="detail-info">
+            <span id="detailDate"></span>
+            <span class="badge detail-status" id="detailStatus"></span>
+        </div>
+        <p id="detailDesc" style="font-size:14px;line-height:1.5;white-space:pre-wrap;color:#ccc;margin-bottom:16px"></p>
+        <label style="color:var(--muted);font-size:13px;display:block;margin-bottom:4px" id="lblMessages">Messages</label>
+        <div id="msgList" class="msg-list"></div>
+        <div class="reply-section" id="replySection">
+            <textarea id="replyInput" placeholder="Write a message..." maxlength="5000"></textarea>
+            <button class="btn-sm btn-ok-sm" id="sendReplyBtn" onclick="sendReply()">Send</button>
+            <span id="replyStatus" style="margin-left:8px;color:var(--ok);font-size:13px;display:none">Sent!</span>
+        </div>
+    </div>
+</div>
+
+<script>
+var currentReportId = null;
+
+function showList() {
+    document.getElementById('listView').style.display = 'block';
+    document.getElementById('detailView').classList.remove('active');
+    document.getElementById('detailView').style.display = 'none';
+    loadReports();
+}
+
+function showDetail(id) {
+    currentReportId = id;
+    document.getElementById('listView').style.display = 'none';
+
+    fetch('/api/reports/' + id)
+        .then(function(r) {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+        })
+        .then(function(r) {
+            document.getElementById('detailSubject').textContent = r.subject;
+            document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
+            document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
+            document.getElementById('detailStatus').className = 'badge badge-' + r.status + ' detail-status';
+            document.getElementById('detailDesc').textContent = r.description;
+
+            var hasUnreadAdmin = false;
+            var container = document.getElementById('msgList');
+            container.innerHTML = '';
+            (r.messages || []).forEach(function(m) {
+                var div = document.createElement('div');
+                div.className = 'msg msg-' + m.role;
+                var roleLabel = document.createElement('div');
+                roleLabel.className = 'msg-role';
+                roleLabel.textContent = m.role === 'admin' ? 'Admin' : 'You';
+                var textDiv = document.createElement('div');
+                textDiv.textContent = m.text;
+                var timeDiv = document.createElement('div');
+                timeDiv.className = 'msg-time';
+                timeDiv.textContent = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
+                div.appendChild(roleLabel);
+                div.appendChild(textDiv);
+                div.appendChild(timeDiv);
+                container.appendChild(div);
+                if (m.role === 'admin') hasUnreadAdmin = true;
+            });
+            container.scrollTop = container.scrollHeight;
+
+            document.getElementById('replySection').style.display = r.status !== 'closed' ? 'block' : 'none';
+            document.getElementById('replyInput').value = '';
+            document.getElementById('replyStatus').style.display = 'none';
+            document.getElementById('detailView').style.display = 'block';
+            document.getElementById('detailView').classList.add('active');
+        })
+        .catch(function() {
+            alert('Failed to load report details');
+            showList();
+        });
+}
+
+function sendReply() {
+    var text = document.getElementById('replyInput').value.trim();
+    if (!text) return;
+    var btn = document.getElementById('sendReplyBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    fetch('/api/reports/' + currentReportId + '/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+    }).then(function(r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+    }).then(function() {
+        document.getElementById('replyStatus').style.display = 'inline';
+        document.getElementById('replyInput').value = '';
+        btn.disabled = false;
+        btn.textContent = 'Send';
+        showDetail(currentReportId);
+    }).catch(function() {
+        alert('Failed to send');
+        btn.disabled = false;
+        btn.textContent = 'Send';
+    });
+}
+
+function loadReports() {
+    var list = document.getElementById('reportList');
+    list.innerHTML = '<div class="loading">Loading...</div>';
+
+    fetch('/api/auth/me')
+        .then(function(r) {
+            if (!r.ok) {
+                list.innerHTML = '<div class="empty-state">You must be logged in to view reports. <a href="/login" style="color:var(--accent)">Sign in</a></div>';
+                throw new Error('Not authenticated');
+            }
+            return r.json();
+        })
+        .then(function() {
+            return fetch('/api/my/reports');
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error();
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div class="empty-state">You haven\'t submitted any reports yet.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            data.forEach(function(r) {
+                var card = document.createElement('div');
+                card.className = 'report-card';
+                card.onclick = function() { showDetail(r._id); };
+
+                var msgCount = (r.messages || []).length;
+                var header = document.createElement('div');
+                header.className = 'report-card-header';
+                header.innerHTML = '<span class="report-card-subject">' + esc(r.subject) + '</span>' +
+                    '<span class="badge badge-' + r.status + '">' + r.status.replace('_', ' ') + '</span>';
+
+                var meta = document.createElement('div');
+                meta.className = 'report-card-meta';
+                meta.textContent = new Date(r.createdAt).toLocaleDateString();
+
+                var msgs = document.createElement('div');
+                msgs.className = 'report-card-msgs';
+                msgs.textContent = msgCount + ' message(s)';
+
+                card.appendChild(header);
+                card.appendChild(meta);
+                card.appendChild(msgs);
+                list.appendChild(card);
+            });
+        })
+        .catch(function() {
+            list.innerHTML = '<div class="empty-state">Failed to load reports.</div>';
+        });
+}
+
+function esc(s) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(s || ''));
+    return div.innerHTML;
+}
+
+loadReports();
+</script>
+</body>
+</html>

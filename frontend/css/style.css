@@ -966,6 +966,13 @@ canvas {
     color: #777;
     margin-top: 2px;
 }
+.notif-body-text {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 4px;
+    line-height: 1.4;
+    word-break: break-word;
+}
 .notif-actions {
     display: flex;
     gap: 6px;
