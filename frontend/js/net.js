@@ -165,9 +165,6 @@ const Net = {
 
         this.socket.on('opponentWantsRematch', () => {
             console.log('[NET] Противник хочет реванш!');
-            UI.showToast(UI.translate('toast_opponent_wants_rematch') || 'Opponent wants a rematch!', 'info', 0, () => {
-                this.requestRematch();
-            });
             UI.showRematchBtn(true);
         });
         this.socket.on('serverMove', (data) => {
@@ -210,24 +207,21 @@ const Net = {
             UI.hideRoomJoining();
         });
 
-        // Friend events
-        this.socket.on('friendRequest', (data) => {
-            UI.showToast(
-                `${data.from.username} wants to be your friend`,
-                'info', 0, null,
-                [
-                    { label: 'Accept', callback: () => UI.acceptFriend(data.from._id) },
-                    { label: 'Decline', callback: () => UI.declineFriend(data.from._id) }
-                ]
-            );
-            if (UI.friends) UI.loadFriends();
+        // Notification events
+        this.socket.on('notifications:list', (notifs) => {
+            if (Array.isArray(notifs)) {
+                UI.loadNotifications(notifs);
+                UI.renderNotifications();
+            }
         });
 
-        this.socket.on('friendRequestAccepted', (data) => {
-            UI.showToast(`${data.username} accepted your friend request`, 'success');
-            UI.loadFriends();
+        this.socket.on('notification:new', (notif) => {
+            if (notif) {
+                UI.addNotification(notif);
+            }
         });
 
+        // Friend online/offline events
         this.socket.on('friendOnline', (data) => {
             const f = UI.friends?.friends?.find(f => f._id === data._id);
             if (f) f.online = true;
@@ -238,19 +232,6 @@ const Net = {
             const f = UI.friends?.friends?.find(f => f._id === data._id);
             if (f) { f.online = false; f.lastSeen = new Date().toISOString(); }
             UI.renderFriendsTab();
-        });
-
-        this.socket.on('gameInvite', (data) => {
-            UI.showToast(
-                `${data.from.username} invites you to play!`,
-                'info', 30000, null,
-                [
-                    {
-                        label: 'Join',
-                        callback: () => Net.socket.emit('acceptGameInvite', { fromId: data.from._id })
-                    }
-                ]
-            );
         });
 
         // Online stats update (users online, games in progress, lists)

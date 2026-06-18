@@ -75,6 +75,7 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    unreadNotifications: { type: Number, default: 0 },
     resetPasswordToken: {
         type: String,
         index: true

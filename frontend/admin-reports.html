@@ -188,6 +188,11 @@
         <p id="detailIp"></p>
         <label>Status</label>
         <p id="detailStatus"></p>
+        <hr style="border-color:var(--border);margin:16px 0">
+        <label>Reply to reporter</label>
+        <textarea id="replyInput" style="width:100%;box-sizing:border-box;min-height:80px;background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:14px;margin-bottom:8px" placeholder="Write your reply..."></textarea>
+        <button class="btn-sm btn-ok-sm" onclick="sendReply()">Send Reply</button>
+        <span id="replyStatus" style="margin-left:8px;color:var(--ok);font-size:13px;display:none">Sent!</span>
     </div>
 </div>
 
@@ -271,7 +276,10 @@ function updateStatus(id, status) {
     });
 }
 
+var _currentReportId = null;
+
 function showDetail(id) {
+    _currentReportId = id;
     var r = reports.find(function(x) { return x._id === id; });
     if (!r) return;
     document.getElementById('detailSubject').textContent = r.subject;
@@ -280,7 +288,29 @@ function showDetail(id) {
     document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
     document.getElementById('detailIp').textContent = r.ip || '-';
     document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
+    document.getElementById('replyInput').value = '';
+    document.getElementById('replyStatus').style.display = 'none';
     document.getElementById('detailModal').style.display = 'flex';
+}
+
+function sendReply() {
+    var reply = document.getElementById('replyInput').value.trim();
+    if (!reply) return;
+    var statusEl = document.getElementById('replyStatus');
+    statusEl.style.display = 'none';
+    fetch('/api/admin/reports/' + _currentReportId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: reply, status: 'closed' })
+    }).then(function(r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+    }).then(function() {
+        statusEl.style.display = 'inline';
+        loadReports();
+    }).catch(function() {
+        alert('Failed to send reply');
+    });
 }
 
 function closeDetail(e) {

@@ -60,6 +60,7 @@ const session = require('express-session');
 const { RedisStore } = require('connect-redis');
 const path = require('path');
 const Friendship = require('./models/Friendship');
+const Notification = require('./models/Notification');
 
 const sessionRedisClient = redisPkg.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -833,6 +834,21 @@ async function getAcceptedFriendIds(userId) {
     });
 }
 
+async function createNotification(recipientId, type, title, body = '', data = {}) {
+    try {
+        const notif = await Notification.create({ recipient: recipientId, type, title, body, data });
+        await User.findByIdAndUpdate(recipientId, { $inc: { unreadNotifications: 1 } });
+        const recipientSocket = findSocketByUserId(recipientId);
+        if (recipientSocket) {
+            recipientSocket.emit('notification:new', notif);
+        }
+        return notif;
+    } catch (err) {
+        console.error('[NOTIFICATION] Create error:', err);
+        return null;
+    }
+}
+
 // POST /api/friends/request — send friend request
 app.post('/api/friends/request', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -856,12 +872,11 @@ app.post('/api/friends/request', async (req, res) => {
         await friendship.save();
 
         const requester = await User.findById(req.session.userId).select('username avatarUrl');
-        const friendSocket = findSocketByUserId(recipientId);
-        if (friendSocket) {
-            friendSocket.emit('friendRequest', {
-                from: { _id: req.session.userId, username: requester.username, avatarUrl: requester.avatarUrl }
-            });
-        }
+        await createNotification(recipientId, 'friend_request',
+            requester.username + ' wants to be friends',
+            '',
+            { requesterId: req.session.userId, requesterUsername: requester.username, requesterAvatar: requester.avatarUrl }
+        );
 
         res.json({ message: 'ok', friendship });
     } catch (err) {
@@ -886,11 +901,12 @@ app.post('/api/friends/accept', async (req, res) => {
         await User.findByIdAndUpdate(req.session.userId, { $inc: { friendCount: 1 } });
         await User.findByIdAndUpdate(requesterId, { $inc: { friendCount: 1 } });
 
-        const requester = await User.findById(requesterId).select('username avatarUrl');
-        const requesterSocket = findSocketByUserId(requesterId);
-        if (requesterSocket) {
-            requesterSocket.emit('friendRequestAccepted', { _id: req.session.userId, username: req.session.username, avatarUrl: requester.avatarUrl });
-        }
+        const accepter = await User.findById(req.session.userId).select('username avatarUrl');
+        await createNotification(requesterId, 'friend_request_accepted',
+            accepter.username + ' accepted your friend request',
+            '',
+            { requesterId: req.session.userId, requesterUsername: accepter.username }
+        );
 
         res.json({ message: 'ok' });
     } catch (err) {
@@ -1083,6 +1099,7 @@ app.post('/api/reports', reportLimiter, async (req, res) => {
             subject: subject.trim(),
             description: description.trim(),
             contact: (contact || '').trim(),
+            userId: req.session?.userId || null,
             ip: req.ip || req.connection?.remoteAddress || ''
         });
 
@@ -1105,19 +1122,99 @@ app.get('/api/admin/reports', requireAdmin, async (req, res) => {
 
 app.patch('/api/admin/reports/:id', requireAdmin, async (req, res) => {
     try {
-        const { status } = req.body;
-        if (!['new', 'in_progress', 'closed'].includes(status)) {
+        const { status, reply } = req.body;
+        if (status && !['new', 'in_progress', 'closed'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
+        const update = {};
+        if (status) update.status = status;
         const report = await Report.findByIdAndUpdate(
             req.params.id,
-            { status },
+            { $set: update },
             { new: true }
         );
         if (!report) return res.status(404).json({ error: 'Report not found' });
+
+        if (reply && reply.trim() && report.userId) {
+            await createNotification(report.userId, 'admin_message',
+                'Reply to your report',
+                reply.trim(),
+                { reportId: report._id, message: reply.trim() }
+            );
+        }
+
         res.json(report);
     } catch (e) {
         console.error('[REPORT] Update error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// --- NOTIFICATION API ---
+
+app.get('/api/notifications', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+        const filter = { recipient: req.session.userId };
+        if (req.query.unread === 'true') filter.read = false;
+
+        const [notifications, total] = await Promise.all([
+            Notification.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+            Notification.countDocuments(filter)
+        ]);
+
+        res.json({ notifications, total, page, limit });
+    } catch (e) {
+        console.error('[NOTIFICATIONS] List error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.patch('/api/notifications/:id/read', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const notif = await Notification.findOneAndUpdate(
+            { _id: req.params.id, recipient: req.session.userId, read: false },
+            { read: true },
+            { new: true }
+        );
+        if (notif) {
+            await User.findByIdAndUpdate(req.session.userId, { $inc: { unreadNotifications: -1 } });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[NOTIFICATIONS] Read error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.patch('/api/notifications/read-all', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const result = await Notification.updateMany(
+            { recipient: req.session.userId, read: false },
+            { read: true }
+        );
+        await User.findByIdAndUpdate(req.session.userId, { unreadNotifications: 0 });
+        res.json({ success: true, modified: result.modifiedCount });
+    } catch (e) {
+        console.error('[NOTIFICATIONS] Read-all error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const notif = await Notification.findOneAndDelete({ _id: req.params.id, recipient: req.session.userId });
+        if (notif && !notif.read) {
+            await User.findByIdAndUpdate(req.session.userId, { $inc: { unreadNotifications: -1 } });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[NOTIFICATIONS] Delete error:', e);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -1619,9 +1716,12 @@ io.on('connection', (socket) => {
                 if (fs) fs.emit('friendOnline', { _id: socket.userId, username: socket.username });
             }
         }).catch(console.error);
-    }
 
-    // Очистка памяти при отключении
+        Notification.find({ recipient: socket.userId, read: false }).sort({ createdAt: -1 }).limit(20).lean()
+            .then(notifs => {
+                socket.emit('notifications:list', notifs || []);
+            }).catch(console.error);
+    }
     socket.on('disconnect', () => {
         rateLimits.delete(socket.id);
         schedulePresenceBroadcast();
@@ -2263,12 +2363,18 @@ io.on('connection', (socket) => {
                 await Redis.deleteRematchContext(lobbyId);
             } else {
                 await Redis.saveRematchContext(lobbyId, rematchCtx);
-                const otherSocketId = rematchCtx.playerSockets[
-                    rematchCtx.playerTokens.indexOf(
-                        rematchCtx.playerTokens.find(t => t !== token)
-                    )
-                ];
+                const otherToken = rematchCtx.playerTokens.find(t => t !== token);
+                const otherIdx = rematchCtx.playerTokens.indexOf(otherToken);
+                const otherSocketId = rematchCtx.playerSockets[otherIdx];
                 if (otherSocketId) {
+                    const otherSock = io.sockets.sockets.get(otherSocketId);
+                    if (otherSock && otherSock.userId) {
+                        await createNotification(otherSock.userId, 'rematch_request',
+                            rematchCtx.playerProfiles[1 - otherIdx].name + ' wants a rematch',
+                            '',
+                            { requesterId: socket.userId, requesterUsername: socket.username }
+                        );
+                    }
                     io.to(otherSocketId).emit('opponentWantsRematch');
                 }
             }
@@ -2291,14 +2397,11 @@ io.on('connection', (socket) => {
             });
             if (!friendship) return;
 
-            const friendSocket = findSocketByUserId(friendId);
-            if (!friendSocket) {
-                socket.emit('inviteFailed', { reason: 'Friend is offline' });
-                return;
-            }
-            friendSocket.emit('gameInvite', {
-                from: { _id: socket.userId, username: socket.username, avatarUrl: socket.avatarUrl || '' }
-            });
+            await createNotification(friendId, 'game_invite',
+                socket.username + ' invites you to play!',
+                '',
+                { requesterId: socket.userId, requesterUsername: socket.username, requesterAvatar: socket.avatarUrl || '' }
+            );
         } catch (err) {
             console.error('[INVITE ERROR]', err);
         }

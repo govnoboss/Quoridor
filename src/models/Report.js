@@ -26,6 +26,11 @@ const reportSchema = new mongoose.Schema({
         enum: ['new', 'in_progress', 'closed'],
         default: 'new'
     },
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
     ip: {
         type: String,
         default: ''
