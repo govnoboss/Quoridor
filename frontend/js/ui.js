@@ -234,7 +234,8 @@ const UI = {
       pp_no_ranked_games: "Нет рейтинговых партий",
       pp_delete_account: "Удалить аккаунт",
       pp_confirm_delete_title: "Подтверждение",
-      pp_delete_account_confirm: "Вы уверены? Это действие необратимо удалит ваш аккаунт и все данные."
+      pp_delete_account_confirm: "Вы уверены? Это навсегда удалит ваш аккаунт и все данные.",
+      pp_my_reports: "Мои репорты"
     },
     en: {
       menu_rules: "Rules",
@@ -463,7 +464,8 @@ const UI = {
       pp_no_ranked_games: "No ranked games yet",
       pp_delete_account: "Delete Account",
       pp_confirm_delete_title: "Confirm",
-      pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data."
+      pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data.",
+      pp_my_reports: "My Reports"
     }
   },
 
@@ -1156,9 +1158,66 @@ const UI = {
     bodyDiv.appendChild(titleSpan);
     bodyDiv.appendChild(timeSpan);
 
+    if (notif.body) {
+      const bodySpan = document.createElement('div');
+      bodySpan.className = 'notif-body-text';
+      bodySpan.textContent = notif.body;
+      bodyDiv.appendChild(bodySpan);
+    }
+
     if (!notif.read) {
       item.addEventListener('click', () => {
         this.markNotifRead(notif._id);
+      });
+    }
+
+    if (notif.type === 'admin_message' && notif.data && notif.data.reportId && !notif.read) {
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'notif-actions';
+      actionsDiv.style.flexDirection = 'column';
+      actionsDiv.style.gap = '4px';
+      const replyArea = document.createElement('div');
+      replyArea.style.display = 'none';
+      const replyInput = document.createElement('textarea');
+      replyInput.placeholder = 'Write a reply...';
+      replyInput.style.cssText = 'width:100%;box-sizing:border-box;min-height:50px;background:#222;color:#fff;border:1px solid #444;border-radius:4px;padding:6px;resize:vertical;font-size:12px;font-family:inherit';
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'notif-btn notif-btn-join';
+      sendBtn.textContent = 'Send';
+      sendBtn.style.cssText = 'margin-top:4px';
+      sendBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const text = replyInput.value.trim();
+        if (!text) return;
+        fetch('/api/reports/' + notif.data.reportId + '/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text })
+        }).then(r => {
+          if (r.ok) {
+            replyInput.value = '';
+            replyArea.style.display = 'none';
+            UI.markNotifRead(notif._id);
+          }
+        }).catch(() => {});
+      });
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'notif-btn notif-btn-rematch';
+      toggleBtn.textContent = 'Reply';
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        replyArea.style.display = replyArea.style.display === 'none' ? 'block' : 'none';
+      });
+      replyArea.appendChild(replyInput);
+      replyArea.appendChild(sendBtn);
+      actionsDiv.appendChild(toggleBtn);
+      actionsDiv.appendChild(replyArea);
+      bodyDiv.appendChild(actionsDiv);
+    }
+
+    if (notif.type === 'bug_report_update') {
+      item.addEventListener('click', () => {
+        window.location.href = '/admin/reports';
       });
     }
 

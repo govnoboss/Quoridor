@@ -1068,6 +1068,7 @@ app.get('/reset-password', (req, res) => res.sendFile(path.join(__dirname, '../f
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, '../frontend/terms.html')));
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../frontend/privacy.html')));
 app.get('/report', (req, res) => res.sendFile(path.join(__dirname, '../frontend/report.html')));
+app.get('/profile/reports', (req, res) => res.sendFile(path.join(__dirname, '../frontend/reports.html')));
 app.get('/admin/reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-reports.html')));
 app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, '../frontend/rules.html')));
 app.get('/how-to-play', (req, res) => res.redirect(301, '/rules'));
@@ -1087,7 +1088,10 @@ const reportLimiter = rateLimit({
 
 app.post('/api/reports', reportLimiter, async (req, res) => {
     try {
-        const { subject, description, contact } = req.body;
+        if (!req.session.userId) {
+            return res.status(401).json({ error: 'You must be logged in to submit a report' });
+        }
+        const { subject, description, deviceInfo } = req.body;
         if (!subject || subject.trim().length < 3) {
             return res.status(400).json({ error: 'Subject must be at least 3 characters' });
         }
@@ -1098,12 +1102,18 @@ app.post('/api/reports', reportLimiter, async (req, res) => {
         const report = await Report.create({
             subject: subject.trim(),
             description: description.trim(),
-            contact: (contact || '').trim(),
-            userId: req.session?.userId || null,
-            ip: req.ip || req.connection?.remoteAddress || ''
+            userId: req.session.userId,
+            ip: req.ip || req.connection?.remoteAddress || '',
+            messages: [{ role: 'user', text: description.trim() }],
+            deviceInfo: {
+                userAgent: (deviceInfo?.userAgent || '').slice(0, 500),
+                platform: (deviceInfo?.platform || '').slice(0, 100),
+                screenSize: (deviceInfo?.screenSize || '').slice(0, 50),
+                language: (deviceInfo?.language || '').slice(0, 50)
+            }
         });
 
-        res.status(201).json({ message: 'Report submitted' });
+        res.status(201).json({ message: 'Report submitted', id: report._id });
     } catch (e) {
         console.error('[REPORT] Create error:', e);
         res.status(500).json({ error: 'Server error' });
@@ -1112,7 +1122,7 @@ app.post('/api/reports', reportLimiter, async (req, res) => {
 
 app.get('/api/admin/reports', requireAdmin, async (req, res) => {
     try {
-        const reports = await Report.find().sort({ createdAt: -1 }).lean();
+        const reports = await Report.find().sort({ createdAt: -1 }).populate('userId', 'username avatarUrl').lean();
         res.json(reports);
     } catch (e) {
         console.error('[REPORT] List error:', e);
@@ -1128,16 +1138,19 @@ app.patch('/api/admin/reports/:id', requireAdmin, async (req, res) => {
         }
         const update = {};
         if (status) update.status = status;
+        if (reply && reply.trim()) {
+            update.$push = { messages: { role: 'admin', text: reply.trim() } };
+        }
         const report = await Report.findByIdAndUpdate(
             req.params.id,
-            { $set: update },
+            update,
             { new: true }
         );
         if (!report) return res.status(404).json({ error: 'Report not found' });
 
         if (reply && reply.trim() && report.userId) {
             await createNotification(report.userId, 'admin_message',
-                'Reply to your report',
+                'Reply to your report: ' + report.subject,
                 reply.trim(),
                 { reportId: report._id, message: reply.trim() }
             );
@@ -1146,6 +1159,74 @@ app.patch('/api/admin/reports/:id', requireAdmin, async (req, res) => {
         res.json(report);
     } catch (e) {
         console.error('[REPORT] Update error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// User reply to their report
+app.post('/api/reports/:id/reply', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { text } = req.body;
+        if (!text || !text.trim()) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+        const report = await Report.findById(req.params.id);
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+        if (String(report.userId) !== String(req.session.userId)) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        report.messages.push({ role: 'user', text: text.trim() });
+        report.status = 'in_progress';
+        await report.save();
+
+        const adminUsers = await User.find({ isAdmin: true }).select('_id').lean();
+        for (const admin of adminUsers) {
+            await createNotification(admin._id, 'bug_report_update',
+                'User replied to report: ' + report.subject,
+                text.trim(),
+                { reportId: report._id, message: text.trim() }
+            );
+        }
+
+        res.json({ message: 'Reply sent' });
+    } catch (e) {
+        console.error('[REPORT] User reply error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get single report with messages (owner or admin)
+app.get('/api/reports/:id', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const report = await Report.findById(req.params.id).populate('userId', 'username avatarUrl').lean();
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+
+        const user = await User.findById(req.session.userId).select('isAdmin').lean();
+        if (String(report.userId._id) !== String(req.session.userId) && !user?.isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        res.json(report);
+    } catch (e) {
+        console.error('[REPORT] Get error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get user's own reports
+app.get('/api/my/reports', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const reports = await Report.find({ userId: req.session.userId })
+            .sort({ createdAt: -1 })
+            .select('subject status createdAt messages')
+            .lean();
+        res.json(reports);
+    } catch (e) {
+        console.error('[REPORT] My reports error:', e);
         res.status(500).json({ error: 'Server error' });
     }
 });

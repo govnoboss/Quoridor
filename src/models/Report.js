@@ -1,5 +1,21 @@
 const mongoose = require('mongoose');
 
+const messageSchema = new mongoose.Schema({
+    role: {
+        type: String,
+        enum: ['user', 'admin'],
+        required: true
+    },
+    text: {
+        type: String,
+        required: true
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: false });
+
 const reportSchema = new mongoose.Schema({
     subject: {
         type: String,
@@ -15,12 +31,6 @@ const reportSchema = new mongoose.Schema({
         minlength: 10,
         maxlength: 5000
     },
-    contact: {
-        type: String,
-        trim: true,
-        maxlength: 200,
-        default: ''
-    },
     status: {
         type: String,
         enum: ['new', 'in_progress', 'closed'],
@@ -29,16 +39,23 @@ const reportSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        default: null
+        required: true
     },
     ip: {
         type: String,
         default: ''
     },
+    messages: [messageSchema],
+    deviceInfo: {
+        userAgent: { type: String, default: '' },
+        platform: { type: String, default: '' },
+        screenSize: { type: String, default: '' },
+        language: { type: String, default: '' }
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
-});
+}, { timestamps: false });
 
 module.exports = mongoose.model('Report', reportSchema);

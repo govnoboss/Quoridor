@@ -37,6 +37,26 @@
         .back-link:hover {
             text-decoration: underline;
         }
+        .ticket-id {
+            background: #333;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 12px 0;
+            color: var(--wall);
+            word-break: break-all;
+        }
+        .info-row {
+            color: #999;
+            font-size: 13px;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            background: #222;
+            border-radius: 6px;
+            line-height: 1.5;
+        }
+        .info-row span { color: var(--wall); }
     </style>
 </head>
 <body class="auth-page-body">
@@ -50,10 +70,18 @@
         <a href="/" class="close-panel-btn">&times;</a>
         <h1 id="reportTitle">Report a Bug</h1>
 
+        <div id="notLoggedIn" style="display:none">
+            <p id="loginPrompt">You must be logged in to submit a bug report.</p>
+            <a href="/login" class="btn-primary" id="loginBtn" style="display:inline-block;margin-top:12px">Sign In</a>
+        </div>
+
         <div id="authError" class="auth-error"></div>
         <div id="authSuccess" class="auth-success hidden"></div>
 
-        <form id="reportForm" class="auth-form" onsubmit="return submitReport(event)">
+        <form id="reportForm" class="auth-form">
+            <div class="info-row" id="profileInfo">
+                Reporting as: <span id="reportUsername"></span> &mdash; <a id="reportProfileLink" href="#" target="_blank">View profile</a>
+            </div>
             <div class="field-group">
                 <label class="field-label" for="reportSubject" id="lblSubject">Subject</label>
                 <input id="reportSubject" type="text" maxlength="200" autocomplete="off" />
@@ -64,17 +92,15 @@
                 <textarea id="reportDesc" maxlength="5000"></textarea>
                 <div class="field-error" id="reportDescError"></div>
             </div>
-            <div class="field-group">
-                <label class="field-label" for="reportContact" id="lblContact">Contact (email / Discord — optional)</label>
-                <input id="reportContact" type="text" maxlength="200" autocomplete="off" />
-                <div class="field-error" id="reportContactError"></div>
-            </div>
             <button type="submit" class="btn-primary" id="submitBtn">Send Report</button>
         </form>
 
-        <div id="successMessage" class="auth-success" style="display:none;">
+        <div id="successMessage" style="display:none;">
             <p id="successText">Thank you! Your report has been submitted.</p>
+            <div class="ticket-id" id="ticketId"></div>
+            <p style="color:#999;font-size:13px" id="trackText">You can track responses in your profile.</p>
             <a href="/" class="back-link" id="backLink">← Back to home</a>
+            <a href="/profile/reports" class="back-link" id="myReportsLink" style="margin-left:16px">→ My Reports</a>
         </div>
     </div>
 </div>
@@ -85,7 +111,6 @@ var dict = {
         title: "Report a Bug",
         lblSubject: "Title",
         lblDesc: "Description",
-        lblContact: "Contact (email / Discord — optional)",
         submit: "Send Report",
         success: "Thank you! Your report has been submitted.",
         error_subject_empty: "Please enter a subject",
@@ -94,13 +119,18 @@ var dict = {
         error_desc_short: "Description must be at least 10 characters",
         error_network: "Network error. Try again later.",
         error_limit: "Too many requests. Try again later.",
-        back: "← Back to home"
+        error_auth: "You must be logged in to submit a report.",
+        back: "← Back to home",
+        my_reports: "→ My Reports",
+        track_text: "You can track responses in your profile.",
+        not_logged_in: "You must be logged in to submit a bug report.",
+        reporting_as: "Reporting as:",
+        view_profile: "View profile"
     },
     ru: {
         title: "Сообщить об ошибке",
         lblSubject: "Тема",
         lblDesc: "Описание",
-        lblContact: "Контакт (email / Discord — необязательно)",
         submit: "Отправить",
         success: "Спасибо! Репорт отправлен.",
         error_subject_empty: "Введите тему",
@@ -109,7 +139,13 @@ var dict = {
         error_desc_short: "Описание должно быть не менее 10 символов",
         error_network: "Ошибка сети. Попробуйте позже.",
         error_limit: "Слишком много запросов. Попробуйте позже.",
-        back: "← На главную"
+        error_auth: "Вы должны войти в систему, чтобы отправить репорт.",
+        back: "← На главную",
+        my_reports: "→ Мои репорты",
+        track_text: "Вы можете отслеживать ответы в своём профиле.",
+        not_logged_in: "Вы должны войти в систему, чтобы отправить сообщение об ошибке.",
+        reporting_as: "Вы отправляете как:",
+        view_profile: "Профиль"
     }
 };
 
@@ -128,10 +164,13 @@ function applyLang() {
     document.getElementById('reportTitle').textContent = d.title;
     document.getElementById('lblSubject').textContent = d.lblSubject;
     document.getElementById('lblDesc').textContent = d.lblDesc;
-    document.getElementById('lblContact').textContent = d.lblContact;
     document.getElementById('submitBtn').textContent = d.submit;
     document.getElementById('successText').textContent = d.success;
     document.getElementById('backLink').textContent = d.back;
+    document.getElementById('myReportsLink').textContent = d.my_reports;
+    document.getElementById('trackText').textContent = d.track_text;
+    document.getElementById('loginPrompt').textContent = d.not_logged_in;
+    document.getElementById('loginBtn').textContent = lang === 'ru' ? 'Войти' : 'Sign In';
 }
 
 function clearErrors() {
@@ -163,7 +202,35 @@ function showGlobalError(msg) {
     el.classList.add('visible');
 }
 
-function submitReport(e) {
+function collectDeviceInfo() {
+    return {
+        userAgent: navigator.userAgent || '',
+        platform: navigator.platform || '',
+        screenSize: screen.width + 'x' + screen.height,
+        language: navigator.language || ''
+    };
+}
+
+function checkSession() {
+    fetch('/api/auth/me')
+        .then(function(r) {
+            if (!r.ok) throw new Error('Not authenticated');
+            return r.json();
+        })
+        .then(function(user) {
+            document.getElementById('reportForm').style.display = 'block';
+            document.getElementById('notLoggedIn').style.display = 'none';
+            document.getElementById('reportUsername').textContent = user.username;
+            document.getElementById('reportProfileLink').href = '/profile/' + user.username;
+            document.getElementById('reportProfileLink').textContent = dict[getLang()].view_profile;
+        })
+        .catch(function() {
+            document.getElementById('reportForm').style.display = 'none';
+            document.getElementById('notLoggedIn').style.display = 'block';
+        });
+}
+
+document.getElementById('reportForm').addEventListener('submit', function(e) {
     e.preventDefault();
     clearErrors();
 
@@ -171,7 +238,6 @@ function submitReport(e) {
     var d = dict[lang];
     var subject = document.getElementById('reportSubject').value.trim();
     var desc = document.getElementById('reportDesc').value.trim();
-    var contact = document.getElementById('reportContact').value.trim();
     var hasError = false;
 
     if (!subject) {
@@ -197,13 +263,22 @@ function submitReport(e) {
     fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject: subject, description: desc, contact: contact })
+        body: JSON.stringify({
+            subject: subject,
+            description: desc,
+            deviceInfo: collectDeviceInfo()
+        })
     }).then(function(r) {
         return r.json().then(function(data) { return { status: r.status, data: data }; });
     }).then(function(resp) {
         if (resp.status === 201) {
             document.getElementById('reportForm').style.display = 'none';
             document.getElementById('successMessage').style.display = 'block';
+            if (resp.data.id) {
+                document.getElementById('ticketId').textContent = 'Ticket ID: ' + resp.data.id;
+            } else {
+                document.getElementById('ticketId').style.display = 'none';
+            }
         } else if (resp.status === 429) {
             showGlobalError(d.error_limit);
             btn.disabled = false;
@@ -218,9 +293,10 @@ function submitReport(e) {
         btn.disabled = false;
         btn.textContent = d.submit;
     });
-}
+});
 
 applyLang();
+checkSession();
 </script>
 </body>
 </html>

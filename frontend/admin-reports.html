@@ -23,7 +23,7 @@
             color: var(--text);
         }
         .container {
-            max-width: 980px;
+            max-width: 1020px;
             margin: 0 auto;
             padding: 24px 16px 40px;
         }
@@ -84,12 +84,6 @@
             padding: 6px 10px;
             border-radius: 6px;
         }
-        .desc-cell {
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
         .empty-state {
             text-align: center;
             padding: 40px;
@@ -123,12 +117,12 @@
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
-            max-width: 600px;
+            max-width: 640px;
             width: 90%;
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
-        .modal h2 { margin-top: 0; }
+        .modal h2 { margin-top: 0; font-size: 16px; }
         .modal-close {
             float: right;
             background: none;
@@ -138,7 +132,57 @@
             cursor: pointer;
         }
         .modal label { color: var(--muted); font-size: 13px; display: block; margin-top: 12px; margin-bottom: 4px; }
-        .modal p { margin: 0 0 12px; line-height: 1.5; white-space: pre-wrap; }
+        .modal p { margin: 0 0 12px; line-height: 1.5; white-space: pre-wrap; font-size: 14px; }
+        .msg-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .msg {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .msg-user {
+            align-self: flex-end;
+            background: #3b82f6;
+            color: #fff;
+        }
+        .msg-admin {
+            align-self: flex-start;
+            background: #334155;
+            color: var(--text);
+        }
+        .msg-role {
+            font-size: 10px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 2px;
+        }
+        .msg-time {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 16px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .info-grid .label { color: var(--muted); }
+        .info-grid .value { color: var(--text); word-break: break-all; }
+        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        .player-link {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .player-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -161,8 +205,8 @@
             <thead>
                 <tr>
                     <th>Date</th>
+                    <th>Player</th>
                     <th>Subject</th>
-                    <th>Contact</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -178,19 +222,30 @@
     <div class="modal">
         <button class="modal-close" onclick="closeDetail()">&times;</button>
         <h2 id="detailSubject"></h2>
+
+        <label>Player</label>
+        <p><a id="detailPlayer" class="player-link" href="#" target="_blank"></a></p>
+
         <label>Description</label>
         <p id="detailDesc"></p>
-        <label>Contact</label>
-        <p id="detailContact"></p>
-        <label>Date</label>
-        <p id="detailDate"></p>
-        <label>IP</label>
-        <p id="detailIp"></p>
-        <label>Status</label>
-        <p id="detailStatus"></p>
-        <hr style="border-color:var(--border);margin:16px 0">
+
+        <div class="info-grid">
+            <div><span class="label">Status:</span> <span class="value" id="detailStatus"></span></div>
+            <div><span class="label">Date:</span> <span class="value" id="detailDate"></span></div>
+            <div><span class="label">IP:</span> <span class="value" id="detailIp"></span></div>
+            <div><span class="label">Device:</span> <span class="value" id="detailDevice"></span></div>
+            <div><span class="label">Platform:</span> <span class="value" id="detailPlatform"></span></div>
+            <div><span class="label">Screen:</span> <span class="value" id="detailScreen"></span></div>
+            <div><span class="label">Language:</span> <span class="value" id="detailLang"></span></div>
+        </div>
+
+        <hr>
+        <label>Messages</label>
+        <div id="msgList" class="msg-list"></div>
+
+        <hr>
         <label>Reply to reporter</label>
-        <textarea id="replyInput" style="width:100%;box-sizing:border-box;min-height:80px;background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:14px;margin-bottom:8px" placeholder="Write your reply..."></textarea>
+        <textarea id="replyInput" style="width:100%;box-sizing:border-box;min-height:70px;background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:14px;margin-bottom:8px" placeholder="Write your reply..."></textarea>
         <button class="btn-sm btn-ok-sm" onclick="sendReply()">Send Reply</button>
         <span id="replyStatus" style="margin-left:8px;color:var(--ok);font-size:13px;display:none">Sent!</span>
     </div>
@@ -235,11 +290,12 @@ function render(filter) {
         var tr = document.createElement('tr');
         var date = new Date(r.createdAt).toLocaleString();
         var badgeClass = 'badge-' + r.status;
+        var playerName = r.userId ? (r.userId.username || 'Unknown') : 'Guest';
 
         tr.innerHTML =
             '<td style="white-space:nowrap">' + date + '</td>' +
+            '<td>' + esc(playerName) + '</td>' +
             '<td><a href="#" onclick="showDetail(\'' + r._id + '\');return false" style="color:var(--accent);text-decoration:none">' + esc(r.subject) + '</a></td>' +
-            '<td>' + esc(r.contact || '-') + '</td>' +
             '<td><span class="badge ' + badgeClass + '">' + r.status.replace('_', ' ') + '</span></td>' +
             '<td style="white-space:nowrap">' + actionButtons(r) + '</td>';
 
@@ -282,15 +338,56 @@ function showDetail(id) {
     _currentReportId = id;
     var r = reports.find(function(x) { return x._id === id; });
     if (!r) return;
+
     document.getElementById('detailSubject').textContent = r.subject;
     document.getElementById('detailDesc').textContent = r.description;
-    document.getElementById('detailContact').textContent = r.contact || '-';
+
+    var playerName = r.userId ? (r.userId.username || 'Unknown') : 'Guest';
+    var playerLink = r.userId ? '/profile/' + esc(r.userId.username) : '#';
+    document.getElementById('detailPlayer').textContent = playerName;
+    document.getElementById('detailPlayer').href = playerLink;
+
+    document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
     document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
     document.getElementById('detailIp').textContent = r.ip || '-';
-    document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
+
+    var di = r.deviceInfo || {};
+    document.getElementById('detailDevice').textContent = di.userAgent ? di.userAgent.slice(0, 120) : '-';
+    document.getElementById('detailPlatform').textContent = di.platform || '-';
+    document.getElementById('detailScreen').textContent = di.screenSize || '-';
+    document.getElementById('detailLang').textContent = di.language || '-';
+
+    renderMessages(r.messages || []);
+
     document.getElementById('replyInput').value = '';
     document.getElementById('replyStatus').style.display = 'none';
     document.getElementById('detailModal').style.display = 'flex';
+}
+
+function renderMessages(messages) {
+    var container = document.getElementById('msgList');
+    container.innerHTML = '';
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No messages yet</div>';
+        return;
+    }
+    messages.forEach(function(m) {
+        var div = document.createElement('div');
+        div.className = 'msg msg-' + m.role;
+        var roleLabel = document.createElement('div');
+        roleLabel.className = 'msg-role';
+        roleLabel.textContent = m.role === 'admin' ? 'Admin' : 'User';
+        var textDiv = document.createElement('div');
+        textDiv.textContent = m.text;
+        var timeDiv = document.createElement('div');
+        timeDiv.className = 'msg-time';
+        timeDiv.textContent = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
+        div.appendChild(roleLabel);
+        div.appendChild(textDiv);
+        div.appendChild(timeDiv);
+        container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
 }
 
 function sendReply() {
@@ -305,7 +402,11 @@ function sendReply() {
     }).then(function(r) {
         if (!r.ok) throw new Error();
         return r.json();
-    }).then(function() {
+    }).then(function(updated) {
+        var idx = reports.findIndex(function(x) { return x._id === _currentReportId; });
+        if (idx !== -1) reports[idx] = updated;
+        renderMessages(updated.messages || []);
+        document.getElementById('replyInput').value = '';
         statusEl.style.display = 'inline';
         loadReports();
     }).catch(function() {
