@@ -23,6 +23,14 @@ const ctx = canvas.getContext('2d');
 canvas.width = BOARD;
 canvas.height = BOARD;
 
+function yieldToEventLoop() {
+  return new Promise(function (resolve) {
+    var ch = new MessageChannel();
+    ch.port1.onmessage = function () { resolve(); };
+    ch.port2.postMessage(null);
+  });
+}
+
 function loadGame(gameId) {
   var info = document.getElementById('replayInfo');
   info.textContent = 'Loading...';
@@ -575,7 +583,7 @@ async function exportVideo() {
       }
       var pct = Math.round((i / (snapshots.length - 1)) * 100);
       progressBar.style.width = pct + '%';
-      await new Promise(function (r) { setTimeout(r, 0); });
+      await yieldToEventLoop();
     }
 
     await encoder.flush();
@@ -632,6 +640,21 @@ function exportFallback() {
   };
 
   recorder.start();
+
+  function onVisibilityChange() {
+    if (document.hidden && recorder.state === 'recording') {
+      recorder.pause();
+    } else if (!document.hidden && recorder.state === 'paused') {
+      recorder.resume();
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  var origOnStop = recorder.onstop;
+  recorder.onstop = function () {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    origOnStop.apply(recorder, arguments);
+  };
 
   function loop() {
     if (moveIdx >= snapshots.length) {
