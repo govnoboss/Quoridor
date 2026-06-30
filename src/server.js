@@ -521,14 +521,22 @@ app.get('/api/profiles/:username/games', async (req, res) => {
         const user = await User.findOne({ username });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        const history = await GameResult.find({
-            $or: [{ 'playerWhite.id': user._id }, { 'playerBlack.id': user._id }]
-        })
-            .sort({ date: -1 })
-            .skip(skip)
-            .limit(limit);
+        const filter = {
+            $or: [
+                { 'playerWhite.id': user._id, 'playerWhite.isGuest': false },
+                { 'playerBlack.id': user._id, 'playerBlack.isGuest': false }
+            ]
+        };
 
-        res.json(history);
+        const [history, total] = await Promise.all([
+            GameResult.find(filter)
+                .sort({ date: -1 })
+                .skip(skip)
+                .limit(limit),
+            GameResult.countDocuments(filter)
+        ]);
+
+        res.json({ games: history, total, page, limit });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -674,15 +682,27 @@ app.post('/api/user/update-avatar', async (req, res) => {
     }
 });
 
-// Legacy History (Redirect logic or keep for backward compat)
+// Game History for authenticated user (profile modal)
 app.get('/api/user/history', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
-        // Reuse general logic
-        const history = await GameResult.find({
-            $or: [{ 'playerWhite.id': req.session.userId }, { 'playerBlack.id': req.session.userId }]
-        }).sort({ date: -1 }).limit(20);
-        res.json(history);
+        const limit = parseInt(req.query.limit) || 20;
+        const page = parseInt(req.query.page) || 1;
+        const skip = (page - 1) * limit;
+
+        const filter = {
+            $or: [
+                { 'playerWhite.id': req.session.userId, 'playerWhite.isGuest': false },
+                { 'playerBlack.id': req.session.userId, 'playerBlack.isGuest': false }
+            ]
+        };
+
+        const [history, total] = await Promise.all([
+            GameResult.find(filter).sort({ date: -1 }).skip(skip).limit(limit),
+            GameResult.countDocuments(filter)
+        ]);
+
+        res.json({ games: history, total, page, limit });
     } catch (err) {
         res.status(500).json({ error: 'Server error' });
     }
@@ -1859,11 +1879,13 @@ io.on('connection', (socket) => {
             await Redis.removeFromAllQueues(token);
 
             // Добавляем в очередь
+            const isGuest = !socket.userId;
             const playerData = {
                 socketId: socket.id,
                 token: token,
                 timeControl: tc,
-                queuedAt: Date.now()
+                queuedAt: Date.now(),
+                isGuest: isGuest
             };
             await Redis.addToQueue(tc.base, tc.inc, playerData, isRanked);
             if (socket.searchToken !== token) {
@@ -1900,6 +1922,17 @@ io.on('connection', (socket) => {
                         botManager.scheduleFallback(s1, p1, isRanked);
                         botManager.scheduleFallback(s2, p2, isRanked);
                         s2.emit('findGameFailed', { reason: 'Already in a queue' });
+                        return;
+                    }
+
+                    // Auth-guest prevention: reject if one is guest and the other is authenticated
+                    if (p1.isGuest !== p2.isGuest) {
+                        console.log(`[MATCHMAKING] Rejected auth-guest match: p1.guest=${p1.isGuest}, p2.guest=${p2.isGuest}`);
+                        await Redis.addToQueue(tc.base, tc.inc, p1, isRanked);
+                        await Redis.addToQueue(tc.base, tc.inc, p2, isRanked);
+                        botManager.scheduleFallback(s1, p1, isRanked);
+                        botManager.scheduleFallback(s2, p2, isRanked);
+                        s2.emit('findGameFailed', { reason: 'Auth users cannot play with guests' });
                         return;
                     }
 

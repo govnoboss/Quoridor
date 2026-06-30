@@ -604,3 +604,25 @@
 }
 .pp-skeleton-row:nth-child(odd) { width: 95%; }
 .pp-skeleton-row:nth-child(even) { width: 88%; }
+
+/* Load More button */
+.pp-load-more-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    background: rgba(224, 159, 62, 0.1);
+    border: 1px solid rgba(224, 159, 62, 0.3);
+    border-radius: 8px;
+    color: #e09f3e;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+.pp-load-more-btn:hover {
+    background: rgba(224, 159, 62, 0.2);
+    border-color: rgba(224, 159, 62, 0.5);
+    transform: translateY(-1px);
+}

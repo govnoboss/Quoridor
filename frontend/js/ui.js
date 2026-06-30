@@ -235,7 +235,9 @@ const UI = {
       pp_delete_account: "Удалить аккаунт",
       pp_confirm_delete_title: "Подтверждение",
       pp_delete_account_confirm: "Вы уверены? Это навсегда удалит ваш аккаунт и все данные.",
-      pp_my_reports: "Мои репорты"
+      pp_my_reports: "Мои репорты",
+      pp_load_more: "Загрузить ещё",
+      toast_auth_required: "Требуется авторизация"
     },
     en: {
       menu_rules: "Rules",
@@ -465,7 +467,9 @@ const UI = {
       pp_delete_account: "Delete Account",
       pp_confirm_delete_title: "Confirm",
       pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data.",
-      pp_my_reports: "My Reports"
+      pp_my_reports: "My Reports",
+      pp_load_more: "Load more",
+      toast_auth_required: "Authentication required"
     }
   },
 
@@ -1712,6 +1716,10 @@ UI.updateGameInfo = function (profiles, myIndex) {
 UI.showProfile = async function () {
   try {
     const res = await fetch('/api/user/profile');
+    if (!res.ok) {
+      this.showToast(this.translate('toast_auth_required'), 'error');
+      return;
+    }
     const user = await res.json();
     if (user.error) throw new Error(user.error);
 
@@ -1786,18 +1794,21 @@ UI.openAvatarPicker = async function () {
 
 UI.loadGameHistory = async function () {
   try {
-    const res = await fetch('/api/user/history');
-    const games = await res.json();
+    const res = await fetch('/api/user/history?limit=20&page=1');
+    const data = await res.json();
+    const games = data.games || data;
     const tbody = document.getElementById('archiveBody');
     tbody.innerHTML = '';
 
-    if (games.length === 0) {
+    if (!games || games.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center">${UI.translate('pp_no_games')}</td></tr>`;
       return;
     }
 
+    this._modalHistoryPage = 1;
+
     games.forEach(game => {
-      const isWhite = game.playerWhite.id === this.currentUser._id;
+      const isWhite = String(game.playerWhite.id) === String(this.currentUser._id);
       const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
 
       let resultText = UI.translate('pp_draw');
@@ -1819,8 +1830,74 @@ UI.loadGameHistory = async function () {
       `;
       tbody.appendChild(row);
     });
+
+    // Add "Load more" button for modal history
+    let loadMoreBtn = document.getElementById('modalLoadMoreBtn');
+    const hasMore = 1 * 20 < (data.total || games.length);
+    if (hasMore) {
+      if (!loadMoreBtn) {
+        loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'modalLoadMoreBtn';
+        loadMoreBtn.className = 'pp-load-more-btn';
+        loadMoreBtn.textContent = UI.translate('pp_load_more') || 'Load more';
+        tbody.parentElement.appendChild(loadMoreBtn);
+      }
+      loadMoreBtn.style.display = '';
+      loadMoreBtn.onclick = () => UI._loadMoreModalHistory();
+    } else if (loadMoreBtn) {
+      loadMoreBtn.style.display = 'none';
+    }
   } catch (err) {
     console.error('[HISTORY ERROR]', err);
+  }
+};
+
+UI._loadMoreModalHistory = async function () {
+  const page = (this._modalHistoryPage || 1) + 1;
+  try {
+    const res = await fetch(`/api/user/history?limit=20&page=${page}`);
+    const data = await res.json();
+    const games = data.games || data;
+    if (!games || games.length === 0) return;
+
+    const tbody = document.getElementById('archiveBody');
+    games.forEach(game => {
+      const isWhite = String(game.playerWhite.id) === String(this.currentUser._id);
+      const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
+
+      let resultText = UI.translate('pp_draw');
+      let resultClass = '';
+      if (game.winner !== -1) {
+        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
+        resultText = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
+        resultClass = iWon ? 'archive-result-win' : 'archive-result-loss';
+      }
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${game.gameType.toUpperCase()}</td>
+        <td>${this.currentUser.username} vs ${opponent}</td>
+        <td class="${resultClass}">${resultText}</td>
+        <td>${game.turns}</td>
+        <td>${new Date(game.date).toLocaleDateString()}</td>
+        <td><button class="mini-btn" onclick="UI.openReplayModal('${game._id}')">👁️</button></td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    this._modalHistoryPage = page;
+
+    const loadMoreBtn = document.getElementById('modalLoadMoreBtn');
+    const hasMore = page * 20 < (data.total || 0);
+    if (loadMoreBtn) {
+      if (hasMore) {
+        loadMoreBtn.onclick = () => UI._loadMoreModalHistory();
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('[MODAL HISTORY ERROR]', err);
   }
 };
 
@@ -1842,6 +1919,12 @@ UI.showProfilePage = async function (username, pushState = true) {
     // Track current profile for replay return
     this._currentViewingProfile = username;
 
+    // Pagination state
+    this._profilePage = 1;
+    const limit = 20;
+    this._profileLimit = limit;
+    this._profileTotalGames = 0;
+
     // Show skeleton, hide content
     document.getElementById('ppSkeleton').classList.remove('hidden');
     document.getElementById('ppContent').classList.add('hidden');
@@ -1854,9 +1937,12 @@ UI.showProfilePage = async function (username, pushState = true) {
     }
     const user = await res.json();
 
-    // 2. Fetch Games History
-    const gamesRes = await fetch(`/api/profiles/${username}/games?limit=20`);
-    const history = await gamesRes.json();
+    // 2. Fetch Games History (first page)
+    const gamesRes = await fetch(`/api/profiles/${username}/games?limit=${limit}&page=1`);
+    const gamesData = await gamesRes.json();
+    const history = gamesData.games || gamesData;
+    this._profileTotalGames = gamesData.total || history.length;
+    this._profilePage = 1;
 
     // 3. Update UI
     document.getElementById('ppUsername').textContent = user.username;
@@ -2044,6 +2130,24 @@ UI.showProfilePage = async function (username, pushState = true) {
       });
     }
 
+    // Add/update "Load more" button
+    let loadMoreBtn = document.getElementById('ppLoadMoreBtn');
+    const hasMore = this._profilePage * limit < this._profileTotalGames;
+    if (hasMore) {
+      if (!loadMoreBtn) {
+        loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'ppLoadMoreBtn';
+        loadMoreBtn.className = 'pp-load-more-btn';
+        loadMoreBtn.textContent = this.translate('pp_load_more') || 'Load more';
+        const historyTab = document.getElementById('ppTabHistory');
+        historyTab.appendChild(loadMoreBtn);
+      }
+      loadMoreBtn.style.display = '';
+      loadMoreBtn.onclick = () => this._loadMoreProfileGames(username, limit);
+    } else if (loadMoreBtn) {
+      loadMoreBtn.style.display = 'none';
+    }
+
     // Hide skeleton, show content
     document.getElementById('ppSkeleton').classList.add('hidden');
     document.getElementById('ppContent').classList.remove('hidden');
@@ -2063,6 +2167,81 @@ UI.showProfilePage = async function (username, pushState = true) {
     this.showToast(this.translate('toast_profile_error'), 'error');
     document.getElementById('ppSkeleton')?.classList.add('hidden');
     document.getElementById('ppContent')?.classList.remove('hidden');
+  }
+};
+
+UI._loadMoreProfileGames = async function (username, limit) {
+  const page = (this._profilePage || 1) + 1;
+  try {
+    const res = await fetch(`/api/profiles/${username}/games?limit=${limit}&page=${page}`);
+    const data = await res.json();
+    const games = data.games || data;
+    const historyBody = document.getElementById('ppHistoryBody');
+
+    games.forEach(game => {
+      const row = document.createElement('tr');
+      row.style.cursor = 'pointer';
+      row.onclick = () => UI.openReplayModal(game._id);
+
+      const isWhite = game.playerWhite && game.playerWhite.username === username;
+      const opponentName = isWhite
+        ? (game.playerBlack ? game.playerBlack.username : 'Unknown')
+        : (game.playerWhite ? game.playerWhite.username : 'Unknown');
+
+      let resultKey = 'draw';
+      let resultLabel = UI.translate('pp_draw');
+      if (game.winner !== -1) {
+        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
+        resultKey = iWon ? 'win' : 'loss';
+        resultLabel = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
+      }
+
+      let ratingChangeDisplay = '—';
+      let ratingClass = 'neutral';
+      if (game.isRanked) {
+        const myRatingChange = isWhite
+          ? (game.playerWhite?.ratingChange || 0)
+          : (game.playerBlack?.ratingChange || 0);
+        if (myRatingChange > 0) {
+          ratingChangeDisplay = `+${myRatingChange}`;
+          ratingClass = 'positive';
+        } else if (myRatingChange < 0) {
+          ratingChangeDisplay = `${myRatingChange}`;
+          ratingClass = 'negative';
+        } else {
+          ratingChangeDisplay = '0';
+          ratingClass = 'neutral';
+        }
+      }
+
+      const opponentLink = opponentName !== 'Unknown'
+        ? `<a href="javascript:void(0)" class="opponent-link" onclick="event.stopPropagation(); UI.showProfilePage('${UI.escapeJsString(opponentName)}')">${UI.escapeHtml(opponentName)}</a>`
+        : opponentName;
+
+      row.innerHTML = `
+        <td>${new Date(game.date).toLocaleDateString()}</td>
+        <td>vs ${opponentLink}</td>
+        <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
+        <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
+        <td>${game.turns}</td>
+      `;
+      historyBody.appendChild(row);
+    });
+
+    this._profilePage = page;
+
+    const loadMoreBtn = document.getElementById('ppLoadMoreBtn');
+    const hasMore = page * limit < (data.total || this._profileTotalGames);
+    if (loadMoreBtn) {
+      if (hasMore) {
+        loadMoreBtn.onclick = () => this._loadMoreProfileGames(username, limit);
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('Error loading more games:', err);
+    this.showToast(this.translate('toast_profile_error'), 'error');
   }
 };
 
