@@ -68,8 +68,10 @@ jest.mock('../src/models/GameResult', () => {
 });
 
 const { io: ioc } = require('socket.io-client');
+const request = require('supertest');
+const bcrypt = require('bcryptjs');
 
-let httpServer, port, io;
+let httpServer, port, io, app;
 const sockets = [];
 
 function connectClient(opts = {}) {
@@ -108,6 +110,24 @@ function waitForEvent(socket, event, timeoutMs = 5000) {
     });
 }
 
+/**
+ * Подключает socket как АВТОРИЗОВАННОГО пользователя:
+ * логинится через HTTP (получает session cookie), затем подключает
+ * socket.io с этим cookie (polling, чтобы extraHeaders сработали).
+ */
+async function connectAuthClient(username, password) {
+    const res = await request(app)
+        .post('/api/auth/login')
+        .send({ username, password });
+    if (res.status !== 200) throw new Error(`Login failed for ${username}: ${res.status}`);
+    const cookie = res.headers['set-cookie'][0].split(';')[0];
+
+    return connectClient({
+        transports: ['polling', 'websocket'],
+        extraHeaders: { Cookie: cookie },
+    });
+}
+
 beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.SESSION_SECRET = 'test-secret-ws';
@@ -116,6 +136,7 @@ beforeAll(async () => {
     const mod = require('../src/server');
     httpServer = mod.server;
     io = mod.io;
+    app = mod.app;
 
     const Redis = require('../src/storage/redis');
     await Redis.connect();
@@ -224,6 +245,29 @@ describe('Matchmaking', () => {
         sock.emit('findGame', { token, isRanked: true });
         const fail = await waitForEvent(sock, 'findGameFailed');
         expect(fail.reason).toMatch(/login/i);
+    });
+
+    it('matches an authenticated player with a guest in casual', async () => {
+        const passwordHash = bcrypt.hashSync('password123', 10);
+        const User = require('../src/models/User');
+        User.__seedUser({ username: 'authedplayer', email: 'authed@example.com', passwordHash });
+
+        const { sock: auth, captured: authC } = await connectAuthClient('authedplayer', 'password123');
+        const tAuth = authC.find(e => e.event === 'assignToken').args[0].token;
+        auth.emit('findGame', { token: tAuth, timeControl: { base: 600, inc: 0 }, isRanked: false });
+
+        const { sock: guest, captured: guestC } = await connectClient();
+        const tGuest = guestC.find(e => e.event === 'assignToken').args[0].token;
+        guest.emit('findGame', { token: tGuest, timeControl: { base: 600, inc: 0 }, isRanked: false });
+
+        const [ga, gg] = await Promise.all([
+            waitForEvent(auth, 'gameStart'),
+            waitForEvent(guest, 'gameStart'),
+        ]);
+
+        expect(ga.lobbyId).toBe(gg.lobbyId);
+        expect(ga.opponent).toBeDefined();
+        expect(gg.opponent).toBeDefined();
     });
 });
 

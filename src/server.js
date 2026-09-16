@@ -1925,17 +1925,6 @@ io.on('connection', (socket) => {
                         return;
                     }
 
-                    // Auth-guest prevention: reject if one is guest and the other is authenticated
-                    if (p1.isGuest !== p2.isGuest) {
-                        console.log(`[MATCHMAKING] Rejected auth-guest match: p1.guest=${p1.isGuest}, p2.guest=${p2.isGuest}`);
-                        await Redis.addToQueue(tc.base, tc.inc, p1, isRanked);
-                        await Redis.addToQueue(tc.base, tc.inc, p2, isRanked);
-                        botManager.scheduleFallback(s1, p1, isRanked);
-                        botManager.scheduleFallback(s2, p2, isRanked);
-                        s2.emit('findGameFailed', { reason: 'Auth users cannot play with guests' });
-                        return;
-                    }
-
                     const gameState = Shared.createInitialState(p1.timeControl, isRanked);
                     gameState.playerSockets[0] = p1.socketId;
                     gameState.playerSockets[1] = p2.socketId;
