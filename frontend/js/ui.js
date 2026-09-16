@@ -956,6 +956,97 @@ const UI = {
     );
   },
 
+  // --- EMOJI REACTIONS ---
+  EMOJIS: [
+    '😂', '😈', '🤭', '🙃', '😜',
+    '😮', '🤯', '😱', '👀',
+    '🔥', '💪', '🎯', '⚡', '👑',
+    '😡', '😅', '🤦', '😤',
+    '🤝', '👏', '🙌', '🥹',
+    '🧱', '🏁', '⏱️'
+  ],
+
+  initEmojiPicker() {
+    const trigger = document.getElementById('emojiTrigger');
+    const picker = document.getElementById('emojiPicker');
+    if (!trigger || !picker) return;
+
+    UI.EMOJIS.forEach((emoji) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = emoji;
+      btn.title = emoji;
+      btn.addEventListener('click', () => UI.selectEmoji(emoji));
+      picker.appendChild(btn);
+    });
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      UI.toggleEmojiPicker();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!picker.classList.contains('hidden') &&
+          !picker.contains(e.target) &&
+          !trigger.contains(e.target)) {
+        picker.classList.add('hidden');
+        trigger.classList.remove('active');
+      }
+    });
+  },
+
+  toggleEmojiPicker() {
+    const trigger = document.getElementById('emojiTrigger');
+    const picker = document.getElementById('emojiPicker');
+    if (!trigger || !picker) return;
+    const willOpen = picker.classList.contains('hidden');
+    picker.classList.toggle('hidden', !willOpen);
+    trigger.classList.toggle('active', willOpen);
+  },
+
+  closeEmojiPicker() {
+    const trigger = document.getElementById('emojiTrigger');
+    const picker = document.getElementById('emojiPicker');
+    if (trigger) trigger.classList.remove('active');
+    if (picker) picker.classList.add('hidden');
+  },
+
+  selectEmoji(emoji) {
+    this.closeEmojiPicker();
+    if (Net.isOnline && Net.lobbyId) {
+      Net.sendReaction(emoji);
+    } else {
+      UI.showEmojiReaction(emoji, 0);
+    }
+  },
+
+  /**
+   * Показывает всплывающий эмодзи над доской.
+   * @param {string} emoji - Эмодзи из UI.EMOJIS
+   * @param {number} playerIdx - Индекс игрока (0 - верхний, 1 - нижний)
+   */
+  showEmojiReaction(emoji, playerIdx) {
+    const container = document.getElementById('game-container');
+    if (!container) return;
+
+    const el = document.createElement('span');
+    el.className = 'emoji-float';
+    el.textContent = emoji;
+
+    // Локальный игрок всегда визуально снизу; верх — сторона оппонента
+    const fromBottom = (playerIdx === (typeof Game !== 'undefined' ? Game.myPlayerIndex : 1));
+    const drift = (Math.random() * 60) - 30; // случайный сдвиг по горизонтали
+    el.style.setProperty('--drift', drift + 'px');
+    el.style.left = (45 + Math.random() * 10) + '%';
+    el.style.top = fromBottom ? '55%' : '35%';
+
+    container.appendChild(el);
+    // Удаляем после завершения анимации (2.5с)
+    setTimeout(() => {
+      el.remove();
+    }, 2500);
+  },
+
   /**
    * Показывает модальное окно подтверждения
    * @param {string} title - Заголовок окна
@@ -2761,6 +2852,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Инициализация роутинга
   UI.initRouting();
 
+  // Init emoji reactions picker
+  UI.initEmojiPicker();
+
   // Load leaderboard data
   UI.loadLeaderboard();
 
@@ -2805,6 +2899,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       UI.closeProfileModal();
       UI.hideDisconnectOverlay();
+      UI.closeEmojiPicker();
       const notifDropdown = document.getElementById('notifDropdown');
       if (notifDropdown && !notifDropdown.classList.contains('hidden')) {
         notifDropdown.classList.add('hidden');

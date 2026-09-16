@@ -238,6 +238,11 @@ const Net = {
         this.socket.on('onlineStats', (data) => {
             UI.updateOnlineStats(data);
         });
+
+        this.socket.on('receiveReaction', (data) => {
+            if (!data || !data.emoji) return;
+            UI.showEmojiReaction(data.emoji, data.playerIdx);
+        });
     },
 
     surrender() {
@@ -245,6 +250,11 @@ const Net = {
             console.log('[NET] Отправка запроса на сдачу...');
             this.socket.emit('surrender', { lobbyId: this.lobbyId });
         }
+    },
+
+    sendReaction(emoji) {
+        if (!this.isOnline || !this.lobbyId) return;
+        this.socket.emit('sendReaction', { lobbyId: this.lobbyId, emoji });
     },
 
     findGame(timeData, isRanked) {

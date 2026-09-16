@@ -37,7 +37,7 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.7" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.5" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
@@ -563,7 +563,13 @@
         </div>
 
         <!-- Контейнер моих стен (интерактивные) -->
-        <div class="wall-inventory" id="bottomWallInventory"></div>
+        <div class="wall-inventory-wrap" id="bottomWallInventoryWrap">
+          <div class="wall-inventory" id="bottomWallInventory"></div>
+          <button class="emoji-trigger" id="emojiTrigger" title="Реакции" aria-label="Реакции">
+            <span class="emoji-trigger-icon">🙂</span>
+          </button>
+          <div class="emoji-picker hidden" id="emojiPicker"></div>
+        </div>
 
         <div class="player-bar" id="bottomPlayerBar">
           <div class="avatar-container">
@@ -760,8 +766,8 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.5"></script>
-  <script src="/js/net.js?v=1.0.4"></script>
+  <script src="/js/ui.js?v=1.0.7"></script>
+  <script src="/js/net.js?v=1.0.6"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/ai.js?v=1.0.4"></script>
   <script src="/js/ai-core.js?v=1.0.4"></script>

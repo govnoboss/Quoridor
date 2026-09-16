@@ -2448,6 +2448,37 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==== EMOJI REACTIONS ====
+    const ALLOWED_REACTIONS = [
+      '😂', '😈', '🤭', '🙃', '😜',
+      '😮', '🤯', '😱', '👀',
+      '🔥', '💪', '🎯', '⚡', '👑',
+      '😡', '😅', '🤦', '😤',
+      '🤝', '👏', '🙌', '🥹',
+      '🧱', '🏁', '⏱️'
+    ];
+
+    socket.on('sendReaction', async (data) => {
+        if (!data || typeof data !== 'object') return;
+
+        const { lobbyId, emoji } = data;
+        if (!Shared.isValidLobbyId(lobbyId)) return;
+        if (!ALLOWED_REACTIONS.includes(emoji)) return;
+        if (!checkRateLimit(socket.id, 'reaction', 3, 10000)) return;
+
+        try {
+            const game = await Redis.getGame(lobbyId);
+            if (!game) return;
+
+            const playerIdx = game.playerTokens.indexOf(socket.playerToken);
+            if (playerIdx === -1) return;
+
+            io.to(lobbyId).emit('receiveReaction', { emoji, playerIdx });
+        } catch (err) {
+            console.error('[REACTION ERROR]', err);
+        }
+    });
+
     socket.on('requestRematch', async (data) => {
         const lobbyId = data?.lobbyId;
         const token = data?.token || socket.playerToken;
