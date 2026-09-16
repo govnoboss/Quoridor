@@ -382,6 +382,58 @@ describe('Game Flow', () => {
         expect(o1.reason).toBe('Surrender');
         expect(o1).toEqual(o2);
     });
+
+    it('broadcasts an emoji reaction to the opponent', async () => {
+        const { sock: p1, captured: c1 } = await connectClient();
+        const t1 = c1.find(e => e.event === 'assignToken').args[0].token;
+        p1.emit('createRoom', { token: t1 });
+        const { roomCode } = await waitForEvent(p1, 'roomCreated');
+
+        const { sock: p2, captured: c2 } = await connectClient();
+        const t2 = c2.find(e => e.event === 'assignToken').args[0].token;
+        p2.emit('joinRoom', { roomCode, token: t2 });
+        const [g1, g2] = await Promise.all([
+            waitForEvent(p1, 'gameStart'),
+            waitForEvent(p2, 'gameStart'),
+        ]);
+        const lobbyId = g1.lobbyId;
+
+        const sender = g1.color === 'white' ? p1 : p2;
+        sender.emit('sendReaction', { lobbyId, emoji: '🔥' });
+
+        const [r1, r2] = await Promise.all([
+            waitForEvent(p1, 'receiveReaction'),
+            waitForEvent(p2, 'receiveReaction'),
+        ]);
+
+        expect(r1.emoji).toBe('🔥');
+        expect(r1.playerIdx).toEqual(r2.playerIdx);
+        expect(r1.emoji).toEqual(r2.emoji);
+    });
+
+    it('rejects reaction with non-allowed emoji', async () => {
+        const { sock: p1, captured: c1 } = await connectClient();
+        const t1 = c1.find(e => e.event === 'assignToken').args[0].token;
+        p1.emit('createRoom', { token: t1 });
+        const { roomCode } = await waitForEvent(p1, 'roomCreated');
+
+        const { sock: p2, captured: c2 } = await connectClient();
+        const t2 = c2.find(e => e.event === 'assignToken').args[0].token;
+        p2.emit('joinRoom', { roomCode, token: t2 });
+        const [g1, g2] = await Promise.all([
+            waitForEvent(p1, 'gameStart'),
+            waitForEvent(p2, 'gameStart'),
+        ]);
+        const lobbyId = g1.lobbyId;
+
+        p1.emit('sendReaction', { lobbyId, emoji: '💀' });
+
+        await new Promise(r => setTimeout(r, 200));
+        const gotReactionSender = c1.some(e => e.event === 'receiveReaction');
+        const gotReactionOpponent = c2.some(e => e.event === 'receiveReaction');
+        expect(gotReactionSender).toBe(false);
+        expect(gotReactionOpponent).toBe(false);
+    });
 });
 
 describe('Rematch', () => {

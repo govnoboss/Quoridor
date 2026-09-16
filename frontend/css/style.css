@@ -641,6 +641,124 @@ canvas {
     pointer-events: none;
 }
 
+/* --- EMOJI REACTIONS --- */
+/* Обёртка инвентаря: не меняет размер плашки, кнопка позиционируется абсолютно */
+.wall-inventory-wrap {
+    position: relative;
+    width: 100%;
+    line-height: 0;
+    font-size: 0;
+}
+
+.emoji-trigger {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    z-index: 5;
+}
+
+.emoji-trigger:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.emoji-trigger:active {
+    transform: translateY(-50%) scale(0.92);
+}
+
+.emoji-trigger-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.emoji-trigger.active {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Выпадающая панель эмодзи */
+.emoji-picker {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    background: #262626;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    z-index: 20;
+}
+
+.emoji-picker.hidden {
+    display: none;
+}
+
+.emoji-picker button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.emoji-picker button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.15);
+}
+
+.emoji-picker button:active {
+    transform: scale(0.95);
+}
+
+/* Всплывающий эмодзи над доской */
+.emoji-float {
+    position: absolute;
+    font-size: 40px;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 15;
+    animation: emoji-float-anim 2.5s ease-out forwards;
+}
+
+@keyframes emoji-float-anim {
+    0% {
+        opacity: 0;
+        transform: translateY(0) translateX(var(--drift, 0px)) scale(0.5);
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(0) translateX(var(--drift, 0px)) scale(1.3);
+    }
+    25% {
+        transform: translateY(-15px) translateX(var(--drift, 0px)) scale(1);
+    }
+    80% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-50px) translateX(var(--drift, 0px)) scale(0.85);
+    }
+}
+
 /* Кнопка сдаться */
 .surrender-btn {
     margin-top: 10px;
@@ -3217,6 +3335,28 @@ canvas {
         width: 28px;
         /* Slightly smaller walls in inventory */
         height: 8px;
+    }
+
+    /* Tab-friendly emoji trigger on mobile */
+    .emoji-trigger {
+        width: 28px;
+        height: 28px;
+        right: 2px;
+    }
+
+    .emoji-trigger-icon {
+        font-size: 16px;
+    }
+
+    .emoji-picker {
+        bottom: calc(100% + 6px);
+        padding: 4px;
+    }
+
+    .emoji-picker button {
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
     }
 }
 
