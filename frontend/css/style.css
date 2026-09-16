@@ -3325,27 +3325,26 @@ canvas {
         height: 32px;
     }
 
-    /* Adjust wall inventories */
+    /* Adjust wall inventories - shrink walls to free space for emoji trigger */
     .wall-inventory {
         min-height: 20px;
         padding: 4px;
     }
 
     .wall-piece {
-        width: 28px;
-        /* Slightly smaller walls in inventory */
+        width: 22px;
         height: 8px;
     }
 
     /* Tab-friendly emoji trigger on mobile */
     .emoji-trigger {
-        width: 28px;
+        width: 24px;
         height: 28px;
-        right: 2px;
+        right: 3px;
     }
 
     .emoji-trigger-icon {
-        font-size: 16px;
+        font-size: 14px;
     }
 
     .emoji-picker {
