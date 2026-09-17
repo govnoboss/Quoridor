@@ -966,16 +966,43 @@ const UI = {
     '🧱', '🏁', '⏱️'
   ],
 
+  // Кодовая карта эмодзи -> SVG-файл Twemoji (одинаково на всех устройствах)
+  EMOJI_FILES: {
+    '😂': '1f602.svg', '😈': '1f608.svg', '🤭': '1f92d.svg', '🙃': '1f643.svg', '😜': '1f61c.svg',
+    '😮': '1f62e.svg', '🤯': '1f92f.svg', '😱': '1f631.svg', '👀': '1f440.svg',
+    '🔥': '1f525.svg', '💪': '1f4aa.svg', '🎯': '1f3af.svg', '⚡': '26a1.svg', '👑': '1f451.svg',
+    '😡': '1f621.svg', '😅': '1f605.svg', '🤦': '1f926.svg', '😤': '1f624.svg',
+    '🤝': '1f91d.svg', '👏': '1f44f.svg', '🙌': '1f64c.svg', '🥹': '1fae3.svg',
+    '🧱': '1f9f1.svg', '🏁': '1f3c1.svg', '⏱️': '23f1.svg',
+    '🙂': '1f642.svg'
+  },
+
+  emojiImg(emoji, className) {
+    const img = document.createElement('img');
+    img.src = 'img/emoji/' + (UI.EMOJI_FILES[emoji] || UI.EMOJI_FILES['🙂']);
+    img.alt = emoji;
+    img.title = emoji;
+    img.draggable = false;
+    img.loading = 'lazy';
+    if (className) img.className = className;
+    return img;
+  },
+
   initEmojiPicker() {
     const trigger = document.getElementById('emojiTrigger');
     const picker = document.getElementById('emojiPicker');
     if (!trigger || !picker) return;
 
+    const icon = trigger.querySelector('.emoji-trigger-icon');
+    if (icon) {
+      icon.textContent = '';
+      icon.append(UI.emojiImg('🙂'));
+    }
+
     UI.EMOJIS.forEach((emoji) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = emoji;
-      btn.title = emoji;
+      btn.append(UI.emojiImg(emoji));
       btn.addEventListener('click', () => UI.selectEmoji(emoji));
       picker.appendChild(btn);
     });
@@ -1029,9 +1056,8 @@ const UI = {
     const container = document.getElementById('game-container');
     if (!container) return;
 
-    const el = document.createElement('span');
-    el.className = 'emoji-float';
-    el.textContent = emoji;
+    const el = UI.emojiImg(emoji, 'emoji-float');
+    el.style.setProperty('pointer-events', 'none');
 
     // Локальный игрок всегда визуально снизу; верх — сторона оппонента
     const fromBottom = (playerIdx === (typeof Game !== 'undefined' ? Game.myPlayerIndex : 1));
