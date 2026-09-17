@@ -1773,7 +1773,10 @@ app.post('/api/user-reports', userReportLimiter, async (req, res) => {
         }
         const target = await User.findById(targetId).select('username isBot');
         if (!target) return res.status(404).json({ error: 'User not found' });
-        if (target.isBot) return res.status(400).json({ error: 'Cannot report a bot' });
+        if (target.isBot) {
+            // Молча «принимаем» жалобу, не создавая её — игроки не должны знать о существовании ботов.
+            return res.status(201).json({ message: 'Report submitted' });
+        }
 
         // Проверяем дубликат — не более 3 активных жалоб от одного пользователя на того же
         const existingCount = await UserReport.countDocuments({
