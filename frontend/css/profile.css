@@ -42,6 +42,40 @@
     flex-shrink: 0;
 }
 
+.pp-avatar-section.own {
+    cursor: pointer;
+}
+
+.pp-avatar-section.own .pp-avatar {
+    transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.pp-avatar-section.own:hover .pp-avatar {
+    filter: brightness(1.15);
+    transform: scale(1.03);
+}
+
+.pp-avatar-edit-hint {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-bottom: 4px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 11px;
+    text-align: center;
+    padding: 3px 0;
+    border-radius: 0 0 50% 50%;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.pp-avatar-section.own:hover .pp-avatar-edit-hint {
+    opacity: 1;
+}
+
 .pp-avatar {
     width: 80px;
     height: 80px;

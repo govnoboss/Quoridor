@@ -1912,7 +1912,7 @@ UI.openAvatarPicker = function () {
   input.value = '';
   if (!input._wired) {
     input._wired = true;
-    input.addEventListener('change', UI.onAvatarFileSelected);
+    input.addEventListener('change', UI.onAvatarFileSelected.bind(UI));
   }
   input.click();
 };
@@ -2138,6 +2138,18 @@ UI.showProfilePage = async function (username, pushState = true) {
     actionsContainer.innerHTML = '';
 
     const isOwnProfile = this.currentUser && this.currentUser.username === username;
+
+    // Allow avatar upload only on the user's own profile page
+    const avatarSection = document.getElementById('ppAvatarSection');
+    if (avatarSection) {
+      if (isOwnProfile) {
+        avatarSection.classList.add('own');
+        avatarSection.onclick = UI.openAvatarPicker;
+      } else {
+        avatarSection.classList.remove('own');
+        avatarSection.onclick = null;
+      }
+    }
 
     // Show Friends tab only for own profile
     const friendsTabBtn = document.querySelector('.pp-tab[onclick*="friends"]');
