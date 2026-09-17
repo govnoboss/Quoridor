@@ -716,11 +716,12 @@
 
       <div id="panelProfile">
         <div class="profile-header">
-          <div class="profile-avatar-big" onclick="UI.openAvatarPicker()">
+          <div class="profile-avatar-big" onclick="UI.openAvatarPicker()" role="button" title="Загрузить аватар">
             <img id="profileAvatarLarge" src="https://ui-avatars.com/api/?name=User&background=333&color=fff"
               alt="Large Avatar">
             <div class="avatar-edit-hint">📸</div>
           </div>
+          <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp" class="hidden" aria-hidden="true">
           <div class="profile-main-info">
             <h2 id="profileUsername">Username</h2>
             <div class="profile-status-wrapper">
@@ -770,7 +771,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.10"></script>
+  <script src="/js/ui.js?v=1.0.11"></script>
   <script src="/js/net.js?v=1.0.6"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/ai.js?v=1.0.4"></script>
