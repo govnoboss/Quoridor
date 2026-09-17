@@ -206,7 +206,6 @@ class BotManager {
             profile: {
                 name: template.name,
                 avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(template.name)}&background=random`,
-                rating: template.rating,
             },
         };
     }

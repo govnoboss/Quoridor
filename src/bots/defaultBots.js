@@ -134,26 +134,25 @@ const SOCIAL_BOTS = [
 ];
 
 const GUEST_BOTS = [
-    { name: 'Guest-a1b2', rating: 850, difficulty: 'easy' },
-    { name: 'Guest-c3d4', rating: 920, difficulty: 'easy' },
-    { name: 'Guest-e5f6', rating: 1000, difficulty: 'medium' },
-    { name: 'Guest-g7h8', rating: 1080, difficulty: 'medium' },
-    { name: 'Guest-i9j0', rating: 1150, difficulty: 'medium' },
-    { name: 'Guest-k1l2', rating: 880, difficulty: 'easy' },
-    { name: 'Guest-m3n4', rating: 960, difficulty: 'easy' },
-    { name: 'Guest-o5p6', rating: 1040, difficulty: 'medium' },
-    { name: 'Guest-q7r8', rating: 1120, difficulty: 'medium' },
-    { name: 'Guest-s9t0', rating: 1200, difficulty: 'medium' },
+    { name: 'Guest-a1b2', difficulty: 'easy' },
+    { name: 'Guest-c3d4', difficulty: 'easy' },
+    { name: 'Guest-e5f6', difficulty: 'medium' },
+    { name: 'Guest-g7h8', difficulty: 'medium' },
+    { name: 'Guest-i9j0', difficulty: 'medium' },
+    { name: 'Guest-k1l2', difficulty: 'easy' },
+    { name: 'Guest-m3n4', difficulty: 'easy' },
+    { name: 'Guest-o5p6', difficulty: 'medium' },
+    { name: 'Guest-q7r8', difficulty: 'medium' },
+    { name: 'Guest-s9t0', difficulty: 'medium' },
 ];
 
 const ALL_BOTS = [...RANKED_BOTS, ...SOCIAL_BOTS];
 
 function randomGuestBot() {
     const hex = Math.random().toString(16).substring(2, 6);
-    const rating = 800 + Math.floor(Math.random() * 500);
     const difficulties = ['easy', 'easy', 'medium', 'medium', 'medium'];
     const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
-    return { name: `Guest-${hex}`, rating, difficulty };
+    return { name: `Guest-${hex}`, difficulty };
 }
 
 module.exports = { ACCOUNT_BOTS, RANKED_BOTS, SOCIAL_BOTS, ALL_BOTS, GUEST_BOTS, randomGuestBot };

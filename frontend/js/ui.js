@@ -957,6 +957,8 @@ const UI = {
   },
 
   // --- EMOJI REACTIONS ---
+  // Нативные системные эмодзи (текст), как в чате — браузер сам отрисовывает их
+  // системным шрифтом, поэтому они выглядят так же качественно, как в уведомлениях.
   EMOJIS: [
     '😂', '😈', '🤭', '🙃', '😜',
     '😮', '🤯', '😱', '👀',
@@ -966,26 +968,12 @@ const UI = {
     '🧱', '🏁', '⏱️'
   ],
 
-  // Кодовая карта эмодзи -> SVG-файл Twemoji (одинаково на всех устройствах)
-  EMOJI_FILES: {
-    '😂': '1f602.svg', '😈': '1f608.svg', '🤭': '1f92d.svg', '🙃': '1f643.svg', '😜': '1f61c.svg',
-    '😮': '1f62e.svg', '🤯': '1f92f.svg', '😱': '1f631.svg', '👀': '1f440.svg',
-    '🔥': '1f525.svg', '💪': '1f4aa.svg', '🎯': '1f3af.svg', '⚡': '26a1.svg', '👑': '1f451.svg',
-    '😡': '1f621.svg', '😅': '1f605.svg', '🤦': '1f926.svg', '😤': '1f624.svg',
-    '🤝': '1f91d.svg', '👏': '1f44f.svg', '🙌': '1f64c.svg', '🥹': '1fae3.svg',
-    '🧱': '1f9f1.svg', '🏁': '1f3c1.svg', '⏱️': '23f1.svg',
-    '🙂': '1f642.svg'
-  },
-
   emojiImg(emoji, className) {
-    const img = document.createElement('img');
-    img.src = 'img/emoji/' + (UI.EMOJI_FILES[emoji] || UI.EMOJI_FILES['🙂']);
-    img.alt = emoji;
-    img.title = emoji;
-    img.draggable = false;
-    img.loading = 'lazy';
-    if (className) img.className = className;
-    return img;
+    const el = document.createElement('span');
+    el.className = 'emoji-glyph' + (className ? ' ' + className : '');
+    el.textContent = emoji;
+    el.title = emoji;
+    return el;
   },
 
   initEmojiPicker() {
@@ -1801,6 +1789,12 @@ UI.loadNotificationsFromServer = function () {
     .catch(() => {});
 };
 
+// Рейтинг в шапке игры показываем только в рейтинговых партиях
+UI.isRankedGame = function () {
+  if (typeof Game === 'undefined' || !Game.state) return false;
+  return Game.state.gameMode === 'ranked' || Game.state.isRanked === true;
+};
+
 UI.updateGameInfo = function (profiles, myIndex) {
   if (!profiles) return;
 
@@ -1816,7 +1810,7 @@ UI.updateGameInfo = function (profiles, myIndex) {
   if (bottomProfile) {
     let text = UI.translate('pp_you');
     if (bottomProfile.name) text = bottomProfile.name;
-    if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
+    if (UI.isRankedGame() && bottomProfile.rating) text += ` (${bottomProfile.rating})`;
     if (bottomName) bottomName.textContent = text;
     if (bottomAvatar && bottomProfile.avatar) bottomAvatar.src = bottomProfile.avatar;
     UI.setPlayerFlag(bottomProfile.country, 'bottomPlayerFlag');
@@ -1825,7 +1819,7 @@ UI.updateGameInfo = function (profiles, myIndex) {
   if (topProfile) {
     let text = UI.translate('pp_opponent');
     if (topProfile.name) text = topProfile.name;
-    if (topProfile.rating) text += ` (${topProfile.rating})`;
+    if (UI.isRankedGame() && topProfile.rating) text += ` (${topProfile.rating})`;
     if (topName) topName.textContent = text;
     if (topAvatar && topProfile.avatar) topAvatar.src = topProfile.avatar;
     UI.setPlayerFlag(topProfile.country, 'topPlayerFlag');
@@ -2087,7 +2081,8 @@ UI.showProfilePage = async function (username, pushState = true) {
     avImg.src = user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`;
     UI.setPlayerFlag(user.country, 'ppFlag');
 
-    // Stats    const stats = user.stats || {};
+    // Stats
+    const stats = user.stats || {};
     document.getElementById('ppTotalGames').textContent = stats.totalGames || 0;
     const wins = stats.wins || 0;
     const losses = stats.losses || 0;

@@ -693,9 +693,9 @@ canvas {
     line-height: 1;
 }
 
-.emoji-trigger-icon img {
-    width: 14px;
-    height: 14px;
+.emoji-trigger-icon .emoji-glyph {
+    font-size: 14px;
+    line-height: 1;
     display: block;
 }
 
@@ -737,9 +737,9 @@ canvas {
     transition: background 0.15s, transform 0.1s;
 }
 
-.emoji-picker button img {
-    width: 20px;
-    height: 20px;
+.emoji-picker button .emoji-glyph {
+    font-size: 20px;
+    line-height: 1;
     display: block;
     pointer-events: none;
 }
@@ -756,9 +756,11 @@ canvas {
 /* Всплывающий эмодзи над доской */
 .emoji-float {
     position: absolute;
-    width: 40px;
-    height: 40px;
+    display: inline-block;
+    font-size: 40px;
+    line-height: 1;
     pointer-events: none;
+    user-select: none;
     z-index: 15;
     animation: emoji-float-anim 2.5s ease-out forwards;
 }
@@ -3368,9 +3370,9 @@ canvas {
         right: 3px;
     }
 
-.emoji-trigger-icon img {
-        width: 13px;
-        height: 13px;
+.emoji-trigger-icon .emoji-glyph {
+        font-size: 13px;
+        line-height: 1;
     }
 
     .emoji-picker {
