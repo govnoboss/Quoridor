@@ -121,6 +121,19 @@ app.get('/shared.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'core', 'shared.js'));
 });
 
+// TEMP DEBUG (remove after diagnosis)
+app.get('/api/debug/ip', (req, res) => {
+    res.json({
+        reqIp: req.ip,
+        xForwardedFor: req.headers['x-forwarded-for'] || null,
+        cfConnectingIp: req.headers['cf-connecting-ip'] || null,
+        trueClientIp: req.headers['true-client-ip'] || null,
+        socketRemote: req.socket?.remoteAddress || null,
+        socketLocal: req.socket?.localAddress || null
+    });
+});
+// END TEMP DEBUG
+
 // --- COUNTRY DETECTION HELPERS ---
 function detectCountry(ip) {
     try {
