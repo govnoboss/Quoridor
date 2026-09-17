@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quoridor Admin: Users</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+            --info: #3b82f6;
+        }
+        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+        h1, h2, h3 { margin-top: 0; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .nav { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
+        .nav a:hover, .nav a.active { color: var(--text); border-color: var(--accent); }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .badge-banned { background: var(--danger); color: #fff; }
+        .badge-admin { background: var(--accent); color: #000; }
+        .badge-bot { background: #64748b; color: #fff; }
+        .badge-online { background: var(--ok); color: #000; }
+        .badge-offline { background: #475569; color: #fff; }
+        .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-sm + .btn-sm { margin-left: 4px; }
+        .btn-primary-sm { background: var(--accent); color: #000; }
+        .btn-ok-sm { background: var(--ok); color: #000; }
+        .btn-danger-sm { background: var(--danger); color: #fff; }
+        .btn-info-sm { background: var(--info); color: #fff; }
+        .filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .filter-bar select, .filter-bar input {
+            background: var(--panel); color: var(--text); border: 1px solid var(--border);
+            padding: 6px 10px; border-radius: 6px; font-size: 13px;
+        }
+        .filter-bar input { min-width: 200px; }
+        .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+        .loading { text-align: center; padding: 40px; color: var(--muted); }
+        .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 85vh; overflow-y: auto; }
+        .modal h2 { margin-top: 0; font-size: 16px; }
+        .modal-close { float: right; background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; }
+        .modal label { color: var(--muted); font-size: 13px; display: block; margin-top: 12px; margin-bottom: 4px; }
+        .modal p { margin: 0 0 12px; line-height: 1.5; font-size: 14px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; margin-bottom: 8px; }
+        .info-grid .label { color: var(--muted); }
+        .info-grid .value { color: var(--text); word-break: break-all; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .avatar-sm { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+        .actions-row { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        .form-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+        .form-row input, .form-row textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+        .user-detail-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; }
+        .log-list { max-height: 300px; overflow-y: auto; font-size: 12px; margin-top: 8px; }
+        .log-item { padding: 6px 0; border-bottom: 1px solid var(--border); }
+        .log-item .action { color: var(--accent); font-weight: 600; }
+        .log-item .time { color: var(--muted); font-size: 11px; }
+        .game-list { font-size: 12px; margin-top: 8px; }
+        .game-item { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+        .game-win { color: var(--ok); }
+        .game-loss { color: var(--danger); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/admin" class="back-link">← Admin Dashboard</a>
+    <h1>User Management</h1>
+
+    <div class="panel">
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Search by username or email..." onkeydown="if(event.key==='Enter')loadUsers()">
+            <select id="statusFilter" onchange="loadUsers()">
+                <option value="all">All</option>
+                <option value="online">Online</option>
+                <option value="banned">Banned</option>
+                <option value="admins">Admins</option>
+            </select>
+            <button class="btn-sm btn-primary-sm" onclick="loadUsers()">Search</button>
+            <span style="margin-left:auto;color:var(--muted);font-size:13px" id="userCount"></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Rating</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="userBody">
+                <tr><td colspan="7" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+        <div style="text-align:center;margin-top:12px">
+            <button class="btn-sm btn-info-sm" id="prevPageBtn" onclick="prevPage()" style="display:none">← Prev</button>
+            <span id="pageIndicator" style="margin:0 12px;color:var(--muted);font-size:13px"></span>
+            <button class="btn-sm btn-info-sm" id="nextPageBtn" onclick="nextPage()" style="display:none">Next →</button>
+        </div>
+    </div>
+</div>
+
+<div id="userModal" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+            <img id="modalAvatar" class="user-detail-avatar" src="">
+            <div>
+                <h2 id="modalUsername" style="margin:0 0 4px"></h2>
+                <div style="font-size:13px;color:var(--muted)" id="modalEmail"></div>
+                <div id="modalBadges" style="margin-top:6px"></div>
+            </div>
+        </div>
+
+        <hr>
+        <div class="info-grid">
+            <div><span class="label">Rating:</span> <span class="value" id="modalRating"></span></div>
+            <div><span class="label">Status:</span> <span class="value" id="modalStatus"></span></div>
+            <div><span class="label">Bio:</span> <span class="value" id="modalBio"></span></div>
+            <div><span class="label">Country:</span> <span class="value" id="modalCountry"></span></div>
+            <div><span class="label">Games:</span> <span class="value" id="modalGames"></span></div>
+            <div><span class="label">Wins/Losses:</span> <span class="value" id="modalWinLoss"></span></div>
+            <div><span class="label">Joined:</span> <span class="value" id="modalJoined"></span></div>
+            <div><span class="label">Last Seen:</span> <span class="value" id="modalLastSeen"></span></div>
+        </div>
+
+        <div id="banInfo" style="display:none;background:#451a1a;border:1px solid var(--danger);border-radius:8px;padding:10px;margin:10px 0;font-size:13px">
+            <strong style="color:var(--danger)">BANNED</strong>
+            <div id="banReason" style="margin-top:4px"></div>
+            <div id="banExpiry" style="margin-top:2px;color:var(--muted)"></div>
+        </div>
+
+        <div class="actions-row">
+            <button class="btn-sm btn-danger-sm" id="btnBan" onclick="banUser()">Ban</button>
+            <button class="btn-sm btn-ok-sm" id="btnUnban" onclick="unbanUser()" style="display:none">Unban</button>
+            <button class="btn-sm btn-danger-sm" onclick="resetAvatar()">Reset Avatar</button>
+            <button class="btn-sm btn-primary-sm" id="btnToggleRole" onclick="toggleRole()">Remove Admin</button>
+            <button class="btn-sm btn-danger-sm" onclick="deleteUser()">Delete Account</button>
+        </div>
+
+        <div style="margin-top:16px">
+            <label>Set Rating (0-4000):</label>
+            <div class="form-row">
+                <input type="number" id="newRatingInput" min="0" max="4000" style="width:120px">
+                <button class="btn-sm btn-primary-sm" onclick="setRating()">Save</button>
+            </div>
+        </div>
+
+        <div id="reportsSection" style="display:none">
+            <hr>
+            <h3>Reports About This User</h3>
+            <div id="reportsAboutList" class="log-list"></div>
+        </div>
+
+        <div id="logsSection" style="display:none">
+            <hr>
+            <h3>Admin Action Log</h3>
+            <div id="adminLogsList" class="log-list"></div>
+        </div>
+    </div>
+</div>
+
+<div id="banModal" class="modal-overlay" style="display:none;" onclick="closeBanModal(event)">
+    <div class="modal" style="max-width:400px">
+        <button class="modal-close" onclick="closeBanModal()">&times;</button>
+        <h2>Ban User</h2>
+        <label>Reason</label>
+        <textarea id="banReasonInput" style="width:100%;box-sizing:border-box;min-height:60px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:13px" placeholder="Why are you banning this user?"></textarea>
+        <label>Duration (days, empty = permanent)</label>
+        <input type="number" id="banDurationInput" min="1" max="365" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+        <div class="actions-row">
+            <button class="btn-sm btn-danger-sm" onclick="confirmBan()">Confirm Ban</button>
+            <button class="btn-sm btn-primary-sm" onclick="closeBanModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var users = [];
+var currentPage = 1;
+var totalPages = 1;
+var currentUser = null;
+var pendingBanUserId = null;
+
+function loadUsers() {
+    var search = document.getElementById('searchInput').value.trim();
+    var filter = document.getElementById('statusFilter').value;
+    var params = new URLSearchParams({ page: currentPage, limit: 20 });
+    if (search) params.set('search', search);
+    if (filter === 'banned') params.set('banned', 'true');
+    if (filter === 'admins') params.set('admins', 'true');
+    if (filter === 'online') params.set('limit', '100'); // load more to filter client-side
+
+    document.getElementById('userBody').innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
+
+    fetch('/api/admin/users?' + params.toString())
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(data) {
+            users = data.users;
+            totalPages = Math.ceil(data.total / 20);
+            if (filter === 'online') {
+                users = users.filter(function(u) { return u.online; });
+            }
+            document.getElementById('userCount').textContent = data.total + ' total, showing page ' + currentPage;
+            renderUsers();
+            updatePagination();
+        })
+        .catch(function() {
+            document.getElementById('userBody').innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load. Are you admin?</td></tr>';
+        });
+}
+
+function renderUsers() {
+    var tbody = document.getElementById('userBody');
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No users found</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '';
+    users.forEach(function(u) {
+        var tr = document.createElement('tr');
+        var date = new Date(u.createdAt).toLocaleDateString();
+        var badges = '';
+        if (u.banned) badges += '<span class="badge badge-banned">Banned</span> ';
+        if (u.isAdmin) badges += '<span class="badge badge-admin">Admin</span> ';
+        if (u.isBot) badges += '<span class="badge badge-bot">Bot</span> ';
+        badges += u.online ? '<span class="badge badge-online">Online</span>' : '';
+
+        tr.innerHTML =
+            '<td><img class="avatar-sm" src="' + esc(u.avatarUrl || '') + '" onerror="this.style.display=\'none\'"></td>' +
+            '<td>' + esc(u.username) + ' ' + badges + '</td>' +
+            '<td style="color:var(--muted);font-size:12px">' + esc(u.email || '') + '</td>' +
+            '<td>' + (u.rating || 1200) + '</td>' +
+            '<td>' + (u.lastSeen ? timeAgo(u.lastSeen) : 'Never') + '</td>' +
+            '<td>' + date + '</td>' +
+            '<td><button class="btn-sm btn-primary-sm" onclick="openUser(\'' + u._id + '\')">View</button></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePagination() {
+    document.getElementById('prevPageBtn').style.display = currentPage > 1 ? '' : 'none';
+    document.getElementById('nextPageBtn').style.display = currentPage < totalPages ? '' : 'none';
+    document.getElementById('pageIndicator').textContent = currentPage + ' / ' + totalPages;
+}
+function prevPage() { currentPage--; loadUsers(); }
+function nextPage() { currentPage++; loadUsers(); }
+
+function openUser(id) {
+    fetch('/api/admin/users/' + id)
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(data) {
+            currentUser = data.user;
+            renderUserModal(data);
+        })
+        .catch(function() { alert('Failed to load user'); });
+}
+
+function renderUserModal(data) {
+    var u = data.user;
+    document.getElementById('modalAvatar').src = u.avatarUrl || '';
+    document.getElementById('modalUsername').textContent = u.username;
+    document.getElementById('modalEmail').textContent = u.email || '';
+    document.getElementById('modalRating').textContent = u.rating || 1200;
+    document.getElementById('modalStatus').textContent = u.status || '(none)';
+    document.getElementById('modalBio').textContent = u.bio || '(none)';
+    document.getElementById('modalCountry').textContent = u.country || 'XX';
+    document.getElementById('modalGames').textContent = (u.stats || {}).totalGames || 0;
+    var stats = u.stats || {};
+    document.getElementById('modalWinLoss').textContent = (stats.wins || 0) + ' / ' + (stats.losses || 0);
+    document.getElementById('modalJoined').textContent = new Date(u.createdAt).toLocaleString();
+    document.getElementById('modalLastSeen').textContent = u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never';
+    document.getElementById('newRatingInput').value = u.rating || 1200;
+
+    var badges = '';
+    if (u.banned) badges += '<span class="badge badge-banned">Banned</span> ';
+    if (u.isAdmin) badges += '<span class="badge badge-admin">Admin</span> ';
+    if (u.isBot) badges += '<span class="badge badge-bot">Bot</span> ';
+    document.getElementById('modalBadges').innerHTML = badges;
+
+    document.getElementById('btnBan').style.display = u.banned ? 'none' : '';
+    document.getElementById('btnUnban').style.display = u.banned ? '' : 'none';
+    document.getElementById('btnToggleRole').textContent = u.isAdmin ? 'Remove Admin' : 'Make Admin';
+    document.getElementById('banInfo').style.display = u.banned ? '' : 'none';
+    document.getElementById('banReason').textContent = u.banned ? ('Reason: ' + (u.banReason || 'N/A')) : '';
+    document.getElementById('banExpiry').textContent = u.banExpires ? 'Expires: ' + new Date(u.banExpires).toLocaleString() : (u.banned ? 'Permanent' : '');
+
+    // Reports
+    var reports = data.reportsAbout || [];
+    if (reports.length > 0) {
+        document.getElementById('reportsSection').style.display = '';
+        var html = '';
+        reports.forEach(function(r) {
+            html += '<div class="log-item"><span class="action">' + esc(r.reason) + '</span> by ' +
+                esc(r.reporter ? r.reporter.username : '?') + ' — <span class="time">' + new Date(r.createdAt).toLocaleString() + '</span>' +
+                (r.description ? '<div style="margin-top:2px;color:var(--muted)">' + esc(r.description) + '</div>' : '') +
+                '<div style="color:var(--muted)">Status: ' + r.status + '</div></div>';
+        });
+        document.getElementById('reportsAboutList').innerHTML = html;
+    } else {
+        document.getElementById('reportsSection').style.display = 'none';
+    }
+
+    // Admin logs
+    var logs = data.adminLogs || [];
+    if (logs.length > 0) {
+        document.getElementById('logsSection').style.display = '';
+        var html2 = '';
+        logs.forEach(function(l) {
+            html2 += '<div class="log-item"><span class="action">' + esc(l.action) + '</span> by ' +
+                esc(l.admin ? l.admin.username : '?') +
+                (l.details && l.details.reason ? ' — ' + esc(l.details.reason) : '') +
+                ' <span class="time">' + new Date(l.createdAt).toLocaleString() + '</span></div>';
+        });
+        document.getElementById('adminLogsList').innerHTML = html2;
+    } else {
+        document.getElementById('logsSection').style.display = 'none';
+    }
+
+    document.getElementById('userModal').style.display = 'flex';
+}
+
+function banUser() {
+    pendingBanUserId = currentUser._id;
+    document.getElementById('banReasonInput').value = '';
+    document.getElementById('banDurationInput').value = '';
+    document.getElementById('banModal').style.display = 'flex';
+}
+
+function confirmBan() {
+    var reason = document.getElementById('banReasonInput').value.trim();
+    var days = parseInt(document.getElementById('banDurationInput').value) || 0;
+    fetch('/api/admin/users/' + pendingBanUserId + '/ban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason, durationDays: days || null })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        if (!res.ok) { alert(res.data.error); return; }
+        closeBanModal();
+        openUser(pendingBanUserId);
+        loadUsers();
+    })
+    .catch(function() { alert('Failed'); });
+}
+
+function closeBanModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('banModal').style.display = 'none';
+}
+
+function unbanUser() {
+    fetch('/api/admin/users/' + currentUser._id + '/unban', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function() { openUser(currentUser._id); loadUsers(); })
+        .catch(function() { alert('Failed'); });
+}
+
+function resetAvatar() {
+    if (!confirm('Reset avatar to default?')) return;
+    fetch('/api/admin/users/' + currentUser._id + '/avatar', { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { openUser(currentUser._id); loadUsers(); })
+        .catch(function() { alert('Failed'); });
+}
+
+function toggleRole() {
+    var action = currentUser.isAdmin ? 'Remove admin from' : 'Make admin:';
+    if (!confirm(action + ' ' + currentUser.username + '?')) return;
+    fetch('/api/admin/users/' + currentUser._id + '/role', { method: 'PATCH' })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (!res.ok) { alert(res.data.error); return; }
+            openUser(currentUser._id);
+            loadUsers();
+        })
+        .catch(function() { alert('Failed'); });
+}
+
+function setRating() {
+    var val = parseInt(document.getElementById('newRatingInput').value);
+    if (isNaN(val) || val < 0 || val > 4000) { alert('Rating must be 0-4000'); return; }
+    fetch('/api/admin/users/' + currentUser._id + '/rating', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: val })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() { openUser(currentUser._id); loadUsers(); })
+    .catch(function() { alert('Failed'); });
+}
+
+function deleteUser() {
+    if (!confirm('DELETE ' + currentUser.username + '? This cannot be undone!')) return;
+    if (!confirm('Are you ABSOLUTELY sure?')) return;
+    fetch('/api/admin/users/' + currentUser._id + '/delete', { method: 'POST' })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (!res.ok) { alert(res.data.error); return; }
+            closeModal();
+            loadUsers();
+        })
+        .catch(function() { alert('Failed'); });
+}
+
+function closeModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('userModal').style.display = 'none';
+}
+
+function esc(s) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(s || ''));
+    return div.innerHTML;
+}
+
+function timeAgo(date) {
+    var seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    return Math.floor(seconds / 86400) + 'd ago';
+}
+
+loadUsers();
+</script>
+</body>
+</html>

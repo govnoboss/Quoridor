@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quoridor Admin: Logs</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+        h1, h2, h3 { margin-top: 0; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
+        .nav a:hover, .nav a.active { color: var(--text); border-color: var(--accent); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 600; }
+        .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+        .loading { text-align: center; padding: 40px; color: var(--muted); }
+        .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .action-ban { color: var(--danger); }
+        .action-unban { color: var(--ok); }
+        .action-role { color: #3b82f6; }
+        .action-rating { color: var(--accent); }
+        .action-delete { color: var(--danger); }
+        .action-report { color: #8b5cf6; }
+        .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-info-sm { background: #3b82f6; color: #fff; }
+        #prevPageBtn, #nextPageBtn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+        #prevPageBtn:hover, #nextPageBtn:hover { border-color: var(--accent); color: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/admin" class="back-link">← Admin Dashboard</a>
+    <h1>Admin Action Logs</h1>
+
+    <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="color:var(--muted);font-size:13px" id="logCount"></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="logBody">
+                <tr><td colspan="5" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+        <div style="text-align:center;margin-top:12px">
+            <button id="prevPageBtn" onclick="prevPage()">← Prev</button>
+            <span id="pageIndicator" style="margin:0 12px;color:var(--muted);font-size:13px"></span>
+            <button id="nextPageBtn" onclick="nextPage()">Next →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var logs = [];
+var currentPage = 1;
+var totalPages = 1;
+
+function loadLogs() {
+    var tbody = document.getElementById('logBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+
+    fetch('/api/admin/logs?page=' + currentPage + '&limit=20')
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(data) {
+            logs = data.logs;
+            totalPages = Math.ceil(data.total / 20) || 1;
+            document.getElementById('logCount').textContent = data.total + ' total, page ' + currentPage;
+            renderLogs();
+            updatePagination();
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load. Are you admin?</td></tr>';
+        });
+}
+
+function renderLogs() {
+    var tbody = document.getElementById('logBody');
+    if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No logs yet</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '';
+    logs.forEach(function(l) {
+        var tr = document.createElement('tr');
+        var actionClass = '';
+        if (l.action.indexOf('ban') !== -1 && l.action.indexOf('unban') === -1) actionClass = 'action-ban';
+        else if (l.action.indexOf('unban') !== -1) actionClass = 'action-unban';
+        else if (l.action.indexOf('role') !== -1) actionClass = 'action-role';
+        else if (l.action.indexOf('rating') !== -1) actionClass = 'action-rating';
+        else if (l.action.indexOf('delete') !== -1) actionClass = 'action-delete';
+        else if (l.action.indexOf('report') !== -1) actionClass = 'action-report';
+
+        var details = '';
+        if (l.details && typeof l.details === 'object') {
+            var parts = [];
+            if (l.details.reason) parts.push('Reason: ' + l.details.reason);
+            if (l.details.oldRating !== undefined) parts.push(l.details.oldRating + ' → ' + l.details.newRating);
+            if (l.details.isAdmin !== undefined) parts.push(l.details.isAdmin ? 'Made admin' : 'Removed admin');
+            if (l.details.durationDays) parts.push(l.details.durationDays + ' days');
+            details = parts.join(', ');
+        }
+
+        tr.innerHTML =
+            '<td style="white-space:nowrap">' + new Date(l.createdAt).toLocaleString() + '</td>' +
+            '<td>' + esc(l.admin ? l.admin.username : '?') + '</td>' +
+            '<td><span class="' + actionClass + '" style="font-weight:600">' + esc(l.action) + '</span></td>' +
+            '<td>' + esc(l.targetUsername || l.target || '') + '</td>' +
+            '<td style="color:var(--muted);font-size:12px">' + esc(details) + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePagination() {
+    document.getElementById('prevPageBtn').style.display = currentPage > 1 ? '' : 'none';
+    document.getElementById('nextPageBtn').style.display = currentPage < totalPages ? '' : 'none';
+    document.getElementById('pageIndicator').textContent = currentPage + ' / ' + totalPages;
+}
+function prevPage() { currentPage--; loadLogs(); }
+function nextPage() { currentPage++; loadLogs(); }
+
+function esc(s) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(s || ''));
+    return div.innerHTML;
+}
+
+loadLogs();
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quoridor Admin Dashboard</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+            --info: #3b82f6;
+        }
+        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+        h1, h2, h3 { margin-top: 0; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+        .stat-card .number { font-size: 28px; font-weight: 700; color: var(--text); }
+        .stat-card .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+        .stat-card.accent .number { color: var(--accent); }
+        .stat-card.ok .number { color: var(--ok); }
+        .stat-card.danger .number { color: var(--danger); }
+        .stat-card.info .number { color: var(--info); }
+        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
+        .nav a:hover { color: var(--text); border-color: var(--accent); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+        .badge-danger { background: var(--danger); color: #fff; }
+        .badge-accent { background: var(--accent); color: #000; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 600; }
+        .empty-state { text-align: center; padding: 20px; color: var(--muted); }
+        .loading { text-align: center; padding: 20px; color: var(--muted); }
+        .player-link { color: var(--accent); text-decoration: none; }
+        .player-link:hover { text-decoration: underline; }
+        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        .refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+        .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <h1>Admin Dashboard</h1>
+        <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
+    </div>
+
+    <div class="nav">
+        <a href="/admin" class="active">Dashboard</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/user-reports">User Reports</a>
+        <a href="/admin/reports">Bug Reports</a>
+        <a href="/admin/bots">Bots</a>
+        <a href="/admin/logs">Admin Logs</a>
+    </div>
+
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="number" id="statUsers">-</div><div class="label">Total Users</div></div>
+        <div class="stat-card info"><div class="number" id="statOnline">-</div><div class="label">Online Now</div></div>
+        <div class="stat-card accent"><div class="number" id="statNewToday">-</div><div class="label">New Today</div></div>
+        <div class="stat-card danger"><div class="number" id="statBanned">-</div><div class="label">Banned</div></div>
+        <div class="stat-card"><div class="number" id="statGames">-</div><div class="label">Total Games</div></div>
+        <div class="stat-card ok"><div class="number" id="statRecentGames">-</div><div class="label">Games (24h)</div></div>
+        <div class="stat-card danger"><div class="number" id="statPending">-</div><div class="label">Pending Reports</div></div>
+        <div class="stat-card"><div class="number" id="statBots">-</div><div class="label">Bots</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="panel">
+            <h3>Recent Registrations</h3>
+            <div id="recentList"><div class="loading">Loading...</div></div>
+        </div>
+        <div class="panel">
+            <h3>Top Reported Users (Open Reports)</h3>
+            <div id="topReports"><div class="loading">Loading...</div></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Pending User Reports</h3>
+        <div id="pendingReports"><div class="loading">Loading...</div></div>
+    </div>
+</div>
+
+<script>
+function loadDashboard() {
+    document.getElementById('statsGrid').querySelectorAll('.number').forEach(function(el) { el.textContent = '...'; });
+
+    fetch('/api/admin/stats')
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(s) {
+            document.getElementById('statUsers').textContent = s.totalUsers;
+            document.getElementById('statOnline').textContent = s.onlineNow;
+            document.getElementById('statNewToday').textContent = s.newUsersToday;
+            document.getElementById('statBanned').textContent = s.bannedUsers;
+            document.getElementById('statGames').textContent = s.totalGames;
+            document.getElementById('statRecentGames').textContent = s.recentGames;
+            document.getElementById('statPending').textContent = s.pendingReports;
+            document.getElementById('statBots').textContent = s.totalBots;
+
+            var rl = document.getElementById('recentList');
+            if (s.recentRegistrations.length === 0) { rl.innerHTML = '<div class="empty-state">No registrations</div>'; return; }
+            var h = '';
+            s.recentRegistrations.forEach(function(u) {
+                h += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+                    '<a href="/admin/users" class="player-link">' + esc(u.username) + '</a>' +
+                    '<span style="color:var(--muted);margin-left:8px">' + new Date(u.createdAt).toLocaleString() + '</span></div>';
+            });
+            rl.innerHTML = h;
+
+            var tr = document.getElementById('topReports');
+            if (!s.topReports || s.topReports.length === 0) { tr.innerHTML = '<div class="empty-state">No reports</div>'; return; }
+            var h2 = '';
+            s.topReports.forEach(function(r) {
+                h2 += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+                    '<a href="/admin/users" class="player-link">' + esc(r.username) + '</a>' +
+                    ' <span class="badge badge-danger">' + r.count + ' reports</span></div>';
+            });
+            tr.innerHTML = h2;
+        })
+        .catch(function() {
+            document.getElementById('statsGrid').querySelectorAll('.number').forEach(function(el) { el.textContent = '?'; });
+            document.getElementById('recentList').innerHTML = '<div class="empty-state">Failed to load</div>';
+            document.getElementById('topReports').innerHTML = '<div class="empty-state">Failed to load</div>';
+        });
+
+    fetch('/api/admin/user-reports?status=new')
+        .then(function(r) { return r.json(); })
+        .then(function(reports) {
+            var div = document.getElementById('pendingReports');
+            if (reports.length === 0) { div.innerHTML = '<div class="empty-state">No pending reports</div>'; return; }
+            var h = '<table><thead><tr><th>Date</th><th>Reporter</th><th>Target</th><th>Reason</th><th></th></tr></thead><tbody>';
+            reports.slice(0, 10).forEach(function(r) {
+                h += '<tr><td style="white-space:nowrap">' + new Date(r.createdAt).toLocaleString() + '</td>' +
+                    '<td>' + esc(r.reporter ? r.reporter.username : '?') + '</td>' +
+                    '<td>' + esc(r.target ? r.target.username : '?') + '</td>' +
+                    '<td>' + esc(r.reason) + '</td>' +
+                    '<td><a href="/admin/users" style="color:var(--accent);text-decoration:none;font-size:12px">Manage →</a></td></tr>';
+            });
+            h += '</tbody></table>';
+            div.innerHTML = h;
+        })
+        .catch(function() {
+            document.getElementById('pendingReports').innerHTML = '<div class="empty-state">Failed to load</div>';
+        });
+}
+
+function esc(s) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(s || ''));
+    return div.innerHTML;
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

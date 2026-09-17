@@ -85,6 +85,27 @@ const userSchema = new mongoose.Schema({
     },
     resetPasswordRequestedAt: {
         type: Date
+    },
+    banned: {
+        type: Boolean,
+        default: false
+    },
+    banReason: {
+        type: String,
+        default: '',
+        maxlength: 500
+    },
+    banExpires: {
+        type: Date,
+        default: null
+    },
+    bannedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    bannedAt: {
+        type: Date,
+        default: null
     }
 });
 

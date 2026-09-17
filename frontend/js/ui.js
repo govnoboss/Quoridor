@@ -240,7 +240,29 @@ const UI = {
       pp_delete_account_confirm: "Вы уверены? Это навсегда удалит ваш аккаунт и все данные.",
       pp_my_reports: "Мои репорты",
       pp_load_more: "Загрузить ещё",
-      toast_auth_required: "Требуется авторизация"
+      toast_auth_required: "Требуется авторизация",
+      header_admin: "Админка",
+      pp_report_user: "Пожаловаться",
+      report_user_title: "Пожаловаться на {name}",
+      report_user_desc: "Администрация рассмотрит жалобу. Опишите проблему.",
+      report_user_placeholder: "Опишите проблему (необязательно)...",
+      report_user_submit: "Отправить жалобу",
+      report_user_sent: "Жалоба отправлена",
+      report_user_sent_desc: "Спасибо! Команда модерации рассмотрит её.",
+      report_reason_avatar: "Неприемлемая аватарка (18+ и т.п.)",
+      report_reason_username: "Неприемлемое имя пользователя",
+      report_reason_bio: "Неприемлемая биография",
+      report_reason_status: "Неприемлемый статус",
+      report_reason_cheating: "Читерство / нечестная игра",
+      report_reason_harassment: "Оскорбления в имени/статусе",
+      report_reason_impersonation: "Выдача себя за другого пользователя",
+      report_reason_other: "Другое",
+      banned_title: "Аккаунт заблокирован",
+      banned_desc: "Ваш аккаунт приостановлен за нарушение правил сайта.",
+      banned_reason: "Причина: ",
+      banned_until: "Бан действует до: ",
+      banned_permanent: "Этот бан бессрочный.",
+      banned_ok: "OK"
     },
     en: {
       menu_rules: "Rules",
@@ -475,7 +497,29 @@ const UI = {
       pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data.",
       pp_my_reports: "My Reports",
       pp_load_more: "Load more",
-      toast_auth_required: "Authentication required"
+      toast_auth_required: "Authentication required",
+      header_admin: "Admin",
+      pp_report_user: "Report",
+      report_user_title: "Report {name}",
+      report_user_desc: "The administration will review this report. Please describe the issue.",
+      report_user_placeholder: "Describe the issue (optional)...",
+      report_user_submit: "Send Report",
+      report_user_sent: "Report sent",
+      report_user_sent_desc: "Thank you! The moderation team will review it.",
+      report_reason_avatar: "Inappropriate avatar (18+ etc.)",
+      report_reason_username: "Inappropriate username",
+      report_reason_bio: "Inappropriate bio",
+      report_reason_status: "Inappropriate status",
+      report_reason_cheating: "Cheating / unfair play",
+      report_reason_harassment: "Harassment in name/status",
+      report_reason_impersonation: "Impersonation of another user",
+      report_reason_other: "Other",
+      banned_title: "Account Banned",
+      banned_desc: "Your account has been suspended for violating the site rules.",
+      banned_reason: "Reason: ",
+      banned_until: "Ban expires: ",
+      banned_permanent: "This ban is permanent.",
+      banned_ok: "OK"
     }
   },
 
@@ -1729,6 +1773,112 @@ UI.deleteAccount = function () {
   );
 };
 
+// --- USER REPORT (жалоба на пользователя) ---
+
+UI.openUserReport = function (targetId, targetUsername) {
+  const reasons = [
+    { value: 'inappropriate_avatar', label: UI.translate('report_reason_avatar') || 'Inappropriate avatar (18+ etc.)' },
+    { value: 'inappropriate_username', label: UI.translate('report_reason_username') || 'Inappropriate username' },
+    { value: 'inappropriate_bio', label: UI.translate('report_reason_bio') || 'Inappropriate bio' },
+    { value: 'inappropriate_status', label: UI.translate('report_reason_status') || 'Inappropriate status' },
+    { value: 'cheating', label: UI.translate('report_reason_cheating') || 'Cheating / unfair play' },
+    { value: 'harassment', label: UI.translate('report_reason_harassment') || 'Harassment in chat/name' },
+    { value: 'impersonation', label: UI.translate('report_reason_impersonation') || 'Impersonation of another user' },
+    { value: 'other', label: UI.translate('report_reason_other') || 'Other' }
+  ];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;max-width:480px;width:90%;box-sizing:border-box;color:#e2e8f0;font-family:Arial,sans-serif;';
+
+  const close = () => overlay.remove();
+
+  const title = document.createElement('h3');
+  const titleBase = UI.translate('report_user_title') || 'Report {name}';
+  title.textContent = titleBase.replace('{name}', targetUsername);
+  title.style.cssText = 'margin:0 0 12px;';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '×';
+  closeBtn.style.cssText = 'float:right;background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;';
+  closeBtn.onclick = close;
+
+  const p = document.createElement('p');
+  p.textContent = UI.translate('report_user_desc') || 'The administration will review this report. Please describe the issue.';
+  p.style.cssText = 'color:#94a3b8;font-size:13px;margin:0 0 12px;';
+
+  const select = document.createElement('select');
+  select.style.cssText = 'width:100%;box-sizing:border-box;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;margin-bottom:10px;';
+  reasons.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.value;
+    opt.textContent = r.label;
+    select.appendChild(opt);
+  });
+
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = UI.translate('report_user_placeholder') || 'Describe the issue (optional)...';
+  textarea.style.cssText = 'width:100%;box-sizing:border-box;min-height:70px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:13px;margin-bottom:10px;';
+
+  const err = document.createElement('div');
+  err.style.cssText = 'color:#ef4444;font-size:12px;margin-bottom:8px;display:none;';
+
+  const submit = document.createElement('button');
+  submit.textContent = UI.translate('report_user_submit') || 'Send Report';
+  submit.style.cssText = 'background:#f59e0b;color:#000;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;';
+
+  const ok = document.createElement('button');
+  ok.textContent = 'OK';
+  ok.style.cssText = 'background:#22c55e;color:#000;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:none;';
+  ok.onclick = close;
+
+  submit.onclick = async () => {
+    const reason = select.value;
+    const description = textarea.value.trim();
+    err.style.display = 'none';
+    submit.disabled = true;
+    try {
+      const res = await fetch('/api/user-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId, reason, description })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        err.textContent = data.error || 'Failed to submit report';
+        err.style.display = '';
+        submit.disabled = false;
+        return;
+      }
+      submit.style.display = 'none';
+      textarea.style.display = 'none';
+      select.style.display = 'none';
+      title.textContent = UI.translate('report_user_sent') || 'Report sent';
+      p.textContent = UI.translate('report_user_sent_desc') || 'Thank you! The moderation team will review it.';
+      ok.style.display = '';
+    } catch (e) {
+      err.textContent = 'Network error';
+      err.style.display = '';
+      submit.disabled = false;
+    }
+  };
+
+  modal.appendChild(closeBtn);
+  modal.appendChild(title);
+  modal.appendChild(p);
+  modal.appendChild(select);
+  modal.appendChild(textarea);
+  modal.appendChild(err);
+  modal.appendChild(submit);
+  modal.appendChild(ok);
+  overlay.appendChild(modal);
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  document.body.appendChild(overlay);
+};
+
 UI.checkSession = async function () {
   try {
     const res = await fetch('/api/auth/me');
@@ -1738,6 +1888,9 @@ UI.checkSession = async function () {
     } else {
       this.updateAuthUI();
     }
+    if (data && data.banned) {
+      this.showBannedNotice(data.banReason, data.banExpires);
+    }
   } catch (e) {
     console.error('Session check failed', e);
   } finally {
@@ -1745,6 +1898,64 @@ UI.checkSession = async function () {
     this.appLoaded.session = true;
     this.tryHideLoading();
   }
+};
+
+UI.showBannedNotice = function (reason, expires) {
+  const existing = document.getElementById('bannedNoticeOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'bannedNoticeOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:3000;';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#1e293b;border:2px solid #ef4444;border-radius:14px;padding:32px;max-width:420px;width:90%;box-sizing:border-box;text-align:center;color:#e2e8f0;font-family:Arial,sans-serif;';
+
+  const head = document.createElement('h2');
+  head.textContent = UI.translate('banned_title') || 'Account Banned';
+  head.style.cssText = 'margin:0 0 12px;color:#ef4444;';
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'color:#94a3b8;font-size:14px;line-height:1.5;margin:0 0 16px;';
+  desc.textContent = UI.translate('banned_desc') || 'Your account has been suspended for violating the site rules.';
+
+  if (reason) {
+    const reasonP = document.createElement('p');
+    reasonP.textContent = (UI.translate('banned_reason') || 'Reason: ') + reason;
+    reasonP.style.cssText = 'color:#e2e8f0;font-size:13px;margin:0 0 8px;';
+    card.appendChild(head);
+    card.appendChild(reasonP);
+  } else {
+    card.appendChild(head);
+  }
+
+  if (expires) {
+    const expP = document.createElement('p');
+    const expDate = new Date(expires);
+    expP.textContent = (UI.translate('banned_until') || 'Ban expires: ') + expDate.toLocaleString();
+    expP.style.cssText = 'color:#94a3b8;font-size:13px;margin:0 0 16px;';
+    card.appendChild(expP);
+  } else {
+    const permP = document.createElement('p');
+    permP.textContent = UI.translate('banned_permanent') || 'This ban is permanent.';
+    permP.style.cssText = 'color:#94a3b8;font-size:13px;margin:0 0 16px;';
+    card.appendChild(permP);
+  }
+
+  card.appendChild(desc);
+
+  const logoutBtn = document.createElement('button');
+  logoutBtn.textContent = UI.translate('banned_ok') || 'OK';
+  logoutBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;';
+  logoutBtn.onclick = async () => {
+    overlay.remove();
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+    window.location.href = '/';
+  };
+
+  card.appendChild(logoutBtn);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 };
 
 UI.handleAuthSuccess = function (user) {
@@ -1764,6 +1975,7 @@ UI.updateAuthUI = function () {
   const usernameEl = document.getElementById('headerUsername');
   const avatarImg = document.getElementById('headerAvatarImg');
   const notifBell = document.getElementById('notificationBell');
+  const adminLink = document.getElementById('headerAdminLink');
 
   if (this.currentUser) {
     if (headerAuth) headerAuth.classList.add('hidden');
@@ -1773,11 +1985,16 @@ UI.updateAuthUI = function () {
       avatarImg.src = this.currentUser.avatarUrl;
     }
     if (notifBell) notifBell.classList.remove('hidden');
+    if (adminLink) {
+      if (this.currentUser.isAdmin) adminLink.classList.remove('hidden');
+      else adminLink.classList.add('hidden');
+    }
     this.loadNotificationsFromServer();
   } else {
     if (headerAuth) headerAuth.classList.remove('hidden');
     if (headerProfile) headerProfile.classList.add('hidden');
     if (notifBell) notifBell.classList.add('hidden');
+    if (adminLink) adminLink.classList.add('hidden');
     this.notifications = [];
     this.updateNotifBadge();
   }
@@ -2243,6 +2460,14 @@ UI.showProfilePage = async function (username, pushState = true) {
         addBtn.onclick = () => UI.addFriend(user._id);
         actionsContainer.appendChild(addBtn);
       }
+
+      // Report button for non-own profiles
+      const reportBtn = document.createElement('button');
+      reportBtn.className = 'pp-logout-btn';
+      reportBtn.textContent = UI.translate('pp_report_user') || 'Report';
+      reportBtn.style.cssText = 'background: rgba(244,67,54,0.08); color: #e57373; border-color: rgba(244,67,54,0.25);';
+      reportBtn.onclick = () => UI.openUserReport(user._id, user.username);
+      actionsContainer.appendChild(reportBtn);
     }
 
     // Render History

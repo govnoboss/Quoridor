@@ -203,6 +203,19 @@ app.post('/api/auth/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
+        const ban = await isUserBanned(user);
+        if (ban.banned) {
+            const expires = ban.expires
+                ? ` until ${ban.expires.toISOString()}`
+                : '';
+            return res.status(403).json({
+                error: `Account banned${expires}`,
+                code: 'ACCOUNT_BANNED',
+                reason: ban.reason,
+                expires: ban.expires
+            });
+        }
+
         // Ленивый бэдфилл страны для аккаунтов, созданных до появления geo-фичи:
         // если страна неизвестна ("XX"), определяем по текущему IP и сохраняем один раз.
         await ensureUserCountry(user, req.ip);
@@ -225,6 +238,16 @@ app.get('/api/auth/me', async (req, res) => {
         try {
             const user = await User.findById(req.session.userId).select('-passwordHash');
             if (user) {
+                const ban = await isUserBanned(user);
+                if (ban.banned) {
+                    req.session.destroy(() => {});
+                    return res.json({
+                        isAuthenticated: false,
+                        banned: true,
+                        banReason: ban.reason,
+                        banExpires: ban.expires
+                    });
+                }
                 // Принудительно восполняем страну при каждом заходе (без повторного логина)
                 await ensureUserCountry(user, req.ip);
             }
@@ -272,6 +295,23 @@ async function resolveUserById(userId, fields = null) {
         return await query.select(fields || '');
     }
     return await query;
+}
+
+// Проверяет, активен ли бан у пользователя. Если временный бан истёк — авторазбан.
+async function isUserBanned(user) {
+    if (!user) return { banned: false };
+    if (!user.banned) return { banned: false };
+    if (user.banExpires && user.banExpires <= new Date()) {
+        user.banned = false;
+        user.banReason = '';
+        user.banExpires = null;
+        user.bannedAt = null;
+        user.bannedBy = null;
+        await user.save();
+        return { banned: false };
+    }
+    const expires = user.banExpires ? new Date(user.banExpires) : null;
+    return { banned: true, reason: user.banReason || 'Account banned', expires };
 }
 
 async function requireAdmin(req, res, next) {
@@ -1437,6 +1477,386 @@ app.delete('/api/notifications/:id', async (req, res) => {
     }
 });
 
+// --- ADMIN USER MANAGEMENT ---
+
+const UserReport = require('./models/UserReport');
+const AdminLog = require('./models/AdminLog');
+
+async function logAdminAction(adminId, action, targetId, targetUsername, details = {}) {
+    try {
+        await AdminLog.create({ admin: adminId, action, target: targetId, targetUsername, details });
+    } catch (e) {
+        console.error('[ADMIN LOG] Error:', e);
+    }
+}
+
+// GET /api/admin/users — список пользователей с поиском и пагинацией
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const search = (req.query.search || '').trim();
+        const filter = {};
+        if (search) {
+            filter.$or = [
+                { username: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (req.query.banned === 'true') filter.banned = true;
+        if (req.query.banned === 'false') filter.banned = false;
+        if (req.query.admins === 'true') filter.isAdmin = true;
+        if (req.query.bots === 'true') filter.isBot = true;
+
+        const [users, total] = await Promise.all([
+            User.find(filter)
+                .select('username email avatarUrl rating isAdmin isBot banned banReason banExpires createdAt lastSeen online stats')
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .lean(),
+            User.countDocuments(filter)
+        ]);
+        res.json({ users, total, page, limit });
+    } catch (e) {
+        console.error('[ADMIN] List users error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/admin/users/:id — расширенный профиль (IP не храним, но есть username/email/stats)
+app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id)
+            .select('username email avatarUrl rating status bio country isAdmin isBot banned banReason banExpires bannedAt createdAt lastSeen stats achievements')
+            .lean();
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        const recentGames = await GameResult.find({
+            $or: [{ 'playerWhite.id': req.params.id }, { 'playerBlack.id': req.params.id }]
+        }).sort({ date: -1 }).limit(10).lean();
+        const reportsAbout = await UserReport.find({ target: req.params.id }).populate('reporter', 'username').sort({ createdAt: -1 }).limit(10).lean();
+        const reportsBy = await UserReport.find({ reporter: req.params.id }).populate('target', 'username').sort({ createdAt: -1 }).limit(10).lean();
+        const adminLogs = await AdminLog.find({ target: req.params.id }).populate('admin', 'username').sort({ createdAt: -1 }).limit(10).lean();
+        res.json({ user, recentGames, reportsAbout, reportsBy, adminLogs });
+    } catch (e) {
+        console.error('[ADMIN] Get user error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/users/:id/ban — бан пользователя
+app.post('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
+    try {
+        if (String(req.params.id) === String(req.adminUser._id)) {
+            return res.status(400).json({ error: 'Cannot ban yourself' });
+        }
+        const { reason, durationDays } = req.body;
+        const target = await User.findById(req.params.id).select('username banned banReason banExpires isAdmin isBot');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        if (target.isAdmin) return res.status(400).json({ error: 'Cannot ban an admin' });
+        if (target.isBot) return res.status(400).json({ error: 'Cannot ban a bot' });
+
+        const banExpires = durationDays && durationDays > 0
+            ? new Date(Date.now() + durationDays * 86400000)
+            : null;
+
+        await User.findByIdAndUpdate(req.params.id, {
+            banned: true,
+            banReason: (reason || '').substring(0, 500),
+            banExpires,
+            bannedAt: new Date(),
+            bannedBy: req.adminUser._id
+        });
+
+        await logAdminAction(req.adminUser._id, 'user_banned', req.params.id, target.username, { reason, durationDays, banExpires });
+
+        // Отключаем сокет забаненного, если он онлайн
+        const victimSocket = findSocketByUserId(req.params.id);
+        if (victimSocket) victimSocket.emit('forceDisconnect', { reason: 'You have been banned' });
+
+        res.json({ message: 'User banned', banExpires });
+    } catch (e) {
+        console.error('[ADMIN] Ban error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/users/:id/unban — разбан
+app.post('/api/admin/users/:id/unban', requireAdmin, async (req, res) => {
+    try {
+        const target = await User.findById(req.params.id).select('username banned');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        await User.findByIdAndUpdate(req.params.id, {
+            banned: false,
+            banReason: '',
+            banExpires: null,
+            bannedAt: null,
+            bannedBy: null
+        });
+        await logAdminAction(req.adminUser._id, 'user_unbanned', req.params.id, target.username);
+        res.json({ message: 'User unbanned' });
+    } catch (e) {
+        console.error('[ADMIN] Unban error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/admin/users/:id/avatar — сброс аватара на дефолтный
+app.delete('/api/admin/users/:id/avatar', requireAdmin, async (req, res) => {
+    try {
+        const target = await User.findById(req.params.id).select('username avatarUrl');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(target.username)}&background=333&color=fff`;
+        await User.findByIdAndUpdate(req.params.id, { avatarUrl: defaultAvatar });
+
+        // Удаляем загруженный файл, если был
+        const localAvatarPath = path.join(AVATARS_DIR, `${req.params.id}.webp`);
+        try { await fs.promises.unlink(localAvatarPath); } catch (_) { /* no local file */ }
+
+        await logAdminAction(req.adminUser._id, 'user_avatar_reset', req.params.id, target.username, { oldUrl: target.avatarUrl, newUrl: defaultAvatar });
+
+        res.json({ message: 'Avatar reset to default', avatarUrl: defaultAvatar });
+    } catch (e) {
+        console.error('[ADMIN] Reset avatar error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/users/:id/role — toggle isAdmin
+app.patch('/api/admin/users/:id/role', requireAdmin, async (req, res) => {
+    try {
+        if (String(req.params.id) === String(req.adminUser._id)) {
+            return res.status(400).json({ error: 'Cannot change your own role' });
+        }
+        const target = await User.findById(req.params.id).select('username isAdmin isBot');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        if (target.isBot) return res.status(400).json({ error: 'Cannot change role of a bot' });
+
+        const newIsAdmin = !target.isAdmin;
+        await User.findByIdAndUpdate(req.params.id, { isAdmin: newIsAdmin });
+        await logAdminAction(req.adminUser._id, 'user_role_changed', req.params.id, target.username, { isAdmin: newIsAdmin });
+
+        if (!newIsAdmin) {
+            const victimSocket = findSocketByUserId(req.params.id);
+            if (victimSocket) victimSocket.emit('forceDisconnect', { reason: 'Admin access removed' });
+        }
+
+        res.json({ message: `User ${newIsAdmin ? 'promoted to admin' : 'demoted from admin'}`, isAdmin: newIsAdmin });
+    } catch (e) {
+        console.error('[ADMIN] Role error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/users/:id/rating — ручная корректировка рейтинга
+app.post('/api/admin/users/:id/rating', requireAdmin, async (req, res) => {
+    try {
+        const { rating } = req.body;
+        if (rating === undefined || isNaN(parseInt(rating))) {
+            return res.status(400).json({ error: 'Valid rating required' });
+        }
+        const newRating = Math.max(0, Math.min(4000, parseInt(rating)));
+        const target = await User.findById(req.params.id).select('username rating');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        const oldRating = target.rating;
+        await User.findByIdAndUpdate(req.params.id, { rating: newRating });
+        await logAdminAction(req.adminUser._id, 'user_rating_changed', req.params.id, target.username, { oldRating, newRating });
+        res.json({ message: 'Rating updated', rating: newRating });
+    } catch (e) {
+        console.error('[ADMIN] Rating error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/users/:id/delete — удаление аккаунта
+app.post('/api/admin/users/:id/delete', requireAdmin, async (req, res) => {
+    try {
+        if (String(req.params.id) === String(req.adminUser._id)) {
+            return res.status(400).json({ error: 'Cannot delete yourself' });
+        }
+        const target = await User.findById(req.params.id).select('username isAdmin');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        if (target.isAdmin) return res.status(400).json({ error: 'Cannot delete an admin account' });
+
+        await Friendship.deleteMany({ $or: [{ requester: req.params.id }, { recipient: req.params.id }] });
+        await GameResult.updateMany({ 'playerWhite.id': req.params.id }, { $set: { 'playerWhite.username': '[deleted]', 'playerWhite.id': null } });
+        await GameResult.updateMany({ 'playerBlack.id': req.params.id }, { $set: { 'playerBlack.username': '[deleted]', 'playerBlack.id': null } });
+        await UserReport.deleteMany({ $or: [{ reporter: req.params.id }, { target: req.params.id }] });
+        await User.findByIdAndDelete(req.params.id);
+
+        const localAvatarPath = path.join(AVATARS_DIR, `${req.params.id}.webp`);
+        try { await fs.promises.unlink(localAvatarPath); } catch (_) { /* no local file */ }
+
+        await logAdminAction(req.adminUser._id, 'user_deleted', req.params.id, target.username);
+
+        const victimSocket = findSocketByUserId(req.params.id);
+        if (victimSocket) victimSocket.emit('forceDisconnect', { reason: 'Account deleted' });
+
+        res.json({ message: 'User deleted' });
+    } catch (e) {
+        console.error('[ADMIN] Delete user error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/admin/stats — дашборд статистика
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+        const [totalUsers, bannedUsers, totalGames, newUsersToday, totalBots] = await Promise.all([
+            User.countDocuments({ isBot: { $ne: true } }),
+            User.countDocuments({ banned: true }),
+            GameResult.countDocuments(),
+            User.countDocuments({ createdAt: { $gte: new Date(Date.now() - 86400000) } }),
+            User.countDocuments({ isBot: true })
+        ]);
+        const pendingReports = await UserReport.countDocuments({ status: 'new' });
+        const onlineNow = await User.countDocuments({ online: true, isBot: { $ne: true } });
+        const recentGames = await GameResult.countDocuments({ date: { $gte: new Date(Date.now() - 86400000) } });
+        const recentRegistrations = await User.find({ isBot: { $ne: true } }).select('username createdAt').sort({ createdAt: -1 }).limit(5).lean();
+        const topReports = await UserReport.aggregate([
+            { $match: { status: 'new' } },
+            { $group: { _id: '$target', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $project: { username: '$user.username', avatarUrl: '$user.avatarUrl', count: 1 } }
+        ]);
+        res.json({
+            totalUsers, bannedUsers, totalGames, newUsersToday, totalBots,
+            pendingReports, onlineNow, recentGames, recentRegistrations, topReports
+        });
+    } catch (e) {
+        console.error('[ADMIN] Stats error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/admin/logs — лог действий админа
+app.get('/api/admin/logs', requireAdmin, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const [logs, total] = await Promise.all([
+            AdminLog.find().populate('admin', 'username').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+            AdminLog.countDocuments()
+        ]);
+        res.json({ logs, total, page, limit });
+    } catch (e) {
+        console.error('[ADMIN] Logs error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// --- USER REPORTS (жалобы на пользователей) ---
+
+const userReportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many reports. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// POST /api/user-reports — создать жалобу на пользователя
+app.post('/api/user-reports', userReportLimiter, async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { targetId, reason, description } = req.body;
+        if (!targetId || !reason) return res.status(400).json({ error: 'targetId and reason required' });
+        if (String(targetId) === String(req.session.userId)) {
+            return res.status(400).json({ error: 'Cannot report yourself' });
+        }
+        const allowedReasons = ['inappropriate_avatar', 'inappropriate_username', 'inappropriate_bio', 'inappropriate_status', 'cheating', 'harassment', 'impersonation', 'other'];
+        if (!allowedReasons.includes(reason)) {
+            return res.status(400).json({ error: 'Invalid reason' });
+        }
+        const target = await User.findById(targetId).select('username isBot');
+        if (!target) return res.status(404).json({ error: 'User not found' });
+        if (target.isBot) return res.status(400).json({ error: 'Cannot report a bot' });
+
+        // Проверяем дубликат — не более 3 активных жалоб от одного пользователя на того же
+        const existingCount = await UserReport.countDocuments({
+            reporter: req.session.userId,
+            target: targetId,
+            status: { $in: ['new', 'in_progress'] }
+        });
+        if (existingCount >= 3) {
+            return res.status(400).json({ error: 'You already have 3 active reports on this user' });
+        }
+
+        const report = await UserReport.create({
+            reporter: req.session.userId,
+            target: targetId,
+            reason,
+            description: (description || '').substring(0, 2000)
+        });
+
+        // Уведомляем всех админов
+        const adminUsers = await User.find({ isAdmin: true }).select('_id').lean();
+        for (const admin of adminUsers) {
+            await createNotification(admin._id, 'user_report',
+                `New report against ${target.username}`,
+                `${reason} — ${(description || '').substring(0, 100)}`,
+                { userReportId: report._id, targetUsername: target.username }
+            );
+        }
+
+        res.status(201).json({ message: 'Report submitted', id: report._id });
+    } catch (e) {
+        console.error('[USER REPORT] Create error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/admin/user-reports — список жалоб
+app.get('/api/admin/user-reports', requireAdmin, async (req, res) => {
+    try {
+        const status = req.query.status;
+        const filter = {};
+        if (status && status !== 'all') filter.status = status;
+        const reports = await UserReport.find(filter)
+            .populate('reporter', 'username avatarUrl')
+            .populate('target', 'username avatarUrl')
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json(reports);
+    } catch (e) {
+        console.error('[USER REPORT] List error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/user-reports/:id — обработать жалобу (resolve/dismiss)
+app.patch('/api/admin/user-reports/:id', requireAdmin, async (req, res) => {
+    try {
+        const { status, adminNote } = req.body;
+        if (!['in_progress', 'resolved', 'dismissed'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+        const report = await UserReport.findByIdAndUpdate(
+            req.params.id,
+            { status, adminNote: (adminNote || '').substring(0, 1000), resolvedBy: req.adminUser._id, resolvedAt: new Date() },
+            { new: true }
+        );
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+
+        await logAdminAction(req.adminUser._id, status === 'resolved' ? 'user_report_resolved' : 'user_report_dismissed',
+            req.params.id, '', { target: report.target, reason: report.reason, status });
+
+        res.json(report);
+    } catch (e) {
+        console.error('[USER REPORT] Update error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ADMIN PAGES
+app.get('/admin/users', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-users.html')));
+app.get('/admin/user-reports', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-user-reports.html')));
+app.get('/admin/logs', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin-logs.html')));
+app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, '../frontend/admin.html')));
+
 // SPA fallback — serve index.html for any unrecognized GET route
 app.get('/{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
@@ -1494,9 +1914,32 @@ io.use(wrap(sessionMiddleware));
 io.use((socket, next) => {
     const session = socket.request.session;
     if (session && session.userId) {
-        socket.userId = session.userId;
-        socket.username = session.username;
-        socket.avatarUrl = session.avatarUrl;
+        (async () => {
+            try {
+                let user;
+                try {
+                    user = await resolveUserById(session.userId, 'banned banReason banExpires');
+                } catch (e) {
+                    user = await User.findById(session.userId);
+                }
+                if (!user) {
+                    session.destroy(() => {});
+                    return next(new Error('unauthorized'));
+                }
+                const ban = await isUserBanned(user);
+                if (ban.banned) {
+                    return next(new Error('banned'));
+                }
+                socket.userId = session.userId;
+                socket.username = session.username;
+                socket.avatarUrl = session.avatarUrl;
+                next();
+            } catch (err) {
+                console.error('[SOCKET AUTH] Error:', err);
+                next(new Error('unauthorized'));
+            }
+        })();
+        return;
     }
     if (!socket.userId) {
         socket.username = `Guest-${socket.id.substr(0, 4)}`;
