@@ -39,7 +39,7 @@
   </script>
   <link rel="stylesheet" href="/css/style.css?v=1.0.11" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
-  <link rel="stylesheet" href="/css/profile.css?v=1.0.5" type="text/css" />
+  <link rel="stylesheet" href="/css/profile.css?v=1.0.6" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
   <script src="/js/analytics.js?v=1.0.4"></script>
 </head>
@@ -392,8 +392,10 @@
       <div id="ppContent" class="pp-content">
         <!-- Header -->
         <div class="profile-page-header">
-            <div class="pp-avatar-section">
+            <div class="pp-avatar-section" id="ppAvatarSection" role="button" title="Загрузить аватар">
               <img class="pp-avatar" id="ppAvatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
+              <div class="pp-avatar-edit-hint">📸</div>
+              <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp" class="hidden" aria-hidden="true">
             </div>
           <div class="pp-info-section">
             <div class="pp-username-row">
@@ -716,12 +718,11 @@
 
       <div id="panelProfile">
         <div class="profile-header">
-          <div class="profile-avatar-big" onclick="UI.openAvatarPicker()" role="button" title="Загрузить аватар">
+          <div class="profile-avatar-big" role="button" title="Загрузить аватар">
             <img id="profileAvatarLarge" src="https://ui-avatars.com/api/?name=User&background=333&color=fff"
               alt="Large Avatar">
             <div class="avatar-edit-hint">📸</div>
           </div>
-          <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp" class="hidden" aria-hidden="true">
           <div class="profile-main-info">
             <h2 id="profileUsername">Username</h2>
             <div class="profile-status-wrapper">
@@ -771,7 +772,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.11"></script>
+  <script src="/js/ui.js?v=1.0.12"></script>
   <script src="/js/net.js?v=1.0.6"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/ai.js?v=1.0.4"></script>
