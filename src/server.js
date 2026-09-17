@@ -121,20 +121,21 @@ app.get('/shared.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'core', 'shared.js'));
 });
 
-// TEMP DEBUG (remove after diagnosis)
-app.get('/api/debug/ip', (req, res) => {
-    res.json({
-        reqIp: req.ip,
-        xForwardedFor: req.headers['x-forwarded-for'] || null,
-        cfConnectingIp: req.headers['cf-connecting-ip'] || null,
-        trueClientIp: req.headers['true-client-ip'] || null,
-        socketRemote: req.socket?.remoteAddress || null,
-        socketLocal: req.socket?.localAddress || null
-    });
-});
-// END TEMP DEBUG
-
 // --- COUNTRY DETECTION HELPERS ---
+
+// Реальный IP клиента. Сайт за Cloudflare: реальный адрес (включая IPv6)
+// приходит в `CF-Connecting-IP`, тогда как `X-Forwarded-For` содержит
+// edge-IP Cloudflare (часто США) — по нему определять страну нельзя.
+function getClientIp(req) {
+    try {
+        const cf = req.headers['cf-connecting-ip'];
+        if (typeof cf === 'string' && cf.trim() && cf !== 'unknown') return cf.trim();
+        return req.ip || '';
+    } catch (err) {
+        return req.ip || '';
+    }
+}
+
 function detectCountry(ip) {
     try {
         if (typeof ip !== 'string' || !ip) return 'XX';
@@ -187,7 +188,7 @@ app.post('/api/auth/register', async (req, res) => {
         const passwordHash = await bcrypt.hash(password, salt);
 
         // Определяем страну по IP (один раз при регистрации — дальше VPN/IP не влияют)
-        const country = detectCountry(req.ip);
+        const country = detectCountry(getClientIp(req));
 
         const newUser = new User({ username, email: trimmedEmail, passwordHash, country });
         await newUser.save();
@@ -231,7 +232,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         // Ленивый бэдфилл страны для аккаунтов, созданных до появления geo-фичи:
         // если страна неизвестна ("XX"), определяем по текущему IP и сохраняем один раз.
-        await ensureUserCountry(user, req.ip);
+        await ensureUserCountry(user, getClientIp(req));
 
         // Create session
         req.session.userId = user._id;
@@ -262,7 +263,7 @@ app.get('/api/auth/me', async (req, res) => {
                     });
                 }
                 // Принудительно восполняем страну при каждом заходе (без повторного логина)
-                await ensureUserCountry(user, req.ip);
+                await ensureUserCountry(user, getClientIp(req));
             }
             res.json({ isAuthenticated: true, user });
         } catch (err) {
@@ -722,7 +723,7 @@ app.get('/api/user/profile', async (req, res) => {
         const user = await User.findById(req.session.userId).select('-passwordHash');
         if (user) {
             // Восполняем страну, если она ещё неизвестна
-            await ensureUserCountry(user, req.ip);
+            await ensureUserCountry(user, getClientIp(req));
         }
         res.json(user);
     } catch (err) {
@@ -1293,7 +1294,7 @@ app.post('/api/reports', reportLimiter, async (req, res) => {
             subject: subject.trim(),
             description: description.trim(),
             userId: req.session.userId,
-            ip: req.ip || req.connection?.remoteAddress || '',
+            ip: getClientIp(req),
             messages: [{ role: 'user', text: description.trim() }],
             deviceInfo: {
                 userAgent: (deviceInfo?.userAgent || '').slice(0, 500),
