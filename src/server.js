@@ -118,6 +118,35 @@ app.get('/shared.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'core', 'shared.js'));
 });
 
+// --- COUNTRY DETECTION HELPERS ---
+function detectCountry(ip) {
+    try {
+        if (typeof ip !== 'string' || !ip) return 'XX';
+        return geoip.lookup(ip)?.country || 'XX';
+    } catch (err) {
+        return 'XX';
+    }
+}
+
+// Восполняет страну пользователя, если она неизвестна ('XX') или не задана.
+// Вызывается при каждом заходе (см. /api/auth/me и /api/user/profile),
+// чтобы не требовать от игрока повторный логин.
+async function ensureUserCountry(user, ip) {
+    try {
+        if (!user) return 'XX';
+        if (user.country && user.country !== 'XX') return user.country;
+        const detected = detectCountry(ip);
+        if (detected !== 'XX') {
+            user.country = detected;
+            await user.save();
+        }
+        return detected;
+    } catch (err) {
+        console.error('[COUNTRY] Failed to save detected country:', err);
+        return (user && user.country) || 'XX';
+    }
+}
+
 // --- AUTH API ROUTES ---
 
 // register
@@ -142,7 +171,7 @@ app.post('/api/auth/register', async (req, res) => {
         const passwordHash = await bcrypt.hash(password, salt);
 
         // Определяем страну по IP (один раз при регистрации — дальше VPN/IP не влияют)
-        const country = geoip.lookup(req.ip)?.country || 'XX';
+        const country = detectCountry(req.ip);
 
         const newUser = new User({ username, email: trimmedEmail, passwordHash, country });
         await newUser.save();
@@ -173,13 +202,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         // Ленивый бэдфилл страны для аккаунтов, созданных до появления geo-фичи:
         // если страна неизвестна ("XX"), определяем по текущему IP и сохраняем один раз.
-        if (!user.country || user.country === 'XX') {
-            const detected = geoip.lookup(req.ip)?.country || 'XX';
-            if (detected !== 'XX') {
-                user.country = detected;
-                await user.save();
-            }
-        }
+        await ensureUserCountry(user, req.ip);
 
         // Create session
         req.session.userId = user._id;
@@ -198,6 +221,10 @@ app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.userId) {
         try {
             const user = await User.findById(req.session.userId).select('-passwordHash');
+            if (user) {
+                // Принудительно восполняем страну при каждом заходе (без повторного логина)
+                await ensureUserCountry(user, req.ip);
+            }
             res.json({ isAuthenticated: true, user });
         } catch (err) {
             res.json({ isAuthenticated: false });
@@ -637,6 +664,10 @@ app.get('/api/user/profile', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     try {
         const user = await User.findById(req.session.userId).select('-passwordHash');
+        if (user) {
+            // Восполняем страну, если она ещё неизвестна
+            await ensureUserCountry(user, req.ip);
+        }
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: 'Server error' });

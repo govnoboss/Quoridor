@@ -109,8 +109,8 @@ class GameSimulator {
                 const guestA = GUEST_BOTS[parseInt(game.botAId.replace('guest-', ''))] || randomGuestBot();
                 const guestB = GUEST_BOTS[parseInt(game.botBId.replace('guest-', ''))] || randomGuestBot();
                 state.playerProfiles = [
-                    { name: guestA.name, rating: guestA.rating, isBot: true },
-                    { name: guestB.name, rating: guestB.rating, isBot: true },
+                    { name: guestA.name, isBot: true },
+                    { name: guestB.name, isBot: true },
                 ];
             }
 
