@@ -37,6 +37,16 @@ const Net = {
             this.socket.auth.token = this.playerToken;
         });
 
+        // 0. Забаненный пользователь не может подключиться
+        this.socket.on('connect_error', (err) => {
+            if (err && (err.message === 'banned' || (err.data && err.data.code === 'banned'))) {
+                console.warn('[NET] Connection rejected: account banned');
+                UI.showBannedNotice && UI.showBannedNotice();
+            } else {
+                console.log('[NET] Socket connect_error:', err && err.message);
+            }
+        });
+
 
 
         this.socket.on('connect', () => {
@@ -182,11 +192,13 @@ const Net = {
 
         this.socket.on('forceDisconnect', (data) => {
             console.log('[NET] Force Disconnected:', data.reason);
-            // alert('Соединение разорвано: Вы открыли игру в другой вкладке.');
             this.socket.disconnect();
             this.isOnline = false;
-            // location.reload(); // <--- УБРАЛИ АВТОРЕЛОАД
-            UI.showDisconnectOverlay(); // <--- ПОКАЗЫВАЕМ ОВЕРЛЕЙ
+            if (data.reason && data.reason.indexOf('banned') !== -1) {
+                UI.showBannedNotice();
+                return;
+            }
+            UI.showDisconnectOverlay();
         });
 
         this.socket.on('findGameFailed', (data) => {

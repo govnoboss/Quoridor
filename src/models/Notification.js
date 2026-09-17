@@ -15,7 +15,8 @@ const notificationSchema = new mongoose.Schema({
             'game_invite',
             'rematch_request',
             'admin_message',
-            'bug_report_update'
+            'bug_report_update',
+            'user_report'
         ],
         required: true
     },
@@ -27,6 +28,7 @@ const notificationSchema = new mongoose.Schema({
         requesterAvatar: { type: String },
         gameId: { type: String },
         reportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Report' },
+        userReportId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserReport' },
         status: { type: String },
         message: { type: String }
     },
