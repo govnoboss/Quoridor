@@ -37,7 +37,7 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=1.0.10" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.11" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.5" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
@@ -394,10 +394,12 @@
         <div class="profile-page-header">
             <div class="pp-avatar-section">
               <img class="pp-avatar" id="ppAvatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
-              <img class="player-country-flag hidden" id="ppFlag" src="" alt="">
             </div>
           <div class="pp-info-section">
-            <h1 id="ppUsername">User</h1>
+            <div class="pp-username-row">
+              <h1 id="ppUsername">User</h1>
+              <img class="player-country-flag hidden" id="ppFlag" src="" alt="">
+            </div>
             <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
             <p class="pp-joined"><span data-i18n="pp_joined">Joined:</span> <span id="ppJoinedDate">--/--/----</span></p>
           </div>
@@ -549,8 +551,8 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
-              <img class="player-country-flag hidden" id="topPlayerFlag" src="" alt="">
               <span class="player-name" id="topPlayerName" data-i18n="pname_opponent">Оппонент</span>
+              <img class="player-country-flag hidden" id="topPlayerFlag" src="" alt="">
             </div>
           </div>
           <div class="timer" id="topPlayerTimer">10:00</div>
@@ -579,8 +581,8 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
-              <img class="player-country-flag hidden" id="bottomPlayerFlag" src="" alt="">
               <span class="player-name" id="bottomPlayerName" data-i18n="pname_you">Вы</span>
+              <img class="player-country-flag hidden" id="bottomPlayerFlag" src="" alt="">
             </div>
           </div>
           <div class="timer" id="bottomPlayerTimer">10:00</div>
@@ -768,7 +770,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.9"></script>
+  <script src="/js/ui.js?v=1.0.10"></script>
   <script src="/js/net.js?v=1.0.6"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/ai.js?v=1.0.4"></script>

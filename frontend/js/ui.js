@@ -1838,6 +1838,7 @@ UI.setPlayerFlag = function (country, elementId) {
   el.src = `/img/emoji/${file}`;
   el.alt = code === 'XX' ? '' : code;
   el.title = code === 'XX' ? '' : code;
+  el.classList.toggle('globe', code === 'XX');
   el.classList.remove('hidden');
 };
 

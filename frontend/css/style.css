@@ -531,8 +531,17 @@ canvas {
     border-radius: 2px;
     object-fit: cover;
     vertical-align: -3px;
-    margin-right: 3px;
+    margin-left: 4px;
     box-shadow: 0 0 2px rgba(0,0,0,.35);
+}
+
+/* Глобус вместо флага (страна неизвестна) — круглый и не обрезается */
+.player-country-flag.globe {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: contain;
+    vertical-align: -4px;
 }
 
 .player-material {
