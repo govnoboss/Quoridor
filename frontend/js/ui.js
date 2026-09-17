@@ -1819,6 +1819,7 @@ UI.updateGameInfo = function (profiles, myIndex) {
     if (bottomProfile.rating) text += ` (${bottomProfile.rating})`;
     if (bottomName) bottomName.textContent = text;
     if (bottomAvatar && bottomProfile.avatar) bottomAvatar.src = bottomProfile.avatar;
+    UI.setPlayerFlag(bottomProfile.country, 'bottomPlayerFlag');
   }
 
   if (topProfile) {
@@ -1827,7 +1828,23 @@ UI.updateGameInfo = function (profiles, myIndex) {
     if (topProfile.rating) text += ` (${topProfile.rating})`;
     if (topName) topName.textContent = text;
     if (topAvatar && topProfile.avatar) topAvatar.src = topProfile.avatar;
+    UI.setPlayerFlag(topProfile.country, 'topPlayerFlag');
   }
+};
+
+// Флаг страны игрока (по ISO-коду). Файл: frontend/img/emoji/<codepoints>.svg (Twemoji self-hosted)
+UI.setPlayerFlag = function (country, elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const code = (typeof country === 'string' && /^[A-Z]{2}$/.test(country)) ? country : 'XX';
+  const push = (a, b) =>
+    (0x1f1e6 + (a.charCodeAt(0) - 65)).toString(16) + '-' +
+    (0x1f1e6 + (b.charCodeAt(0) - 65)).toString(16);
+  const file = code === 'XX' ? '1f30d.svg' : `${push(code[0], code[1])}.svg`;
+  el.src = `/img/emoji/${file}`;
+  el.alt = code === 'XX' ? '' : code;
+  el.title = code === 'XX' ? '' : code;
+  el.classList.remove('hidden');
 };
 
 UI.showProfile = async function () {
@@ -2066,11 +2083,11 @@ UI.showProfilePage = async function (username, pushState = true) {
     document.getElementById('ppBio').textContent = user.bio || UI.translate('pp_no_bio_js');
     document.getElementById('ppJoinedDate').textContent = new Date(user.createdAt).toLocaleDateString();
 
-    const avatarImg = document.getElementById('ppAvatar');
-    avatarImg.src = user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`;
+    const avImg = document.getElementById('ppAvatar');
+    avImg.src = user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`;
+    UI.setPlayerFlag(user.country, 'ppFlag');
 
-    // Stats
-    const stats = user.stats || {};
+    // Stats    const stats = user.stats || {};
     document.getElementById('ppTotalGames').textContent = stats.totalGames || 0;
     const wins = stats.wins || 0;
     const losses = stats.losses || 0;
