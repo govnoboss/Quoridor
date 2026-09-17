@@ -392,10 +392,10 @@
       <div id="ppContent" class="pp-content">
         <!-- Header -->
         <div class="profile-page-header">
-          <div class="pp-avatar-section">
-            <img id="ppAvatar" class="pp-avatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
-            <div class="pp-country-flag" id="ppFlag" title="Country">🌍</div>
-          </div>
+            <div class="pp-avatar-section">
+              <img class="pp-avatar" id="ppAvatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
+              <img class="player-country-flag hidden" id="ppFlag" src="" alt="">
+            </div>
           <div class="pp-info-section">
             <h1 id="ppUsername">User</h1>
             <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
@@ -549,6 +549,7 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
+              <img class="player-country-flag hidden" id="topPlayerFlag" src="" alt="">
               <span class="player-name" id="topPlayerName" data-i18n="pname_opponent">Оппонент</span>
             </div>
           </div>
@@ -578,6 +579,7 @@
           </div>
           <div class="player-info">
             <div class="player-name-row">
+              <img class="player-country-flag hidden" id="bottomPlayerFlag" src="" alt="">
               <span class="player-name" id="bottomPlayerName" data-i18n="pname_you">Вы</span>
             </div>
           </div>

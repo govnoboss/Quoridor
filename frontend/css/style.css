@@ -524,6 +524,17 @@ canvas {
     color: #eee;
 }
 
+/* Флаг страны игрока (self-hosted Twemoji, см. setPlayerFlag) */
+.player-country-flag {
+    width: 21px;
+    height: 16px;
+    border-radius: 2px;
+    object-fit: cover;
+    vertical-align: -3px;
+    margin-right: 3px;
+    box-shadow: 0 0 2px rgba(0,0,0,.35);
+}
+
 .player-material {
     font-size: 12px;
     color: #aaa;

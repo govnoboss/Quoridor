@@ -13,6 +13,7 @@ const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
 const { sendPasswordResetEmail } = require('./utils/mailer');
 const Report = require('./models/Report');
+const geoip = require('geoip-lite');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -140,7 +141,10 @@ app.post('/api/auth/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        const newUser = new User({ username, email: trimmedEmail, passwordHash });
+        // Определяем страну по IP (один раз при регистрации — дальше VPN/IP не влияют)
+        const country = geoip.lookup(req.ip)?.country || 'XX';
+
+        const newUser = new User({ username, email: trimmedEmail, passwordHash, country });
         await newUser.save();
 
         // Auto login
@@ -166,6 +170,16 @@ app.post('/api/auth/login', async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+        // Ленивый бэдфилл страны для аккаунтов, созданных до появления geo-фичи:
+        // если страна неизвестна ("XX"), определяем по текущему IP и сохраняем один раз.
+        if (!user.country || user.country === 'XX') {
+            const detected = geoip.lookup(req.ip)?.country || 'XX';
+            if (detected !== 'XX') {
+                user.country = detected;
+                await user.save();
+            }
+        }
 
         // Create session
         req.session.userId = user._id;
@@ -1439,7 +1453,8 @@ async function getPlayerProfile(token) {
                 return {
                     name: user.username,
                     avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`,
-                    rating: user.rating
+                    rating: user.rating,
+                    country: user.country || 'XX'
                 };
             }
         }
