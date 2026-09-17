@@ -14,6 +14,9 @@ const log = require('./utils/logger');
 const { sendPasswordResetEmail } = require('./utils/mailer');
 const Report = require('./models/Report');
 const geoip = require('geoip-lite');
+const multer = require('multer');
+const sharp = require('sharp');
+const fs = require('fs');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -727,6 +730,68 @@ app.post('/api/user/update-avatar', async (req, res) => {
     }
 });
 
+// --- AVATAR UPLOAD ---
+// Храним по одному файлу на пользователя (avatars/<userId>.webp), пережатый и
+// уменьшенный сервером. Оригинал не сохраняется — картинки маленькие и безопасные.
+const AVATARS_DIR = path.join(__dirname, '..', 'avatars');
+fs.mkdirSync(AVATARS_DIR, { recursive: true });
+
+const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024; // 5 MB — верхний предел приёма
+const AVATAR_OUTPUT = 256;                     // сторона итоговой квадратной аватарки (px)
+
+const avatarUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_AVATAR_FILE_SIZE, files: 1 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (allowed.indexOf(file.mimetype) !== -1) cb(null, true);
+        else cb(Object.assign(new Error('Unsupported file type'), { code: 'AVATAR_TYPE' }));
+    },
+});
+
+// Обёртка: превращает ошибки multer в понятный JSON-ответ
+function uploadAvatarMiddleware(req, res, next) {
+    avatarUpload.single('avatar')(req, res, (err) => {
+        if (!err) return next();
+        if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File too large (max 5 MB)' });
+        if (err.code === 'AVATAR_TYPE') return res.status(400).json({ error: 'Unsupported file type. Use JPEG, PNG or WebP.' });
+        console.error('[AVATAR UPLOAD ERROR]', err);
+        return res.status(400).json({ error: 'Upload failed' });
+    });
+}
+
+app.post('/api/user/upload-avatar', uploadAvatarMiddleware, async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        if (!req.file || !req.file.buffer) return res.status(400).json({ error: 'No image provided' });
+
+        // Декодируем и пережимаем: отклоняет поддельные/SVG файлы и убирает метаданные
+        let webp;
+        try {
+            webp = await sharp(req.file.buffer, { limitInputPixels: 16 * 1000 * 1000 })
+                .resize(AVATAR_OUTPUT, AVATAR_OUTPUT, { fit: 'cover' })
+                .webp({ quality: 80 })
+                .toBuffer();
+        } catch (sharpErr) {
+            console.error('[AVATAR PROCESSING ERROR]', sharpErr.message);
+            return res.status(400).json({ error: 'Invalid or corrupt image file' });
+        }
+
+        const fname = `${req.session.userId}.webp`;
+        const fpath = path.join(AVATARS_DIR, fname);
+        await fs.promises.writeFile(fpath, webp);
+
+        const avatarUrl = `/avatars/${fname}?v=${Date.now()}`;
+        await User.findByIdAndUpdate(req.session.userId, { avatarUrl });
+        req.session.avatarUrl = avatarUrl;
+        res.json({ message: 'Avatar updated', avatarUrl });
+    } catch (err) {
+        console.error('[AVATAR UPLOAD ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Game History for authenticated user (profile modal)
 app.get('/api/user/history', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -1124,6 +1189,13 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
+
+// Загруженные аватарки: вечная кэшируемость (URL содержит ?v= при смене файла)
+app.use('/avatars', express.static(AVATARS_DIR, { maxAge: '365d', immutable: true }));
+// Если файл ещё не загружен/пропал — мягкий фолбэк на заглушку
+app.use('/avatars', (req, res) => {
+    res.redirect(301, 'https://ui-avatars.com/api/?name=&background=333&color=fff');
+});
 
 // Standalone pages (not SPA)
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));

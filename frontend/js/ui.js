@@ -126,6 +126,9 @@ const UI = {
       toast_profile_load_error: "Ошибка загрузки профиля",
       toast_status_updated: "Статус обновлен",
       toast_avatar_updated: "Аватар обновлен",
+      toast_avatar_uploading: "Загружаем аватар...",
+      toast_avatar_too_large: "Файл слишком большой (максимум 5 МБ)",
+      toast_avatar_upload_failed: "Не удалось загрузить аватар. Используйте JPG, PNG или WebP",
       toast_user_not_found: "Пользователь не найден",
       toast_profile_error: "Не удалось загрузить профиль",
       toast_ranked_requires_login: "Для рейтинговых игр нужна регистрация",
@@ -358,6 +361,9 @@ const UI = {
       toast_profile_load_error: "Failed to load profile",
       toast_status_updated: "Status updated",
       toast_avatar_updated: "Avatar updated",
+      toast_avatar_uploading: "Uploading avatar...",
+      toast_avatar_too_large: "File is too large (max 5 MB)",
+      toast_avatar_upload_failed: "Failed to upload avatar. Use JPEG, PNG or WebP",
       toast_user_not_found: "User not found",
       toast_profile_error: "Failed to load profile",
       toast_ranked_requires_login: "Registration required for ranked games",
@@ -1900,24 +1906,55 @@ UI.updateUserStatus = async function () {
   }
 };
 
-UI.openAvatarPicker = async function () {
-  const newUrl = prompt('Введите URL новой аватарки (прямая ссылка на .png/.jpg):', this.currentUser?.avatarUrl || '');
-  if (newUrl && newUrl.startsWith('http')) {
-    try {
-      const res = await fetch('/api/user/update-avatar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatarUrl: newUrl })
-      });
-      if (res.ok) {
-        document.getElementById('profileAvatarLarge').src = newUrl;
-        document.getElementById('headerAvatarImg').src = newUrl;
-        this.currentUser.avatarUrl = newUrl;
-        this.showToast(this.translate('toast_avatar_updated'), 'success');
-      }
-    } catch (err) {
-      console.error('[AVATAR UPDATE ERROR]', err);
+UI.openAvatarPicker = function () {
+  const input = document.getElementById('avatarFileInput');
+  if (!input) return;
+  input.value = '';
+  if (!input._wired) {
+    input._wired = true;
+    input.addEventListener('change', UI.onAvatarFileSelected);
+  }
+  input.click();
+};
+
+// Выбор файла аватарки: предпросмотр, проверка размера и загрузка на сервер
+UI.onAvatarFileSelected = async function (event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    this.showToast(this.translate('toast_avatar_too_large'), 'error');
+    return;
+  }
+  const preview = URL.createObjectURL(file);
+  const large = document.getElementById('profileAvatarLarge');
+  const prevSrc = large ? large.src : '';
+  if (large) large.src = preview;
+
+  this.showToast(this.translate('toast_avatar_uploading'), 'info');
+
+  const formData = new FormData();
+  formData.append('avatar', file);
+  try {
+    const res = await fetch('/api/user/upload-avatar', { method: 'POST', body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (large) large.src = prevSrc;
+      this.showToast(data.error || this.translate('toast_avatar_upload_failed'), 'error');
+      return;
     }
+    this.currentUser.avatarUrl = data.avatarUrl;
+    const header = document.getElementById('headerAvatarImg');
+    if (header) header.src = data.avatarUrl;
+    if (large) large.src = data.avatarUrl;
+    const pp = document.getElementById('ppAvatar');
+    if (pp && this.currentUser.username) pp.src = data.avatarUrl;
+    this.showToast(this.translate('toast_avatar_updated'), 'success');
+  } catch (err) {
+    console.error('[AVATAR UPLOAD ERROR]', err);
+    if (large) large.src = prevSrc;
+    this.showToast(this.translate('toast_avatar_upload_failed'), 'error');
+  } finally {
+    URL.revokeObjectURL(preview);
   }
 };
 

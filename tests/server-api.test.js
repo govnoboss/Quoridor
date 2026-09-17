@@ -3,6 +3,9 @@ jest.mock('../src/storage/db', () => jest.fn().mockResolvedValue());
 
 const bcrypt = require('bcryptjs');
 const request = require('supertest');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 
 // Mock User model — factory must be self-contained (no external var references)
 jest.mock('../src/models/User', () => {
@@ -362,5 +365,82 @@ describe('Admin Bots API', () => {
         expect(res.body.created + res.body.updated).toBeGreaterThan(0);
         expect(Array.isArray(res.body.bots)).toBe(true);
         expect(res.body.bots.length).toBeGreaterThan(0);
+    });
+});
+
+describe('Avatar Upload API', () => {
+    const passHash = bcrypt.hashSync('avatarpass123', 10);
+    const AVATARS_DIR = path.join(__dirname, '..', 'avatars');
+
+    async function pngBuffer(size = 64) {
+        return sharp({ create: { width: size, height: size, channels: 3, background: { r: 30, g: 90, b: 200 } } })
+            .png()
+            .toBuffer();
+    }
+
+    it('POST /api/user/upload-avatar requires auth', async () => {
+        const res = await request(app)
+            .post('/api/user/upload-avatar')
+            .attach('avatar', await pngBuffer(), { filename: 'a.png', contentType: 'image/png' });
+        expect(res.status).toBe(401);
+    });
+
+    it('rejects non-image upload', async () => {
+        User.__seedUser({ _id: 'av1', username: 'avtest', passwordHash: passHash });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'avtest', password: 'avatarpass123' });
+
+        const res = await agent
+            .post('/api/user/upload-avatar')
+            .attach('avatar', Buffer.from('just some text, not an image'), { filename: 'evil.png', contentType: 'image/png' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid or corrupt image file');
+    });
+
+    it('rejects unsupported file type', async () => {
+        User.__seedUser({ _id: 'av2', username: 'avgif', passwordHash: passHash });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'avgif', password: 'avatarpass123' });
+
+        const res = await agent
+            .post('/api/user/upload-avatar')
+            .attach('avatar', Buffer.from('GIF89a...'), { filename: 'a.gif', contentType: 'image/gif' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Unsupported file type. Use JPEG, PNG or WebP.');
+    });
+
+    it('rejects oversized file', async () => {
+        User.__seedUser({ _id: 'av3', username: 'avbig', passwordHash: passHash });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'avbig', password: 'avatarpass123' });
+
+        const big = Buffer.alloc(6 * 1024 * 1024);
+        const res = await agent
+            .post('/api/user/upload-avatar')
+            .attach('avatar', big, { filename: 'big.png', contentType: 'image/png' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/too large/i);
+    });
+
+    it('uploads valid PNG, saves webp and serves it statically', async () => {
+        User.__seedUser({ _id: 'av4', username: 'avok', passwordHash: passHash });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username: 'avok', password: 'avatarpass123' });
+
+        const file = path.join(AVATARS_DIR, 'av4.webp');
+        try { fs.unlinkSync(file); } catch { /* ignore */ }
+
+        const res = await agent
+            .post('/api/user/upload-avatar')
+            .attach('avatar', await pngBuffer(), { filename: 'a.png', contentType: 'image/png' });
+        expect(res.status).toBe(200);
+        expect(res.body.avatarUrl).toMatch(/^\/avatars\/av4\.webp\?v=\d+$/);
+        expect(fs.existsSync(file)).toBe(true);
+
+        const staticRes = await request(app).get(res.body.avatarUrl.split('?')[0]);
+        expect(staticRes.status).toBe(200);
+        expect(staticRes.type).toBe('image/webp');
+
+        try { fs.unlinkSync(file); } catch { /* ignore */ }
     });
 });
