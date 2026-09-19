@@ -73,7 +73,15 @@ const UI = {
       discord_cta: "Больше тактик в Discord",
       btn_to_menu: "В меню",
       btn_rematch: "Реванш",
+      btn_rematch_waiting: "Ждем ответа соперника...",
       btn_new_game: "Новая игра",
+      btn_rematch_accept: "Принять",
+      btn_rematch_decline: "Отклонить",
+      toast_rematch_invite: "Соперник зовет на реванш!",
+      toast_rematch_declined: "Соперник отказался от реванша",
+      toast_rematch_offline: "Соперник не в сети",
+      toast_rematch_busy: "Соперник сейчас занят другой партией",
+      toast_rematch_expired: "Реванш не состоялся — время вышло",
       toast_opponent_wants_rematch: "Противник хочет реванш!",
       disconnect_title: "Соединение разорвано",
       disconnect_msg: "Вы открыли игру в другой вкладке или окне.<br>Эта сессия была завершена.",
@@ -334,7 +342,15 @@ const UI = {
       discord_cta: "More tactics on Discord",
       btn_to_menu: "Exit",
       btn_rematch: "Rematch",
+      btn_rematch_waiting: "Waiting for opponent...",
       btn_new_game: "New Game",
+      btn_rematch_accept: "Accept",
+      btn_rematch_decline: "Decline",
+      toast_rematch_invite: "Opponent wants a rematch!",
+      toast_rematch_declined: "Opponent declined the rematch",
+      toast_rematch_offline: "Opponent is offline",
+      toast_rematch_busy: "Opponent is busy in another game",
+      toast_rematch_expired: "Rematch didn't happen - time expired",
       toast_opponent_wants_rematch: "Opponent wants a rematch!",
       disconnect_title: "Connection Lost",
       disconnect_msg: "You opened the game in another tab or window.<br>This session has ended.",
@@ -895,6 +911,61 @@ const UI = {
     }
   },
 
+  setRematchButtonWaiting() {
+    const btn = document.getElementById('rematchBtn');
+    if (!btn) return;
+    btn.classList.remove('hidden');
+    btn.disabled = true;
+    btn.classList.add('waiting');
+    btn.textContent = this.translate('btn_rematch_waiting');
+  },
+
+  resetRematchButton() {
+    const btn = document.getElementById('rematchBtn');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.classList.remove('waiting');
+    btn.textContent = this.translate('btn_rematch');
+  },
+
+  showRematchInviteToast(data) {
+    const name = data.requesterName || '';
+    const msg = this.translate('toast_rematch_invite');
+
+    const toast = this.showToast(msg, 'info', 0, null, [
+      {
+        label: this.translate('btn_rematch_accept'),
+        class: 'accept',
+        callback: () => Net.respondRematch(true)
+      },
+      {
+        label: this.translate('btn_rematch_decline'),
+        class: 'decline',
+        callback: () => Net.respondRematch(false)
+      }
+    ]);
+    Net._inviteLobbyId = data.lobbyId;
+    Net._inviteToast = toast;
+    // Авто-закрытие тоста по окончании окна ожидания
+    setTimeout(() => {
+      if (Net._inviteToast === toast && toast.parentNode) {
+        toast.classList.add('fading');
+        toast.addEventListener('animationend', () => toast.remove());
+        Net._inviteLobbyId = null;
+        Net._inviteToast = null;
+      }
+    }, 30000);
+  },
+
+  handleRematchDeclined(reason) {
+    const key = reason === 'busy'
+      ? 'toast_rematch_busy'
+      : reason === 'offline'
+        ? 'toast_rematch_offline'
+        : 'toast_rematch_declined';
+    this.showToast(this.translate(key), 'warning');
+  },
+
   showNewGameBtn(show) {
     const btn = document.getElementById('newGameBtn');
     if (btn) {
@@ -1435,7 +1506,7 @@ const UI = {
       rematchBtn.textContent = UI.translate('btn_rematch');
       rematchBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        Net.requestRematch();
+        Net.requestRematch(notif.data && notif.data.gameId);
         UI.markNotifRead(notif._id);
       });
       actionsDiv.appendChild(rematchBtn);

@@ -230,7 +230,7 @@ const Game = {
     // this.canvas.style.height = size + 'px';// <--- REMOVED
     this.ctx.scale(dpr, dpr);
   },
-  handleGameOver(winnerIdx, reason, ratingChanges, gameResultId) {
+  handleGameOver(winnerIdx, reason, ratingChanges, gameResultId, hasBot) {
     this.stopTimer();
     this.isGameOver = true;
 
@@ -275,10 +275,11 @@ const Game = {
 
     // Show buttons
     const isOnlineGame = typeof Net !== 'undefined' && Net.lastGameLobbyId;
+    UI.resetRematchButton();
     UI.showNewGameBtn(true);
     UI.showLobbyBtn(true);
     UI.showReplayBtn(!!gameResultId || !isOnlineGame);
-    UI.showRematchBtn(isOnlineGame);
+    UI.showRematchBtn(isOnlineGame && !hasBot);
     UI.showSignupSection(typeof UI !== 'undefined' && !UI.currentUser);
 
     // Озвучка результата
