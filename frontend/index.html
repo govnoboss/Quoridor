@@ -403,7 +403,18 @@
               <h1 id="ppUsername">User</h1>
               <img class="player-country-flag hidden" id="ppFlag" src="" alt="">
             </div>
-            <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
+            <div class="pp-bio-wrap">
+              <p id="ppBio" class="pp-bio" data-i18n="pp_no_bio">No bio description yet.</p>
+              <button id="ppBioEditBtn" class="pp-bio-edit-btn hidden" title="Edit bio" onclick="UI.startEditBio()">✏️</button>
+              <div id="ppBioEditForm" class="pp-bio-edit-form hidden">
+                <textarea id="ppBioInput" maxlength="300" rows="3" placeholder=""></textarea>
+                <div class="pp-bio-edit-actions">
+                  <span id="ppBioCount">0/300</span>
+                  <button id="ppBioCancelBtn" class="pp-bio-cancel-btn" data-i18n="btn_no" onclick="UI.cancelEditBio()">Cancel</button>
+                  <button id="ppBioSaveBtn" class="pp-bio-save-btn" data-i18n="pp_bio_save" onclick="UI.saveBio()">Save</button>
+                </div>
+              </div>
+            </div>
             <p class="pp-joined"><span data-i18n="pp_joined">Joined:</span> <span id="ppJoinedDate">--/--/----</span></p>
           </div>
           <div class="pp-actions" id="ppActions">
