@@ -82,6 +82,26 @@
             background: #cd7f32;
             color: #1a1a1a;
         }
+        .leaderboard-row.lb-head-row {
+            cursor: default;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0;
+            padding-top: 6px;
+            padding-bottom: 6px;
+        }
+        .leaderboard-row.lb-head-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: none;
+        }
+        .leaderboard-row.lb-head-row .rank,
+        .leaderboard-row.lb-head-row .score,
+        .leaderboard-row.lb-head-row .games {
+            color: #888;
+            font-size: 0.7rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
         .leaderboard-row .meta {
             display: flex;
             align-items: baseline;
@@ -138,6 +158,10 @@
                 loading: 'Загрузка...',
                 empty: 'Пока нет игроков',
                 error: 'Ошибка загрузки',
+                col_rank: '#',
+                col_name: 'Имя',
+                col_rating: 'Рейтинг',
+                col_games: 'Кол-во игр',
                 games1: 'матч',
                 games2: 'матча',
                 games5: 'матчей'
@@ -148,6 +172,10 @@
                 loading: 'Loading...',
                 empty: 'No players yet',
                 error: 'Failed to load',
+                col_rank: '#',
+                col_name: 'Name',
+                col_rating: 'Rating',
+                col_games: 'Games',
                 games1: 'game',
                 games2: 'games',
                 games5: 'games'
@@ -167,6 +195,7 @@
             document.getElementById('pageTitle').textContent = d.title;
             document.getElementById('pageSubtitle').textContent = d.subtitle;
             document.getElementById('loadingText').textContent = d.loading;
+            if (typeof loadLeaderboard === 'function') loadLeaderboard();
         }
 
         function applyLang() {
@@ -203,21 +232,29 @@
                         return;
                     }
 
-                    container.innerHTML = players.map(function(p, i) {
-                        var rankClass = '';
-                        if (i === 0) rankClass = 'top1';
-                        else if (i === 1) rankClass = 'top2';
-                        else if (i === 2) rankClass = 'top3';
-
-                        return '<div class="leaderboard-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
-                            + '<span class="rank ' + rankClass + '">' + (i + 1) + '</span>'
-                            + '<span class="name">' + escapeHtml(p.username) + '</span>'
+                    container.innerHTML = '<div class="leaderboard-row lb-head-row">'
+                            + '<span class="rank">' + d.col_rank + '</span>'
+                            + '<span class="name">' + d.col_name + '</span>'
                             + '<span class="meta">'
-                            + '<span class="score">' + p.rating + '</span>'
-                            + '<span class="games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</span>'
+                            + '<span class="score">' + d.col_rating + '</span>'
+                            + '<span class="games">' + d.col_games + '</span>'
                             + '</span>'
-                            + '</div>';
-                    }).join('');
+                            + '</div>'
+                            + players.map(function(p, i) {
+                                var rankClass = '';
+                                if (i === 0) rankClass = 'top1';
+                                else if (i === 1) rankClass = 'top2';
+                                else if (i === 2) rankClass = 'top3';
+
+                                return '<div class="leaderboard-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
+                                    + '<span class="rank ' + rankClass + '">' + (i + 1) + '</span>'
+                                    + '<span class="name">' + escapeHtml(p.username) + '</span>'
+                                    + '<span class="meta">'
+                                    + '<span class="score">' + p.rating + '</span>'
+                                    + '<span class="games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</span>'
+                                    + '</span>'
+                                    + '</div>';
+                            }).join('');
                 })
                 .catch(function() {
                     container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
@@ -225,7 +262,6 @@
         }
 
         applyLang();
-        loadLeaderboard();
     </script>
 </body>
 </html>
