@@ -745,6 +745,32 @@ app.post('/api/user/update-status', async (req, res) => {
     }
 });
 
+// Update biography
+app.patch('/api/user/profile', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { bio } = req.body;
+        if (typeof bio !== 'string') return res.status(400).json({ error: 'bio must be a string' });
+
+        // Нормализуем переносы строк (CRLF/CR -> LF), убираем прочие управляющие символы,
+        // схлопываем повторяющиеся пробелы и длинные серии пустых строк, обрезаем по краям.
+        const cleaned = bio
+            .replace(/\r\n?/g, '\n')
+            .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+            .replace(/[^\S\n]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/[^\n]+/g, (line) => line.trim())
+            .trim();
+        const final = cleaned.substring(0, 300).replace(/\n{3,}/g, '\n\n');
+
+        await User.findByIdAndUpdate(req.session.userId, { bio: final });
+        res.json({ bio: final });
+    } catch (err) {
+        console.error('[BIO] Failed to update bio:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Allowed avatar URL domains
 const ALLOWED_AVATAR_DOMAINS = [
     'ui-avatars.com',

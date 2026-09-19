@@ -125,6 +125,7 @@ const UI = {
       toast_logged_out: "Вы вышли из аккаунта",
       toast_profile_load_error: "Ошибка загрузки профиля",
       toast_status_updated: "Статус обновлен",
+      toast_bio_updated: "Биография обновлена",
       toast_avatar_updated: "Аватар обновлен",
       toast_avatar_uploading: "Загружаем аватар...",
       toast_avatar_too_large: "Файл слишком большой (максимум 5 МБ)",
@@ -207,6 +208,9 @@ const UI = {
       friends_offline: "Offline",
       pp_back: "← Назад",
       pp_no_bio: "Описание отсутствует",
+      pp_bio_edit: "Изменить биографию",
+      pp_bio_placeholder: "Расскажите о себе (до 300 символов)...",
+      pp_bio_save: "Сохранить",
       pp_joined: "Регистрация:",
       pp_games: "Игры",
       pp_wl: "В/П",
@@ -382,6 +386,7 @@ const UI = {
       toast_logged_out: "Logged out",
       toast_profile_load_error: "Failed to load profile",
       toast_status_updated: "Status updated",
+      toast_bio_updated: "Biography updated",
       toast_avatar_updated: "Avatar updated",
       toast_avatar_uploading: "Uploading avatar...",
       toast_avatar_too_large: "File is too large (max 5 MB)",
@@ -464,6 +469,9 @@ const UI = {
       friends_offline: "Offline",
       pp_back: "← Back",
       pp_no_bio: "No bio description yet.",
+      pp_bio_edit: "Edit bio",
+      pp_bio_placeholder: "Tell us about yourself (up to 300 chars)...",
+      pp_bio_save: "Save",
       pp_joined: "Joined:",
       pp_games: "Games",
       pp_wl: "W/L",
@@ -2123,6 +2131,75 @@ UI.updateUserStatus = async function () {
   }
 };
 
+UI.startEditBio = function () {
+  const form = document.getElementById('ppBioEditForm');
+  const btn = document.getElementById('ppBioEditBtn');
+  const input = document.getElementById('ppBioInput');
+  const count = document.getElementById('ppBioCount');
+  if (!form || !input) return;
+
+  const bio = (this.currentUser && this.currentUser.bio) || '';
+  input.value = bio;
+  input.placeholder = this.translate('pp_bio_placeholder');
+  if (btn) btn.classList.add('hidden');
+  form.classList.remove('hidden');
+  if (count) count.textContent = bio.length + '/300';
+
+  input._wired = input._wired || (() => {
+    const onInput = () => {
+      const c = document.getElementById('ppBioCount');
+      if (c) c.textContent = input.value.length + '/300';
+    };
+    input.addEventListener('input', onInput);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        UI.cancelEditBio();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        UI.saveBio();
+      }
+    });
+    return true;
+  });
+
+  input.focus();
+};
+
+UI.cancelEditBio = function () {
+  const form = document.getElementById('ppBioEditForm');
+  const btn = document.getElementById('ppBioEditBtn');
+  if (form) form.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
+};
+
+UI.saveBio = async function () {
+  const input = document.getElementById('ppBioInput');
+  if (!input) return;
+  const bio = input.value.trim();
+  const current = (this.currentUser && this.currentUser.bio) || '';
+  if (bio === current) {
+    this.cancelEditBio();
+    return;
+  }
+  try {
+    const res = await fetch('/api/user/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bio })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    this.currentUser.bio = data.bio;
+    document.getElementById('ppBio').textContent = data.bio || this.translate('pp_no_bio_js');
+    this.cancelEditBio();
+    this.showToast(this.translate('toast_bio_updated'), 'success');
+  } catch (err) {
+    console.error('[BIO SAVE ERROR]', err);
+    this.showToast(this.translate('toast_network_error'), 'error');
+  }
+};
+
 UI.openAvatarPicker = function () {
   const input = document.getElementById('avatarFileInput');
   if (!input) return;
@@ -2367,6 +2444,18 @@ UI.showProfilePage = async function (username, pushState = true) {
         avatarSection.onclick = null;
       }
     }
+
+    // Bio edit button: only on own profile (reset edit mode when switching users)
+    const bioEditBtn = document.getElementById('ppBioEditBtn');
+    const bioEditForm = document.getElementById('ppBioEditForm');
+    if (bioEditBtn) {
+      bioEditBtn.classList.toggle('hidden', !isOwnProfile);
+      bioEditBtn.title = UI.translate('pp_bio_edit');
+      bioEditBtn.setAttribute('aria-label', UI.translate('pp_bio_edit'));
+    }
+    if (bioEditForm) bioEditForm.classList.add('hidden');
+    const bioInput = document.getElementById('ppBioInput');
+    if (bioInput) bioInput.placeholder = UI.translate('pp_bio_placeholder');
 
     // Show Friends tab only for own profile
     const friendsTabBtn = document.querySelector('.pp-tab[onclick*="friends"]');

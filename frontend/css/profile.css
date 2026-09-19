@@ -122,12 +122,104 @@
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+.pp-bio-wrap {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
 .pp-bio {
     color: #aaa;
     font-style: italic;
     max-width: 500px;
     line-height: 1.4;
     margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.pp-bio-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+
+.pp-bio-edit-btn:hover {
+    opacity: 1;
+}
+
+.pp-bio-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.pp-bio-edit-form textarea {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 8px 10px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    min-height: 70px;
+}
+
+.pp-bio-edit-form textarea:focus {
+    outline: none;
+    border-color: #7aa2f7;
+}
+
+.pp-bio-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.pp-bio-edit-actions > span {
+    font-size: 0.78rem;
+    color: #888;
+    margin-right: auto;
+}
+
+.pp-bio-save-btn {
+    background: #e04444;
+    border: none;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.pp-bio-save-btn:hover {
+    background: #c93737;
+}
+
+.pp-bio-cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #555;
+    color: #ccc;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.pp-bio-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .pp-joined {
