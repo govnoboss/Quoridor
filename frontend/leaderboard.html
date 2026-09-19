@@ -82,6 +82,16 @@
             background: #cd7f32;
             color: #1a1a1a;
         }
+        .leaderboard-row .meta {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+        .leaderboard-row .games {
+            color: #888;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
         @media (max-width: 768px) {
             .lb-page {
                 padding: 16px 12px 80px;
@@ -127,14 +137,20 @@
                 subtitle: 'Топ-100 игроков по рейтингу',
                 loading: 'Загрузка...',
                 empty: 'Пока нет игроков',
-                error: 'Ошибка загрузки'
+                error: 'Ошибка загрузки',
+                games1: 'матч',
+                games2: 'матча',
+                games5: 'матчей'
             },
             en: {
                 title: 'Leaderboard',
                 subtitle: 'Top 100 players by rating',
                 loading: 'Loading...',
                 empty: 'No players yet',
-                error: 'Failed to load'
+                error: 'Failed to load',
+                games1: 'game',
+                games2: 'games',
+                games5: 'games'
             }
         };
 
@@ -165,6 +181,15 @@
                 .replace(/"/g, '&quot;');
         }
 
+        function pluralGames(n, d) {
+            var n10 = n % 10,
+                n100 = n % 100;
+            if (n100 >= 11 && n100 <= 14) return d.games5;
+            if (n10 === 1) return d.games1;
+            if (n10 >= 2 && n10 <= 4) return d.games2;
+            return d.games5;
+        }
+
         function loadLeaderboard() {
             var container = document.getElementById('leaderboardList');
             var lang = getLang();
@@ -187,7 +212,10 @@
                         return '<div class="leaderboard-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
                             + '<span class="rank ' + rankClass + '">' + (i + 1) + '</span>'
                             + '<span class="name">' + escapeHtml(p.username) + '</span>'
+                            + '<span class="meta">'
                             + '<span class="score">' + p.rating + '</span>'
+                            + '<span class="games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</span>'
+                            + '</span>'
                             + '</div>';
                     }).join('');
                 })

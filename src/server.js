@@ -677,7 +677,7 @@ app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
         const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl')
+            .select('username rating avatarUrl stats.totalGames')
             .sort({ rating: -1 })
             .limit(limit);
         res.json(topPlayers);
