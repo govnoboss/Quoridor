@@ -67,49 +67,80 @@
             padding: 40px;
             color: #888;
         }
-        .leaderboard-row {
-            cursor: pointer;
+        .lb-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.03);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
         }
-        .leaderboard-row .rank.top1 {
-            background: #e09f3e;
-            color: #1a1a1a;
+        .lb-table th,
+        .lb-table td {
+            padding: 10px 14px;
+            text-align: left;
         }
-        .leaderboard-row .rank.top2 {
-            background: #b0b0b0;
-            color: #1a1a1a;
-        }
-        .leaderboard-row .rank.top3 {
-            background: #cd7f32;
-            color: #1a1a1a;
-        }
-        .leaderboard-row.lb-head-row {
-            cursor: default;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 0;
-            padding-top: 6px;
-            padding-bottom: 6px;
-        }
-        .leaderboard-row.lb-head-row:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: none;
-        }
-        .leaderboard-row.lb-head-row .rank,
-        .leaderboard-row.lb-head-row .score,
-        .leaderboard-row.lb-head-row .games {
+        .lb-table thead th {
             color: #888;
             font-size: 0.7rem;
             letter-spacing: 1.5px;
             text-transform: uppercase;
             font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.02);
+            white-space: nowrap;
         }
-        .leaderboard-row .meta {
-            display: flex;
-            align-items: baseline;
-            gap: 12px;
+        .lb-table th.col-rank {
+            width: 62px;
         }
-        .leaderboard-row .games {
+        .lb-table th.col-rating {
+            text-align: right;
+        }
+        .lb-table th.col-games {
+            text-align: right;
+        }
+        .lb-table tbody tr {
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            transition: background 0.15s;
+        }
+        .lb-table tbody tr:last-child {
+            border-bottom: none;
+        }
+        .lb-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .lb-table td {
+            color: var(--text);
+        }
+        .lb-table td.col-rank {
+            font-weight: 700;
+            color: #aaa;
+        }
+        .lb-table td.col-rank.top1 {
+            color: #e09f3e;
+        }
+        .lb-table td.col-rank.top2 {
+            color: #c8c8c8;
+        }
+        .lb-table td.col-rank.top3 {
+            color: #cd7f32;
+        }
+        .lb-table td.col-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .lb-table td.col-rating {
+            text-align: right;
+            font-weight: 700;
+            color: #aaa;
+            white-space: nowrap;
+        }
+        .lb-table td.col-games {
+            text-align: right;
             color: #888;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             white-space: nowrap;
         }
         @media (max-width: 768px) {
@@ -158,7 +189,7 @@
                 loading: 'Загрузка...',
                 empty: 'Пока нет игроков',
                 error: 'Ошибка загрузки',
-                col_rank: '#',
+                col_rank: 'Ранг',
                 col_name: 'Имя',
                 col_rating: 'Рейтинг',
                 col_games: 'Кол-во игр',
@@ -172,7 +203,7 @@
                 loading: 'Loading...',
                 empty: 'No players yet',
                 error: 'Failed to load',
-                col_rank: '#',
+                col_rank: 'Rank',
                 col_name: 'Name',
                 col_rating: 'Rating',
                 col_games: 'Games',
@@ -194,7 +225,8 @@
             document.getElementById('headerLang').value = lang;
             document.getElementById('pageTitle').textContent = d.title;
             document.getElementById('pageSubtitle').textContent = d.subtitle;
-            document.getElementById('loadingText').textContent = d.loading;
+            var lt = document.getElementById('loadingText');
+            if (lt) lt.textContent = d.loading;
             if (typeof loadLeaderboard === 'function') loadLeaderboard();
         }
 
@@ -232,29 +264,27 @@
                         return;
                     }
 
-                    container.innerHTML = '<div class="leaderboard-row lb-head-row">'
-                            + '<span class="rank">' + d.col_rank + '</span>'
-                            + '<span class="name">' + d.col_name + '</span>'
-                            + '<span class="meta">'
-                            + '<span class="score">' + d.col_rating + '</span>'
-                            + '<span class="games">' + d.col_games + '</span>'
-                            + '</span>'
-                            + '</div>'
+                    container.innerHTML = '<table class="lb-table">'
+                            + '<thead><tr>'
+                            + '<th class="col-rank">' + d.col_rank + '</th>'
+                            + '<th class="col-name">' + d.col_name + '</th>'
+                            + '<th class="col-rating">' + d.col_rating + '</th>'
+                            + '<th class="col-games">' + d.col_games + '</th>'
+                            + '</tr></thead><tbody>'
                             + players.map(function(p, i) {
                                 var rankClass = '';
-                                if (i === 0) rankClass = 'top1';
-                                else if (i === 1) rankClass = 'top2';
-                                else if (i === 2) rankClass = 'top3';
+                                if (i === 0) rankClass = ' top1';
+                                else if (i === 1) rankClass = ' top2';
+                                else if (i === 2) rankClass = ' top3';
 
-                                return '<div class="leaderboard-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
-                                    + '<span class="rank ' + rankClass + '">' + (i + 1) + '</span>'
-                                    + '<span class="name">' + escapeHtml(p.username) + '</span>'
-                                    + '<span class="meta">'
-                                    + '<span class="score">' + p.rating + '</span>'
-                                    + '<span class="games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</span>'
-                                    + '</span>'
-                                    + '</div>';
-                            }).join('');
+                                return '<tr onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
+                                    + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
+                                    + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
+                                    + '<td class="col-rating">' + p.rating + '</td>'
+                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</td>'
+                                    + '</tr>';
+                            }).join('')
+                            + '</tbody></table>';
                 })
                 .catch(function() {
                     container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
