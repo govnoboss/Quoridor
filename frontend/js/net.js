@@ -135,8 +135,9 @@ const Net = {
             this.lobbyId = null;
             this.myColor = null;
             UI.clearLobbyRoute();
+            this.resetRematchState();
 
-            Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges, data.gameResultId);
+            Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges, data.gameResultId, data.hasBot);
         });
 
         this.socket.on('gameActiveError', (data) => {
@@ -156,6 +157,8 @@ const Net = {
             // Close result modal if still open
             const modal = document.getElementById('resultModal');
             if (modal) modal.classList.add('hidden');
+            this.clearInviteToast();
+            this.resetRematchState();
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = data.lobbyCode || data.lobbyId;
@@ -169,13 +172,27 @@ const Net = {
 
         this.socket.on('rematchFailed', (data) => {
             console.log('[NET] Реванш не удался:', data.reason);
+            this.resetRematchState();
             UI.showToast(data.reason, 'error');
             UI.showRematchBtn(true);
         });
 
-        this.socket.on('opponentWantsRematch', () => {
-            console.log('[NET] Противник хочет реванш!');
-            UI.showRematchBtn(true);
+        this.socket.on('rematchInvite', (data) => {
+            console.log('[NET] Приглашение на реванш:', data.lobbyId);
+            // Оба нажали реванш — старт уже идёт, тост не нужен
+            if (this._rematchWaitingLobby === data.lobbyId) return;
+            UI.showRematchInviteToast(data);
+        });
+
+        this.socket.on('rematchDeclined', (data) => {
+            console.log('[NET] Реванш отклонён:', data.reason);
+            this.resetRematchState();
+            UI.handleRematchDeclined(data.reason);
+        });
+
+        this.socket.on('rematchExpired', () => {
+            console.log('[NET] Реванш не состоялся: время вышло');
+            this.resetRematchState();
         });
         this.socket.on('serverMove', (data) => {
             Game.applyServerMove(data);
@@ -295,13 +312,54 @@ const Net = {
         });
     },
 
-    requestRematch() {
-        if (this.lastGameLobbyId) {
-            console.log('[NET] Requesting rematch for lobby:', this.lastGameLobbyId);
-            this.socket.emit('requestRematch', { lobbyId: this.lastGameLobbyId, token: this.playerToken });
-            trackEvent('rematch-click');
-            UI.showRematchBtn(false);
+    setRematchWaiting(lobbyId) {
+        this._rematchWaitingLobby = lobbyId;
+        clearTimeout(this._rematchTimer);
+        this._rematchTimer = setTimeout(() => {
+            if (this._rematchWaitingLobby === lobbyId) {
+                this.resetRematchState();
+                UI.showToast(UI.translate('toast_rematch_expired'), 'warning');
+            }
+        }, 30000);
+        UI.setRematchButtonWaiting();
+    },
+
+    resetRematchState() {
+        this._rematchWaitingLobby = null;
+        this._rematchInvitedLobby = null;
+        clearTimeout(this._rematchTimer);
+        this._rematchTimer = null;
+        UI.resetRematchButton();
+    },
+
+    clearInviteToast() {
+        if (this._inviteToast && this._inviteToast.parentNode) {
+            this._inviteToast.classList.add('fading');
+            this._inviteToast.addEventListener('animationend', () => this._inviteToast.remove());
         }
+        this._inviteToast = null;
+        this._inviteLobbyId = null;
+    },
+
+    requestRematch(lobbyId) {
+        const target = lobbyId || this.lastGameLobbyId;
+        if (!target) return;
+        // Если есть активный тост-инвайт на это же лобби — закрываем (кнопка важнее тоста)
+        if (this._inviteLobbyId === target) this.clearInviteToast();
+        console.log('[NET] Requesting rematch for lobby:', target);
+        this.setRematchWaiting(target);
+        this.socket.emit('requestRematch', { lobbyId: target, token: this.playerToken });
+        trackEvent('rematch-click');
+    },
+
+    respondRematch(accept) {
+        const lobbyId = this._inviteLobbyId;
+        if (!lobbyId) return;
+        // Уже отправили запрос через кнопку — тост игнорируем
+        if (this._rematchWaitingLobby === lobbyId && !accept) return;
+        console.log('[NET] Responding to rematch:', accept ? 'accept' : 'decline', lobbyId);
+        this.clearInviteToast();
+        this.socket.emit('respondRematch', { lobbyId, token: this.playerToken, accept });
     },
 
     startNewGame() {

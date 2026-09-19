@@ -1033,6 +1033,39 @@ function findSocketByUserId(userId) {
     return null;
 }
 
+function findSocketByToken(token) {
+    for (const s of io.sockets.sockets.values()) {
+        if (s.playerToken === token) return s;
+    }
+    return null;
+}
+
+// Игрок занят, если у него есть активная партия или он в поиске игры
+async function isPlayerBusy(token) {
+    if (!token) return false;
+    const lobbyId = await Redis.getLobbyByToken(token);
+    if (lobbyId) return true;
+    const sock = findSocketByToken(token);
+    if (sock && sock.searchToken) return true;
+    return false;
+}
+
+// Окно ожидания ответа на реванш
+const REMATCH_RESPONSE_WINDOW_MS = 30 * 1000;
+
+// Сброс протухших ожиданий реванша (информируем ожидающих)
+async function expireStaleRematchRequests(lobbyId, rematchCtx, waitingTokens) {
+    if (!rematchCtx.expiresAt || !waitingTokens || waitingTokens.length === 0) return rematchCtx;
+    if (Date.now() < rematchCtx.expiresAt) return rematchCtx;
+    for (const t of waitingTokens) {
+        const s = findSocketByToken(t);
+        if (s) s.emit('rematchExpired', { lobbyId });
+    }
+    const cleared = { ...rematchCtx, pending: [], expiresAt: null };
+    await Redis.saveRematchContext(lobbyId, cleared);
+    return cleared;
+}
+
 async function getAcceptedFriendIds(userId) {
     const friendships = await Friendship.find({
         $or: [{ requester: userId }, { recipient: userId }],
@@ -3073,6 +3106,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestRematch', async (data) => {
+        if (!checkRateLimit(socket.id, 'requestRematch', 5, 10000)) {
+            socket.emit('rematchFailed', { reason: 'Too many requests. Please wait.' });
+            return;
+        }
+
         const lobbyId = data?.lobbyId;
         const token = data?.token || socket.playerToken;
         if (!lobbyId || !token) {
@@ -3092,32 +3130,141 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            if (!rematchCtx.rematchRequests.includes(token)) {
-                rematchCtx.rematchRequests.push(token);
+            // Сбрасываем протухшее окно ожидания
+            rematchCtx = await expireStaleRematchRequests(lobbyId, rematchCtx, rematchCtx.pending || []);
+
+            // Уже ждём ответа — дубликаты игнорируем
+            if ((rematchCtx.pending || []).includes(token)) {
+                return;
             }
 
-            if (rematchCtx.rematchRequests.length >= 2) {
-                await startRematchGame(lobbyId, rematchCtx);
-                await Redis.deleteRematchContext(lobbyId);
-            } else {
-                await Redis.saveRematchContext(lobbyId, rematchCtx);
-                const otherToken = rematchCtx.playerTokens.find(t => t !== token);
-                const otherIdx = rematchCtx.playerTokens.indexOf(otherToken);
-                const otherSocketId = rematchCtx.playerSockets[otherIdx];
-                if (otherSocketId) {
-                    const otherSock = io.sockets.sockets.get(otherSocketId);
-                    if (otherSock && otherSock.userId) {
-                        await createNotification(otherSock.userId, 'rematch_request',
-                            rematchCtx.playerProfiles[1 - otherIdx].name + ' wants a rematch',
+            const otherToken = rematchCtx.playerTokens.find(t => t !== token);
+            const otherIdx = rematchCtx.playerTokens.indexOf(otherToken);
+
+            // Снимаем собственный отказ (позволяем повторно позвать соперника)
+            const declined = (rematchCtx.declined || []).filter(t => t !== token);
+            const isFirst = !(rematchCtx.pending || []).length;
+
+            if (isFirst) {
+                // Соперник занят партией/поиском — сразу говорим ожидающему
+                if (await isPlayerBusy(otherToken)) {
+                    await Redis.saveRematchContext(lobbyId, { ...rematchCtx, pending: [], declined });
+                    socket.emit('rematchDeclined', { reason: 'busy' });
+                    return;
+                }
+
+                // Соперник не в сети — мгновенный отказ; нотификация сохраняется на TTL окна
+                const otherSock = findSocketByToken(otherToken);
+                if (!otherSock) {
+                    await Redis.saveRematchContext(lobbyId, { ...rematchCtx, pending: [], declined });
+                    socket.emit('rematchDeclined', { reason: 'offline' });
+                    const otherUserId = rematchCtx.playerUserIds && rematchCtx.playerUserIds[otherIdx];
+                    if (otherUserId) {
+                        await createNotification(otherUserId, 'rematch_request',
+                            rematchCtx.playerProfiles[1 - otherIdx].name + ' wants a rematch!',
                             '',
-                            { requesterId: socket.userId, requesterUsername: socket.username }
+                            { requesterUsername: socket.username || null, gameId: lobbyId }
                         );
                     }
-                    io.to(otherSocketId).emit('opponentWantsRematch');
+                    return;
+                }
+            }
+
+            // Добавляем запрос
+            const pending = [...(rematchCtx.pending || []), token];
+            if (pending.length >= 2) {
+                // Оба хотят реванш — запускаем
+                await startRematchGame(lobbyId, rematchCtx);
+                await Redis.deleteRematchContext(lobbyId);
+                return;
+            }
+
+            await Redis.saveRematchContext(lobbyId, {
+                ...rematchCtx,
+                pending,
+                declined,
+                expiresAt: Date.now() + REMATCH_RESPONSE_WINDOW_MS
+            });
+
+            // Зовём соперника (тост + уведомление)
+            const otherSock = findSocketByToken(otherToken);
+            if (otherSock) {
+                otherSock.emit('rematchInvite', {
+                    lobbyId,
+                    requesterName: rematchCtx.playerProfiles[1 - otherIdx].name
+                });
+                if (otherSock.userId) {
+                    await createNotification(otherSock.userId, 'rematch_request',
+                        rematchCtx.playerProfiles[1 - otherIdx].name + ' wants a rematch!',
+                        '',
+                        { requesterId: socket.userId, requesterUsername: socket.username, gameId: lobbyId }
+                    );
                 }
             }
         } catch (err) {
             console.error('[REMATCH ERROR]', err);
+            socket.emit('rematchFailed', { reason: 'Server error' });
+        }
+    });
+
+    socket.on('respondRematch', async (data) => {
+        const lobbyId = data?.lobbyId;
+        const token = data?.token || socket.playerToken;
+        const accept = Boolean(data?.accept);
+        if (!lobbyId || !token) {
+            socket.emit('rematchFailed', { reason: 'Invalid request' });
+            return;
+        }
+
+        try {
+            const rematchCtx = await Redis.getRematchContext(lobbyId);
+            if (!rematchCtx) {
+                socket.emit('rematchFailed', { reason: 'Game not found for rematch' });
+                return;
+            }
+
+            if (!rematchCtx.playerTokens.includes(token)) {
+                socket.emit('rematchFailed', { reason: 'Not a player in this game' });
+                return;
+            }
+
+            await expireStaleRematchRequests(lobbyId, rematchCtx, rematchCtx.pending || []);
+            const freshCtx = rematchCtx.expiresAt && Date.now() >= rematchCtx.expiresAt
+                ? await Redis.getRematchContext(lobbyId)
+                : rematchCtx;
+            rematchCtx = freshCtx || rematchCtx;
+
+            const otherToken = rematchCtx.playerTokens.find(t => t !== token);
+            const otherPending = (rematchCtx.pending || []).includes(otherToken);
+            if (!otherPending) {
+                socket.emit('rematchFailed', { reason: 'No rematch request in progress' });
+                return;
+            }
+
+            const otherSock = findSocketByToken(otherToken);
+
+            // Отказ
+            if (!accept) {
+                const declined = [...(rematchCtx.declined || []), token];
+                await Redis.saveRematchContext(lobbyId, { ...rematchCtx, pending: [], declined, expiresAt: null });
+                if (otherSock) otherSock.emit('rematchDeclined', { reason: 'declined' });
+                return;
+            }
+
+            // Принятие — проверяем, что оба свободны
+            const otherBusy = await isPlayerBusy(otherToken);
+            const selfBusy = await isPlayerBusy(token);
+            if (otherBusy || selfBusy) {
+                await Redis.saveRematchContext(lobbyId, { ...rematchCtx, pending: [], declined: [] });
+                socket.emit('rematchFailed', { reason: 'Rematch unavailable: a player is busy' });
+                if (otherSock) otherSock.emit('rematchDeclined', { reason: 'busy' });
+                return;
+            }
+
+            await startRematchGame(lobbyId, rematchCtx);
+            await Redis.deleteRematchContext(lobbyId);
+        } catch (err) {
+            console.error('[REMATCH RESPOND ERROR]', err);
             socket.emit('rematchFailed', { reason: 'Server error' });
         }
     });
@@ -3460,6 +3607,7 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
             winnerIdx: winnerIdx,
             reason: reason,
             gameResultId: resultData?.gameResultId || null,
+            hasBot: !!game.hasBot,
             ratingChanges: (resultData && game.isRanked) ? {
                 playerWhite: resultData.white.ratingChange,
                 playerBlack: resultData.black.ratingChange,
@@ -3473,9 +3621,16 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
             playerTokens: game.playerTokens,
             playerSockets: game.playerSockets,
             playerProfiles: game.playerProfiles,
+            playerUserIds: game.playerSockets.map((sid) => {
+                const s = sid && io.sockets.sockets.get(sid);
+                return s && s.userId ? String(s.userId) : null;
+            }),
             timeControl: game.timeControl || { base: 600, inc: 0 },
             isRanked: !!game.isRanked,
-            rematchRequests: []
+            hasBot: !!game.hasBot,
+            pending: [],
+            declined: [],
+            expiresAt: null
         };
         await Redis.saveRematchContext(lobbyId, rematchCtx);
 
@@ -3499,8 +3654,9 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
     const p1 = { socketId: rematchCtx.playerSockets[swap ? 1 : 0], token: rematchCtx.playerTokens[swap ? 1 : 0] };
     const p2 = { socketId: rematchCtx.playerSockets[swap ? 0 : 1], token: rematchCtx.playerTokens[swap ? 0 : 1] };
 
-    const s1 = io.sockets.sockets.get(p1.socketId);
-    const s2 = io.sockets.sockets.get(p2.socketId);
+    // Ищем актуальные сокеты (токен -> живой сокет), защита от реконнекта
+    const s1 = findSocketByToken(p1.token) || io.sockets.sockets.get(p1.socketId) || null;
+    const s2 = findSocketByToken(p2.token) || io.sockets.sockets.get(p2.socketId) || null;
 
     if (!s1 || !s2) {
         if (s1) s1.emit('rematchFailed', { reason: 'Opponent disconnected' });
@@ -3508,11 +3664,20 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
         return;
     }
 
+    // Проверяем, что оба игрока свободны (нет активной партии/поиска)
+    const busy1 = await isPlayerBusy(p1.token);
+    const busy2 = await isPlayerBusy(p2.token);
+    if (busy1 || busy2) {
+        s1.emit('rematchFailed', { reason: 'Rematch unavailable: a player is busy' });
+        s2.emit('rematchFailed', { reason: 'Rematch unavailable: a player is busy' });
+        return;
+    }
+
     const lobbyId = await Redis.generateUniqueLobbyCode();
 
     const gameState = Shared.createInitialState(rematchCtx.timeControl, rematchCtx.isRanked);
-    gameState.playerSockets[0] = p1.socketId;
-    gameState.playerSockets[1] = p2.socketId;
+    gameState.playerSockets[0] = s1.id;
+    gameState.playerSockets[1] = s2.id;
     gameState.playerTokens[0] = p1.token;
     gameState.playerTokens[1] = p2.token;
     gameState.playerProfiles[0] = rematchCtx.playerProfiles[swap ? 1 : 0];

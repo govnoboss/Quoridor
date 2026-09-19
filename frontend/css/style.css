@@ -3043,6 +3043,17 @@ canvas {
     transform: scale(0.97);
 }
 
+.result-btn.waiting,
+.result-btn:disabled {
+    cursor: wait;
+    opacity: 0.55;
+    transform: none;
+}
+
+.result-btn.waiting {
+    pointer-events: auto;
+}
+
 .result-btn.primary {
     background: #e09f3e;
     color: #000;
