@@ -504,10 +504,15 @@ describe('Rematch', () => {
             waitForEvent(p2, 'gameOver'),
         ]);
 
-        // Both players request rematch
+        // Player 1 requests rematch, player 2 receives an invite
         p1.emit('requestRematch', { lobbyId, token: t1 });
-        await new Promise(r => setTimeout(r, 100));
-        p2.emit('requestRematch', { lobbyId, token: t2 });
+        const [invite] = await Promise.all([
+            waitForEvent(p2, 'rematchInvite'),
+        ]);
+        expect(invite.lobbyId).toBe(lobbyId);
+
+        // Player 2 accepts the invite -> both get a new game
+        p2.emit('respondRematch', { lobbyId, token: t2, accept: true });
 
         const [r1, r2] = await Promise.all([
             waitForEvent(p1, 'rematchStarted'),
