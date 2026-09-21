@@ -12,7 +12,9 @@ for humans: it maps goals to files and documents the invariants you must not bre
 | **Modify UI / visuals** | `frontend/js/ui.js` (logic/screens), `frontend/js/game.js` + `frontend/js/board-renderer.js` (canvas), `frontend/css/*.css`, `frontend/index.html` |
 | **Matchmaking / networking** | `src/server.js` (socket handlers), `frontend/js/net.js` (client), [WS_PROTOCOL.md](WS_PROTOCOL.md) |
 | **REST API changes** | `src/server.js` (routes), `frontend/js/net.js` (fetch calls), [API_REFERENCE.md](API_REFERENCE.md) |
-| **DB / schema changes** | `src/models/`, `src/storage/`, `scripts/debug_redis_data.js` |
+| **DB / schema changes** | `src/models/`, `src/storage/` |
+| **Analytics** | `src/models/AnalyticsEvent.js`, `frontend/js/analytics.js`, `src/server.js` (POST /api/analytics/events, GET /api/admin/metrics), `scripts/retention_report.js` |
+| **Daily puzzle** | `src/puzzles/puzzleGenerator.js`, `src/models/DailyPuzzle.js`, `frontend/puzzle.html` + `frontend/js/puzzle.js`, `scripts/generate_daily_puzzle.js` |
 | **Tests** | Add/extend `tests/*.test.js`; suites run with `npx jest --runInBand` |
 
 > \* `BotManager` is enabled by env (`BOTS_ENABLED`, `BOT_RANKED_ENABLED`, …) and pairs

@@ -58,6 +58,9 @@ const userSchema = new mongoose.Schema({
     achievements: [{
         type: String // Achievement IDs
     }],
+    puzzleStreak: { type: Number, default: 0 },
+    lastPuzzleDate: { type: String, default: '' }, // 'YYYY-MM-DD' (UTC)
+    puzzlesSolved: { type: Number, default: 0 },
     lastSeen: { type: Date, default: Date.now },
     online: { type: Boolean, default: false },
     friendCount: { type: Number, default: 0 },
