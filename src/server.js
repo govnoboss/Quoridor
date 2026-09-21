@@ -3119,7 +3119,7 @@ io.on('connection', (socket) => {
         }
 
         try {
-            const rematchCtx = await Redis.getRematchContext(lobbyId);
+            let rematchCtx = await Redis.getRematchContext(lobbyId);
             if (!rematchCtx) {
                 socket.emit('rematchFailed', { reason: 'Game not found for rematch' });
                 return;
@@ -3217,7 +3217,7 @@ io.on('connection', (socket) => {
         }
 
         try {
-            const rematchCtx = await Redis.getRematchContext(lobbyId);
+            let rematchCtx = await Redis.getRematchContext(lobbyId);
             if (!rematchCtx) {
                 socket.emit('rematchFailed', { reason: 'Game not found for rematch' });
                 return;
