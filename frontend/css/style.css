@@ -3131,102 +3131,10 @@ canvas {
     fill: currentColor;
 }
 
-/* --- FIXED PROFILE LAYOUT --- */
-.profile-modal-content {
-    background: var(--bg-panel);
-    border: 1px solid #444;
-    border-radius: 12px;
-    padding: 0;
-    max-width: 500px;
-    width: 90%;
-    position: relative;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
 .close-panel-btn {
     z-index: 10002;
     top: 10px;
     right: 10px;
-}
-
-#panelProfile {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow-y: hidden;
-    /* Main scroll handles by flex children */
-    padding: 25px;
-    gap: 20px;
-}
-
-.profile-header {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 20px;
-}
-
-.profile-stats-grid {
-    flex: 0 0 auto;
-    display: flex;
-    gap: 15px;
-    /* justify-content: space-around; */
-    background: rgba(0, 0, 0, 0.2);
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.profile-archive {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.profile-archive h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-dim);
-    flex: 0 0 auto;
-}
-
-.archive-table-wrapper {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    max-height: 300px;
-    /* Explicit limit to force scroll */
-    scrollbar-width: thin;
-    scrollbar-color: var(--wall) transparent;
-}
-
-#archiveTable {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-#archiveTable th,
-#archiveTable td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    font-size: 0.9rem;
-}
-
-#archiveTable th {
-    background: rgba(255, 255, 255, 0.05);
-    position: sticky;
-    top: 0;
-    backdrop-filter: blur(5px);
-    z-index: 1;
 }
 
 /* Hide wall templates near history on PC */

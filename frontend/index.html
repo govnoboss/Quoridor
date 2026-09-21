@@ -37,8 +37,8 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="/css/style.css?v=1.0.11" type="text/css" />
-  <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.12" type="text/css" />
+  <link rel="stylesheet" href="/css/auth.css?v=1.0.5" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.6" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
   <script src="/js/analytics.js?v=1.0.4"></script>
@@ -724,59 +724,6 @@
     </div>
   </div>
 
-  <div id="profileModal" class="modal-overlay hidden">
-    <div class="profile-modal-content">
-      <button class="close-panel-btn" onclick="UI.closeProfileModal()">×</button>
-
-      <div id="panelProfile">
-        <div class="profile-header">
-          <div class="profile-avatar-big" role="button" title="Загрузить аватар">
-            <img id="profileAvatarLarge" src="https://ui-avatars.com/api/?name=User&background=333&color=fff"
-              alt="Large Avatar">
-            <div class="avatar-edit-hint">📸</div>
-          </div>
-          <div class="profile-main-info">
-            <h2 id="profileUsername">Username</h2>
-            <div class="profile-status-wrapper">
-              <input type="text" id="profileStatusInput" placeholder="Введите статус..." maxlength="100"
-                onblur="UI.updateUserStatus()" onkeydown="if(event.key==='Enter') this.blur()" data-i18n="profile_status_placeholder">
-            </div>
-            <p class="join-date" data-i18n="profile_join_date">Регистрация: <span id="profileRegDate">--.--.----</span></p>
-          </div>
-          <button class="logout-btn-profile" onclick="UI.logout()" data-i18n="profile_logout">Выйти из системы</button>
-        </div>
-
-        <div class="profile-stats-grid">
-          <div class="rating-card">
-            <span class="rating-label" data-i18n="profile_rating">Rating</span>
-            <span class="rating-value" id="modalRating">1200</span>
-          </div>
-        </div>
-
-        <div class="profile-archive">
-          <h3 data-i18n="profile_archive_title">Архив партий</h3>
-          <div class="archive-table-wrapper">
-            <table id="archiveTable">
-              <thead>
-                <tr>
-                  <th data-i18n="th_type">Тип</th>
-                  <th data-i18n="th_players">Игроки</th>
-                  <th data-i18n="th_result">Результат</th>
-                  <th data-i18n="th_moves">Ходы</th>
-                  <th data-i18n="th_date">Дата</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="archiveBody">
-                <!-- Заполняется динамически -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   </div>
 
   <!-- Toasts Container -->
@@ -784,7 +731,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.12"></script>
+  <script src="/js/ui.js?v=1.0.13"></script>
   <script src="/js/net.js?v=1.0.6"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/ai.js?v=1.0.4"></script>

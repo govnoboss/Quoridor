@@ -4,12 +4,6 @@
     const App = window.Capacitor.Plugins.App;
 
     App.addListener('backButton', function () {
-        const profileModal = document.getElementById('profileModal');
-        if (profileModal && !profileModal.classList.contains('hidden')) {
-            UI.closeProfileModal();
-            return;
-        }
-
         const disconnectModal = document.getElementById('disconnectModal');
         if (disconnectModal && !disconnectModal.classList.contains('hidden')) {
             UI.hideDisconnectOverlay();
