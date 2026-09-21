@@ -739,14 +739,8 @@ const UI = {
     const isPanelOpen = dynamicPanel && !dynamicPanel.classList.contains('empty');
     const activeScreen = document.querySelector('.screen.active');
     const isMainMenu = activeScreen && activeScreen.id === 'mainMenu';
-    const isProfileModalOpen = document.getElementById('profileModal') && !document.getElementById('profileModal').classList.contains('hidden');
 
     const isMobile = window.innerWidth <= 768;
-
-    if (isProfileModalOpen) {
-      header.classList.add('hidden');
-      return;
-    }
 
     if (!isMainMenu) {
       header.classList.add('hidden');
@@ -2144,64 +2138,6 @@ UI.setPlayerFlag = function (country, elementId) {
   el.classList.remove('hidden');
 };
 
-UI.showProfile = async function () {
-  try {
-    const res = await fetch('/api/user/profile');
-    if (!res.ok) {
-      this.showToast(this.translate('toast_auth_required'), 'error');
-      return;
-    }
-    const user = await res.json();
-    if (user.error) throw new Error(user.error);
-
-    // Fill Header
-    document.getElementById('profileUsername').textContent = user.username;
-    document.getElementById('profileAvatarLarge').src = user.avatarUrl || 'https://ui-avatars.com/api/?name=' + user.username + '&background=333&color=fff';
-    document.getElementById('profileStatusInput').value = user.status || '';
-
-    const regDate = new Date(user.createdAt).toLocaleDateString();
-    document.getElementById('profileRegDate').textContent = regDate;
-
-    // Fil Ratings
-    const ratingEl = document.getElementById('modalRating');
-    if (ratingEl) ratingEl.textContent = user.rating || 1200;
-
-    // Load History
-    this.loadGameHistory();
-
-    // Open Modal
-    document.getElementById('profileModal').classList.remove('hidden');
-    // Call visibility update
-    this.updateHeaderVisibility();
-  } catch (err) {
-    console.error('[PROFILE ERROR]', err);
-    this.showToast(this.translate('toast_profile_load_error'), 'error');
-  }
-};
-
-UI.closeProfileModal = function () {
-  const modal = document.getElementById('profileModal');
-  if (modal) modal.classList.add('hidden');
-  // Call visibility update
-  UI.updateHeaderVisibility();
-};
-
-UI.updateUserStatus = async function () {
-  const status = document.getElementById('profileStatusInput').value;
-  try {
-    const res = await fetch('/api/user/update-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
-    });
-    if (res.ok) {
-      this.showToast(this.translate('toast_status_updated'), 'success');
-    }
-  } catch (err) {
-    console.error('[STATUS UPDATE ERROR]', err);
-  }
-};
-
 UI.startEditBio = function () {
   const form = document.getElementById('ppBioEditForm');
   const btn = document.getElementById('ppBioEditBtn');
@@ -2291,9 +2227,9 @@ UI.onAvatarFileSelected = async function (event) {
     return;
   }
   const preview = URL.createObjectURL(file);
-  const large = document.getElementById('profileAvatarLarge');
-  const prevSrc = large ? large.src : '';
-  if (large) large.src = preview;
+  const ppAvatar = document.getElementById('ppAvatar');
+  const prevSrc = ppAvatar ? ppAvatar.src : '';
+  if (ppAvatar) ppAvatar.src = preview;
 
   this.showToast(this.translate('toast_avatar_uploading'), 'info');
 
@@ -2303,132 +2239,21 @@ UI.onAvatarFileSelected = async function (event) {
     const res = await fetch('/api/user/upload-avatar', { method: 'POST', body: formData });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      if (large) large.src = prevSrc;
+      if (ppAvatar) ppAvatar.src = prevSrc;
       this.showToast(data.error || this.translate('toast_avatar_upload_failed'), 'error');
       return;
     }
     this.currentUser.avatarUrl = data.avatarUrl;
     const header = document.getElementById('headerAvatarImg');
     if (header) header.src = data.avatarUrl;
-    if (large) large.src = data.avatarUrl;
-    const pp = document.getElementById('ppAvatar');
-    if (pp && this.currentUser.username) pp.src = data.avatarUrl;
+    if (ppAvatar) ppAvatar.src = data.avatarUrl;
     this.showToast(this.translate('toast_avatar_updated'), 'success');
   } catch (err) {
     console.error('[AVATAR UPLOAD ERROR]', err);
-    if (large) large.src = prevSrc;
+    if (ppAvatar) ppAvatar.src = prevSrc;
     this.showToast(this.translate('toast_avatar_upload_failed'), 'error');
   } finally {
     URL.revokeObjectURL(preview);
-  }
-};
-
-UI.loadGameHistory = async function () {
-  try {
-    const res = await fetch('/api/user/history?limit=20&page=1');
-    const data = await res.json();
-    const games = data.games || data;
-    const tbody = document.getElementById('archiveBody');
-    tbody.innerHTML = '';
-
-    if (!games || games.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center">${UI.translate('pp_no_games')}</td></tr>`;
-      return;
-    }
-
-    this._modalHistoryPage = 1;
-
-    games.forEach(game => {
-      const isWhite = String(game.playerWhite.id) === String(this.currentUser._id);
-      const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
-
-      let resultText = UI.translate('pp_draw');
-      let resultClass = '';
-      if (game.winner !== -1) {
-        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
-        resultText = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
-        resultClass = iWon ? 'archive-result-win' : 'archive-result-loss';
-      }
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${game.gameType.toUpperCase()}</td>
-        <td>${this.currentUser.username} vs ${opponent}</td>
-        <td class="${resultClass}">${resultText}</td>
-        <td>${game.turns}</td>
-        <td>${new Date(game.date).toLocaleDateString()}</td>
-        <td><button class="mini-btn" onclick="UI.openReplayModal('${game._id}')">👁️</button></td>
-      `;
-      tbody.appendChild(row);
-    });
-
-    // Add "Load more" button for modal history
-    let loadMoreBtn = document.getElementById('modalLoadMoreBtn');
-    const hasMore = 1 * 20 < (data.total || games.length);
-    if (hasMore) {
-      if (!loadMoreBtn) {
-        loadMoreBtn = document.createElement('button');
-        loadMoreBtn.id = 'modalLoadMoreBtn';
-        loadMoreBtn.className = 'pp-load-more-btn';
-        loadMoreBtn.textContent = UI.translate('pp_load_more') || 'Load more';
-        tbody.parentElement.appendChild(loadMoreBtn);
-      }
-      loadMoreBtn.style.display = '';
-      loadMoreBtn.onclick = () => UI._loadMoreModalHistory();
-    } else if (loadMoreBtn) {
-      loadMoreBtn.style.display = 'none';
-    }
-  } catch (err) {
-    console.error('[HISTORY ERROR]', err);
-  }
-};
-
-UI._loadMoreModalHistory = async function () {
-  const page = (this._modalHistoryPage || 1) + 1;
-  try {
-    const res = await fetch(`/api/user/history?limit=20&page=${page}`);
-    const data = await res.json();
-    const games = data.games || data;
-    if (!games || games.length === 0) return;
-
-    const tbody = document.getElementById('archiveBody');
-    games.forEach(game => {
-      const isWhite = String(game.playerWhite.id) === String(this.currentUser._id);
-      const opponent = isWhite ? game.playerBlack.username : game.playerWhite.username;
-
-      let resultText = UI.translate('pp_draw');
-      let resultClass = '';
-      if (game.winner !== -1) {
-        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
-        resultText = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
-        resultClass = iWon ? 'archive-result-win' : 'archive-result-loss';
-      }
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${game.gameType.toUpperCase()}</td>
-        <td>${this.currentUser.username} vs ${opponent}</td>
-        <td class="${resultClass}">${resultText}</td>
-        <td>${game.turns}</td>
-        <td>${new Date(game.date).toLocaleDateString()}</td>
-        <td><button class="mini-btn" onclick="UI.openReplayModal('${game._id}')">👁️</button></td>
-      `;
-      tbody.appendChild(row);
-    });
-
-    this._modalHistoryPage = page;
-
-    const loadMoreBtn = document.getElementById('modalLoadMoreBtn');
-    const hasMore = page * 20 < (data.total || 0);
-    if (loadMoreBtn) {
-      if (hasMore) {
-        loadMoreBtn.onclick = () => UI._loadMoreModalHistory();
-      } else {
-        loadMoreBtn.style.display = 'none';
-      }
-    }
-  } catch (err) {
-    console.error('[MODAL HISTORY ERROR]', err);
   }
 };
 
@@ -3370,7 +3195,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close modals on Escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      UI.closeProfileModal();
       UI.hideDisconnectOverlay();
       UI.closeEmojiPicker();
       const notifDropdown = document.getElementById('notifDropdown');
