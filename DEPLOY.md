@@ -52,17 +52,18 @@ Quoridor/
 NODE_ENV=production
 PORT=3000
 
-# MongoDB: https://cloud.mongodb.com → Create cluster M0 → получить URI
-MONGO_URI=mongodb+srv://user:password@cluster0.xxxxx.mongodb.net/quoridor?retryWrites=true&w=majority
+# MongoDB: в проде по умолчанию используется локальный контейнер (mongo:7 из docker-compose.yml)
+# MONGO_URI задаётся автоматически как mongodb://mongo:27017/quoridor; внешний (Atlas) — только при явной переопределении
+MONGO_URI=mongodb://mongo:27017/quoridor
 
-# Redis: Upstash (https://upstash.com) → Create Redis DB → получить URL
-REDIS_URL=redis://default:password@xxxxx.upstash.io:6379
+# Redis: в проде задаётся docker-compose (redis://redis:6379); для локального запуска НЕ через compose:
+REDIS_URL=redis://localhost:6379
 
 # Session secret: openssl rand -hex 32
 SESSION_SECRET=your_random_secret_here
 
 # Разрешённые origin для CORS (через запятую)
-ALLOWED_ORIGINS=https://quoridor.yourdomain.com
+ALLOWED_ORIGINS=https://playquor.org
 ```
 
 ## 1. Настройка VPS (рекомендуется Hetzner CX22)
@@ -104,7 +105,7 @@ docker compose logs -f
 Создайте `/etc/caddy/Caddyfile`:
 
 ```
-quoridor.yourdomain.com {
+playquor.org {
     reverse_proxy localhost:3000
 }
 ```
@@ -136,5 +137,6 @@ docker stats                    # Загрузка CPU/RAM
 - Порт 3000 не нужно открывать в фаерволле — Caddy проксирует с 443 → 3000
 - Фаерволл: открыть только 22 (SSH), 80 (HTTP→HTTPS), 443 (HTTPS)
 - Фронтенд раздаётся статически через Express (папка `frontend/`)
-- Socket.IO хендлит до тысячи одновременных подключений на 1 vCPU
-- AI боты считаются на клиенте — сервер не нагружают
+- Аватары хранятся в volume `avatars_data` → `/app/avatars` (переживает пересборку контейнера)
+- Bot-соперники работают **на сервере** (`src/bots/` + `src/simulation/`): матчмейкинг-фолбэк, move-планирование через `AICore`, симуляция присутствия. Включение — через `BOTS_ENABLED`/`BOT_RANKED_ENABLED` (по умолчанию выключены)
+- Socket.IO хендлит тысячи одновременных подключений на 1 vCPU
