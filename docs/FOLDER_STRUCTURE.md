@@ -5,7 +5,7 @@ Complete layout of the repository.
 ```
 Quoridor/
 ├── src/                        # Backend (Node.js + Express + Socket.IO)
-│   ├── server.js               # Entry point (~3900 lines: REST + WebSocket + game orchestration)
+│   ├── server.js               # Entry point (~4100 lines: REST + WebSocket + game orchestration)
 │   ├── core/
 │   │   ├── shared.js           # Game engine (pure logic, mirrored to browser as /shared.js)
 │   │   └── ai-core.js          # Minimax AI (shared client/server, served as /js/ai-core.js)
@@ -15,11 +15,14 @@ Quoridor/
 │   ├── models/                 # Mongoose schemas
 │   │   ├── User.js  GameResult.js  Friendship.js  Notification.js
 │   │   ├── Report.js  UserReport.js  BotSettings.js  AdminLog.js
+│   │   ├── AnalyticsEvent.js  DailyPuzzle.js
+│   ├── puzzles/
+│   │   └── puzzleGenerator.js  # Daily puzzle extraction from finished games + fallback
 │   ├── bots/
 │   │   ├── BotManager.js       # Matchmaking fallback vs bots + move scheduling
 │   │   ├── BotPresenceManager.js  # Simulated presence/activity of bot accounts
 │   │   ├── defaultBots.js      # Seed data for bot accounts
-│   │   └── botSeed.js          # Seed helper for scripts/seed_bots.js
+│   │   └── botSeed.js          # Seed helper for account bots (kept for replay)
 │   ├── simulation/
 │   │   └── PopulationManager.js  # Syncs bot accounts into MongoDB (startup + admin seed)
 │   └── utils/
@@ -30,16 +33,17 @@ Quoridor/
 │   ├── index.html              # Game shell (matchmaking, room, game, profile SPA)
 │   ├── login.html register.html forgot-password.html reset-password.html
 │   ├── rules.html faq.html terms.html privacy.html report.html reports.html
-│   ├── leaderboard.html replay.html
+│   ├── leaderboard.html replay.html puzzle.html
 │   ├── admin.html admin-users.html admin-bots.html admin-reports.html
-│   │   admin-user-reports.html admin-logs.html
+│   │   admin-user-reports.html admin-logs.html admin-metrics.html
 │   ├── js/
 │   │   ├── ui.js               # All app screens + profile page + localization
 │   │   ├── net.js              # Socket.IO client
 │   │   ├── game.js board-renderer.js   # Canvas board + game loop
 │   │   ├── ai.js ai-worker.js  # Browser AI (Web Worker)
 │   │   ├── replay.js           # Replay viewer
-│   │   └── analytics.js        # Umami tracking helper
+│   │   ├── puzzle.js           # Daily puzzle viewer + solve flow
+│   │   └── analytics.js        # Product analytics tracker (deviceId/sessionId, batch queue)
 │   ├── css/                    # style.css auth.css auth-pages.css profile.css replay.css
 │   ├── img/emoji/              # Flag SVG assets (~275) rendered by ui.js
 │   ├── robots.txt sitemap.xml og-image.jpg
@@ -51,14 +55,14 @@ Quoridor/
 │   ├── game-logic.test.js      # Engine + Zobrist rules (shared.js)
 │   ├── zobrist.test.js         # Zobrist hashing/chessboard caching
 │   ├── ai-core.test.js         # AI engine (jest + standalone node run)
+│   ├── analytics.test.js       # /api/analytics/events ingestion + /api/admin/metrics
+│   ├── puzzle.test.js          # /api/puzzles/today + /api/puzzles/solve + streaks
 │   ├── load-test.js            # Manual load simulation (npm run load-test, not jest)
 │   └── helpers.js              # Shared test helpers
 │
 ├── scripts/                    # Ops CLIs (manual, not production entry points)
-│   ├── seed_bots.js            # npm run seed:bots — upsert ACCOUNT_BOTS via botSeed
-│   ├── cleanup_bots.js         # Delete all isBot users (server re-seeds on next boot)
-│   ├── check_redis.js          # Redis connectivity probe
-│   └── debug_redis_data.js     # Dump active games/queues content
+│   ├── generate_daily_puzzle.js # Create today's DailyPuzzle (cron-friendly)
+│   └── retention_report.js     # D1/D3/D7 cohort retention + funnel report
 │
 ├── __mocks__/redis.js          # Jest mock of the redis client
 ├── android/                    # Capacitor Android wrapper (appId com.playquor.app)

@@ -124,7 +124,27 @@ cd /opt/quoridor
 
 Скрипт делает `git pull`, пересобирает контейнер и перезапускает.
 
-## 5. Мониторинг
+## 5. Автоматические задачи (cron)
+
+Ежедневная головоломка создаётся по требованию (при первом запросе `/api/puzzles/today` в новый день), но
+можно предсоздать её заранее и зафиксировать отчёт по ретеншену:
+
+```bash
+sudo crontab -e -u root
+
+# Каждый день в 00:05 (UTC) готовит головоломку на новый день
+5 0 * * * cd /opt/quoridor && docker compose exec -T app node scripts/generate_daily_puzzle.js >> /var/log/quoridor-puzzle.log 2>&1
+# Каждый понедельник в 00:30 (UTC) — отчёт по когортам D1/D3/D7
+30 0 * * 1 cd /opt/quoridor && docker compose exec -T app node scripts/retention_report.js >> /var/log/quoridor-retention.log 2>&1
+```
+
+Проверить, что команда работает внутри контейнера (имя сервиса проверьте в `docker compose ps`):
+
+```bash
+docker compose exec app node scripts/retention_report.js
+```
+
+## 6. Мониторинг
 
 ```bash
 docker compose logs -f          # Логи приложения

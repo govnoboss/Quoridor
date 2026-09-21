@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Puzzle — Quoridor</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --accent: #f59e0b;
+            --ok: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .page { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .back-link { color: var(--muted); text-decoration: none; font-size: 14px; }
+        .back-link:hover { color: var(--accent); }
+        .title { font-size: 20px; font-weight: 700; color: var(--text); }
+        .body { display: flex; gap: 20px; flex-wrap: wrap; }
+        .board-area { flex: 1 1 640px; padding: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+        .board-wrap { position: relative; max-width: 1080px; margin: 0 auto; }
+        canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #16233b; cursor: pointer; }
+        .sidebar { flex: 0 1 320px; display: flex; flex-direction: column; gap: 12px; }
+        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+        .panel h2 { margin: 0 0 10px; font-size: 15px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+        .info-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
+        .info-row:last-child { border-bottom: none; }
+        .info-row .k { color: var(--muted); }
+        .info-row .v { font-weight: 700; }
+        .streak { color: var(--accent); font-weight: 700; font-size: 18px; }
+        .status {
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 44px;
+            color: var(--muted);
+        }
+        .status.ok { color: var(--ok); }
+        .status.err { color: var(--danger); }
+        .diff-easy { color: var(--ok); }
+        .diff-medium { color: var(--accent); }
+        .diff-hard { color: var(--danger); }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--text);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .btn:disabled { opacity: .45; cursor: default; }
+        .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+        @media (max-width: 900px) {
+            .body { flex-direction: column; }
+            .sidebar { flex: 1 1 auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="header">
+        <a class="back-link" href="/">&larr; Home</a>
+        <span class="title">Daily Puzzle</span>
+        <span class="back-link" id="dateLabel"></span>
+    </div>
+
+    <div class="body">
+        <div class="board-area">
+            <div class="board-wrap">
+                <canvas id="puzzleCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h2>Today's Puzzle</h2>
+                <div class="info-row"><span class="k">Difficulty</span><span class="v" id="difficultyLabel">-</span></div>
+                <div class="info-row"><span class="k">You play</span><span class="v" id="youPlay">-</span></div>
+                <div class="info-row"><span class="k">Goal</span><span class="v">Win in 1 move</span></div>
+                <div class="info-row"><span class="k">Streak</span><span class="v streak" id="streakLabel">-</span></div>
+                <div class="info-row"><span class="k">Solved total</span><span class="v" id="solvedLabel">-</span></div>
+            </div>
+
+            <div class="panel">
+                <h2>Status</h2>
+                <div class="status" id="statusText">Loading...</div>
+            </div>
+
+            <div class="panel">
+                <h2>How to play</h2>
+                <div class="hint">
+                    This position is taken from a real finished game. Your side is one move away
+                    from winning. Tap / click the highlighted cell to move your pawn to the goal row.
+                    You can only move your own pawn; walls are already settled.
+                </div>
+            </div>
+
+            <div class="panel">
+                <button class="btn" id="resetBtn" onclick="togglePerspective()">Flip board &updownarrow;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/analytics.js?v=1.1.0"></script>
+<script src="/shared.js?v=1.0.4"></script>
+<script src="/js/board-renderer.js?v=1.0.4"></script>
+<script src="/js/puzzle.js?v=1.0.0"></script>
+<script>
+    window.addEventListener('DOMContentLoaded', function () { Puzzle.init(); });
+</script>
+</body>
+</html>

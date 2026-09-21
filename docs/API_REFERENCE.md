@@ -15,9 +15,9 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/login` `/register` `/forgot-password` `/reset-password` | auth pages |
 | GET | `/rules` `/how-to-play` (301 → `/rules`) `/faq` | info pages |
 | GET | `/terms` `/privacy` `/report` `/profile/reports` | user pages |
-| GET | `/leaderboard` `/replay/:id` `/lobby/:lobbyCode` `/profiles/:username` | content pages |
+| GET | `/leaderboard` `/replay/:id` `/puzzle` `/lobby/:lobbyCode` `/profiles/:username` | content pages |
 | GET | `/avatars/*` | avatar files (`avatars/<userId>.webp`, immutable); missing file → 301 to placeholder |
-| GET | `/admin` `/admin/users` `/admin/user-reports` `/admin/reports` `/admin/logs` `/admin/bots` | admin pages (`requireAdmin`) |
+| GET | `/admin` `/admin/users` `/admin/user-reports` `/admin/reports` `/admin/logs` `/admin/bots` `/admin/metrics` | admin pages (`requireAdmin`) |
 
 ## Auth
 
@@ -82,6 +82,24 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/api/my/reports` | own reports |
 | POST | `/api/user-reports` | complain about a player (rate-limited) |
 
+## Analytics
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/analytics/events` | batch events `{ events: [...] }` (≤ 20), rate-limited (60/min). Accepted names come from the server whitelist (e.g. `session-start`, `app-loaded`, `game-started`, `puzzle-viewed`, `puzzle-solved`, `admin-metrics-viewed`); unknown names are dropped, oversized `props` are cleared. `userId` is taken from the session automatically |
+| GET | `/api/admin/metrics` | `?days=1..30` (default 7, `requireAdmin`): aggregates events by name, per day (`$dateToString`), active users, `puzzle-solved` / `puzzle-viewed` totals |
+
+Dashboard: `GET /admin/metrics` (admin page). CLI: `node scripts/retention_report.js` (D1/D3/D7 cohorts + funnel).
+
+## Daily Puzzle
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/puzzles/today` | today's puzzle (auto-created on first request of the day; fallback if no finished games yet). Public fields: `date`, `difficulty`, `result`, `winner`, `solutionLength`, `moves`; plus `streak`, `puzzlesSolved`, `solvedToday` when logged in |
+| POST | `/api/puzzles/solve` | `{ move: { type: 'pawn', r, c } }`, rate-limited (30/min). Verifies the pawn reaches the goal row in one move. On success for logged users: updates `puzzleStreak`/`puzzlesSolved` (once per day) and records a `puzzle-solved` AnalyticsEvent |
+
+Generation: `src/puzzles/puzzleGenerator.js` extracts "win in 1 move" positions from finished games; `node scripts/generate_daily_puzzle.js` pre-creates today's puzzle (for cron).
+
 ## Admin (`requireAdmin`)
 
 ### Bots
@@ -99,7 +117,7 @@ Redis store); protected routes return `401` when there is no session.
 - `DELETE /api/admin/users/:id/avatar` · `PATCH /api/admin/users/:id/role`
 
 ### Meta
-- `GET /api/admin/stats` · `GET /api/admin/logs`
+- `GET /api/admin/stats` · `GET /api/admin/logs` · `GET /api/admin/metrics`
 
 ## Environment Variables
 
