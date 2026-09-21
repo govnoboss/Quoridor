@@ -54,7 +54,6 @@ const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
 const BotSettings = require('./models/BotSettings');
 const BotPresenceManager = require('./bots/BotPresenceManager');
-const GameSimulator = require('./simulation/GameSimulator');
 const { syncBotPopulation } = require('./simulation/PopulationManager');
 
 const bcrypt = require('bcryptjs');
@@ -533,8 +532,6 @@ app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
 
         bot.username = username;
         await bot.save();
-
-        if (gameSimulator) await gameSimulator.refreshBotNames();
 
         res.json({ success: true, username });
     } catch (err) {
@@ -2356,7 +2353,6 @@ const botManager = new BotManager({
 
 let botActivitySchedule = null;
 let botPresenceManager = null;
-let gameSimulator = null;
 
 async function collectPresenceStats() {
     const gameIds = await Redis.getActiveGameIds();
@@ -3885,7 +3881,6 @@ async function startServer() {
 process.on('SIGTERM', async () => {
     console.log('[SHUTDOWN] Received SIGTERM, shutting down gracefully...');
     if (botPresenceManager) botPresenceManager.stop();
-    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
@@ -3894,7 +3889,6 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
     console.log('[SHUTDOWN] Received SIGINT, shutting down gracefully...');
     if (botPresenceManager) botPresenceManager.stop();
-    if (gameSimulator) gameSimulator.stop();
     await Redis.disconnect();
     await sessionRedisClient.quit();
     process.exit(0);
