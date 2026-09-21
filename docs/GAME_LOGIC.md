@@ -8,6 +8,7 @@ Quoridor is a strategic board game. This document explains the implementation of
 - **Walls**: Horizontal and vertical walls, each spanning 2 cells.
 
 ## State Object Structure
+Core fields:
 ```javascript
 {
   hWalls: Array(8).fill(Array(8).fill(false)), // Horizontal walls
@@ -21,6 +22,22 @@ Quoridor is a strategic board game. This document explains the implementation of
   history: [] // Move sequence
 }
 ```
+
+Runtime fields added by `createInitialState` (`src/core/shared.js`) when a game starts:
+```javascript
+{
+  playerSockets: [socketId, socketId], // server-side (not mirrored to clients)
+  playerTokens:  [token, token],       // server-side
+  playerProfiles: [{ name, username, ... }, { ... }],
+  timeControl: { base: 600, inc: 0 },  // per-second increment supported
+  isRanked: false,
+  increment: 0,                        // seconds added per move
+  lastMoveTimestamp: 0,
+  disconnectTimer: null
+}
+```
+Timers count down on the server; the browser renders `timerUpdate` events. Timeout handling
+lives in `src/server.js` (`handleTurnTimeout` → loser is the player who ran out).
 
 ## Core Mechanics
 
@@ -38,7 +55,7 @@ Quoridor is a strategic board game. This document explains the implementation of
 ### 3. Victory Conditions
 - White wins: Reaches Row 0.
 - Black wins: Reaches Row 8.
-- Timeout: Current player's timer reaches 0.
+- Timeout: Current player's timer reaches 0 (handled server-side).
 
 ## Implementation Details
 

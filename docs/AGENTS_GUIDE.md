@@ -1,39 +1,65 @@
 # AI Agents Guide: Quoridor
 
-This document is specifically for AI agents working on this project. It provides context on where to find information and how to safely modify the codebase.
+Navigation and safe-modification guide for AI agents working on this codebase. Also useful
+for humans: it maps goals to files and documents the invariants you must not break.
 
-## Navigation Map for Agents
+## Navigation Map
 
-| Goal | Primary Files to Consult |
+| Goal | Primary files to consult |
 | :--- | :--- |
-| **Fixing game rules / moves** | `src/core/shared.js`, `tests/tests.js` |
-| **Tweaking the Bot (AI)** | `frontend/js/ai-worker.js` (logic), `frontend/js/ai.js` (interface) |
-| **Modifying UI / Visuals** | `frontend/js/ui.js` (logic), `frontend/js/game.js` (canvas), `frontend/css/style.css` |
-| **Changing Matchmaking / Networking** | `src/server.js` (Socket.IO events), `frontend/js/net.js` (client events) |
-| **Database / DB Schema changes** | `src/models/`, `src/storage/` |
+| **Fix game rules / moves** | `src/core/shared.js`, `tests/game-logic.test.js` |
+| **Tweak the bot (AI)** | `src/core/ai-core.js` (engine, mirrored to browser), `frontend/js/ai.js` + `frontend/js/ai-worker.js` (browser execution), `src/bots/BotManager.js` (server-side bot play)* |
+| **Modify UI / visuals** | `frontend/js/ui.js` (logic/screens), `frontend/js/game.js` + `frontend/js/board-renderer.js` (canvas), `frontend/css/*.css`, `frontend/index.html` |
+| **Matchmaking / networking** | `src/server.js` (socket handlers), `frontend/js/net.js` (client), [WS_PROTOCOL.md](WS_PROTOCOL.md) |
+| **REST API changes** | `src/server.js` (routes), `frontend/js/net.js` (fetch calls), [API_REFERENCE.md](API_REFERENCE.md) |
+| **DB / schema changes** | `src/models/`, `src/storage/`, `scripts/debug_redis_data.js` |
+| **Tests** | Add/extend `tests/*.test.js`; suites run with `npx jest --runInBand` |
 
-## Modifying the Code (Safe Practices)
+> \* `BotManager` is enabled by env (`BOTS_ENABLED`, `BOT_RANKED_ENABLED`, …) and pairs
+> players with bot opponents when queues are empty. Browser AI (`ai.js`/`ai-worker.js`) is
+> for local play only.
 
-### 1. The "Shared Mirror" Rule
-`src/core/shared.js` is included in both the server and the frontend. 
-- **DO NOT** use Node.js-specific modules (like `fs`, `path`) or browser-specific objects (like `window`, `document`) inside this file.
-- **ALWAYS** update `tests/tests.js` if you change any game logic in `shared.js`.
+## Safe-Practice Rules
 
-### 2. State Immutability
-The game uses a reducer pattern. 
-- When implementing new actions, ensure you work with a cloned state.
-- Use `Shared.cloneState(state)` to create a deep copy before making changes.
+### 1. The "Shared Mirror" rule
+`src/core/shared.js` (game engine) and `src/core/ai-core.js` run **on both the server and in
+the browser** (served as `/shared.js` and `/js/ai-core.js`).
+- **DO NOT** use Node-only modules (`fs`, `path`, `process`) or browser-only objects
+  (`window`, `document`) in these files.
+- **ALWAYS** extend `tests/game-logic.test.js` when you change the engine.
 
-### 3. Real-time Synchronization
-The server acts as the final validator.
-- If you add a new event, ensure it is handled in both `src/server.js` and `frontend/js/net.js`.
-- Errors on the server should be sent back to the client via `socket.emit('error', ...)` or a specific rejection event.
+### 2. State immutability
+The game engine uses a reducer pattern.
+- Work on a cloned state: `Shared.cloneState(state)`.
+- `gameReducer` must never throw unhandled exceptions — return validation errors instead
+  (the server surfaces them as `moveRejected`).
 
-### 4. Bot Performance
-The bot logic (`ai-worker.js`) runs in a separate thread.
-- If you increase the minimax depth, monitor performance to avoid blocking the user's browser, though the worker helps prevent this.
+### 3. Real-time sync
+The server is the final validator, clients only suggest moves.
+- A new event must be handled on both `src/server.js` and `frontend/js/net.js` (client),
+  and documented in [WS_PROTOCOL.md](WS_PROTOCOL.md).
+- Rejections use event-specific channels (`findGameFailed`, `joinRoomFailed`,
+  `moveRejected`, `rematchFailed`, `inviteFailed`, …), not a generic `error`.
 
-## Common Pitfalls to Avoid
-- **Hardcoding Paths**: Always use relative paths or the `path` module on the server.
-- **Breaking Reducer**: The `gameReducer` must never throw unhandled exceptions; wrap validation in `try-catch` where necessary and provide helpful error messages.
-- **Ignoring Tests**: Running `npm test` is non-negotiable after any engine change.
+### 4. Storage caveats
+- `src/storage/redis.js` falls back to an **in-memory store** when Redis is down — state won't
+  survive restarts and won't be shared across processes. Don't rely on this in production.
+- Tests run without Redis (mock `__mocks__/redis.js`) and without Mongo
+  (`mongodb-memory-server` in `tests/server-api.test.js`). Keep tests dependency-free of
+  running services.
+
+### 5. Session & auth
+- Auth is `express-session` + Redis store, **not** JWT. `jsonwebtoken` is an unused import —
+  do not start using it for auth without a clear plan.
+- Session cookie is `Secure` in production: HTTP requests from `http://localhost` won't carry
+  it. Smoke-test authenticated flows over HTTPS.
+- Settings/appearance strings in `ui.js` are localized (RU/EN); keep translations in sync.
+
+## Common Pitfalls
+- **Hardcoding paths**: always relative or via `path` in server code.
+- **Breaking the mirror**: adding a Node API call inside `shared.js` breaks the browser copy.
+- **Greenfield side-effects in the engine**: keep `shared.js` pure; orchestration belongs in
+  `server.js`.
+- **Skipping tests**: run `npx jest --runInBand` after any engine/server change.
+- **Static file versions**: if you change CSS/JS served to clients, bump the `?v=` version in
+  the referencing HTML so users get the update.

@@ -24,7 +24,7 @@ POST /api/auth/login 200 45ms
 GET /api/leaderboard 304 2ms
 ```
 
-Подключён в `src/server.js` как `app.use(morgan('dev'))`.
+Подключён в `src/server.js` как `app.use(morgan('dev'))` (кроме режима `NODE_ENV === 'test'`).
 
 ---
 
@@ -145,15 +145,21 @@ module.exports = {
     testEnvironment: 'node',
     testMatch: ['**/tests/**/*.test.js'],
     verbose: true,
+    testTimeout: 60000,
 };
 ```
 
-### Тестовые файлы:
+### Тестовые файлы (все запускаются без внешних сервисов):
 
-- `tests/game-logic.test.js` — тесты игровой логики
-- `tests/ai-core.test.js` — тесты AI движка
-- `tests/zobrist.test.js` — тесты Zobrist hashing
-- `tests/load-test.js` — нагрузочное тестирование (не jest)
+- `tests/server-ws.test.js` — Socket.IO интеграция (матчмейкинг, комнаты, ходы, реванши)
+- `tests/server-api.test.js` — HTTP API интеграция (auth, профиль, аватары, админ; Mongo через `mongodb-memory-server`)
+- `tests/lobby-access.test.js` — права доступа к лобби/комнатам
+- `tests/game-logic.test.js` — игровая логика `shared.js`
+- `tests/zobrist.test.js` — Zobrist hashing
+- `tests/ai-core.test.js` — AI движок (jest, а также `npm run test:ai` для одиночного прогона)
+- `tests/load-test.js` — нагрузочное тестирование (`npm run load-test`, не jest)
+
+Redis в тестах мокается через `__mocks__/redis.js`.
 
 ---
 
