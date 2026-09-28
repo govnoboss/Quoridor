@@ -3668,14 +3668,21 @@ async function acquireGameLock(lobbyId) {
 
 // Новый асинхронный хендлер для завершения игры (Disconnect Timeout)
 async function handleDisconnectTimeout(lobbyId) {
-    console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
     const locked = await acquireGameLock(lobbyId);
     if (!locked) return;
 
     try {
         const game = await Redis.getGame(lobbyId);
-        if (!game || game.finished === true) return;
+        if (!game || game.finished === true) {
+            // Stale-таймер: игра уже удалена/не существует или завершена.
+            // Очищаем мусор из ZSET, иначе пульс будет дёргать это лобби каждую секунду.
+            await Redis.clearDisconnectTimer(lobbyId);
+            await Redis.clearTurnTimeout(lobbyId);
+            if (!game) await Redis.removeActiveGame(lobbyId);
+            return;
+        }
 
+        console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
         const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
         const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
 
@@ -3716,13 +3723,20 @@ async function handleTurnTimeout(lobbyId) {
             return;
         }
 
-        if (game.finished === true) return;
+        if (game.finished === true) {
+            await Redis.clearTurnTimeout(lobbyId);
+            await Redis.clearDisconnectTimer(lobbyId);
+            return;
+        }
 
         // Перепроверяем дедлайн по авторитетным часам в игре, чтобы отсечь
         // ложные срабатывания: ZSET-дедлайн мог протухнуть (пауза на дисконнект,
         // конкуренция с ходом), хотя по таймерам время ещё не истекло.
         const deadline = game.lastMoveTimestamp + game.timers[game.currentPlayer] * 1000;
         if (Date.now() < deadline) {
+            // Само-починка: записываем актуальный дедлайн в ZSET, чтобы пульс
+            // не дёргал этот лобби повторно по протухшему значению.
+            await Redis.setTurnTimeout(lobbyId, deadline);
             console.log(`[TIMEOUT] Лобби ${lobbyId}: дедлайн не истёк (stale ZSET), пропускаем.`);
             return;
         }
