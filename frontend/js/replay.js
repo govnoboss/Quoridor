@@ -98,6 +98,8 @@ function loadLocalGame(gameId) {
 }
 
 function getBaseTime() {
+  var tc = gameData?.timeControl;
+  if (tc && typeof tc.base === 'number') return tc.base;
   var t = gameData?.gameType;
   if (t === 'bullet') return 120;
   if (t === 'blitz') return 420;

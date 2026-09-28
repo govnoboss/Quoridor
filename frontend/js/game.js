@@ -397,7 +397,8 @@ const Game = {
     this.myPlayerIndex = 0; // Default to white perspective
 
     // Create initial state
-    this.state = Shared.createInitialState({ base: 600 }, gameData.isRanked || false);
+    const replayBase = gameData.timeControl?.base || 600;
+    this.state = Shared.createInitialState({ base: replayBase }, gameData.isRanked || false);
     this.state.history = [];
     this._initialSnapshot = Shared.cloneState(this.state);
     this.state.playerProfiles = [
@@ -423,7 +424,7 @@ const Game = {
     }
 
     // Set static timers (don't tick in replay)
-    this.timers = [600, 600];
+    this.timers = [replayBase, replayBase];
 
     // Update UI
     UI.showScreen('gameScreen');

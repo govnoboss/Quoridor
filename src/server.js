@@ -2473,6 +2473,11 @@ async function applyGameMove({ lobbyId, token, move, rejectSocket = null }) {
             return false;
         }
 
+        if (game.finished === true) {
+            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Game already finished' });
+            return false;
+        }
+
         const playerIdx = game.playerTokens.indexOf(token);
         if (playerIdx === -1) {
             if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Unauthorized' });
@@ -3285,6 +3290,8 @@ io.on('connection', (socket) => {
             const game = await Redis.getGame(lobbyId);
 
             if (game) {
+                if (game.finished === true) return;
+
                 const surrenderingIdx = game.playerTokens.indexOf(socket.playerToken);
 
                 if (surrenderingIdx !== -1) {
@@ -3647,11 +3654,28 @@ io.on('connection', (socket) => {
     });
 });
 
+async function acquireGameLock(lobbyId) {
+    let attempts = 0;
+    let locked = false;
+    while (attempts < 10) {
+        locked = await Redis.acquireLock(lobbyId);
+        if (locked) break;
+        attempts++;
+        await sleep(50);
+    }
+    return locked;
+}
+
 // Новый асинхронный хендлер для завершения игры (Disconnect Timeout)
 async function handleDisconnectTimeout(lobbyId) {
     console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
-    const game = await Redis.getGame(lobbyId);
-    if (game) {
+    const locked = await acquireGameLock(lobbyId);
+    if (!locked) return;
+
+    try {
+        const game = await Redis.getGame(lobbyId);
+        if (!game || game.finished === true) return;
+
         const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
         const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
 
@@ -3670,25 +3694,45 @@ async function handleDisconnectTimeout(lobbyId) {
             await Redis.clearDisconnectTimer(lobbyId);
             await Redis.clearTurnTimeout(lobbyId);
         }
+    } finally {
+        await Redis.releaseLock(lobbyId);
     }
 }
 
 // Новый асинхронный хендлер для завершения игры (Turn Timeout)
 async function handleTurnTimeout(lobbyId) {
-    console.log(`[TIMEOUT] Лобби ${lobbyId}: Время истекло.`);
-    const game = await Redis.getGame(lobbyId);
+    const locked = await acquireGameLock(lobbyId);
+    if (!locked) return;
 
-    if (!game) {
-        // Game data expired or missing - cleanup stale references
-        await Redis.removeActiveGame(lobbyId);
-        await Redis.clearTurnTimeout(lobbyId);
-        await Redis.clearDisconnectTimer(lobbyId);
-        console.log(`[TIMEOUT] Cleaned stale lobby ${lobbyId}`);
-        return;
+    try {
+        const game = await Redis.getGame(lobbyId);
+
+        if (!game) {
+            // Game data expired or missing - cleanup stale references
+            await Redis.removeActiveGame(lobbyId);
+            await Redis.clearTurnTimeout(lobbyId);
+            await Redis.clearDisconnectTimer(lobbyId);
+            console.log(`[TIMEOUT] Cleaned stale lobby ${lobbyId}`);
+            return;
+        }
+
+        if (game.finished === true) return;
+
+        // Перепроверяем дедлайн по авторитетным часам в игре, чтобы отсечь
+        // ложные срабатывания: ZSET-дедлайн мог протухнуть (пауза на дисконнект,
+        // конкуренция с ходом), хотя по таймерам время ещё не истекло.
+        const deadline = game.lastMoveTimestamp + game.timers[game.currentPlayer] * 1000;
+        if (Date.now() < deadline) {
+            console.log(`[TIMEOUT] Лобби ${lobbyId}: дедлайн не истёк (stale ZSET), пропускаем.`);
+            return;
+        }
+
+        console.log(`[TIMEOUT] Лобби ${lobbyId}: Время истекло.`);
+        const winnerIdx = 1 - game.currentPlayer;
+        await finalizeGame(lobbyId, winnerIdx, 'Time out');
+    } finally {
+        await Redis.releaseLock(lobbyId);
     }
-
-    const winnerIdx = 1 - game.currentPlayer;
-    await finalizeGame(lobbyId, winnerIdx, 'Time out');
 }
 
 // --- ARCHIVE HELPER ---
@@ -3785,6 +3829,7 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
 
         const result = new GameResult({
             gameType,
+            timeControl: game.timeControl || { base: 600, inc: 0 },
             lobbyId,
             isRanked: !!game.isRanked,
             playerWhite,
@@ -3814,62 +3859,68 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
 async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     const game = stateOverride || await Redis.getGame(lobbyId);
 
-    if (game) {
-        botManager.cancelGame(lobbyId);
+    if (!game || game.finished === true) return;
 
-        // Clear timers immediately
-        await Redis.clearDisconnectTimer(lobbyId);
-        await Redis.clearTurnTimeout(lobbyId);
+    // Идемпотентность: помечаем игру завершённой ДО долгих операций (архивация в БД),
+    // чтобы конкурентный таймаут/дисконнект/двойной ход не заархивировал игру повторно
+    // и не пересчитал рейтинг дважды (с разными победителями), обнуляя начисленные очки.
+    game.finished = true;
+    await Redis.saveGame(lobbyId, game);
 
-        // Archive and Calc Ratings
-        const resultData = await archiveGame(game, winnerIdx, reason, lobbyId);
+    botManager.cancelGame(lobbyId);
 
-        const winnerName = winnerIdx === -1 ? 'Draw' : (winnerIdx === 0 ? 'White' : 'Black');
-        console.log(`[GAME END] ${lobbyId}: Winner=${winnerName}, Reason=${reason}`);
+    // Clear timers immediately
+    await Redis.clearDisconnectTimer(lobbyId);
+    await Redis.clearTurnTimeout(lobbyId);
 
-        io.to(lobbyId).emit('gameOver', {
-            winnerIdx: winnerIdx,
-            reason: reason,
-            gameResultId: resultData?.gameResultId || null,
-            hasBot: !!game.hasBot,
-            ratingChanges: (resultData && game.isRanked) ? {
-                playerWhite: resultData.white.ratingChange,
-                playerBlack: resultData.black.ratingChange,
-                newRatingWhite: resultData.white.newRating,
-                newRatingBlack: resultData.black.newRating
-            } : null
-        });
+    // Archive and Calc Ratings
+    const resultData = await archiveGame(game, winnerIdx, reason, lobbyId);
 
-        // Save rematch context before deleting game data
-        const rematchCtx = {
-            playerTokens: game.playerTokens,
-            playerSockets: game.playerSockets,
-            playerProfiles: game.playerProfiles,
-            playerUserIds: game.playerSockets.map((sid) => {
-                const s = sid && io.sockets.sockets.get(sid);
-                return s && s.userId ? String(s.userId) : null;
-            }),
-            timeControl: game.timeControl || { base: 600, inc: 0 },
-            isRanked: !!game.isRanked,
-            hasBot: !!game.hasBot,
-            pending: [],
-            declined: [],
-            expiresAt: null
-        };
-        await Redis.saveRematchContext(lobbyId, rematchCtx);
+    const winnerName = winnerIdx === -1 ? 'Draw' : (winnerIdx === 0 ? 'White' : 'Black');
+    console.log(`[GAME END] ${lobbyId}: Winner=${winnerName}, Reason=${reason}`);
 
-        // Сохраняем завершённую игру для реплея (TTL 5 мин)
-        await Redis.saveFinishedGame(lobbyId, game);
+    io.to(lobbyId).emit('gameOver', {
+        winnerIdx: winnerIdx,
+        reason: reason,
+        gameResultId: resultData?.gameResultId || null,
+        hasBot: !!game.hasBot,
+        ratingChanges: (resultData && game.isRanked) ? {
+            playerWhite: resultData.white.ratingChange,
+            playerBlack: resultData.black.ratingChange,
+            newRatingWhite: resultData.white.newRating,
+            newRatingBlack: resultData.black.newRating
+        } : null
+    });
 
-        await Redis.deleteGame(lobbyId);
-        await Redis.removeActiveGame(lobbyId);
-        await clearPlayersLobbyLinkByToken(game.playerTokens);
-        if (game.hasBot && game.playerTokens?.[game.botPlayerIdx]) {
-            await Redis.deleteTokenUserMapping(game.playerTokens[game.botPlayerIdx]);
-        }
+    // Save rematch context before deleting game data
+    const rematchCtx = {
+        playerTokens: game.playerTokens,
+        playerSockets: game.playerSockets,
+        playerProfiles: game.playerProfiles,
+        playerUserIds: game.playerSockets.map((sid) => {
+            const s = sid && io.sockets.sockets.get(sid);
+            return s && s.userId ? String(s.userId) : null;
+        }),
+        timeControl: game.timeControl || { base: 600, inc: 0 },
+        isRanked: !!game.isRanked,
+        hasBot: !!game.hasBot,
+        pending: [],
+        declined: [],
+        expiresAt: null
+    };
+    await Redis.saveRematchContext(lobbyId, rematchCtx);
 
-        schedulePresenceBroadcast();
+    // Сохраняем завершённую игру для реплея (TTL 5 мин)
+    await Redis.saveFinishedGame(lobbyId, game);
+
+    await Redis.deleteGame(lobbyId);
+    await Redis.removeActiveGame(lobbyId);
+    await clearPlayersLobbyLinkByToken(game.playerTokens);
+    if (game.hasBot && game.playerTokens?.[game.botPlayerIdx]) {
+        await Redis.deleteTokenUserMapping(game.playerTokens[game.botPlayerIdx]);
     }
+
+    schedulePresenceBroadcast();
 }
 
 
