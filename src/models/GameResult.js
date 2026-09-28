@@ -5,6 +5,16 @@ const gameResultSchema = new mongoose.Schema({
         type: String, // 'bullet', 'blitz', 'rapid', 'friend', 'bot'
         required: true
     },
+    timeControl: {
+        base: {
+            type: Number,
+            default: 600
+        },
+        inc: {
+            type: Number,
+            default: 0
+        }
+    },
     playerWhite: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         username: String,
