@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Играть в Коридор онлайн — бесплатная стратегическая игра на двоих | PlayQuor</title>
+  <meta name="description" content="Играйте в Коридор (Quoridor) онлайн бесплатно. Стратегическая игра для двух игроков: проведите фишку на противоположную сторону, ставьте стены и перехитрите соперника. Без загрузки — прямо в браузере." />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="canonical" href="https://playquor.org/ru/" />
+  <link rel="alternate" hreflang="en" href="https://playquor.org/" />
+  <link rel="alternate" hreflang="ru" href="https://playquor.org/ru/" />
+  <link rel="alternate" hreflang="x-default" href="https://playquor.org/" />
+  <meta property="og:title" content="Играть в Коридор онлайн — бесплатная стратегия на двоих" />
+  <meta property="og:description" content="Играйте в Коридор онлайн бесплатно. Стратегическая игра для двух игроков — с друзьями и соперниками. Без загрузки." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://playquor.org/ru/" />
+  <meta property="og:image" content="https://playquor.org/og-image.jpg" />
+  <meta property="og:site_name" content="Коридор" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Quoridor",
+    "alternateName": ["Коридор", "PlayQuor"],
+    "url": "https://playquor.org/ru/",
+    "inLanguage": "ru",
+    "description": "Играйте в Коридор (Quoridor) онлайн бесплатно. Стратегическая игра для двух игроков.",
+    "sameAs": [
+      "https://www.youtube.com/@playquoridor",
+      "https://discord.gg/fbDtxcyg6B"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Quoridor",
+    "alternateName": ["Коридор", "PlayQuor"],
+    "url": "https://playquor.org/ru/",
+    "applicationCategory": "Game",
+    "operatingSystem": "All",
+    "description": "Играйте в Коридор онлайн бесплатно. Стратегическая игра для двух игроков.",
+    "inLanguage": ["ru", "en"],
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+  <style>
+    :root { color-scheme: dark; --bg:#0f172a; --panel:#1e293b; --muted:#94a3b8; --text:#e2e8f0; --accent:#f59e0b; --border:#334155; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(15,23,42,.95); z-index:10; }
+    .logo { font-size:20px; font-weight:800; letter-spacing:1px; color:var(--accent); text-decoration:none; }
+    .nav a { color:var(--muted); text-decoration:none; margin-left:18px; font-size:14px; }
+    .nav a:hover { color:var(--text); }
+    .nav .btn { background:var(--accent); color:#0f172a; padding:8px 16px; border-radius:8px; font-weight:700; }
+    .hero { text-align:center; padding:70px 24px 30px; max-width:820px; margin:0 auto; }
+    .hero h1 { font-size:42px; line-height:1.15; margin:0 0 18px; }
+    .hero .lead { font-size:18px; color:var(--muted); max-width:640px; margin:0 auto 30px; }
+    .lang a { color:var(--muted); text-decoration:none; font-size:13px; margin-left:8px; }
+    .lang a.active { color:var(--accent); font-weight:700; }
+    .cta { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+    .cta a { text-decoration:none; padding:14px 28px; border-radius:10px; font-weight:700; font-size:16px; }
+    .cta .primary { background:var(--accent); color:#0f172a; }
+    .cta .ghost { border:1px solid var(--border); color:var(--text); }
+    .section { max-width:880px; margin:0 auto; padding:40px 24px; }
+    .section h2 { font-size:26px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:20px; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px; }
+    .card h3 { margin:0 0 8px; font-size:17px; color:var(--accent); }
+    .card p { margin:0; font-size:14px; color:var(--muted); }
+    ol.steps { margin:20px 0; padding-left:22px; }
+    ol.steps li { margin-bottom:10px; }
+    .link { color:var(--accent); }
+    .footer { border-top:1px solid var(--border); padding:26px 24px; text-align:center; font-size:13px; color:var(--muted); }
+    .footer .row { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-bottom:12px; }
+    .footer a { color:var(--muted); text-decoration:none; }
+    .footer a:hover { color:var(--text); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="logo" href="/ru/">КОРИДОР</a>
+    <nav class="nav">
+      <a href="/play">Играть</a>
+      <a href="/rules">Правила</a>
+      <a href="/faq">FAQ</a>
+      <a href="/leaderboard">Лидерборд</a>
+      <a href="/login" class="btn">Войти</a>
+      <span class="lang"><a href="/">EN</a><a href="/ru/" class="active">RU</a></span>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Играть в Коридор онлайн</h1>
+      <p class="lead">Классическая стратегия для двоих. Проведите свою фишку на противоположную сторону доски, ставьте стены, чтобы блокировать соперника, — и победите за счёт тактики. Бесплатно, без загрузки, прямо в браузере.</p>
+      <div class="cta">
+        <a class="primary" href="/play">Играть онлайн</a>
+        <a class="ghost" href="/rules">Правила игры</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Что такое Коридор?</h2>
+      <p>Коридор (Quoridor) — абстрактная стратегия для <strong>двух игроков</strong> на доске 9&times;9. У каждого игрока одна фишка и десять стен. Цель — первым добраться до любого поля на противоположной стороне доски. За ход вы либо двигаете фишку, либо ставите стену, но полностью перекрыть путь нельзя — поэтому выигрывает не везение, а план.</p>
+      <div class="cards">
+        <div class="card"><h3>Игра с другом</h3><p>Создайте комнату и пригласите друга по ссылке. Регистрация не нужна.</p></div>
+        <div class="card"><h3>Онлайн по рейтингу</h3><p>Подбирайтесь с соперниками вашего уровня, зарабатывайте рейтинг и поднимайтесь в таблице.</p></div>
+        <div class="card"><h3>Тренировка с ботом</h3><p>Отрабатывайте тактику против ИИ-соперника в любое время.</p></div>
+        <div class="card"><h3>Ежедневная головоломка</h3><p>Каждый день новая задача — тренируйте стратегию.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Как играть за 30 секунд</h2>
+      <ol class="steps">
+        <li>Ваша фишка стартует снизу, цель — противоположная сторона.</li>
+        <li>Каждый ход: <strong>передвиньте фишку на одно поле</strong> или <strong>поставьте одну стену</strong> (всего их 10).</li>
+        <li>Через фишку соперника можно перепрыгнуть, если поле за ней свободно.</li>
+        <li>Нельзя полностью перекрывать путь к цели — оставляйте проход.</li>
+        <li>Кто первым дошёл до противоположной стороны, тот и выиграл.</li>
+      </ol>
+      <p><a class="link" href="/rules">Полные правила с примерами &rarr;</a> &nbsp; <a class="link" href="/faq">Ответы на вопросы &rarr;</a></p>
+    </section>
+
+    <section class="section">
+      <h2>Начните играть прямо сейчас</h2>
+      <p>Это займёт секунды: откройте игру, выберите режим и вперёд. Смотрите лучших игроков и свой прогресс на <a class="link" href="/leaderboard">лидерборде</a>, а также пробуйте сегодняшнюю <a class="link" href="/puzzle">головоломку</a>.</p>
+      <div class="cta" style="margin-top:22px">
+        <a class="primary" href="/play">Играть онлайн</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="row">
+      <a href="/rules">Правила</a>
+      <a href="/faq">FAQ</a>
+      <a href="/leaderboard">Лидерборд</a>
+      <a href="/puzzle">Головоломка</a>
+      <a href="/terms">Условия</a>
+      <a href="/privacy">Конфиденциальность</a>
+    </div>
+    <div class="row">
+      <a href="https://www.youtube.com/@playquoridor" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://discord.gg/fbDtxcyg6B" target="_blank" rel="noopener">Discord</a>
+    </div>
+    <div>&copy; Коридор онлайн (PlayQuor)</div>
+  </footer>
+</body>
+</html>
