@@ -1336,8 +1336,8 @@ app.use(cors({
     credentials: true
 }));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Serve static files (disable auto index.html so the / landing route wins)
+app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
 app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
