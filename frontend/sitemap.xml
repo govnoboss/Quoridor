@@ -6,29 +6,14 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://playquor.org/ru/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://playquor.org/rules</loc>
+    <loc>https://playquor.org/login</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://playquor.org/faq</loc>
+    <loc>https://playquor.org/register</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://playquor.org/leaderboard</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://playquor.org/puzzle</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://playquor.org/terms</loc>
@@ -39,5 +24,15 @@
     <loc>https://playquor.org/privacy</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://playquor.org/rules</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://playquor.org/faq</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

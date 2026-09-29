@@ -1816,7 +1816,7 @@ UI.logout = async function () {
   this.updateAuthUI();
   this.showToast(this.translate('toast_logged_out'), 'info');
   this.backToMenu();
-  window.location.href = '/play';
+  window.location.href = '/';
 };
 
 UI.deleteAccount = function () {
@@ -1837,7 +1837,7 @@ UI.deleteAccount = function () {
         if (data.error) {
           alert(data.error);
         } else {
-          window.location.href = '/play';
+          window.location.href = '/';
         }
       } catch (err) {
         alert('Error deleting account');
@@ -2023,7 +2023,7 @@ UI.showBannedNotice = function (reason, expires) {
   logoutBtn.onclick = async () => {
     overlay.remove();
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-    window.location.href = '/play';
+    window.location.href = '/';
   };
 
   card.appendChild(logoutBtn);
@@ -2048,7 +2048,7 @@ UI.updateAuthUI = function () {
   const usernameEl = document.getElementById('headerUsername');
   const avatarImg = document.getElementById('headerAvatarImg');
   const notifBell = document.getElementById('notificationBell');
-  let adminLink = document.getElementById('headerAdminLink');
+  const adminLink = document.getElementById('headerAdminLink');
 
   if (this.currentUser) {
     if (headerAuth) headerAuth.classList.add('hidden');
@@ -2058,21 +2058,9 @@ UI.updateAuthUI = function () {
       avatarImg.src = this.currentUser.avatarUrl;
     }
     if (notifBell) notifBell.classList.remove('hidden');
-    if (this.currentUser.isAdmin) {
-      if (!adminLink) {
-        adminLink = document.createElement('a');
-        adminLink.id = 'headerAdminLink';
-        adminLink.href = '/admin';
-        adminLink.className = 'h-btn h-btn-ghost';
-        adminLink.style.marginLeft = '8px';
-        adminLink.textContent = UI.translate('header_admin') || 'Admin';
-        const right = document.querySelector('.header-right');
-        if (right) right.appendChild(adminLink);
-      } else {
-        adminLink.classList.remove('hidden');
-      }
-    } else if (adminLink) {
-      adminLink.classList.add('hidden');
+    if (adminLink) {
+      if (this.currentUser.isAdmin) adminLink.classList.remove('hidden');
+      else adminLink.classList.add('hidden');
     }
     this.loadNotificationsFromServer();
   } else {
@@ -3005,12 +2993,12 @@ UI.updateLobbyRoute = function (lobbyCode, replace = false) {
 
 UI.clearLobbyRoute = function () {
   if (window.location.pathname.startsWith('/lobby/')) {
-    window.history.pushState({ screen: 'menu' }, '', '/play');
+    window.history.pushState({ screen: 'menu' }, '', '/');
   }
 };
 
 UI.redirectToActiveLobbyIfNeeded = async function () {
-  if (window.location.pathname !== '/' && window.location.pathname !== '/play') return false;
+  if (window.location.pathname !== '/') return false;
   const token = localStorage.getItem('quoridor_token');
   try {
     const headers = token ? { 'x-player-token': token } : {};
