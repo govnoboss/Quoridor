@@ -3,7 +3,7 @@
   "appName": "Quoridor",
   "webDir": "frontend",
   "server": {
-    "url": "https://playquor.org/play",
+    "url": "https://playquor.org",
     "allowNavigation": ["playquor.org", "62.238.36.105"]
   },
   "plugins": {

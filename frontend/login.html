@@ -2,7 +2,6 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
-    <meta name="robots" content="noindex,nofollow" />
     <title>Sign In — Quoridor</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
@@ -197,7 +196,7 @@
             }).then(function(resp) {
                 if (resp.status === 200) {
                     trackEvent('login-complete');
-                    window.location.href = '/play';
+                    window.location.href = '/';
                 } else {
                     showFieldError('loginUsername', d.error_invalid);
                     showFieldError('loginPassword', '');

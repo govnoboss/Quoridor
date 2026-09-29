@@ -1,8 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /play
-Disallow: /profile$
-Disallow: /profile/
 
 Sitemap: https://playquor.org/sitemap.xml
