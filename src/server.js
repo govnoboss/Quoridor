@@ -1361,8 +1361,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/landing.html'));
 });
 app.get('/en', (req, res) => res.redirect(301, '/'));
-app.get('/ru', (req, res) => res.redirect(301, '/ru/'));
-app.get('/ru/', (req, res) => res.sendFile(path.join(__dirname, '../frontend/landing-ru.html')));
+app.get('/ru', (req, res) => {
+    if (req.path !== '/ru/') return res.redirect(301, '/ru/');
+    res.sendFile(path.join(__dirname, '../frontend/landing-ru.html'));
+});
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
 // Standalone pages (not SPA)
