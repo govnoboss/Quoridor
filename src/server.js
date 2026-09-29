@@ -702,15 +702,54 @@ app.get('/api/games/:id', async (req, res) => {
     }
 });
 
-// SPA Fallback for Profiles
-app.get('/profiles/:username', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+// SPA Fallback for Profiles — server-side meta injection for SEO
+let _indexHtmlCache = null;
+function loadIndexHtml() {
+    if (_indexHtmlCache === null) {
+        _indexHtmlCache = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+    }
+    return _indexHtmlCache;
+}
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+app.get('/profiles/:username', async (req, res) => {
+    const { username } = req.params;
+    try {
+        const user = await User.findOne({ username }).select('username rating isBot stats');
+        let html = loadIndexHtml();
+        if (user && !user.isBot) {
+            const rating = user.rating || 1200;
+            const wins = (user.stats && user.stats.wins) || 0;
+            const losses = (user.stats && user.stats.losses) || 0;
+            const safeName = escapeHtml(username);
+            const canonical = 'https://playquor.org/profiles/' + encodeURIComponent(username);
+            const title = safeName + ' — Quoridor Profile | Rating ' + rating;
+            const desc = 'Quoridor profile of ' + safeName + ': rating ' + rating + ', ' + wins + ' wins, ' + losses + ' losses. View stats, game history and rating chart.';
+            html = html
+                .replace('<meta name="robots" content="noindex,nofollow" />', '<meta name="robots" content="index,follow" />')
+                .replace('<title>Quoridor Online — Free Strategy Board Game</title>', '<title>' + title + '</title>')
+                .replace('<meta name="description" content="Play Quoridor online for free — a strategy board game for 2 players. Place walls, outsmart your opponent and reach the opposite side. No download required." />', '<meta name="description" content="' + desc + '" />')
+                .replace('<meta property="og:title" content="Quoridor Online — Free Strategy Board Game" />', '<meta property="og:title" content="' + title + '" />')
+                .replace('<meta property="og:description" content="Play Quoridor online for free. A strategy board game for 2 players with friends and rivals." />', '<meta property="og:description" content="' + desc + '" />')
+                .replace('<meta property="og:url" content="https://playquor.org" />', '<meta property="og:url" content="' + canonical + '" />')
+                .replace('<link rel="canonical" href="https://playquor.org" />', '<link rel="canonical" href="' + canonical + '" />');
+        }
+        res.send(html);
+    } catch (err) {
+        console.error('[PROFILE PAGE] Error:', err);
+        res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    }
 });
 
 app.get('/lobby/:lobbyCode', (req, res) => {
     const { lobbyCode } = req.params;
     if (!Shared.isValidLobbyId((lobbyCode || '').toUpperCase())) {
-        return res.redirect('/');
+        return res.redirect('/play');
     }
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
@@ -1309,6 +1348,21 @@ app.use('/avatars', express.static(AVATARS_DIR, { maxAge: '365d', immutable: tru
 app.use('/avatars', (req, res) => {
     res.redirect(301, 'https://ui-avatars.com/api/?name=&background=333&color=fff');
 });
+
+// Landing pages (static HTML for crawlers) and the game app
+app.get('/', (req, res) => {
+    // Keep old invite/replay links alive after the app moved to /play
+    if (req.query.room) {
+        return res.redirect('/play?room=' + encodeURIComponent(String(req.query.room)));
+    }
+    if (req.query.replay) {
+        return res.redirect('/play?replay=true');
+    }
+    res.sendFile(path.join(__dirname, '../frontend/landing.html'));
+});
+app.get('/en', (req, res) => res.redirect(301, '/'));
+app.get('/ru', (req, res) => res.sendFile(path.join(__dirname, '../frontend/landing-ru.html')));
+app.get('/play', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
 // Standalone pages (not SPA)
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '../frontend/login.html')));

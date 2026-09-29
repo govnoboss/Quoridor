@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
+    <meta name="robots" content="noindex,nofollow" />
     <title>Create account — Quoridor</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
@@ -268,7 +269,7 @@
             }).then(function(resp) {
                 if (resp.status === 201) {
                     trackEvent('register-complete');
-                    window.location.href = '/';
+                    window.location.href = '/play';
                 } else {
                     if (resp.data.error === 'Username taken') showFieldError('regUsername', d.error_username_taken);
                     else if (resp.data.error === 'Email already in use') showFieldError('regEmail', d.error_email_taken);
