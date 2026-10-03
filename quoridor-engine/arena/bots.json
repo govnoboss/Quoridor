@@ -1,0 +1,11 @@
+{
+  "v0-random": { "engine": "v0", "difficulty": "easy", "easyRandomP": 1.0 },
+  "v0-easy":   { "engine": "v0", "difficulty": "easy" },
+  "v0-medium": { "engine": "v0", "difficulty": "medium" },
+  "v0-hard":   { "engine": "v0", "difficulty": "hard" },
+
+  "v1-easy":   { "engine": "v1", "difficulty": "hard", "maxDepth": 2 },
+  "v1-medium": { "engine": "v1", "difficulty": "hard", "maxDepth": 3 },
+  "v1-hard":   { "engine": "v1", "difficulty": "hard", "maxDepth": 4 },
+  "v1-expert": { "engine": "v1", "difficulty": "hard", "maxDepth": 5 }
+}

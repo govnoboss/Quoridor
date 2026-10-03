@@ -1,0 +1,5 @@
+{
+  "_comment": "Экспериментальные боты. Не путать с bots.json. Проверяем v2 (netGain >= 0, MAX_WALL_MOVES 16) против v1 на одинаковом бюджете узлов.",
+  "v1-d5": { "engine": "v1", "difficulty": "hard", "maxDepth": 5 },
+  "v2-d5": { "engine": "v2", "difficulty": "hard", "maxDepth": 5 }
+}

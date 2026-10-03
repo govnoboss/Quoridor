@@ -8,6 +8,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const Sentry = require('@sentry/node');
 const Shared = require('./core/shared.js');
+const { RULES_FILE } = require('../quoridor-engine/rules/paths');
 const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
@@ -118,9 +119,12 @@ app.use(globalLimiter);
 app.get('/js/ai-core.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'core', 'ai-core.js'));
 });
-// Also serve shared.js if not served otherwise (backup)
+// Also serve shared.js if not served otherwise (backup).
+// NOTE: the canonical rules live in quoridor-engine/rules/quoridor-rules.js (same file for Node and
+// the browser). src/core/shared.js is only a Node re-export of it, so the browser must be pointed at
+// the canonical file, not at the shim.
 app.get('/shared.js', (req, res) => {
-    res.sendFile(path.join(__dirname, 'core', 'shared.js'));
+    res.sendFile(RULES_FILE);
 });
 
 // --- COUNTRY DETECTION HELPERS ---
@@ -1299,7 +1303,7 @@ app.use(cors({
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../frontend')));
-app.use('/shared.js', express.static(path.join(__dirname, 'core/shared.js')));
+app.use('/shared.js', express.static(RULES_FILE));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
 

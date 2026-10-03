@@ -1,0 +1,20 @@
+{
+  "name": "quoridor-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quoridor engine workbench: canonical rules, versioned engines, arena, perft and tuning tools. No Mongo/Redis/Socket.IO.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "jest --rootDir .. quoridor-engine/tests",
+    "perft": "node tools/perft.js",
+    "perft:assert": "node tools/perft.js --depth 3 --assert && node tools/perft.js --pawns --depth 7 --assert && node tools/perft.js --rules ./rules/reference.js --depth 3 --assert",
+    "bench": "node tools/bench.js",
+    "probe": "node arena/src/cli.js match --adapter ./arena/adapters/quoridor.js --bots ./arena/bots.json --a v0-hard --b v0-medium --games 40 --nodes 10000 --threads 4 --no-moves",
+    "match": "node arena/src/cli.js match --adapter ./arena/adapters/quoridor.js --bots ./arena/bots.json --a v0-hard --b v0-medium --games 2000 --nodes 10000 --sprt 0,5 --threads 4 --out arena/results/v0-hard-vs-v0-medium.jsonl",
+    "rr": "node arena/src/cli.js roundrobin --adapter ./arena/adapters/quoridor.js --bots ./arena/bots.json --games 200 --nodes 10000 --threads 4 --anchor v0-medium",
+    "arena:selftest": "node arena/src/cli.js match --adapter ./arena/adapters/toy.js --bots ./arena/bots.toy.json --a smart --b random --games 200 --threads 2 --sprt 0,20 --out arena/results/selftest.jsonl"
+  },
+  "dependencies": {}
+}
