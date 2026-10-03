@@ -1,0 +1,5 @@
+{
+  "random": { "pSmart": 0.0 },
+  "weak":   { "pSmart": 0.5 },
+  "smart":  { "pSmart": 0.9 }
+}

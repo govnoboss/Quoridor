@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Арена — проверка версий ботов</title>
+<style>
+    :root {
+        color-scheme: dark;
+        --bg: #0f172a; --panel: #1e293b; --muted: #94a3b8; --text: #e2e8f0;
+        --accent: #f59e0b; --ok: #22c55e; --danger: #ef4444; --border: #334155; --info: #3b82f6;
+    }
+    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .container { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .panel h3 { margin: 0 0 12px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    select, input, button { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; font-size: 13px; font-family: inherit; width: 100%; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); }
+    .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .row > div { flex: 1 1 130px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button { width: auto; cursor: pointer; }
+    .tabs button.active { border-color: var(--accent); color: var(--accent); }
+    button.primary { background: var(--accent); color: #1e293b; border-color: var(--accent); font-weight: 700; cursor: pointer; width: auto; padding: 8px 18px; }
+    button.primary:disabled { opacity: .5; cursor: not-allowed; }
+    button.ghost { width: auto; cursor: pointer; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .card .n { font-size: 24px; font-weight: 700; }
+    .card .l { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .accent .n { color: var(--accent); } .ok .n { color: var(--ok); } .info .n { color: var(--info); } .bad .n { color: var(--danger); }
+    .bar-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; height: 16px; overflow: hidden; }
+    .bar { height: 100%; background: var(--accent); transition: width .3s; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .verdict { padding: 12px 14px; border-radius: 8px; font-weight: 700; margin-bottom: 14px; }
+    .v-H1 { background: rgba(34,197,94,.15); color: var(--ok); border: 1px solid var(--ok); }
+    .v-H0 { background: rgba(239,68,68,.15); color: var(--danger); border: 1px solid var(--danger); }
+    .v-else { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+    .warn { background: rgba(239,68,68,.12); border: 1px solid var(--danger); color: #fca5a5; border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; }
+    .note { background: rgba(59,130,246,.1); border: 1px solid var(--info); color: #bfdbfe; border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .grow { flex: 1; }
+    .scroll { max-height: 320px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Арена</h1>
+    <div class="sub">Сравнение версий движка. Считает в <span id="cores">-</span> потоков(ах), по одному матчу за раз.</div>
+
+    <div class="tabs">
+        <button class="active" onclick="setMode('match')">Матч A против B</button>
+        <button onclick="setMode('roundrobin')">Round-robin</button>
+    </div>
+
+    <div class="panel" id="cfg">
+        <h3>Параметры</h3>
+
+        <div id="matchFields">
+            <div class="row">
+                <div><label>Бот A (новый)</label><select id="botA"></select></div>
+                <div><label>Бот B (база)</label><select id="botB"></select></div>
+                <div><label>Партий</label><input id="games" type="number" value="200" min="2" max="20000" step="2"></div>
+            </div>
+        </div>
+
+        <div id="rrFields" style="display:none">
+            <div class="row">
+                <div><label>Партий на пару</label><input id="rrGames" type="number" value="100" min="2" max="20000" step="2"></div>
+                <div><label>Якорь рейтинга (Elo = 0)</label><select id="anchor"></select></div>
+            </div>
+            <label style="margin-top:12px">Боты (отметьте, кого включить)</label>
+            <div id="botsList" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"></div>
+        </div>
+
+        <div class="row" style="margin-top:14px">
+            <div><label>Лимит</label>
+                <select id="limitType" onchange="syncLimit()">
+                    <option value="nodes">Узлы (--nodes)</option>
+                    <option value="time">Время (--movetime)</option>
+                    <option value="depth">Глубина (--depth)</option>
+                </select>
+            </div>
+            <div id="limNodes"><label>Узлов на ход</label><input id="nodes" type="number" value="10000" min="100" step="100"></div>
+            <div id="limTime" style="display:none"><label>Мс на ход</label><input id="movetime" type="number" value="100" min="1"></div>
+            <div id="limDepth" style="display:none"><label>Глубина</label><input id="depth" type="number" value="4" min="1" max="20"></div>
+            <div><label>Потоки</label><input id="threads" type="number" min="1" value="4"></div>
+            <div><label>Сид</label><input id="seed" type="number" value="1"></div>
+        </div>
+
+        <div class="row" style="margin-top:12px">
+            <div><label>Дебют, полуходов</label><input id="openingPlies" type="number" value="4" min="0" max="16"></div>
+            <div><label>Макс. полуходов</label><input id="maxPlies" type="number" value="300" min="20" max="2000"></div>
+            <div><label>Повтор (0 = выкл)</label><input id="repetitionDraw" type="number" value="3" min="0" max="20"></div>
+            <div class="grow"><label>Имя лога (необязательно)</label><input id="saveLog" placeholder="v1-vs-v0"></div>
+        </div>
+
+        <div id="sprtBlock" style="margin-top:12px">
+            <label style="display:inline"> <input type="checkbox" id="useSprt" style="width:auto;margin-right:6px" onchange="syncSprt()"> SPRT — принять версию, только если она лучше на</label>
+            <input id="sprtElo" type="number" value="5" style="width:70px;display:inline-block;margin:0 4px"> Elo
+            <span class="muted">(порог Elo; 0 — против текущей базы)</span>
+        </div>
+
+        <div class="row" style="margin-top:16px">
+            <button class="primary" id="go" onclick="start()">Запустить</button>
+            <button class="ghost" id="kill" onclick="stop()" style="display:none">Отменить</button>
+            <span class="muted" id="queueInfo"></span>
+        </div>
+    </div>
+
+    <div id="live"></div>
+
+    <div class="panel" id="logsPanel">
+        <h3>Логи партий</h3>
+        <div id="logs" class="muted">нет файлов</div>
+    </div>
+</div>
+
+<script>
+let BOTS = [], MODE = 'match', jobId = null, poll = null, cancelled = false;
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fx = (x, d = 1) => (x === null || x === undefined || Number.isNaN(x)) ? '-' : (+x).toFixed(d);
+
+async function init() {
+    const r = await fetch('/api/bots');
+    const d = await r.json();
+    BOTS = d.names;
+    el('cores').textContent = d.cpus;
+    el('threads').value = d.defaultThreads;
+    el('threads').max = d.cpus;
+    const opts = BOTS.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    el('botA').innerHTML = opts; el('botB').innerHTML = opts;
+    if (BOTS.length > 1) { el('botA').selectedIndex = 0; el('botB').selectedIndex = 1; }
+    el('anchor').innerHTML = `<option value="">без якоря (среднее = 0)</option>` + BOTS.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    el('botsList').innerHTML = BOTS.map((n) => `<label style="display:flex;gap:6px;align-items:center;margin:0">
+        <input type="checkbox" checked style="width:auto" id="rb_${esc(n)}"> <span class="mono">${esc(n)}</span></label>`).join('');
+    loadLogs();
+}
+
+function setMode(m) {
+    MODE = m;
+    document.querySelectorAll('.tabs button').forEach((b, i) => b.classList.toggle('active', (i === 0) === (m === 'match')));
+    el('matchFields').style.display = m === 'match' ? '' : 'none';
+    el('rrFields').style.display = m === 'match' ? 'none' : '';
+    el('sprtBlock').style.display = m === 'match' ? '' : 'none';
+    el('live').innerHTML = '';
+}
+
+function syncLimit() {
+    const t = el('limitType').value;
+    el('limNodes').style.display = t === 'nodes' ? '' : 'none';
+    el('limTime').style.display = t === 'time' ? '' : 'none';
+    el('limDepth').style.display = t === 'depth' ? '' : 'none';
+}
+function syncSprt() { el('sprtElo').disabled = !el('useSprt').checked; }
+
+async function start() {
+    if (jobId) return;
+    const body = {
+        mode: MODE, games: +el('games').value || 200, limitType: el('limitType').value,
+        nodes: +el('nodes').value, movetime: +el('movetime').value, depth: +el('depth').value,
+        threads: +el('threads').value, seed: +el('seed').value,
+        openingPlies: +el('openingPlies').value, maxPlies: +el('maxPlies').value,
+        repetitionDraw: +el('repetitionDraw').value,
+        saveLog: el('saveLog').value.trim(),
+    };
+    if (MODE === 'match') {
+        body.a = el('botA').value; body.b = el('botB').value;
+        if (body.a === body.b && !confirm('A и B — один и тот же бот (self-play). Продолжить?')) return;
+        if (el('useSprt').checked) body.sprt = { elo0: 0, elo1: +el('sprtElo').value || 5 };
+    } else {
+        body.games = +el('rrGames').value || 100;
+        body.names = BOTS.filter((n) => el('rb_' + n).checked);
+        body.anchor = el('anchor').value || null;
+        if (body.names.length < 2) { alert('Отметьте минимум двух ботов.'); return; }
+    }
+    cancelled = false;
+    const r = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.error) { alert(d.error); return; }
+    jobId = d.id;
+    el('go').disabled = true; el('kill').style.display = '';
+    el('queueInfo').textContent = 'в очереди: ' + d.queued;
+    renderStart(body);
+    poll = setInterval(tick, 400);
+}
+async function stop() {
+    if (!jobId) return;
+    el('kill').disabled = true;
+    // Сервер дорабатывает уже запущенные партии и не берёт новых: честная отмена стоит времени
+    // на завершение текущих игр, зато не оставляет процессора на полную.
+    await fetch('/api/job/' + jobId + '/cancel', { method: 'POST' });
+    el('prog').textContent = 'останавливаю… текущие партии доигрываются';
+}
+function renderStart(b) {
+    const title = MODE === 'match' ? `${b.a} против ${b.b}` : `round-robin: ${b.names.join(', ')}`;
+    el('live').innerHTML = `<div class="panel"><h3>${esc(title)}</h3>
+        <div class="bar-wrap"><div class="bar" id="bar" style="width:0%"></div></div>
+        <div class="muted" id="prog" style="margin-top:8px">старт…</div>
+        <div id="out"></div></div>`;
+}
+
+async function tick() {
+    if (!jobId) return;
+    const r = await fetch('/api/job/' + jobId);
+    if (!r.ok) return;
+    const j = await r.json();
+    el('queueInfo').textContent = 'в очереди: ' + j.queue;
+    const p = j.progress;
+    if (p) {
+        if (p.phase === 'roundrobin') {
+            el('bar').style.width = (100 * p.pair / p.totalPairs) + '%';
+            el('prog').textContent = `пара ${p.pair}/${p.totalPairs}: ${p.a} vs ${p.b}`;
+            el('out').innerHTML = pairsTable(p.rows);
+        } else {
+            const pct = 100 * p.done / p.games;
+            el('bar').style.width = pct + '%';
+            const loopPct = p.done ? (100 * p.loops / p.done) : 0;
+            el('prog').innerHTML = `${p.done}/${p.games} (${pct.toFixed(0)}%) &nbsp; +${p.w} =${p.d} -${p.l}
+                &nbsp; Elo <b>${fx(p.elo)}</b>${p.llr !== null && p.llr !== undefined ? ` &nbsp; LLR ${fx(p.llr, 2)}` : ''}
+                &nbsp; петли ${p.loops} (${loopPct.toFixed(0)}%)`;
+        }
+    }
+    if (j.status === 'done' || j.status === 'error' || j.status === 'cancelled') finish(j);
+}
+
+function pairsTable(rows) {
+    let h = '<table style="margin-top:12px"><tr><th>A</th><th>B</th><th>+</th><th>=</th><th>-</th><th>Elo</th><th>петли</th></tr>';
+    for (const r of rows) h += `<tr><td class="mono">${esc(r.a)}</td><td class="mono">${esc(r.b)}</td>
+        <td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${fx(r.elo)}</td>
+        <td>${(100 * r.loopShare).toFixed(0)}%</td></tr>`;
+    return h + '</table>';
+}
+
+function wasCancelled(j) { return j.status === 'cancelled' || !!(j.result && j.result.cancelled); }
+
+function verdictOf(j) {
+    if (!j.result || !j.result.sprt) return null;
+    const s = j.result.sprt;
+    if (s.verdict === 'H1') return { cls: 'v-H1', text: `ПРИНЯТЬ: версия лучше базы (LLR ${fx(s.llr, 2)})` };
+    if (s.verdict === 'H0') return { cls: 'v-H0', text: `ОТКЛОНИТЬ: разницы нет или хуже (LLR ${fx(s.llr, 2)})` };
+    return { cls: 'v-else', text: `НЕОДНОЗНАЧНО: нужны ещё партии (LLR ${fx(s.llr, 2)}, границы ${fx(s.bounds.lower, 2)}…${fx(s.bounds.upper, 2)})` };
+}
+
+function finish(j) {
+    clearInterval(poll); poll = null;
+    el('go').disabled = false; el('kill').style.display = 'none'; el('kill').disabled = false;
+    if (j.status === 'error') {
+        el('out').innerHTML = `<div class="warn">Ошибка: ${esc(j.error)}</div>`;
+        jobId = null; return;
+    }
+    const r = j.result, s = r.stats, L = r.loops;
+    let h = '';
+    if (j.status === 'cancelled' && !r) {
+        el('out').innerHTML = '<div class="warn">Матч отменён до старта — ни одной партии не сыграно, результата нет.</div>';
+        jobId = null; return;
+    }
+    const wasCancel = wasCancelled(j);
+    if (wasCancel) h += `<div class="warn">Остановлено на ${r.gamesPlayed} из ${r.gamesPlanned} партий. Результат ниже — НЕ вердикт:
+        выборка меньше запланированной, и чем меньше она сыграна, тем шире доверительный интервал. Раньте доверия не будет.</div>`;
+    const v = verdictOf(j);
+    if (v && wasCancel) h = h.replace('class="verdict ' + v.cls + '"', 'class="verdict v-else"').replace(v.text, 'ВЕРДИКТ НЕ ВЫНЕСЕН: матч остановлен раньше, чем SPRT набрал нужную выборку');
+    if (v) h += `<div class="verdict ${v.cls}" style="margin-top:12px">${esc(v.text)}</div>`;
+    if (L.share > 0.2) h += `<div class="warn" style="margin-top:12px">Петли: ${(L.share * 100).toFixed(1)}% партий. Это больше 20% — score измеряет в основном
+        скорость застревания, а не силу. Сначала чините петли, потом мерите разницу версий.</div>`;
+    h += `<div class="cards" style="margin-top:14px">
+        <div class="card info"><div class="n">${s.n}</div><div class="l">партий</div></div>
+        <div class="card ok"><div class="n">+${r.w}</div><div class="l">победы A</div></div>
+        <div class="card"><div class="n">=${r.d}</div><div class="l">ничьи</div></div>
+        <div class="card bad"><div class="n">-${r.l}</div><div class="l">поражения</div></div>
+        <div class="card accent"><div class="n">${fx(s.score * 100)}%</div><div class="l">score A</div></div>
+        <div class="card accent"><div class="n">${fx(s.elo)}</div><div class="l">Elo [${fx(s.eloLo)}, ${fx(s.eloHi)}]</div></div>
+        <div class="card"><div class="n">${(s.los * 100).toFixed(1)}%</div><div class="l">LOS</div></div>
+        <div class="card ${L.share > 0.2 ? 'bad' : 'ok'}"><div class="n">${(L.share * 100).toFixed(1)}%</div><div class="l">петли</div></div>
+    </div>`;
+    h += `<div class="muted">Причины: ${JSON.stringify(r.reasons)}`;
+    if (L.medianFirstPly !== null) h += ` &nbsp;|&nbsp; петля начинается с полухода ~${L.medianFirstPly}, медианная длина ${L.medianLength}`;
+    h += `</div>`;
+    if (MODE === 'roundrobin' && r.table) {
+        h += '<table style="margin-top:14px"><tr><th>#</th><th>бот</th><th>Elo</th></tr>';
+        r.table.forEach((row, i) => { h += `<tr><td>${i + 1}</td><td class="mono">${esc(row.name)}</td><td>${row.elo.toFixed(0)}</td></tr>`; });
+        h += '</table>';
+    }
+    h += `<div class="note" style="margin-top:14px">Интервал Elo считается по партиям как независимым, хотя пары 2k/2k+1
+        играют один дебют. Реальный интервал уже, так что решение принимается медленнее, а не быстрее —
+        это консервативно и безопасно. Доверие к «+5 Elo» появится только при узлах, не по времени.</div>`;
+    if (j.outFile) h += `<div class="muted" style="margin-top:8px">Лог: arena/results/${esc(j.outFile)} (${j.games} строк, ходы не сохранены)</div>`;
+    el('out').innerHTML = h;
+    el('bar').style.width = '100%';
+    jobId = null;
+    loadLogs();
+}
+
+async function loadLogs() {
+    const r = await fetch('/api/logs');
+    const d = await r.json();
+    if (!d.files.length) { el('logs').innerHTML = 'нет файлов'; return; }
+    let h = '<table><tr><th>файл</th><th>партий</th><th>размер</th><th>изменён</th><th></th></tr>';
+    for (const f of d.files.slice(0, 12)) {
+        h += `<tr><td class="mono">${esc(f.name)}</td><td>${f.games}</td><td>${(f.size / 1024).toFixed(0)} КБ</td>
+            <td>${new Date(f.mtime).toLocaleString('ru-RU')}</td>
+            <td><button class="ghost" onclick="showLog('${esc(f.name)}')">смотреть</button></td></tr>`;
+    }
+    el('logs').innerHTML = h + '</table><div id="logBody"></div>';
+}
+async function showLog(name) {
+    const r = await fetch('/api/log?name=' + encodeURIComponent(name));
+    const d = await r.json();
+    if (d.error) { alert(d.error); return; }
+    let h = `<div class="scroll" style="margin-top:12px"><table><tr><th>#</th><th>A</th><th>score</th><th>пол.</th><th>причина</th><th>петля</th></tr>`;
+    for (const [i, g] of d.lines.entries()) {
+        h += `<tr><td>${d.lines.length - i}</td><td class="mono">${esc(g.a)}</td><td>${g.aScore}</td><td>${g.plies}</td>
+            <td>${esc(String(g.reason).split(':')[0])}</td><td>${g.loopStartPly !== undefined ? 'с ' + g.loopStartPly : '-'}</td></tr>`;
+    }
+    el('logBody').innerHTML = h + '</table></div>';
+}
+syncLimit(); syncSprt(); init();
+</script>
+</body>
+</html>
