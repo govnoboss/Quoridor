@@ -20,10 +20,20 @@
  *      last move rather than the cell it left, which is the wrong cell. The server engine
  *      (src/core/ai-core.js) has the identical fallback, so this is not an arena artifact.
  *
- * So the fix is not a bigger penalty and not negamax. It is to make returning to the previous cell
- * ILLEGAL for the mover, which is what actually breaks a cycle of length 2 — the overwhelmingly
- * common case. A repetition of a longer cycle needs the path-usage term (v1's `_internals` exposes
- * the hook); that is deliberately NOT done here, so the v1-v0 delta measures exactly one change.
+ * So the fix is not a bigger penalty and not negamax. It is to make repeating a position ILLEGAL for
+ * the mover at the root, which breaks a cycle of any length.
+ *
+ * WHY A FULL POSITION KEY, NOT A RECENT-CELLS WINDOW
+ * The first version of this file banned the last few cells the pawn had occupied (RECENT_WINDOW).
+ * Measured on the site, that is not enough: a window of 3 cells cannot close a cycle longer than
+ * 4 plies, because the pawn can orbit a 2x2 square through four cells and never step backwards.
+ * Bots did exactly that, in a cycle of period 6, and 100% of self-play games ended in a repetition:
+ *
+ *   P0: (6,7)->(6,8)->(7,8)->(8,8)->(8,7)->(7,7)->(6,7)
+ *   P1: (7,2)->(8,2)->(8,1)->(8,0)->(7,0)->(7,1)->(7,2)
+ *
+ * Banning by "this position already occurred in this game" catches a cycle of any length, so the
+ * window is gone: it was a special case of a rule that is now stated exactly.
  *
  * WHY NOT negamax / a deeper search here
  * Within one search `botIdx` is fixed, so minimax with a bot-perspective evaluation is correct, and
@@ -49,6 +59,10 @@
  */
 
 const Rules = require('../../rules');
+// Канонический перечислитель ходов, тот же, что у рефери арены и perft. Нужен для выхода из петли:
+// обычный generateSmartWallMoves в эндгейме не предлагает стен, и тогда единственный способ разорвать
+// цикл — взять любую легальную стену из полного списка.
+const { generateMoves: enumerateMoves } = require('../../rules/moves');
 const { makeRng } = require('../../tools/rng');
 
 // --- Константы, дословно из исходного движка ---
@@ -59,10 +73,6 @@ const WIN_SCORE = 900000;                 // порог "найден выигр
 const LOOP_PENALTY = -3000;               // штраф за возврат в недавнюю клетку
 const KILLER_BONUS = 10000;               // приоритетный бонус killer move
 const HISTORY_WINDOW = 4;                 // сколько последних ходов пешкой смотрим на анти-цикл
-// v1: сколько НЕДАВНИХ клеток запрещаем пешке. Замер показал, что запрет одной клетки (окно 1) убивает
-// циклы длины 2 полностью (0 из 7), но не трогает орбиты по квадрату 2x2 — там пешка идёт по 4 разным
-// клеткам и ни разу не возвращается назад. Окно 3 перекрывает сторону квадрата.
-const RECENT_WINDOW = 3;
 
 const DEPTH_BY_DIFFICULTY = { easy: 2, medium: 3, hard: 5, impossible: 20 };
 const DEFAULT_TIME_MS = 2000;
@@ -122,10 +132,6 @@ function createEngineV1(options = {}) {
     let ttStores = 0;
     let deadline = 0;
     let nodeLimit = Infinity;
-    // v1: путь нашей пешки в этой партии, плоский массив [r0, c0, r1, c1, ...] — по две координаты на
-    // позицию, в порядке наших ходов. Заполняется в think(). Живёт одну партию: адаптер создаёт новый
-    // экземпляр движка в newGame(), поэтому утечки между партиями не бывает.
-    let selfPath = [];
 
     function newKillers() {
         return Array.from({ length: KILLER_SLOTS }, () => []);
@@ -136,7 +142,6 @@ function createEngineV1(options = {}) {
         killers = newKillers();
         nodesVisited = 0;
         ttStores = 0;
-        selfPath = [];
     }
 
     // --- Хеш ---
@@ -168,6 +173,66 @@ function createEngineV1(options = {}) {
     }
 
     const computeStateKey = (state) => `${state.hashHigh >>> 0}-${state.hashLow >>> 0}`;
+
+    // --- Антиповтор: полный ключ позиции ---
+
+    /**
+     * Ключ позиции для поиска повторов: всё, что может повториться — очередь хода, обе пешки,
+     * остаток стен у обоих игроков и обе сетки стен.
+     *
+     * Отличается от `computeStateKey` (ключа транспозиционной таблицы) тем, что считается из
+     * состояния напрямую, без Zobrist-хеша. Причина: хеш живёт в полях экземпляра и меняется по
+     * ходу поиска, а здесь нужен ключ позиции, которой в хеше нет, — той, что уже была в партии.
+     */
+    function positionKey(s) {
+        let walls = '';
+        for (let r = 0; r < 8; r++) {
+            const v = s.vWalls[r], h = s.hWalls[r];
+            for (let c = 0; c < 8; c++) walls += (v[c] ? '1' : '0') + (h[c] ? '1' : '0');
+        }
+        return s.currentPlayer
+            + '|' + s.players[0].pos.r + ',' + s.players[0].pos.c
+            + '|' + s.players[1].pos.r + ',' + s.players[1].pos.c
+            + '|' + s.players[0].wallsLeft + '|' + s.players[1].wallsLeft
+            + '|' + walls;
+    }
+
+    /**
+     * Все позиции, которые уже встречались в этой партии, включая начальную.
+     *
+     * Считается stateless, переигрыванием `state.history` через `gameReducer`. Так сделано
+     * намеренно: хранить путь в полях экземпляра нельзя, потому что экземпляр один на процесс
+     * (на сервере до BOT_MAX_ACTIVE_GAMES партий одновременно, в браузере один воркер живёт между
+     * играми на странице), и посещённые позиции тогда смешались бы между партиями. История же
+     * лежит в состоянии и принадлежит конкретной партии.
+     *
+     * В `state.history` лежат только `{playerIdx, move, timestamp}`, а `move` — это действие
+     * редьюсера, поэтому `playerIdx` берём из записи истории. Именно из-за отсутствия `prevPos`
+     * антицикл v0 и всегда читал `undefined`.
+     */
+    function pastPositionKeys(state) {
+        const keys = new Set();
+        const hist = state.history || [];
+        if (hist.length === 0) return keys;
+        let s = Rules.createInitialState({ base: 600, inc: 0 });
+        keys.add(positionKey(s));
+        for (let i = 0; i < hist.length; i++) {
+            const h = hist[i];
+            const m = h && h.move;
+            if (!m || (m.type !== 'pawn' && m.type !== 'wall')) continue;
+            let next;
+            try {
+                next = Rules.gameReducer(s, {
+                    type: m.type, r: m.r, c: m.c, isVertical: m.isVertical, playerIdx: h.playerIdx,
+                });
+            } catch (e) {
+                break; // история не сходится с начальным состоянием — дальше доверять нельзя
+            }
+            s = next;
+            keys.add(positionKey(s));
+        }
+        return keys;
+    }
 
     // --- Пути ---
 
@@ -356,12 +421,8 @@ function createEngineV1(options = {}) {
      * Порядок ходов. ВНИМАНИЕ: пешки всегда упорядочиваются для той стороны, которая сейчас ходит
      * (`forPlayer`), а стены — по netGain относительно соперника. В alphabeta это в точности поведение
      * старого движка; такая асимметрия ломает переносимость оценки между цветами.
-     *
-     * `bannedCells` — единственное отличие v1 от v0: клетки, в которые ход запрещён. Фильтр применяется
-     * ТОЛЬКО к реальным ходам и не трогает оценку позиций, иначе запрет изменил бы смысл функции оценки,
-     * а не только список кандидатов.
      */
-    function generateMoves(state, forPlayer, depth = 0, avoidPositions = null, bannedCells = null) {
+    function generateMoves(state, forPlayer, depth = 0, avoidPositions = null) {
         const moves = [];
         const { r, c } = state.players[forPlayer].pos;
         const pawnTargets = Rules.getJumpTargets(state, r, c);
@@ -373,7 +434,6 @@ function createEngineV1(options = {}) {
 
         for (let i = 0; i < pawnTargets.length; i++) {
             const target = pawnTargets[i];
-            if (bannedCells && bannedCells.has(`${target.r},${target.c}`)) continue;
             const isJump = Math.abs(target.r - r) === 2 || Math.abs(target.c - c) === 2 ||
                 (Math.abs(target.r - r) === 1 && Math.abs(target.c - c) === 1);
             const basePriority = isJump ? w.pawnJump : w.pawnStep;
@@ -509,7 +569,7 @@ function createEngineV1(options = {}) {
         return false;
     }
 
-    function minimax(state, depth, alpha, beta, maximizing, botIdx, avoidPositions, bannedCells) {
+    function minimax(state, depth, alpha, beta, maximizing, botIdx, avoidPositions) {
         nodesVisited++;
         if (checkBudget()) throw 'budget';
 
@@ -524,7 +584,7 @@ function createEngineV1(options = {}) {
         }
 
         const current = maximizing ? botIdx : 1 - botIdx;
-        const moves = generateMoves(state, current, depth, avoidPositions, bannedCells);
+        const moves = generateMoves(state, current, depth, avoidPositions);
         if (moves.length === 0) return evaluate(state, botIdx);
 
         const origAlpha = alpha;
@@ -534,7 +594,7 @@ function createEngineV1(options = {}) {
             for (let i = 0; i < moves.length; i++) {
                 const m = moves[i];
                 applyMove(state, m, current);
-                const score = minimax(state, depth - 1, alpha, beta, false, botIdx, avoidPositions, bannedCells);
+                const score = minimax(state, depth - 1, alpha, beta, false, botIdx, avoidPositions);
                 undoMove(state, m, current);
                 if (score > bestScore) bestScore = score;
                 if (bestScore > alpha) alpha = bestScore;
@@ -544,7 +604,7 @@ function createEngineV1(options = {}) {
             for (let i = 0; i < moves.length; i++) {
                 const m = moves[i];
                 applyMove(state, m, current);
-                const score = minimax(state, depth - 1, alpha, beta, true, botIdx, avoidPositions, bannedCells);
+                const score = minimax(state, depth - 1, alpha, beta, true, botIdx, avoidPositions);
                 undoMove(state, m, current);
                 if (score < bestScore) bestScore = score;
                 if (bestScore < beta) beta = bestScore;
@@ -603,59 +663,60 @@ function createEngineV1(options = {}) {
             return { move: chosen, depth: 0, nodes: 0, timeMs: Date.now() - start, score: 0, ttStores, random: true };
         }
 
-        // --- v1: настоящий запрет на oscillation ---
+        // --- Запрет на повтор: ход, воссоздающий уже бывшую позицию, не рассматривается ---
         //
-        // ЗАМЕР (80 партий v1 vs v0, 7 петель, настоящая длина цикла посчитана от последнего повтора):
-        //   - циклы длины 2 (A->B->A): 0 из 7. Запрет на одну клетку работает.
-        //   - циклы длины 8 и 12: пешка обходит квадрат 2x2, напр. 3,5 -> 3,4 -> 2,4 -> 2,5 -> 3,5.
-        //     Ни одного немедленного возврата, поэтому запрет «последняя клетка» по построению бессилен.
-        //     Это орбита: 4 разные клетки по кругу. В 7 из 7 петель зациклены ОБЕ пешки — боты вращаются
-        //     в соседних квадратах друг рядом с другом.
-        // Значит запрещать надо не одну клетку, а последние RECENT_WINDOW клеток, по которым пешка шла.
+        // Почему не "последние N клеток": окно в 3 клетки не способно закрыть цикл длиннее
+        // 4 ходов - пешка обходит квадрат 2x2 по четырем разным клеткам и ни разу не
+        // возвращается назад. Это измерено на сайте: боты стабильно крутили цикл ПЕРИОДА 6
+        // (P0: 6,7->6,8->7,8->8,8->8,7->7,7->6,7), и 100% партий заканчивались повтором.
+        // Запрет по факту повтора ловит цикл любой длины.
         //
-        // Откуда берём пройденный путь. НЕ из state.history: редуктор кладёт туда только `move` (куда
-        // встали), а `prevPos` (откуда ушли) отсутствует ВСЕГДА — это же делает антицикл v0 бессмысленным.
-        // Вместо этого движок запоминает позицию своей пешки при КАЖДОМ своём think(). Соседние записи
-        // selfPath отличаются ровно на один наш ход, поэтому «откуда ушли» = предпоследняя запись, и это
-        // верно независимо от того, как именно хранится история. Экземпляр движка создаётся заново на
-        // каждую партию (adapter.makeBot -> newGame -> make), поэтому путь не протекает между партиями.
-        const cur = state.players[botIdx].pos;
-        selfPath.push(cur.r, cur.c);
-        const nEntries = selfPath.length / 2; // сколько позиций пешка занимала, включая текущую
-
-        const bannedCells = new Set();
-        // Запрещаем последние N клеток, на которых пешка стояла, кроме текущей.
-        const banFrom = Math.max(0, nEntries - 1 - RECENT_WINDOW);
-        for (let i = nEntries - 2; i >= banFrom; i--) {
-            bannedCells.add(`${selfPath[i * 2]},${selfPath[i * 2 + 1]}`);
-        }
-
-        // Запрет не должен оставлять пешку без хода: это дало бы «no-move» и поражение на ровном месте.
-        // В коридоре легальных целей всего 2, и окно в 3 клетки запретило бы обе. Поэтому снимаем самые
-        // старые запреты по одному, пока хотя бы одна цель не останется. Запрещать всё, кроме последнего
-        // варианта, нельзя — тогда фича снова станет no-op.
-        {
-            const legalPawn = Rules.getJumpTargets(state, cur.r, cur.c);
-            while (bannedCells.size > 0 && !legalPawn.some((t) => !bannedCells.has(`${t.r},${t.c}`))) {
-                // убираем самый старый запрет: это самая дальняя клетка, её запрет наименее ценен
-                const oldest = bannedCells.values().next().value;
-                bannedCells.delete(oldest);
+        // Почему ключ позиции полный, а не только клетка пешки: повтор - это совпадение всей
+        // позиции. Стены в редьюсере только добавляются, поэтому ходом стены повтор создать
+        // нельзя, и в проверку стены не входят.
+        //
+        // Почему запрет в корне, а не в дереве: он должен менять список реально выбираемых
+        // ходов. Запрет внутри minimax не изменил бы ответ: think() возвращает moves[0], а
+        // moves[0] остался бы петлевым.
+        const pastKeys = pastPositionKeys(state);
+        if (pastKeys.size > 0) {
+            for (let i = moves.length - 1; i >= 0; i--) {
+                const m = moves[i];
+                if (m.type !== 'pawn') continue;
+                applyMove(work, m, botIdx);
+                const key = positionKey(work);
+                undoMove(work, m, botIdx);
+                if (pastKeys.has(key)) moves.splice(i, 1);
             }
         }
-
-        // Корневой список ходов построен ДО вычисления bannedCells, поэтому запрет в него ещё не попал.
-        // Без этого фильтра движок всё равно мог бы выбрать петлевой ход в корне — то есть запрет был бы
-        // применён только внутри дерева и на реальное решение не влиял бы.
-        for (let i = moves.length - 1; i >= 0; i--) {
-            const m = moves[i];
-            if (m.type === 'pawn' && bannedCells.has(`${m.r},${m.c}`)) moves.splice(i, 1);
-        }
         if (moves.length === 0) {
-            // Запрет съел все ходы. Такое возможно, только если пешка заперта так, что единственный выход
-            // ведёт назад. Возвращаем полный список без запретов: повтор лучше, чем падение или no-move.
-            const all = generateMoves(work, botIdx, maxDepth, null, null);
-            for (let i = 0; i < all.length; i++) moves.push(all[i]);
-            bannedCells.clear();
+            // Запрет съел все ходы. Такое бывает в эндгейме: когда пешки разошлись по своим
+            // половинам, generateSmartWallMoves не предлагает стен вовсе (кандидаты у середины
+            // пусты), и все оставшиеся ходы пешки ведут в уже бывшую позицию.
+            //
+            // Возвращать забаненные ходы нельзя — это гарантированный повтор, то есть ровно то,
+            // ради чего всё затевалось. Вместо этого ищем стену: стена только добавляется, поэтому
+            // позиция после неё гарантированно новая, и цикл рвётся.
+            const escapeWalls = enumerateMoves(Rules, work, { wallsOnly: true });
+            if (escapeWalls.length) {
+                // Стена не поможет, если не мешает сопернику, поэтому сортируем по близости к его
+                // линии ворот и оставляем столько же, сколько обычно перебирает поиск.
+                const oppGoalRow = botIdx === 0 ? 8 : 0;
+                const scored = [];
+                for (const w of escapeWalls) {
+                    const toOpponent = Math.abs(w.r - oppGoalRow);
+                    scored.push({ ...w, priority: -toOpponent });
+                }
+                scored.sort((a, b) => a.priority - b.priority);
+                for (let i = 0; i < scored.length && moves.length < MAX_WALL_MOVES; i++) {
+                    moves.push(scored[i]);
+                }
+            } else {
+                // Стены кончились у обоих, ход пешки обязателен, а повтор не избежать. Отдаём
+                // полный список: лучше повтор, чем отсутствие хода и поражение на ровном месте.
+                const all = generateMoves(work, botIdx, maxDepth, null);
+                for (let i = 0; i < all.length; i++) moves.push(all[i]);
+            }
         }
 
         // Старый антицикл v0 оставлен как есть: это ключ сортировки, а не запрет, и он влияет на
@@ -733,7 +794,7 @@ function createEngineV1(options = {}) {
         think,
         reset,
         // Служебное, нужно парт-тестам: тот же поиск, но с уже известным ходом.
-        _internals: { generateMoves, evaluate, shortestPathDistance, pathDistanceMap, applyMove, undoMove, computeZobristHash },
+        _internals: { generateMoves, evaluate, shortestPathDistance, pathDistanceMap, applyMove, undoMove, computeZobristHash, positionKey, pastPositionKeys },
     };
 }
 

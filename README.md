@@ -26,7 +26,7 @@ Real-time multiplayer implementation of the classic board game **Quoridor** (Ama
 | Monitoring | Sentry, Socket.IO Admin UI, morgan |
 | Frontend | Vanilla JS SPA (`frontend/`), Canvas board rendering, Chart.js |
 | Mobile | Capacitor + Android (`android/`) |
-| AI | `src/core/ai-core.js` (shared client/server minimax), Web Worker on the client |
+| AI | `quoridor-engine/engines/v1` (shared client/server bot, 4 depth tiers), Web Worker on the client |
 
 ## Getting Started
 

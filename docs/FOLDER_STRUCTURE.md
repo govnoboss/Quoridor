@@ -8,7 +8,8 @@ Quoridor/
 │   ├── server.js               # Entry point (~4100 lines: REST + WebSocket + game orchestration)
 │   ├── core/
 │   │   ├── shared.js           # Game engine (pure logic, mirrored to browser as /shared.js)
-│   │   └── ai-core.js          # Minimax AI (shared client/server, served as /js/ai-core.js)
+│   │   ├── ai-v1-bundle.js     # Depth tiers + browser bundle of the v1 engine (served as /js/ai-v1.js)
+│   │   └── ai-core.js          # Legacy v0 AI — parity baseline only, nothing loads it in production
 │   ├── storage/
 │   │   ├── redis.js            # Redis wrapper + in-memory fallback (games, queues, sessions, rematch)
 │   │   └── db.js               # MongoDB (mongoose) connection

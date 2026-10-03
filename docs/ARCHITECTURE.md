@@ -36,8 +36,10 @@ graph TD
 ### 1. Game Engine — `src/core/shared.js`
 Pure, framework-agnostic game logic (movement, jumping, wall placement, victory, timers).
 Served to the browser as `/shared.js` and mirrored to clients via `index.html`/`replay.html`.
-Also `src/core/ai-core.js` (served as `/js/ai-core.js`) contains the minimax bot used both
-in the browser (Web Worker) and by server-side bot matchmaking.
+Also `quoridor-engine/engines/v1` is the bot used both in the browser (Web Worker) and by server-side
+bot matchmaking. The browser loads it as `/js/ai-v1.js`, a bundle generated at startup by
+`src/core/ai-v1-bundle.js` out of the engine sources; its `require('../../rules')` resolves to the same
+`Shared` global that `/shared.js` publishes, so the rules are never duplicated.
 
 ### 2. Backend — `src/server.js` (monolith, ~3900 lines)
 - **REST API**: auth, profile, avatars, friends, reports, notifications, admin, leaderboard,
@@ -63,7 +65,7 @@ reports) · `UserReport` (player complaints) · `BotSettings` · `AdminLog`.
 
 ### 5. Bots & Simulation — `src/bots/`, `src/simulation/`
 - `BotManager.js` — matchmaking fallback: pairs human players with bot opponents when the
-  queue is empty, schedules bot moves via `AICore`.
+  queue is empty, schedules bot moves with one engine v1 instance per game.
 - `BotPresenceManager.js` — simulates online presence/activity of bot accounts.
 - `simulation/PopulationManager.js` — synchronizes the bot accounts (seeded from
   `defaultBots.js`) into MongoDB at startup and via the admin "seed" endpoint.
