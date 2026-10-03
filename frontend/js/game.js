@@ -234,6 +234,10 @@ const Game = {
     this.stopTimer();
     this.isGameOver = true;
 
+    // Отпускаем движок локального бота: его транспозиционная таблица больше не нужна, а следующая
+    // партия всё равно получит новый экземпляр в startVsBot.
+    if (typeof AI !== 'undefined') AI.endGame();
+
     const modal = document.getElementById('resultModal');
     const statusText = document.getElementById('resultStatus');
 
@@ -749,6 +753,9 @@ const Game = {
 
     this.initialTime = 600; // Сброс к дефолту для локальной игры
     this.reset();
+    // Новый движок на каждую партию: транспозиционная таблица переживает игру, а её ключ не содержит
+    // индекс игрока, поэтому таблица прошлой партии не должна попасть в новый поиск.
+    AI.newGame(diff);
     UI.showScreen('gameScreen');
     this.startTimer();
     this.draw();
@@ -2106,6 +2113,8 @@ const DemoBoard = {
   moveIndex: 0,
   activeScenario: null,
   botMode: true,
+  // Демо играет на главном потоке каждые ~600 мс, поэтому глубина средняя: 4-5 подвисали бы анимацию.
+  engines: [null, null],
 
   scenarios: {
     // Базовая демо-партия (цикл)
@@ -2161,7 +2170,6 @@ const DemoBoard = {
     this.canvas = document.getElementById('demoBoard');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
-    if (typeof AICore !== 'undefined') AICore.init(Shared);
     this.reset();
     this.draw();
     this.scheduleNext();
@@ -2177,8 +2185,18 @@ const DemoBoard = {
     const idx = state.currentPlayer;
     const goalRow = idx === 0 ? 0 : 8;
     let move;
-    if (typeof AICore !== 'undefined') {
-      move = AICore.think(Shared.cloneState(state), idx, 'hard', { randomize: true });
+    if (typeof AiV1 !== 'undefined') {
+      // Отдельный движок на каждое место: ключ транспозиционной таблицы не содержит игрока, поэтому
+      // один экземпляр на обе стороны позволял бы читать оценки, посчитанные для соперника.
+      if (!this.engines[idx]) {
+        this.engines[idx] = AiV1.createEngineV1({ easyRandomP: 0, maxDepth: AiV1.DEFAULT_MAX_DEPTH });
+      }
+      const res = this.engines[idx].think(Shared.cloneState(state), {
+        player: idx,
+        maxDepth: AiV1.DEFAULT_MAX_DEPTH,
+        easyRandomP: 0,
+      });
+      move = res && res.move;
     }
     if (!move) {
       const targets = Shared.getJumpTargets(state, state.players[idx].pos.r, state.players[idx].pos.c);
@@ -2222,6 +2240,7 @@ const DemoBoard = {
 
   reset() {
     this.moveIndex = 0;
+    this.engines = [null, null]; // новая демо-партия — новые движки
     this.state.hWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
     this.state.vWalls = Array.from({ length: 8 }, () => Array(8).fill(false));
     this.state.players[0].pos = { r: 8, c: 4 };

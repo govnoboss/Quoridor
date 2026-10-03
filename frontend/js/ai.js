@@ -1,29 +1,32 @@
 const AI = {
     worker: null,
+    // Difficulty of the game the worker currently holds an engine for. Sent on every think so a lazily
+    // created engine (worker started before newGame arrived) matches the game being played.
+    difficulty: 'medium',
 
     init() {
         if (this.worker) return;
         this.worker = new Worker('/js/ai-worker.js');
         this.worker.onmessage = (e) => {
             const data = e.data;
+            if (!data) return;
 
-            // Handle debug logs
-            if (data && data.type === 'debug') {
+            if (data.type === 'debug') {
                 console.log('%c[LOCAL-AI] ' + data.message, 'color: #d63384; background: #fff0f6; padding: 2px 5px; border-radius: 3px;');
                 return;
             }
 
-            const move = data;
-            if (move) {
-                // Преобразуем vertical в isVertical для совместимости с Game
-                if (move.type === 'wall' && move.isVertical === undefined) {
-                    move.isVertical = move.vertical;
-                }
+            if (data.type === 'ready' || data.type === 'error') {
+                if (data.type === 'error') console.error('[LOCAL-AI] engine error:', data.message);
+                return;
+            }
 
-                // Разблокировка ввода и применение хода происходят в Game.applyBotMove
-                Game.applyBotMove(move);
+            if (data.type !== 'move') return;
+
+            if (data.move) {
+                console.log(`[LOCAL-AI] ${data.move.type} d=${data.depth} n=${data.nodes} ${data.ms}ms`);
+                Game.applyBotMove(data.move);
             } else {
-                // Если бот не нашел ходов (не должно быть в норме)
                 Game.isInputBlocked = false;
                 Game.nextTurn();
             }
@@ -38,18 +41,31 @@ const AI = {
         return Game.myPlayerIndex === 0 ? 1 : 0;
     },
 
-    makeMove(difficulty = 'medium') {
+    /**
+     * Start a new game. Must be called before the first makeMove of a game: it makes the worker throw
+     * away the engine it used for the previous game so its transposition table cannot leak across games.
+     */
+    newGame(difficulty = 'medium') {
         this.init();
+        this.difficulty = difficulty;
+        this.worker.postMessage({ type: 'newGame', difficulty });
+    },
+
+    endGame() {
+        if (this.worker) this.worker.postMessage({ type: 'endGame' });
+    },
+
+    makeMove(difficulty = this.difficulty) {
+        this.init();
+        this.difficulty = difficulty;
 
         const botIdx = this.getBotIndex();
 
-        // Блокировка ввода уже установлена в Game.nextTurn, 
-        // но на всякий случай подтверждаем
+        // Ввод блокируется в Game.nextTurn, но подтверждаем ещё раз.
         Game.isInputBlocked = true;
 
-        console.log(`[AI] Бот (сложность: ${difficulty}) начинает расчет...`);
-
-        // Отправляем состояние в воркер
+        // Воркер делает глубокий поиск, поэтому клиент не должен ждать его синхронно — состояние
+        // уходит structured clone, движок работает с копией и не трогает Game.state.
         this.worker.postMessage({
             state: Game.state,
             botIdx: botIdx,

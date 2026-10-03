@@ -1,11 +1,8 @@
 // Генератор дневных головоломок (Daily Puzzle).
 // Используется cron-скриптом scripts/generate_daily_puzzle.js и как fallback в API.
 const Shared = require('../core/shared.js');
-const AICore = require('../core/ai-core');
 const DailyPuzzle = require('../models/DailyPuzzle');
 const GameResult = require('../models/GameResult');
-
-AICore.init(Shared);
 
 function utcDateKey(d = new Date()) {
     return d.toISOString().slice(0, 10);

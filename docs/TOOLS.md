@@ -149,6 +149,28 @@ module.exports = {
 };
 ```
 
+## 8. Self-play ботов сайта — `quoridor-engine/tools/site-selfplay.js`
+
+Играет ботов сайта друг против друга ровно тем способом, которым их запускает прод: глубина берётся из
+`difficultyToMaxDepth()` (`src/core/ai-v1-bundle.js`), случайность отключена. Отличие от арены — нет
+SPRT и ранней остановки, движок создаётся заново на каждое кресло в каждой партии, цвета чередуются.
+
+```bash
+# зеркало одного уровня: 1000 партий, без ранней остановки
+node quoridor-engine/tools/site-selfplay.js --games 1000
+
+# конкретная пара уровней
+node quoridor-engine/tools/site-selfplay.js --a easy --b hard --games 200
+
+# полный замер: зеркало на каждом уровне + лестница соседних
+node quoridor-engine/tools/site-selfplay.js --tiers --games 1000 --threads 8
+```
+
+Отчёт содержит долю побед P0/P1, смещение цвета, число повторов, нелегальных ходов, падений и
+распределение длин партий. Падает (exit code 1) при нелегальном ходе, падении движка, повторе позиции
+или средней длине вне 60-90 полуходов. Лестница уровней проверяется через 2 сигмы: значимая инверсия
+(глубокий уровень проигрывает) — падение, неразличимые уровни — предупреждение.
+
 ### Тестовые файлы (все запускаются без внешних сервисов):
 
 - `tests/server-ws.test.js` — Socket.IO интеграция (матчмейкинг, комнаты, ходы, реванши)
@@ -156,7 +178,8 @@ module.exports = {
 - `tests/lobby-access.test.js` — права доступа к лобби/комнатам
 - `tests/game-logic.test.js` — игровая логика `shared.js`
 - `tests/zobrist.test.js` — Zobrist hashing
-- `tests/ai-core.test.js` — AI движок (jest, а также `npm run test:ai` для одиночного прогона)
+- `tests/ai-core.test.js` — AI движок v0 (jest, а также `npm run test:ai` для одиночного прогона)
+- `quoridor-engine/tests/site-v1.test.js` — бандл движка v1 для браузера и антиповтор
 - `tests/load-test.js` — нагрузочное тестирование (`npm run load-test`, не jest)
 
 Redis в тестах мокается через `__mocks__/redis.js`.

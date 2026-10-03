@@ -8,7 +8,7 @@ for humans: it maps goals to files and documents the invariants you must not bre
 | Goal | Primary files to consult |
 | :--- | :--- |
 | **Fix game rules / moves** | `src/core/shared.js`, `tests/game-logic.test.js` |
-| **Tweak the bot (AI)** | `src/core/ai-core.js` (engine, mirrored to browser), `frontend/js/ai.js` + `frontend/js/ai-worker.js` (browser execution), `src/bots/BotManager.js` (server-side bot play)* |
+| **Tweak the bot (AI)** | `quoridor-engine/engines/v1/index.js` (the engine: search, evaluation, anti-repeat ban), `src/core/ai-v1-bundle.js` (depth tiers + browser bundle), `frontend/js/ai.js` + `frontend/js/ai-worker.js` (browser execution), `src/bots/BotManager.js` (server-side bot play), `quoridor-engine/tools/site-selfplay.js` (balance/loop checks)* |
 | **Modify UI / visuals** | `frontend/js/ui.js` (logic/screens), `frontend/js/game.js` + `frontend/js/board-renderer.js` (canvas), `frontend/css/*.css`, `frontend/index.html` |
 | **Matchmaking / networking** | `src/server.js` (socket handlers), `frontend/js/net.js` (client), [WS_PROTOCOL.md](WS_PROTOCOL.md) |
 | **REST API changes** | `src/server.js` (routes), `frontend/js/net.js` (fetch calls), [API_REFERENCE.md](API_REFERENCE.md) |
@@ -24,8 +24,8 @@ for humans: it maps goals to files and documents the invariants you must not bre
 ## Safe-Practice Rules
 
 ### 1. The "Shared Mirror" rule
-`src/core/shared.js` (game engine) and `src/core/ai-core.js` run **on both the server and in
-the browser** (served as `/shared.js` and `/js/ai-core.js`).
+`src/core/shared.js` (game engine) and the bot engine run **on both the server and in the browser**
+(served as `/shared.js` and `/js/ai-v1.js`).
 - **DO NOT** use Node-only modules (`fs`, `path`, `process`) or browser-only objects
   (`window`, `document`) in these files.
 - **ALWAYS** extend `tests/game-logic.test.js` when you change the engine.

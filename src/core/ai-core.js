@@ -7,7 +7,7 @@
         root.AICore = factory();
     }
 }(this, function () {
-    const engine = {
+    return {
         Shared: null,
         tt: null, // Transposition Table
         killerMoves: null, // [depth] -> [move1, move2]
@@ -578,50 +578,6 @@
             return bestScore;
         },
 
-        // Ключ позиции для поиска повторов. Включает всё, что может повториться: пешки, очередь
-        // хода, остаток стен и сами стены. Стены в gameReducer только добавляются, поэтому ход
-        // стеной повтор создать не может — повтор возможен только ходами пешек.
-        loopKey(s) {
-            let walls = '';
-            for (const row of s.vWalls) for (const v of row) walls += v ? '1' : '0';
-            for (const row of s.hWalls) for (const v of row) walls += v ? '1' : '0';
-            return s.currentPlayer
-                + '|' + s.players[0].pos.r + ',' + s.players[0].pos.c
-                + '|' + s.players[1].pos.r + ',' + s.players[1].pos.c
-                + '|' + s.players[0].wallsLeft + '|' + s.players[1].wallsLeft
-                + '|' + walls;
-        },
-
-        // Все позиции, которые уже встречались в этой партии.
-        //
-        // Считается stateless, переигрыванием state.history через gameReducer. Причина: AICore —
-        // один синглтон на все партии сразу (на сервере до BOT_MAX_ACTIVE_GAMES = 15 параллельно,
-        // в браузере один воркер переиспользуется между играми на странице), поэтому хранить путь
-        // или посещённые позиции в полях экземпляра нельзя — они смешаются между партиями.
-        // История же уже лежит в состоянии и принадлежит конкретной партии.
-        pastPositionKeys(state) {
-            const keys = new Set();
-            const hist = state.history || [];
-            if (hist.length === 0) return keys;
-            let s = this.Shared.createInitialState({ base: 600, inc: 0 });
-            keys.add(this.loopKey(s));
-            for (const h of hist) {
-                const m = h && h.move;
-                if (!m || m.type !== 'pawn' && m.type !== 'wall') continue;
-                let next;
-                try {
-                    next = this.Shared.gameReducer(s, {
-                        type: m.type, r: m.r, c: m.c, isVertical: m.isVertical, playerIdx: h.playerIdx,
-                    });
-                } catch (e) {
-                    break; // история не сходится с начальным состоянием — дальше доверять нельзя
-                }
-                s = next;
-                keys.add(this.loopKey(s));
-            }
-            return keys;
-        },
-
         think(state, botIdx, difficulty) {
             // Clone the state so we don't mutate the live game state during search
             // (Crucial because timeouts might interrupt the search before undoMove cleans up)
@@ -641,47 +597,39 @@
             // Reset Killer Moves at start of new think
             this.killerMoves = Array(30).fill(null).map(() => []);
 
-            // Глубины четырёх уровней. Замеры в арене (10000 узлов, 200-1000 партий): сила растёт
-            // монотонно на 2/3/4/5, инверсий нет. При этом глубина 9 слабее 5 на 76.5 Elo
-            // [-143.0, -15.1], LOS 0.8%. Прежняя таблица давала impossible=20, то есть
-            // «Непобедимый» играл на глубине заведомо слабее 5 и был слабее «Сильного».
-            const maxDepth = { easy: 2, medium: 3, hard: 4, impossible: 5 }[difficulty] || 3;
+            let maxDepth = { easy: 2, medium: 3, hard: 5, impossible: 20 }[difficulty] || 3;
+            if (difficulty === 'impossible') maxDepth = 20;
 
-            const pos = state.players[botIdx].pos;
-
-            let moves = this.generateMoves(state, botIdx, maxDepth);
+            const moves = this.generateMoves(state, botIdx, maxDepth);
             if (moves.length === 0) return null;
 
+            const pos = state.players[botIdx].pos;
             this.debugLog('=== THINKING START ===');
             this.debugLog(`Position: (${pos.r},${pos.c}), Moves: ${moves.length}, MaxDepth: ${maxDepth}, Difficulty: ${difficulty}`);
 
-            // Антицикловой запрет: выбрасываем ходы пешки, которые воссоздали бы позицию, уже
-            // бывшую в этой партии.
-            //
-            // Почему не «последние N клеток»: окно в 3 клетки не способно закрыть цикл длиннее
-            // 4 ходов. Это измерено, а не предположено — до запрета на повтор боты стабильно
-            // крутили цикл ПЕРИОДА 6 (P0: 6,7->6,8->7,8->8,8->8,7->7,7->6,7), 100% партий
-            // заканчивались повтором. Запрет по факту повтора ловит цикл любой длины.
-            //
-            // Почему раньше не работало: в generateMoves добавлялся loopPenalty = -3000 в
-            // move.priority, то есть менялся только порядок сортировки. Minimax всё равно
-            // оценивал каждый ход, и когда обратный ход равноценен остальным, цикл выбирался.
-            //
-            // Если запрет закрыл вообще все ходы, оставляем список как есть: иначе бот встанет.
-            // Стены сюда не попадают — ими повтор создать нельзя.
-            const pastKeys = this.pastPositionKeys(state);
-            if (pastKeys.size > 0) {
-                const repeats = [];
-                for (const m of moves) {
-                    if (m.type !== 'pawn') continue;
-                    const clone = this.cloneState(state);
-                    this.applyMove(clone, m, botIdx);
-                    if (pastKeys.has(this.loopKey(clone))) repeats.push(m);
-                    this.undoMove(clone, m, botIdx);
-                }
-                if (repeats.length > 0 && repeats.length < moves.length) {
-                    const bad = new Set(repeats);
-                    moves = moves.filter(m => !bad.has(m));
+            if (difficulty === 'easy' && Math.random() < 0.3) {
+                const pawnMoves = moves.filter(m => m.type === 'pawn');
+                const chosen = pawnMoves.length > 0 ? pawnMoves[Math.floor(Math.random() * pawnMoves.length)] : moves[0];
+                this.debugLog(`Easy mode random: ${this.formatMove(chosen)}`);
+                return chosen;
+            }
+
+            // Loop Detection: build a set of positions to avoid to prevent oscillation.
+            // Strategy: penalize any pawn move that returns the bot to a cell it occupied
+            // in the last 4 half-moves (i.e. the last 2 full bot turns).
+            // This catches A→B→A and A→B→C→B patterns without over-restricting.
+            const avoidPositions = new Set();
+            const historySource = state.history || [];
+            const myMoves = historySource
+                .filter(h => h.playerIdx === botIdx && h.move && h.move.type === 'pawn')
+                .slice(-4); // last 4 bot pawn moves = last 4 turns
+            // Add all positions the bot was AT (prevPos) during those moves — returning there is oscillation
+            for (const h of myMoves) {
+                if (h.prevPos) {
+                    avoidPositions.add(`${h.prevPos.r},${h.prevPos.c}`);
+                } else if (h.move) {
+                    // Fallback: avoid the destination itself if prevPos not stored
+                    avoidPositions.add(`${h.move.r},${h.move.c}`);
                 }
             }
 
@@ -713,10 +661,8 @@
                         const moveStart = Date.now();
 
                         this.applyMove(state, move, botIdx);
-                        // avoidPositions = null: антицикловой запрет применяется один раз, в корне,
-                        // выше. Пробрасывать его вниз бессмысленно — в узлах соперника он собран из
-                        // клеток пешки бота и моделировал бы несуществующие ограничения.
-                        let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx, null);
+                        // Pass avoidPositions so loop penalty propagates through all minimax depths
+                        let score = this.minimax(state, currentDepth - 1, -Infinity, Infinity, false, botIdx, avoidPositions);
 
                         this.undoMove(state, move, botIdx);
 
@@ -764,19 +710,4 @@
             return bestGlobalMove;
         }
     };
-
-    // Новый независимый экземпляр движка.
-    //
-    // Зачем: один объект на процесс НЕЛЬЗЯ шарить между партиями и между цветами.
-    // tt — это Map, который переживает партию, а ключ не содержит botIdx, поэтому ход
-    // второго игрока читает записи первого и получает бессмысленные оценки. На сервере
-    // BOT_MAX_ACTIVE_GAMES партий идут параллельно, в браузере воркер переиспользуется
-    // между играми на странице, а require() в Node кэширует модуль и отдаёт тот же объект.
-    // Проверено: на одном общем экземпляре самопой v1-hard давал 100/150 побед одной стороны
-    // и 53 полухода, а на раздельных экземплярах — 50/50 и 71.5, что совпадает с эталоном арены.
-    engine.createEngine = function () {
-        return { ...engine, tt: new Map(), killerMoves: [], createEngine: engine.createEngine };
-    };
-
-    return engine;
 }));

@@ -158,5 +158,5 @@ docker stats                    # Загрузка CPU/RAM
 - Фаерволл: открыть только 22 (SSH), 80 (HTTP→HTTPS), 443 (HTTPS)
 - Фронтенд раздаётся статически через Express (папка `frontend/`)
 - Аватары хранятся в volume `avatars_data` → `/app/avatars` (переживает пересборку контейнера)
-- Bot-соперники работают **на сервере** (`src/bots/` + `src/simulation/`): матчмейкинг-фолбэк, move-планирование через `AICore`, симуляция присутствия. Включение — через `BOTS_ENABLED`/`BOT_RANKED_ENABLED` (по умолчанию выключены)
+- Bot-соперники работают **на сервере** (`src/bots/` + `src/simulation/`): матчмейкинг-фолбэк, move-планирование через движок v1 (`quoridor-engine/engines/v1`), симуляция присутствия. Включение — через `BOTS_ENABLED`/`BOT_RANKED_ENABLED` (по умолчанию выключены)
 - Socket.IO хендлит тысячи одновременных подключений на 1 vCPU

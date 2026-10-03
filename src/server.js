@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const Sentry = require('@sentry/node');
 const Shared = require('./core/shared.js');
 const { RULES_FILE } = require('../quoridor-engine/rules/paths');
+const { buildAiV1Bundle } = require('./core/ai-v1-bundle');
 const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
@@ -116,6 +117,14 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 // Serve Core Modules for Frontend
+// The browser runs the same v1 engine as the server bots and the arena. src/core/ai-v1-bundle.js
+// assembles it on the fly from quoridor-engine sources, resolving the rules to the global `Shared` that
+// /shared.js already published, so there is exactly one rules implementation and one engine in prod.
+app.get('/js/ai-v1.js', (req, res) => {
+    res.type('application/javascript');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(buildAiV1Bundle());
+});
 app.get('/js/ai-core.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'core', 'ai-core.js'));
 });

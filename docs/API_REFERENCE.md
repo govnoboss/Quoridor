@@ -11,7 +11,8 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/` | SPA shell (`frontend/index.html`) |
 | GET | `/health` | liveness probe |
 | GET | `/shared.js` | mirrored game engine (`src/core/shared.js`) |
-| GET | `/js/ai-core.js` | mirrored AI engine (`src/core/ai-core.js`) |
+| GET | `/js/ai-v1.js` | bot engine for the browser, generated from `quoridor-engine` by `src/core/ai-v1-bundle.js` |
+| GET | `/js/ai-core.js` | legacy v0 AI engine, kept for reference only — nothing loads it |
 | GET | `/login` `/register` `/forgot-password` `/reset-password` | auth pages |
 | GET | `/rules` `/how-to-play` (301 → `/rules`) `/faq` | info pages |
 | GET | `/terms` `/privacy` `/report` `/profile/reports` | user pages |

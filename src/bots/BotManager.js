@@ -1,5 +1,6 @@
 const crypto = require('crypto');
-const AICore = require('../core/ai-core');
+const { createEngineV1 } = require('../../quoridor-engine/engines/v1');
+const { difficultyToMaxDepth } = require('../core/ai-v1-bundle');
 const { GUEST_BOTS } = require('./defaultBots');
 
 function readBool(value, fallback = false) {
@@ -17,6 +18,21 @@ function pickRandom(items) {
     return items[Math.floor(Math.random() * items.length)];
 }
 
+/**
+ * A fresh engine for one game.
+ *
+ * One instance per game, never one per process: the transposition table is a Map that outlives a game
+ * and its key does not contain the player index, so a shared instance lets one side read the other's
+ * entries and score them as if they were its own. `require()` caches the module in Node, so a fresh
+ * instance cannot be had by re-requiring it — hence the factory.
+ *
+ * `easyRandomP: 0` because the tiers are depth-only. A random move re-introduces the loops the engine
+ * now bans, which is why every arena tier is configured with difficulty "hard" even at depth 2.
+ */
+function createBotEngine(difficulty) {
+    return createEngineV1({ easyRandomP: 0, maxDepth: difficultyToMaxDepth(difficulty) });
+}
+
 class BotManager {
     constructor({ Shared, Redis, User, io, startBotGame, applyBotMove } = {}) {
         this.Shared = Shared;
@@ -32,8 +48,9 @@ class BotManager {
         this.activeBotGames = new Set();
         this.runtimeConfig = null;
 
+        this.botEngines = new Map();
+
         this.config = this.readConfig();
-        if (Shared) AICore.init(Shared);
     }
 
     envConfig() {
@@ -123,6 +140,7 @@ class BotManager {
         if (timer) clearTimeout(timer);
         this.moveTimers.delete(lobbyId);
         this.activeBotGames.delete(lobbyId);
+        this.botEngines.delete(lobbyId);
     }
 
     isBotToken(token) {
@@ -176,6 +194,8 @@ class BotManager {
             if (lobbyId) {
                 this.activeBotGames.add(lobbyId);
                 this.botTokens.add(bot.token);
+                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty));
+
                 await this.recordBotMatch(playerData.token);
                 return true;
             }
@@ -258,7 +278,24 @@ class BotManager {
 
             const botIdx = game.botPlayerIdx;
             const difficulty = game.botDifficulty || 'medium';
-            const move = AICore.think(game, botIdx, difficulty);
+            const maxDepth = difficultyToMaxDepth(difficulty);
+
+            // `startBotGame` registers the engine right after the lobby exists, but the first move is
+            // scheduled with a human-like delay, so this lazily-built fallback is what actually covers
+            // any path that reaches makeMove without one (restored lobby, hot reload, test stub).
+            let engine = this.botEngines.get(lobbyId);
+            if (!engine) {
+                engine = createBotEngine(difficulty);
+                this.botEngines.set(lobbyId, engine);
+            }
+
+            const result = engine.think(game, {
+                player: botIdx,
+                maxDepth,
+                easyRandomP: 0,
+            });
+
+            const move = result && result.move;
             if (!move) return false;
 
             return await this.applyBotMove(lobbyId, game.playerTokens[botIdx], move);
