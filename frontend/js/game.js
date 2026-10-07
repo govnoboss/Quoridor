@@ -1055,7 +1055,7 @@ const Game = {
     // Получаем все возможные целевые позиции
     const moves = Shared.getJumpTargets(state, r, c);
     for (const { r: nr, c: nc } of moves) {
-      this.drawMoveHint(nr, nc, '#4ade80');
+      this.drawMoveHint(nr, nc, '#43D17A');
     }
   },
 
@@ -1065,7 +1065,7 @@ const Game = {
    * @param {number} c Столбец ячейки.
    * @param {string} color Цвет подсказки.
    */
-  drawMoveHint(r, c, color = '#4ade80') {
+  drawMoveHint(r, c, color = '#43D17A') {
     const x = c * this.CONFIG.cellSize + this.CONFIG.cellSize / 2;
     const y = this.transformRow(r) * this.CONFIG.cellSize + this.CONFIG.cellSize / 2;
     this.ctx.fillStyle = color;
@@ -1104,18 +1104,18 @@ const Game = {
         const x = (target.c + 0.5) * this.CONFIG.cellSize;
         const y = (this.transformRow(target.r) + 0.5) * this.CONFIG.cellSize;
         this.ctx.globalAlpha = 0.5;
-        this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#fff' : '#000';
+        this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#F2F2F2' : '#0E0E10';
         this.ctx.beginPath();
         this.ctx.arc(x, y, this.CONFIG.cellSize * 0.35, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.globalAlpha = 1;
       }
       // Рисуем фишку под курсором (саму "руку")
-      this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#fff' : '#000';
+      this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#F2F2F2' : '#0E0E10';
       this.ctx.beginPath();
       this.ctx.arc(this.state.drag.x, this.state.drag.y, this.CONFIG.cellSize * 0.35, 0, Math.PI * 2);
       this.ctx.fill();
-      this.ctx.strokeStyle = '#ccc';
+      this.ctx.strokeStyle = '#9A9A9A';
       this.ctx.lineWidth = 3;
       this.ctx.stroke();
 
@@ -1134,7 +1134,7 @@ const Game = {
         if (tempV) this.state.vWalls[tr][tc] = false; else this.state.hWalls[tr][tc] = false;
 
         // Определяем цвет предпросмотра (зеленый - разрешено, красный - заблокирует путь)
-        this.ctx.fillStyle = valid ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.5)';
+        this.ctx.fillStyle = valid ? 'rgba(67, 209, 122, 0.45)' : 'rgba(248, 113, 113, 0.5)';
         const len = this.CONFIG.cellSize * 2;
 
         // Рисуем полупрозрачную стену в слоте
@@ -1164,7 +1164,7 @@ const Game = {
         }
       }
       // Рисуем стену под курсором (саму "руку")
-      this.ctx.fillStyle = '#e09f3e';
+      this.ctx.fillStyle = '#F5B13C';
       const w = this.state.drag.isVertical ? this.CONFIG.wallThick : this.CONFIG.cellSize * 2;
       const h = this.state.drag.isVertical ? this.CONFIG.cellSize * 2 : this.CONFIG.wallThick;
       this.ctx.fillRect(this.state.drag.x - w / 2, this.state.drag.y - h / 2, w, h);
@@ -1329,7 +1329,7 @@ const Game = {
     this.ctx.save();
     this.ctx.globalAlpha = 0.6;
     // Green (Valid) vs Red (Invalid)
-    this.ctx.fillStyle = isValid ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+    this.ctx.fillStyle = isValid ? 'rgba(67, 209, 122, 0.6)' : 'rgba(248, 113, 113, 0.6)';
 
     const len = this.CONFIG.cellSize * 2;
     const displayR = this.myPlayerIndex === 1 ? 7 - r : r;
@@ -2329,8 +2329,8 @@ const DemoBoard = {
   drawPawns() {
     BoardRenderer.drawPawns(this.ctx, this.state, {
       cellSize: this.cellSize,
-      pawnFillColors: ['#f0f0f0', '#1a1a1a'],
-      pawnStrokeColors: ['#888', '#444'],
+      pawnFillColors: ['#F2F2F2', '#1A1C20'],
+      pawnStrokeColors: ['#9A9A9A', '#5A5A5E'],
     });
   }
 };
