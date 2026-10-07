@@ -106,7 +106,8 @@
     "load-test": "node tests/load-test.js",
     "lint": "eslint src/ frontend/js/ scripts/ tests/",
     "audit": "npm audit --audit-level=high",
-    "coverage": "jest --coverage"
+    "coverage": "jest --coverage",
+    "assets": "capacitor-assets generate --android"
   },
   "repository": {
     "type": "git",
@@ -123,6 +124,7 @@
   "devDependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/splash-screen": "^8.0.1",
