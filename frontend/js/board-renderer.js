@@ -6,7 +6,7 @@ const BoardRenderer = {
       for (var c = 0; c < 9; c++) {
         var x = c * opts.cellSize + pad;
         var y = t(r) * opts.cellSize + pad;
-        ctx.fillStyle = '#2a2a2a';
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#1D1F22' : '#191B1E';
         ctx.fillRect(x, y, opts.cellSize - pad * 2, opts.cellSize - pad * 2);
       }
     }
@@ -18,8 +18,8 @@ const BoardRenderer = {
     var t = opts.transformRow || (function(r) { return r; });
     var pad = opts.padding !== undefined ? opts.padding : 4;
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold ' + (opts.fontSize || cellSize * 0.2) + 'px ' + fontFamily;
+    ctx.fillStyle = 'rgba(242, 242, 242, 0.5)';
+    ctx.font = '600 ' + (opts.fontSize || cellSize * 0.2) + 'px ' + fontFamily;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
     var padding = cellSize * 0.08;
@@ -39,7 +39,7 @@ const BoardRenderer = {
 
   drawPlacedWalls(ctx, state, opts) {
     var t = opts.transformWallRow || opts.transformRow || (function(r) { return r; });
-    ctx.fillStyle = '#e09f3e';
+    ctx.fillStyle = '#E9A22C';
     var fullLen = opts.cellSize * 2;
     var g = opts.gap !== undefined ? opts.gap : 8;
     var wt = opts.wallThick !== undefined ? opts.wallThick : 20;
@@ -98,7 +98,7 @@ const BoardRenderer = {
       if (opts.pawnFillColors) {
         ctx.fillStyle = opts.pawnFillColors[i];
       } else {
-        ctx.fillStyle = p.color === 'white' ? '#fff' : '#000';
+        ctx.fillStyle = p.color === 'white' ? '#F2F2F2' : '#0E0E10';
       }
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -106,7 +106,7 @@ const BoardRenderer = {
       if (opts.pawnStrokeColors) {
         ctx.strokeStyle = opts.pawnStrokeColors[i];
       } else {
-        ctx.strokeStyle = p.color === 'white' ? '#ccc' : '#444';
+        ctx.strokeStyle = p.color === 'white' ? '#9A9A9A' : '#5A5A5E';
       }
       ctx.lineWidth = 3;
       ctx.stroke();
