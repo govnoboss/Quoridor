@@ -71,6 +71,8 @@ const UI = {
       btn_sign_up: "Зарегистрироваться",
       signup_benefits: "Отслеживайте рейтинг, статистику и историю партий",
       discord_cta: "Больше тактик в Discord",
+      play_banner_text: "Playquor теперь в Google Play",
+      play_banner_cta: "Установить",
       btn_to_menu: "В меню",
       btn_rematch: "Реванш",
       btn_rematch_waiting: "Ждем ответа соперника...",
@@ -340,6 +342,8 @@ const UI = {
       btn_sign_up: "Sign Up",
       signup_benefits: "Track your rating, match history and stats",
       discord_cta: "More tactics on Discord",
+      play_banner_text: "Playquor is now on Google Play",
+      play_banner_cta: "Get it on",
       btn_to_menu: "Exit",
       btn_rematch: "Rematch",
       btn_rematch_waiting: "Waiting for opponent...",
@@ -3152,6 +3156,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init emoji reactions picker
   UI.initEmojiPicker();
+
+  const playBanner = document.getElementById('playBanner');
+  if (playBanner) {
+    const playBannerClose = document.getElementById('playBannerClose');
+    if (localStorage.getItem('quoridor-play-banner-dismissed') === '1') {
+      playBanner.classList.add('hidden');
+    }
+    if (playBannerClose) {
+      playBannerClose.addEventListener('click', () => {
+        playBanner.classList.add('hidden');
+        localStorage.setItem('quoridor-play-banner-dismissed', '1');
+      });
+    }
+  }
 
   // Load leaderboard data
   UI.loadLeaderboard();
