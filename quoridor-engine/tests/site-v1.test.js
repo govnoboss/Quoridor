@@ -1,12 +1,15 @@
 'use strict';
 /**
- * The site runs engine v1 in the browser. These tests cover the seam that makes that possible:
+ * The site runs engine v3 in the browser. These tests cover the seam that makes that possible:
  * src/core/ai-v1-bundle.js assembles a browser file out of Node-only CommonJS sources, and the server,
- * the worker and the demo board all load the engine through it.
+ * the worker and the demo board all load the engine through it. The generated file keeps the historical
+ * /js/ai-v1.js URL, the AiV1 global and the createEngineV1 name (an alias for createEngineV3), so the
+ * call sites are engine-agnostic.
  *
- * Also covers the anti-repeat rule itself, because it is the whole point of the v1 engine and it is
- * stateless: it has to reconstruct the visited positions from state.history on every single call, with
- * no instance state to lean on.
+ * The second half still covers engines/v1 directly: it is the arena baseline and the rollback target,
+ * and its anti-repeat rule is stateless — it reconstructs the visited positions from state.history on
+ * every single call, with no instance state to lean on. v3 bans repeats differently (per-instance
+ * gameSeen plus a hard root ban), which the arena gates cover end to end.
  */
 
 const fs = require('fs');
@@ -39,7 +42,7 @@ function loadBundleInSandbox() {
     return sandbox;
 }
 
-describe('browser bundle for engine v1', () => {
+describe('browser bundle for engine v3', () => {
     test('loads from the rules global and exposes the engine', () => {
         const AiV1 = loadBundleInSandbox().AiV1;
         expect(typeof AiV1.createEngineV1).toBe('function');
@@ -102,7 +105,7 @@ describe('browser bundle for engine v1', () => {
     });
 });
 
-describe('engine v1 anti-repeat', () => {
+describe('engine v1 anti-repeat (baseline engine, not the site one)', () => {
     /** Play a random game and return the state plus the full-key visit order. */
     function randomGame(plies, seed) {
         let state = Rules.createInitialState({ base: 600, inc: 0 });

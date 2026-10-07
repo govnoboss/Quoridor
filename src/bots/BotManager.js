@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { createEngineV1 } = require('../../quoridor-engine/engines/v1');
+const { createEngineV3 } = require('../../quoridor-engine/engines/v3');
 const { difficultyToMaxDepth } = require('../core/ai-v1-bundle');
 const { GUEST_BOTS } = require('./defaultBots');
 
@@ -23,14 +23,18 @@ function pickRandom(items) {
  *
  * One instance per game, never one per process: the transposition table is a Map that outlives a game
  * and its key does not contain the player index, so a shared instance lets one side read the other's
- * entries and score them as if they were its own. `require()` caches the module in Node, so a fresh
- * instance cannot be had by re-requiring it — hence the factory.
+ * entries and score them as if they were its own. The engine also accumulates every position the game
+ * visited (the hard ban on moving back into one), and a second game on the same instance would inherit
+ * the first game's positions and reject legal moves. `require()` caches the module in Node, so a fresh
+ * instance cannot be had by re-requiring it — hence the factory. finalizeGame() drops the instance on
+ * every game end, so the map never survives into a rematch.
  *
- * `easyRandomP: 0` because the tiers are depth-only. A random move re-introduces the loops the engine
- * now bans, which is why every arena tier is configured with difficulty "hard" even at depth 2.
+ * `easyRandomP: 0` because the tiers are depth-only. A random move weakens the bot without the arena
+ * having measured it, which is why every arena tier is configured with difficulty "hard" even at
+ * depth 2.
  */
 function createBotEngine(difficulty) {
-    return createEngineV1({ easyRandomP: 0, maxDepth: difficultyToMaxDepth(difficulty) });
+    return createEngineV3({ easyRandomP: 0, maxDepth: difficultyToMaxDepth(difficulty) });
 }
 
 class BotManager {

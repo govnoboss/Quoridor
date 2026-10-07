@@ -117,9 +117,10 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 // Serve Core Modules for Frontend
-// The browser runs the same v1 engine as the server bots and the arena. src/core/ai-v1-bundle.js
+// The browser runs the same v3 engine as the server bots and the arena. src/core/ai-v1-bundle.js
 // assembles it on the fly from quoridor-engine sources, resolving the rules to the global `Shared` that
 // /shared.js already published, so there is exactly one rules implementation and one engine in prod.
+// The URL keeps its historical /js/ai-v1.js name; clients version it with ?v= in index.html.
 app.get('/js/ai-v1.js', (req, res) => {
     res.type('application/javascript');
     res.set('Cache-Control', 'public, max-age=3600');
