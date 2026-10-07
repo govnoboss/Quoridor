@@ -27,6 +27,7 @@ const { generateMoves } = require('../../rules/moves');
 const { createEngineV0 } = require('../../engines/v0');
 const { createEngineV1 } = require('../../engines/v1');
 const { createEngineV2 } = require('../../engines/v2');
+const { createEngineV3 } = require('../../engines/v3');
 const { deriveSeed } = require('../../tools/rng');
 
 // --- Правила (судья) ---
@@ -92,6 +93,7 @@ const ENGINES = {
     v0: (opts) => createEngineV0(opts),
     v1: (opts) => createEngineV1(opts),
     v2: (opts) => createEngineV2(opts),
+    v3: (opts) => createEngineV3(opts),
 };
 
 /**
