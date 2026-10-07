@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8" />
-    <title data-i18n="tos_page_title">Terms of Service — Quoridor</title>
+    <title data-i18n="tos_page_title">Terms of Service — PlayQuor</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.4" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.4" type="text/css" />
@@ -10,7 +10,7 @@
 <body class="auth-page-body">
     <header class="main-header">
         <div class="header-left">
-            <a href="/" class="header-logo">QUORIDOR</a>
+            <a href="/" class="header-logo">PlayQuor</a>
         </div>
         <div class="header-right">
             <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
@@ -172,7 +172,7 @@
                 el.classList.remove('active');
             });
             document.getElementById('content-' + lang).classList.add('active');
-            var t = { ru: 'Условия использования — Quoridor', en: 'Terms of Service — Quoridor' };
+            var t = { ru: 'Условия использования — PlayQuor', en: 'Terms of Service — PlayQuor' };
             document.title = t[lang] || t.ru;
             document.querySelector('[data-i18n="btn_back_to_home"]').textContent = lang === 'ru' ? 'На главную' : 'Back to Home';
         }

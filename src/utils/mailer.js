@@ -21,7 +21,7 @@ async function sendPasswordResetEmail(to, token) {
   const { data, error } = await r.emails.send({
     from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
     to,
-    subject: 'Password Reset — Quoridor',
+    subject: 'Password Reset — PlayQuor',
     html: `<p>You requested a password reset.</p><p>Click <a href="${link}">here</a> to reset your password. This link expires in 1 hour.</p><p>If you did not request this, ignore this email.</p>`
   });
   if (error) {
