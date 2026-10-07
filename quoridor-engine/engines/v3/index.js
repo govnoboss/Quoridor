@@ -111,7 +111,7 @@ function createEngineV3(options = {}) {
 
   // search-time
   let nodes = 0, nodeLimit = Infinity, deadline = Infinity, stopped = false, rootSide = 0, extLimit = 0;
-  let rootIterMove = -1, rootIterScore = 0;
+  let rootIterMove = -1, rootIterScore = 0, rootBanOn = false;
 
   // ---------- board primitives ----------
   function resetEdges() {
@@ -396,6 +396,24 @@ function createEngineV3(options = {}) {
 
   const hkey = () => (h1 >>> 0) + (h2 & 0x1fffff) * 4294967296;
   const repScore = (side) => (side === rootSide ? -opt.contempt : opt.contempt);
+  // true if playing `code` from the current position leads to a position (same walls, pawns, walls left,
+  // side to move) that already occurred in THIS game. Used as a hard ban at the root (see think()).
+  function repeatsGame(code, ply) {
+    pathH1[ply] = h1; pathH2[ply] = h2;
+    make(code, ply);
+    const k = hkey();
+    unmake(code, ply);
+    return gameSeen.get(k) > 0;
+  }
+  // remember the position that results from the move we are about to play (opponent to move)
+  function recordAfter(state, code) {
+    load(state);
+    pathH1[0] = h1; pathH2[0] = h2;
+    make(code, 0);
+    const k = hkey();
+    gameSeen.set(k, (gameSeen.get(k) || 0) + 1);
+    unmake(code, 0);
+  }
 
   // ---------- search ----------
   function negamax(depth, alpha, beta, ply) {
@@ -446,6 +464,7 @@ function createEngineV3(options = {}) {
     const base = ply * MAXM, origAlpha = alpha;
     let best = -INF, bestMove = mvBuf[base];
     const tactical = dm <= 2 || dO <= 2;
+    let searched = 0;
     for (let i = 0; i < n; i++) {
       // selection sort step
       let bi = i, bs = scBuf[base + i];
@@ -456,9 +475,10 @@ function createEngineV3(options = {}) {
         mvBuf[base + bi] = c; scBuf[base + bi] = s;
       }
       const code = mvBuf[base + i];
+      if (isRoot && rootBanOn && repeatsGame(code, 0)) continue;   // anti-loop: a repeated position is not a legal choice
       make(code, ply);
       let score;
-      if (i === 0) score = -negamax(depth - 1, -beta, -alpha, ply + 1);
+      if (searched++ === 0) score = -negamax(depth - 1, -beta, -alpha, ply + 1);
       else {
         let red = 0;
         if (depth >= 3 && i >= 3 && !tactical) red = (i >= 8 && depth >= 5) ? 2 : 1;
@@ -567,6 +587,7 @@ function createEngineV3(options = {}) {
     if (difficulty === 'easy' && rng() < opt.easyRandomP) {
       const buf = new Int32Array(8), n = genPawn(me, buf, 0);
       const code = buf[Math.min(n - 1, Math.floor(rng() * n))];
+      recordAfter(state, code);
       return { move: opt.encodeMove(code), depth: 0, nodes: 0, timeMs: Date.now() - t0, score: 0 };
     }
 
@@ -586,7 +607,15 @@ function createEngineV3(options = {}) {
     analyzeDist(); analyzeCounts();
     let ttm = -1; const s0 = ttProbe(); if (s0 >= 0) ttm = tt[s0 + 2];
     const n0 = genMoves(me, 0, ttm, true);
-    let bi = 0; for (let j = 1; j < n0; j++) if (scBuf[j] > scBuf[bi]) bi = j;
+    // hard anti-loop: candidates leading to an already seen position are skipped (unless ALL of them repeat)
+    let bi = -1, free = 0;
+    for (let j = 0; j < n0; j++) {
+      if (repeatsGame(mvBuf[j], 0)) continue;
+      free++;
+      if (bi < 0 || scBuf[j] > scBuf[bi]) bi = j;
+    }
+    rootBanOn = free > 0 && free < n0;
+    if (bi < 0) { bi = 0; for (let j = 1; j < n0; j++) if (scBuf[j] > scBuf[bi]) bi = j; }
     let bestMove = mvBuf[bi], bestScore = 0, completed = 0, prev = 0;
 
     for (let d = 1; d <= maxDepth; d++) {
@@ -610,6 +639,8 @@ function createEngineV3(options = {}) {
       if (score >= WIN - MAXPLY || score <= -WIN + MAXPLY) break;   // forced result found
       if (deadline !== Infinity && Date.now() - t0 > (deadline - t0) * 0.45) break; // next depth will not fit
     }
+    rootBanOn = false;
+    recordAfter(state, bestMove);
     return { move: opt.encodeMove(bestMove), depth: completed, nodes, timeMs: Date.now() - t0, score: bestScore };
   }
 
