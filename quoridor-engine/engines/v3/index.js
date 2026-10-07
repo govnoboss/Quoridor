@@ -649,6 +649,9 @@ function createEngineV3(options = {}) {
 
   return {
     name: 'v3', version: '1.0.0', think, newGame, reset: () => {},
+    // ADAPT: exposed like v1, so the site bundle test can assert the engine wired the shared rules
+    // object rather than a private copy.
+    rules: Rules,
     // debugging / tests
     _debug: {
       load, allLegal, computeHash, encodeMove: opt.encodeMove,
