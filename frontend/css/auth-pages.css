@@ -1,7 +1,12 @@
 :root {
-    --bg: #1a1a1a;
-    --wall: #e09f3e;
-    --text: #eee;
+    --bg: #0B0C0D;
+    --bg-2: #101112;
+    --panel: #1B1C1E;
+    --panel-light: #222426;
+    --accent: #E9A22C;
+    --wall: #E9A22C;
+    --text: #F2F2F2;
+    --text-dim: #A0A0A0;
     --header-h: 64px;
 }
 html {
