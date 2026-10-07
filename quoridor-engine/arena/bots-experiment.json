@@ -1,5 +1,8 @@
 {
-  "_comment": "Экспериментальные боты. Не путать с bots.json. Проверяем v2 (netGain >= 0, MAX_WALL_MOVES 16) против v1 на одинаковом бюджете узлов.",
+  "_comment": "Экспериментальные боты. Не путать с bots.json. v3 — независимый движок (negamax/PVS/LMR/Zobrist/DAG-стены, контемпт против петель), валидируется против v1/v2 на одинаковом бюджете.",
   "v1-d5": { "engine": "v1", "difficulty": "hard", "maxDepth": 5 },
-  "v2-d5": { "engine": "v2", "difficulty": "hard", "maxDepth": 5 }
+  "v2-d5": { "engine": "v2", "difficulty": "hard", "maxDepth": 5 },
+  "v3-d2": { "engine": "v3", "difficulty": "hard", "maxDepth": 2 },
+  "v3-d3": { "engine": "v3", "difficulty": "hard", "maxDepth": 3 },
+  "v3-d5": { "engine": "v3", "difficulty": "hard", "maxDepth": 5 }
 }
