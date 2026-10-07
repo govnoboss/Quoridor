@@ -1,8 +1,12 @@
 {
   "_comment": "Экспериментальные боты. Не путать с bots.json. v3 — независимый движок (negamax/PVS/LMR/Zobrist/DAG-стены, контемпт против петель), валидируется против v1/v2 на одинаковом бюджете.",
+  "v1-d2": { "engine": "v1", "difficulty": "hard", "maxDepth": 2 },
+  "v1-d3": { "engine": "v1", "difficulty": "hard", "maxDepth": 3 },
+  "v1-d4": { "engine": "v1", "difficulty": "hard", "maxDepth": 4 },
   "v1-d5": { "engine": "v1", "difficulty": "hard", "maxDepth": 5 },
   "v2-d5": { "engine": "v2", "difficulty": "hard", "maxDepth": 5 },
   "v3-d2": { "engine": "v3", "difficulty": "hard", "maxDepth": 2 },
   "v3-d3": { "engine": "v3", "difficulty": "hard", "maxDepth": 3 },
+  "v3-d4": { "engine": "v3", "difficulty": "hard", "maxDepth": 4 },
   "v3-d5": { "engine": "v3", "difficulty": "hard", "maxDepth": 5 }
 }
