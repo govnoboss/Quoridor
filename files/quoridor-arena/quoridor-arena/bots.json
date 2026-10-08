@@ -1,0 +1,5 @@
+{
+  "v0-easy":   { "difficulty": "easy" },
+  "v0-medium": { "difficulty": "medium" },
+  "v0-hard":   { "difficulty": "hard" }
+}

@@ -1,0 +1,18 @@
+{
+  "v3-base":    { "engine": "v3", "difficulty": "hard", "weights": { "center": 0, "infl": 0 } },
+  "v3-new":     { "engine": "v3", "difficulty": "hard", "weights": { "center": 35, "infl": 60 } },
+  "v3-texelA":  { "engine": "v3", "difficulty": "hard", "weights": { "urg": 2.8, "flex": 23 } },
+  "v3-texelB":  { "engine": "v3", "difficulty": "hard", "weights": { "urg": 2.8 } },
+  "v3-texelC":  { "engine": "v3", "difficulty": "hard", "weights": { "flex": 23 } },
+  "v3-texelD":  { "engine": "v3", "difficulty": "hard", "weights": { "urg": 2.8, "flex": 23, "center": 57, "infl": 99 } },
+  "v3-texelD1": { "engine": "v3", "difficulty": "hard", "weights": { "center": 57, "infl": 99 } },
+  "v3-texelD2": { "engine": "v3", "difficulty": "hard", "weights": { "center": 57 } },
+  "v3-texelD3": { "engine": "v3", "difficulty": "hard", "weights": { "infl": 99 } },
+  "v3-texelD4": { "engine": "v3", "difficulty": "hard", "weights": { "center": 100, "infl": 99 } },
+  "v3-texelD5": { "engine": "v3", "difficulty": "hard", "weights": { "center": 30, "infl": 99 } },
+  "v3-texelD6": { "engine": "v3", "difficulty": "hard", "weights": { "center": 57, "infl": 150 } },
+  "v3-texelD7": { "engine": "v3", "difficulty": "hard", "weights": { "center": 57, "infl": 50 } },
+  "v3-texelD8": { "engine": "v3", "difficulty": "hard", "weights": { "center": 35, "infl": 60 } },
+  "v3-texelD9": { "engine": "v3", "difficulty": "hard", "weights": { "center": 30, "infl": 50 } },
+  "v3-texelD10": { "engine": "v3", "difficulty": "hard", "weights": { "center": 50, "infl": 80 } }
+}

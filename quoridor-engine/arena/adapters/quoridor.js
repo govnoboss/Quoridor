@@ -126,7 +126,9 @@ function makeBot(spec, name) {
                 maxDepth: spec.maxDepth,
                 nodes: spec.nodes,
                 easyRandomP: spec.easyRandomP,
+                randomP: spec.randomP,
                 weights: spec.weights,
+                difficulty: spec.difficulty,
             });
         },
         think(state, playerIdx, limits = {}) {

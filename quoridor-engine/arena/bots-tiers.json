@@ -1,0 +1,6 @@
+{
+  "t-easy":       { "engine": "v3", "difficulty": "easy",       "maxDepth": 2 },
+  "t-medium":     { "engine": "v3", "difficulty": "medium",     "maxDepth": 3 },
+  "t-hard":       { "engine": "v3", "difficulty": "hard",       "maxDepth": 4 },
+  "t-impossible": { "engine": "v3", "difficulty": "impossible", "maxDepth": 56 }
+}
