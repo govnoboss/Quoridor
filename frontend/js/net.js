@@ -207,6 +207,19 @@ const Net = {
             Game.syncTimers(data.timers);
         });
 
+        this.requestTimerSync = () => {
+            if (!this.isOnline || !this.socket || !this.socket.connected) return;
+            this.socket.emit('requestTimerSync', { lobbyId: this.lobbyId }, (res) => {
+                if (res && res.timers) {
+                    Game.syncTimers(res.timers, true);
+                }
+            });
+        };
+
+        this.socket.on('connect', () => {
+            this.requestTimerSync();
+        });
+
         this.socket.on('forceDisconnect', (data) => {
             console.log('[NET] Force Disconnected:', data.reason);
             this.socket.disconnect();
