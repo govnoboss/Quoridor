@@ -232,6 +232,7 @@ const Game = {
     this.ctx.scale(dpr, dpr);
   },
   handleGameOver(winnerIdx, reason, ratingChanges, gameResultId, hasBot) {
+    if (this.isGameOver) return;
     this.stopTimer();
     this.isGameOver = true;
 
@@ -2369,5 +2370,6 @@ document.addEventListener('DOMContentLoaded', () => {
   Game.setupCanvas();
   Game.updateTurnDisplay();
   Game.initEvents();
+  Game.initTimerVisibilityHandlers();
   DemoBoard.init();
 });

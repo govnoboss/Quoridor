@@ -3291,8 +3291,14 @@ io.on('connection', (socket) => {
             const lobbyId = payload && payload.lobbyId;
             if (typeof cb !== 'function' || !lobbyId) return;
             const game = await Redis.getGame(lobbyId);
-            if (!game) return cb({});
-            if (game.finished) return cb({ finished: true });
+
+            // Игра не найдена или уже завершена: клиент мог пропустить gameOver
+            // в фоне — переотправляем его этому сокету, если он участник игры.
+            if (!game || game.finished) {
+                await resendGameOverIfFinished(socket, lobbyId, game);
+                return cb({ finished: true });
+            }
+
             const playerIdx = game.playerTokens.indexOf(socket.playerToken);
             if (playerIdx === -1) return cb({});
             const now = Date.now();
@@ -3906,6 +3912,50 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
     }
 }
 
+/**
+ * Клиент мог пропустить gameOver (свернутая вкладка, потерянный реконнект).
+ * Если игра уже завершена — переотправляем событие этому сокету напрямую.
+ * Возвращает true, если событие было отправлено.
+ */
+async function resendGameOverIfFinished(socket, lobbyId, gameData) {
+    const source = gameData || await Redis.getFinishedGame(lobbyId);
+    if (!source || !Array.isArray(source.playerTokens)) return false;
+    if (!source.playerTokens.includes(socket.playerToken)) return false;
+
+    let endResult = source.endResult || null;
+    if (!endResult) {
+        const finished = await Redis.getFinishedGame(lobbyId);
+        endResult = (finished && finished.endResult) || null;
+    }
+    if (!endResult) {
+        // Фолбэк: архив в MongoDB (игры, завершённые до появления endResult)
+        try {
+            const GameResult = require('./models/GameResult');
+            const archived = await GameResult.findOne({ lobbyId });
+            if (archived) {
+                endResult = {
+                    winnerIdx: archived.winner,
+                    reason: archived.reason,
+                    gameResultId: archived._id,
+                    ratingChanges: null
+                };
+            }
+        } catch (e) {
+            console.error('[RESEND GAMEOVER ARCHIVE ERROR]', e.message);
+        }
+    }
+    if (!endResult) return false;
+
+    socket.emit('gameOver', {
+        winnerIdx: endResult.winnerIdx ?? -1,
+        reason: endResult.reason || 'unknown',
+        gameResultId: endResult.gameResultId || null,
+        hasBot: !!source.hasBot,
+        ratingChanges: endResult.ratingChanges || null
+    });
+    return true;
+}
+
 // Unified Game End Handler
 async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     const game = stateOverride || await Redis.getGame(lobbyId);
@@ -3930,17 +3980,29 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     const winnerName = winnerIdx === -1 ? 'Draw' : (winnerIdx === 0 ? 'White' : 'Black');
     console.log(`[GAME END] ${lobbyId}: Winner=${winnerName}, Reason=${reason}`);
 
+    const ratingChanges = (resultData && game.isRanked) ? {
+        playerWhite: resultData.white.ratingChange,
+        playerBlack: resultData.black.ratingChange,
+        newRatingWhite: resultData.white.newRating,
+        newRatingBlack: resultData.black.newRating
+    } : null;
+
+    // Запоминаем результат на объекте игры: копия в saveFinishedGame сохранит его,
+    // и requestTimerSync сможет переотправить gameOver сокету, пропустившему событие
+    // в фоне (свернутая вкладка / потерянный реконнект).
+    game.endResult = {
+        winnerIdx: winnerIdx,
+        reason: reason,
+        gameResultId: resultData?.gameResultId || null,
+        ratingChanges: ratingChanges
+    };
+
     io.to(lobbyId).emit('gameOver', {
         winnerIdx: winnerIdx,
         reason: reason,
         gameResultId: resultData?.gameResultId || null,
         hasBot: !!game.hasBot,
-        ratingChanges: (resultData && game.isRanked) ? {
-            playerWhite: resultData.white.ratingChange,
-            playerBlack: resultData.black.ratingChange,
-            newRatingWhite: resultData.white.newRating,
-            newRatingBlack: resultData.black.newRating
-        } : null
+        ratingChanges: ratingChanges
     });
 
     // Save rematch context before deleting game data
