@@ -2233,14 +2233,7 @@ canvas {
     }
 
     .info-panel {
-        flex: 0 0 auto;
-        width: 100%;
-        max-width: 480px;
-        margin-left: 0;
-        padding: 0 16px 10px;
-        order: 4;
-        gap: 10px;
-        justify-content: flex-start;
+        display: none;
     }
 
     /* === Game Screen === */
