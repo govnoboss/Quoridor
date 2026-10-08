@@ -1,0 +1,38 @@
+{
+  "z-deg2": {
+    "engine": "v3",
+    "difficulty": "easy",
+    "easyRandomP": 0,
+    "maxDepth": 2
+  },
+  "z-deg2r": {
+    "engine": "v3",
+    "difficulty": "easy",
+    "easyRandomP": 0.3,
+    "maxDepth": 2
+  },
+  "z-deg3": {
+    "engine": "v3",
+    "difficulty": "easy",
+    "easyRandomP": 0,
+    "maxDepth": 3
+  },
+  "z-semi3": {
+    "engine": "v3",
+    "difficulty": "medium",
+    "easyRandomP": 0,
+    "maxDepth": 3
+  },
+  "z-full4": {
+    "engine": "v3",
+    "difficulty": "hard",
+    "easyRandomP": 0,
+    "maxDepth": 4
+  },
+  "z-full56": {
+    "engine": "v3",
+    "difficulty": "hard",
+    "easyRandomP": 0,
+    "maxDepth": 56
+  }
+}

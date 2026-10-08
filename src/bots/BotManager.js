@@ -29,12 +29,12 @@ function pickRandom(items) {
  * instance cannot be had by re-requiring it — hence the factory. finalizeGame() drops the instance on
  * every game end, so the map never survives into a rematch.
  *
- * `easyRandomP: 0` because the tiers are depth-only. A random move weakens the bot without the arena
- * having measured it, which is why every arena tier is configured with difficulty "hard" even at
- * depth 2.
+ * The tiers are depth + eval-profile + random-move probability, all keyed by the difficulty label
+ * (DIFFICULTY_WEIGHTS / DIFFICULTY_RANDOM in engines/v3). Nothing is overridden here, so the site
+ * gets exactly what the arena measures.
  */
 function createBotEngine(difficulty) {
-    return createEngineV3({ easyRandomP: 0, maxDepth: difficultyToMaxDepth(difficulty) });
+    return createEngineV3({ maxDepth: difficultyToMaxDepth(difficulty), difficulty });
 }
 
 class BotManager {
@@ -296,7 +296,6 @@ class BotManager {
             const result = engine.think(game, {
                 player: botIdx,
                 maxDepth,
-                easyRandomP: 0,
             });
 
             const move = result && result.move;

@@ -38,13 +38,15 @@ const RNG_FILE = path.join(ENGINE_DIR, 'tools', 'rng.js');
 const ENGINE_FILE = path.join(ENGINE_DIR, 'engines', 'v3', 'index.js');
 
 /**
- * The four bot tiers. Depth only, no randomness.
+ * The four bot tiers: search depth per label. The eval profile and the random-move probability
+ * live with the engine (DIFFICULTY_WEIGHTS / DIFFICULTY_RANDOM in engines/v3, keyed by the same
+ * label), so a label is the single thing a caller passes to get a tier.
  *
- * These are the depths measured in the arena as monotonically stronger (easy d2 -> impossible d5, no
- * inversions). `DIFFICULTY_DEPTH` inside engines/v3 is deliberately NOT used: it is the external
- * engine's own table and is not what the site tiers are.
+ * easy d2 -> hard d4 are depth-capped and finish well inside their DIFFICULTY_MS budget;
+ * impossible is time-bound on purpose (DIFFICULTY_MS fallback = 1000ms), which is what separates
+ * it from hard — a depth-5 cap at full budget was measured to be inside the noise of hard.
  */
-const DIFFICULTY_DEPTH = { easy: 2, medium: 3, hard: 4, impossible: 5 };
+const DIFFICULTY_DEPTH = { easy: 2, medium: 3, hard: 4, impossible: 56 };
 
 const DEFAULT_MAX_DEPTH = 3;
 
@@ -108,10 +110,12 @@ function buildAiV1Bundle() {
         // and the browser cannot disagree about which label means which depth.
         '    DIFFICULTY_DEPTH: ' + JSON.stringify(DIFFICULTY_DEPTH) + ',',
         '    DEFAULT_MAX_DEPTH: ' + DEFAULT_MAX_DEPTH + ',',
-        '    difficultyToMaxDepth: function (difficulty) {',
-        '      var d = ' + JSON.stringify(DIFFICULTY_DEPTH) + '[difficulty];',
-        '      return d === undefined ? ' + DEFAULT_MAX_DEPTH + ' : d;',
-        '    },',
+    '    difficultyToMaxDepth: function (difficulty) {',
+    '      var d = ' + JSON.stringify(DIFFICULTY_DEPTH) + '[difficulty];',
+    '      return d === undefined ? ' + DEFAULT_MAX_DEPTH + ' : d;',
+    '    },',
+    '    DIFFICULTY_WEIGHTS: engine.DIFFICULTY_WEIGHTS,',
+    '    DIFFICULTY_RANDOM: engine.DIFFICULTY_RANDOM,',
         '  };',
         '}(typeof self !== "undefined" ? self : this));',
     ].join('\n');

@@ -8,7 +8,7 @@
  * keeps the previous engine.
  */
 importScripts('/shared.js');
-importScripts('/js/ai-v1.js?v=1.1.0');
+importScripts('/js/ai-v1.js?v=1.2.0');
 
 /**
  * One engine per local game.
@@ -22,9 +22,7 @@ let engine = null;
 
 function createEngine(difficulty) {
     return AiV1.createEngineV1({
-        // Depth-only tiers: a random move would reintroduce exactly the repetition loops the engine
-        // now bans, which is why the arena runs every tier with randomness disabled.
-        easyRandomP: 0,
+        difficulty: difficulty,
         maxDepth: AiV1.difficultyToMaxDepth(difficulty),
     });
 }
@@ -59,7 +57,6 @@ onmessage = function (e) {
         const result = engine.think(state, {
             player: botIdx,
             maxDepth: AiV1.difficultyToMaxDepth(difficulty),
-            easyRandomP: 0,
         });
 
         if (!result || !result.move) throw new Error('engine returned no move');

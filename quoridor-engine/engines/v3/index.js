@@ -64,6 +64,22 @@ const EXACT = 0, LOWER = 1, UPPER = 2;
 const DIFFICULTY_DEPTH = { easy: 2, medium: 4, hard: 56 };
 const DIFFICULTY_MS = { easy: 100, medium: 300, hard: 1000 }; // used only if neither nodes nor timeMs given
 
+// Site tiers: eval profiles layered on the default weights (path: 100 stays the anchor everywhere).
+// Depth is external (src/core/ai-v1-bundle.js DIFFICULTY_DEPTH); these only shape the evaluation.
+// hard/impossible are empty: their gap is search depth, everything else is the full tuned eval.
+const DIFFICULTY_WEIGHTS = {
+  easy:       { tempo: 30, wall: 0,  flex: 0, race: 300,  urg: 0,   center: 0,  infl: 0 },
+  medium:     { tempo: 35, wall: 12, flex: 4, race: 700,  urg: 2,   center: 15, infl: 30 },
+  hard:       {},
+  impossible: {},
+};
+
+// Probability of playing a random pawn move instead of a searched one, per site tier. Measured in
+// the arena: p=0.3 costs ~400 Elo — the only cheap lever that makes a tier genuinely weak without
+// teaching the eval to play badly (a "simpler" eval at low depth turns out to play BETTER).
+// Explicit opt.randomP overrides the table for experiments.
+const DIFFICULTY_RANDOM = { easy: 0.3, medium: 0.1, hard: 0, impossible: 0 };
+
 // ---------- ADAPT: canonical move encoding ----------
 // Canonical wall move shape used by the site: { type:'wall', r, c, isVertical }. Pawn: { type:'pawn', r, c }.
 function encodeMove(code) {
@@ -75,14 +91,23 @@ function encodeMove(code) {
 function createEngineV3(options = {}) {
   const opt = {
     seed: 1, timeMs: null, nodes: null, maxDepth: null, difficulty: null,
-    easyRandomP: 0.3, ttBits: 18, contempt: 35,
+    randomP: null, ttBits: 18, contempt: 35,
     maxWallsNode: 8, maxWallsRoot: 16, funnelNode: 3, funnelRoot: 6,
     goalRows: null, weights: {}, encodeMove,
     ...options,
   };
-  const W = { path: 100, tempo: 45, wall: 26, flex: 9, race: 1200, urg: 5, ...opt.weights };
-  const URG = new Int32Array(20);
-  for (let d = 0; d < 20; d++) URG[d] = d < 9 ? Math.round(Math.pow(9 - d, 1.5) * W.urg) : 0;
+  // Eval weights resolve from the effective difficulty at think() time (limits.difficulty wins,
+  // same as DIFFICULTY_MS / DIFFICULTY_DEPTH / the random-move branch), so a caller that only passes
+  // difficulty per think still gets the tier's eval. opt.weights always overrides the profile.
+  let W = null, URG = null, appliedDifficulty;
+  function applyDifficultyWeights(d) {
+    if (d === appliedDifficulty) return;
+    appliedDifficulty = d;
+    W = { path: 100, tempo: 45, wall: 26, flex: 9, race: 1200, urg: 5, center: 35, infl: 60, ...(DIFFICULTY_WEIGHTS[d] || null), ...opt.weights };
+    URG = new Int32Array(20);
+    for (let i = 0; i < 20; i++) URG[i] = i < 9 ? Math.round(Math.pow(9 - i, 1.5) * W.urg) : 0;
+  }
+  applyDifficultyWeights(opt.difficulty || 'hard');
 
   // ---------- per-instance state (allocated in newGame) ----------
   let started = false, rng = null, seed0 = opt.seed;
@@ -375,6 +400,16 @@ function createEngineV3(options = {}) {
     s += (dm < 20 ? URG[dm] : 0) - (dO < 20 ? URG[dO] : 0);
     if (wo === 0 && dm <= dO) s += W.race;
     else if (wm === 0 && dO < dm) s -= W.race;
+    if (W.center) {
+      const colM = cell[me] % 9, colO = cell[op] % 9;
+      s += (Math.abs(4 - colO) - Math.abs(4 - colM)) * W.center;
+    }
+    if (W.infl) {
+      const rM = (cell[me] / 9) | 0, rO = (cell[op] / 9) | 0;
+      const rowsM = goalRow[me] === 0 ? rM : 8 - rM;
+      const rowsO = goalRow[op] === 0 ? rO : 8 - rO;
+      s += ((dO - rowsO) - (dm - rowsM)) * W.infl;
+    }
     return s;
   }
 
@@ -580,13 +615,25 @@ function createEngineV3(options = {}) {
       throw new Error(`v3.think(): asked to move for player ${limits.player}, but player ${turn} is to move`);
 
     const difficulty = limits.difficulty || opt.difficulty || 'hard';
+    applyDifficultyWeights(difficulty);
     const me = turn;
     rootSide = me;
 
-    // easy: random pawn move with probability easyRandomP
-    if (difficulty === 'easy' && rng() < opt.easyRandomP) {
+    // random pawn move with probability randomP (tier table or explicit override); moves leading to
+    // an already-seen position are filtered out so randomness can never create a repetition loop
+    const rp = opt.randomP !== null && opt.randomP !== undefined
+      ? opt.randomP
+      : (DIFFICULTY_RANDOM[difficulty] || 0);
+    if (rp > 0 && rng() < rp) {
       const buf = new Int32Array(8), n = genPawn(me, buf, 0);
-      const code = buf[Math.min(n - 1, Math.floor(rng() * n))];
+      let free = 0;
+      for (let i = 0; i < n; i++) if (!repeatsGame(buf[i], 0)) free++;
+      let idx;
+      if (free > 0) {
+        let k = Math.floor(rng() * free);
+        for (let i = 0; i < n; i++) { if (repeatsGame(buf[i], 0)) continue; if (k-- === 0) { idx = i; break; } }
+      } else idx = Math.floor(rng() * n);
+      const code = buf[idx];
       recordAfter(state, code);
       return { move: opt.encodeMove(code), depth: 0, nodes: 0, timeMs: Date.now() - t0, score: 0 };
     }
@@ -663,4 +710,4 @@ function createEngineV3(options = {}) {
   };
 }
 
-module.exports = { createEngineV3, encodeMove };
+module.exports = { createEngineV3, encodeMove, DIFFICULTY_WEIGHTS, DIFFICULTY_RANDOM };

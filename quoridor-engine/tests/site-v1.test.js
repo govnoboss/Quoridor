@@ -64,7 +64,7 @@ describe('browser bundle for engine v3', () => {
     });
 
     test('the four site tiers are depth-only and monotonically increasing', () => {
-        expect(DIFFICULTY_DEPTH).toEqual({ easy: 2, medium: 3, hard: 4, impossible: 5 });
+        expect(DIFFICULTY_DEPTH).toEqual({ easy: 2, medium: 3, hard: 4, impossible: 56 });
     });
 
     test('the bundled engine returns a move the canonical reducer accepts', () => {

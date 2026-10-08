@@ -1,0 +1,61 @@
+const Net = {
+    socket: null,
+    isOnline: false,   // Флаг, что мы играем в сети
+    myColor: null,     // 'white' или 'black'
+    lobbyId: null,     // ID комнаты
+
+    init() {
+        this.socket = io("https://quoridor-ogf4.onrender.com/", {
+  transports: ["websocket"]
+});
+
+        this.socket.on('connect', () => console.log('[NET] Socket connected:', this.socket.id));
+        
+        this.socket.on('gameStart', (data) => {
+            console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
+            
+            this.isOnline = true;
+            this.myColor = data.color;
+            this.lobbyId = data.lobbyId;
+
+            UI.hideSearch(); 
+            
+            Game.startOnline(data.color);
+        });
+        this.socket.on('gameOver', (data) => {
+            console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);
+            this.isOnline = false;
+            this.lobbyId = null;
+            this.myColor = null;
+            
+            Game.handleGameOver(data.winnerIdx, data.reason);
+        });
+            this.socket.on('serverMove', (data) => {
+            Game.applyServerMove(data);
+            this.socket.on('moveRejected', (data) => {
+            console.warn('[NET] Ход отклонен сервером:', data.reason);
+            console.log('Недопустимый ход!');
+        });
+        });
+    },
+
+    findGame() {
+        this.socket.emit('findGame');
+        console.log('[NET] Ищу игру...');
+    },
+
+    cancelFindGame() {
+        this.socket.emit('cancelSearch');
+        console.log('[NET] Поиск отменен.');
+    },
+
+    sendMove(moveData) {
+            if (!this.isOnline) return;
+            this.socket.emit('playerMove', {
+                lobbyId: this.lobbyId,
+                move: moveData
+            });
+        }
+};
+
+Net.init();
