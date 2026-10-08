@@ -1705,6 +1705,10 @@ canvas {
     padding: 15px 25px;
 }
 
+.info-panel-nav {
+    display: none;
+}
+
 .info-card {
     background-color: var(--panel);
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0));
@@ -2233,7 +2237,67 @@ canvas {
     }
 
     .info-panel {
-        display: none;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        z-index: 60;
+        background: var(--bg);
+        justify-content: flex-start;
+        align-items: stretch;
+        overflow-y: auto;
+        gap: 10px;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+
+    .info-panel.info-panel-open {
+        transform: translateX(0);
+    }
+
+    .info-panel-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex: 0 0 auto;
+        gap: 10px;
+        padding: 12px 16px;
+        background: var(--bg);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .info-panel-nav .header-logo {
+        font-size: 1.1rem;
+        cursor: default;
+    }
+
+    .info-panel-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .info-panel-back:active {
+        background: rgba(255, 255, 255, 0.09);
+    }
+
+    .info-panel .info-card {
+        margin: 0 16px;
+        text-align: center;
     }
 
     /* === Game Screen === */

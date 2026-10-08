@@ -1755,6 +1755,42 @@ UI.selectBotDifficulty = function (diff) {
   UI.showDynamicPanel('panelColorSelect');
 };
 
+// --- MOBILE SWIPE NAVIGATION (menu <-> leaderboard/online) ---
+UI.openMobileInfoPanel = function () {
+  const panel = document.getElementById('infoPanel');
+  if (panel) panel.classList.add('info-panel-open');
+};
+
+UI.closeMobileInfoPanel = function () {
+  const panel = document.getElementById('infoPanel');
+  if (panel) panel.classList.remove('info-panel-open');
+};
+
+UI.initMobileSwipeNav = function () {
+  const menu = document.getElementById('mainMenu');
+  const panel = document.getElementById('infoPanel');
+  if (!menu || !panel) return;
+  const swipeMode = () => window.matchMedia('(max-width: 900px), (max-height: 800px)').matches;
+  let startX = null;
+  let startY = null;
+  menu.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+  }, { passive: true });
+  menu.addEventListener('touchend', (e) => {
+    if (!swipeMode() || startX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    startX = null;
+    startY = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    if (dx < 0) UI.openMobileInfoPanel();
+    else UI.closeMobileInfoPanel();
+  }, { passive: true });
+};
+
 // --- AUTHENTICATION ---
 UI.currentUser = null;
 
@@ -3172,6 +3208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load leaderboard data
+  UI.initMobileSwipeNav();
   UI.loadLeaderboard();
 
   // Legacy query room support -> canonical lobby path
