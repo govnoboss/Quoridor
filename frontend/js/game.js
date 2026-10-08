@@ -7,6 +7,7 @@ const Game = {
   myPlayerIndex: -1,
   timers: [600, 600],
   timerInterval: null,
+  timerBase: null,
   initialTime: 600,
   pendingBotDifficulty: 'medium',
   debugControl: false, // Режим отладки зон наведения
@@ -190,7 +191,7 @@ const Game = {
 
     this.myPlayerIndex = playerIdx;
     this.initialTime = initialTime;
-    this.timers = [initialTime, initialTime];
+    this.setTimerBase([initialTime, initialTime], this.state.currentPlayer);
 
     if (profiles) {
       this.state.playerProfiles = [null, null];
@@ -769,23 +770,40 @@ const Game = {
     trackEvent('game-started', { mode: 'bot', difficulty: diff });
   },
 
+  setTimerBase(timers, activeIdx) {
+    this.timerBase = { timers: [...timers], at: performance.now(), active: activeIdx };
+    this.timers = timers.map(t => Math.max(0, Math.ceil(t)));
+  },
+
+  currentTimers() {
+    const b = this.timerBase;
+    if (!b) return [...this.timers];
+    const out = [...b.timers];
+    out[b.active] = Math.max(0, b.timers[b.active] - (performance.now() - b.at) / 1000);
+    return out;
+  },
+
+  tickTimer() {
+    if (!this.timerBase) return;
+    const cur = this.currentTimers();
+    this.timers = cur.map(t => Math.ceil(t));
+    this.updateTimerDisplay();
+    const a = this.timerBase.active;
+    if (cur[a] <= 0 && typeof Net !== 'undefined' && !Net.isOnline) {
+      this.stopTimer();
+      this.handleGameOver(1 - a, 'Time out');
+    }
+  },
+
   startTimer() {
     this.stopTimer();
-    this.timerInterval = setInterval(() => {
-      const activeIdx = this.state.currentPlayer;
-
-      if (this.timers[activeIdx] > 0) {
-        this.timers[activeIdx]--;
-        this.updateTimerDisplay();
-      } else {
-        this.stopTimer();
-
-        if (!Net.isOnline) {
-          const winnerIdx = 1 - activeIdx;
-          this.handleGameOver(winnerIdx, 'Time out');
-        }
-      }
-    }, 1000);
+    const active = this.state.currentPlayer;
+    if (!this.timerBase || this.timerBase.active !== active) {
+      const base = this.timerBase ? this.currentTimers() : this.timers;
+      this.setTimerBase(base, active);
+    }
+    this.timerInterval = setInterval(() => this.tickTimer(), 250);
+    this.tickTimer();
   },
 
   stopTimer() {
@@ -793,20 +811,14 @@ const Game = {
     this.timerInterval = null;
   },
 
-  syncTimers(serverTimers) {
-    // Чтобы избежать "прыжков" из-за сетевых задержек,
-    // синхронизируем только если разница более 1.5 секунд
-    let needsSync = false;
-    for (let i = 0; i < 2; i++) {
-      if (Math.abs(this.timers[i] - serverTimers[i]) > 1.5) {
-        needsSync = true;
-        break;
-      }
-    }
-
-    if (needsSync) {
-      this.timers = [...serverTimers];
-      this.updateTimerDisplay();
+  syncTimers(serverTimers, force = false) {
+    if (!this.state) return;
+    const cur = this.currentTimers();
+    const drift = Math.max(Math.abs(cur[0] - serverTimers[0]), Math.abs(cur[1] - serverTimers[1]));
+    if (force || drift > 1.5) {
+      this.setTimerBase(serverTimers, this.state.currentPlayer);
+      if (!this.timerInterval) this.startTimer();
+      else this.tickTimer();
     }
   },
 
@@ -1474,11 +1486,12 @@ const Game = {
       this.animateWall(move.r, move.c, move.isVertical);
     }
 
-    if (data.timers) {
-      this.timers = [...data.timers];
-    }
     // 2. Обновляем текущего игрока
     this.state.currentPlayer = nextPlayer;
+
+    if (data.timers) {
+      this.setTimerBase(data.timers, this.state.currentPlayer);
+    }
 
     // 3. Добавляем в историю (теперь, когда state уже обновлен)
     this.addToHistory({ ...move, playerIdx });
@@ -2099,6 +2112,22 @@ const Game = {
 
     this.stopTimer();
     this.handleGameOver(winnerIdx, 'surrender');
+  },
+
+  initTimerVisibilityHandlers() {
+    const refresh = () => {
+      if (!this.state || this.state.gameOver) return;
+      if (!this.timerInterval) this.startTimer();
+      else this.tickTimer();
+      if (typeof Net !== 'undefined' && Net.isOnline && Net.requestTimerSync) {
+        Net.requestTimerSync();
+      }
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('online', refresh);
   },
 };
 

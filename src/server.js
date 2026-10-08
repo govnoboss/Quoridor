@@ -3284,10 +3284,30 @@ io.on('connection', (socket) => {
         } finally {
             await Redis.releaseLock(lobbyId);
         }
-
     });
 
-
+    socket.on('requestTimerSync', async (payload, cb) => {
+        try {
+            const lobbyId = payload && payload.lobbyId;
+            if (typeof cb !== 'function' || !lobbyId) return;
+            const game = await Redis.getGame(lobbyId);
+            if (!game) return cb({});
+            if (game.finished) return cb({ finished: true });
+            const playerIdx = game.playerTokens.indexOf(socket.playerToken);
+            if (playerIdx === -1) return cb({});
+            const now = Date.now();
+            const timers = [...game.timers];
+            const a = game.currentPlayer;
+            timers[a] -= Math.floor((now - game.lastMoveTimestamp) / 1000);
+            if (timers[a] <= 0) {
+                await handleTurnTimeout(lobbyId);
+                return cb({});
+            }
+            cb({ timers, currentPlayer: a, serverNow: now });
+        } catch (e) {
+            if (typeof cb === 'function') cb({});
+        }
+    });
 
     socket.on('surrender', async (data) => {
         // Валидация входных данных
