@@ -3,12 +3,15 @@ const AI = {
     // Difficulty of the game the worker currently holds an engine for. Sent on every think so a lazily
     // created engine (worker started before newGame arrived) matches the game being played.
     difficulty: 'medium',
+    // Per-game bot identity: the worker derives a personality (weight shift) and a fresh random seed
+    // from it so consecutive games do not open identically.
+    botId: null,
 
     init() {
         if (this.worker) return;
         // ?v= must match the ai-worker.js script itself: a worker cached from before the engine
         // switch would import the unversioned bundle URL and stay on the old engine for 4h.
-        this.worker = new Worker('/js/ai-worker.js?v=1.1.0');
+        this.worker = new Worker('/js/ai-worker.js?v=1.2.0');
         this.worker.onmessage = (e) => {
             const data = e.data;
             if (!data) return;
@@ -50,7 +53,8 @@ const AI = {
     newGame(difficulty = 'medium') {
         this.init();
         this.difficulty = difficulty;
-        this.worker.postMessage({ type: 'newGame', difficulty });
+        this.botId = 'local-' + Math.random().toString(36).slice(2, 10);
+        this.worker.postMessage({ type: 'newGame', difficulty, botId: this.botId });
     },
 
     endGame() {
@@ -71,7 +75,8 @@ const AI = {
         this.worker.postMessage({
             state: Game.state,
             botIdx: botIdx,
-            difficulty: difficulty
+            difficulty: difficulty,
+            botId: this.botId
         });
     }
 };

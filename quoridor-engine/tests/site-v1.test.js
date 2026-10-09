@@ -64,7 +64,52 @@ describe('browser bundle for engine v3', () => {
     });
 
     test('the four site tiers are depth-only and monotonically increasing', () => {
-        expect(DIFFICULTY_DEPTH).toEqual({ easy: 2, medium: 3, hard: 4, impossible: 56 });
+        expect(DIFFICULTY_DEPTH).toEqual({ easy: 4, medium: 6, hard: 8, impossible: 56 });
+    });
+
+    test('exposes opening variety and per-bot personality', () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        expect(AiV1.VARIETY_DEFAULT).toEqual({ plies: 8, margin: 25, maxCandidates: 6, maxTests: 14, bestBias: 2 });
+        expect(typeof AiV1.personality).toBe('function');
+        // Deterministic per id, and different ids give different styles.
+        expect(AiV1.personality('bot-a').weights).toEqual(AiV1.personality('bot-a').weights);
+        expect(AiV1.personality('bot-a').weights).not.toEqual(AiV1.personality('bot-b').weights);
+    });
+
+    test('variety makes the opening line depend on the per-game seed', () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        const enc = (m) => m.type + ':' + m.r + ',' + m.c + ',' + (m.isVertical ? 1 : 0);
+        const lines = new Set();
+        for (let s = 1; s <= 16; s++) {
+            const engines = [
+                AiV1.createEngineV1({ seed: s * 2, maxDepth: 4, difficulty: 'hard', variety: AiV1.VARIETY_DEFAULT }),
+                AiV1.createEngineV1({ seed: s * 2 + 1, maxDepth: 4, difficulty: 'hard', variety: AiV1.VARIETY_DEFAULT }),
+            ];
+            let state = Rules.createInitialState({ base: 600, inc: 0 });
+            const seq = [];
+            for (let ply = 0; ply < 4; ply++) {
+                const p = state.currentPlayer;
+                const res = engines[p].think(state, { player: p, maxDepth: 4, nodes: 10000 });
+                seq.push(enc(res.move));
+                state = Rules.gameReducer(state, {
+                    type: res.move.type, r: res.move.r, c: res.move.c,
+                    isVertical: res.move.isVertical, playerIdx: p,
+                });
+            }
+            lines.add(seq.join(' '));
+        }
+        // The engine is deterministic, so without variety and a per-game seed this would be exactly 1.
+        expect(lines.size).toBeGreaterThan(1);
+    });
+
+    test('variety is reproducible for a fixed seed', () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        const state = Rules.createInitialState({ base: 600, inc: 0 });
+        const play = () => {
+            const engine = AiV1.createEngineV1({ seed: 9, maxDepth: 4, difficulty: 'hard', variety: AiV1.VARIETY_DEFAULT });
+            return engine.think(state, { player: 0, maxDepth: 4, nodes: 10000 }).move;
+        };
+        expect(play()).toEqual(play());
     });
 
     test('the bundled engine returns a move the canonical reducer accepts', () => {

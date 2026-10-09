@@ -61,24 +61,19 @@ const WIN = 100000;
 const INF = 1000000;
 const B_N = 1, B_E = 2, B_S = 4, B_W = 8;
 const EXACT = 0, LOWER = 1, UPPER = 2;
-const DIFFICULTY_DEPTH = { easy: 2, medium: 4, hard: 56 };
-const DIFFICULTY_MS = { easy: 100, medium: 300, hard: 1000 }; // used only if neither nodes nor timeMs given
+// Site tiers differ ONLY by search depth (and the time budget that caps it). Every tier runs the same
+// full tuned eval, so no tier ever plays a random or "dumb" move — a weaker tier is simply a shallower
+// search. Measured in the arena (round-robin Elo, full eval): d4 < d6 < d8 << time-bound.
+const DIFFICULTY_DEPTH = { easy: 4, medium: 6, hard: 8 };
+const DIFFICULTY_MS = { easy: 150, medium: 400, hard: 900 }; // used only if neither nodes nor timeMs given
 
-// Site tiers: eval profiles layered on the default weights (path: 100 stays the anchor everywhere).
-// Depth is external (src/core/ai-v1-bundle.js DIFFICULTY_DEPTH); these only shape the evaluation.
-// hard/impossible are empty: their gap is search depth, everything else is the full tuned eval.
-const DIFFICULTY_WEIGHTS = {
-  easy:       { tempo: 30, wall: 0,  flex: 0, race: 300,  urg: 0,   center: 0,  infl: 0 },
-  medium:     { tempo: 35, wall: 12, flex: 4, race: 700,  urg: 2,   center: 15, infl: 30 },
-  hard:       {},
-  impossible: {},
-};
-
-// Probability of playing a random pawn move instead of a searched one, per site tier. Measured in
-// the arena: p=0.3 costs ~400 Elo — the only cheap lever that makes a tier genuinely weak without
-// teaching the eval to play badly (a "simpler" eval at low depth turns out to play BETTER).
-// Explicit opt.randomP overrides the table for experiments.
-const DIFFICULTY_RANDOM = { easy: 0.3, medium: 0.1, hard: 0, impossible: 0 };
+// Opening variety: for the first `plies` moves of a game the engine does not always play the single best
+// move, but picks at random (seeded) among root moves whose value is within `margin` of the best — a
+// full-depth null-window test per candidate. `bestBias` weights the best move so it still dominates.
+// This is what makes two bots with identical settings open differently: the engine is deterministic, so
+// without it every game from the start position is the same line. Pair with a per-game random seed.
+// Arena measurements (v1 reference, depth 4): margin 15/6 +23 Elo, 25/8 ~even, 40/10 -40; keep it narrow.
+const VARIETY_DEFAULT = { plies: 8, margin: 25, maxCandidates: 6, maxTests: 14, bestBias: 2 };
 
 // ---------- ADAPT: canonical move encoding ----------
 // Canonical wall move shape used by the site: { type:'wall', r, c, isVertical }. Pawn: { type:'pawn', r, c }.
@@ -91,23 +86,16 @@ function encodeMove(code) {
 function createEngineV3(options = {}) {
   const opt = {
     seed: 1, timeMs: null, nodes: null, maxDepth: null, difficulty: null,
-    randomP: null, ttBits: 18, contempt: 35,
+    ttBits: 18, contempt: 35,
     maxWallsNode: 8, maxWallsRoot: 16, funnelNode: 3, funnelRoot: 6,
     goalRows: null, weights: {}, encodeMove,
+    variety: null,   // e.g. VARIETY_DEFAULT: randomise among near-equal root moves in the opening
     ...options,
   };
-  // Eval weights resolve from the effective difficulty at think() time (limits.difficulty wins,
-  // same as DIFFICULTY_MS / DIFFICULTY_DEPTH / the random-move branch), so a caller that only passes
-  // difficulty per think still gets the tier's eval. opt.weights always overrides the profile.
-  let W = null, URG = null, appliedDifficulty;
-  function applyDifficultyWeights(d) {
-    if (d === appliedDifficulty) return;
-    appliedDifficulty = d;
-    W = { path: 100, tempo: 45, wall: 26, flex: 9, race: 1200, urg: 5, center: 35, infl: 60, ...(DIFFICULTY_WEIGHTS[d] || null), ...opt.weights };
-    URG = new Int32Array(20);
-    for (let i = 0; i < 20; i++) URG[i] = i < 9 ? Math.round(Math.pow(9 - i, 1.5) * W.urg) : 0;
-  }
-  applyDifficultyWeights(opt.difficulty || 'hard');
+  // Full tuned eval for every tier; opt.weights overrides individual terms (arena experiments only).
+  const W = { path: 100, tempo: 45, wall: 26, flex: 9, race: 1200, urg: 5, center: 35, infl: 60, ...opt.weights };
+  const URG = new Int32Array(20);
+  for (let i = 0; i < 20; i++) URG[i] = i < 9 ? Math.round(Math.pow(9 - i, 1.5) * W.urg) : 0;
 
   // ---------- per-instance state (allocated in newGame) ----------
   let started = false, rng = null, seed0 = opt.seed;
@@ -136,7 +124,7 @@ function createEngineV3(options = {}) {
 
   // search-time
   let nodes = 0, nodeLimit = Infinity, deadline = Infinity, stopped = false, rootSide = 0, extLimit = 0;
-  let rootIterMove = -1, rootIterScore = 0, rootBanOn = false;
+  let rootIterMove = -1, rootIterScore = 0, rootBanOn = false, thinkCount = 0, rootN = 0;
 
   // ---------- board primitives ----------
   function resetEdges() {
@@ -543,6 +531,33 @@ function createEngineV3(options = {}) {
     return best;
   }
 
+  // Opening variety: among root moves whose value is within `margin` of the best (null-window tests at
+  // the final depth), pick one at random with the engine's seeded rng. Needs a per-game seed to differ
+  // between games. Adapted from engines/v1 pickVariety; v3 root moves live in mvBuf[0..rootN-1].
+  function pickVariety(bestMove, S, depth, cfg) {
+    const T = S - cfg.margin;
+    const cands = [bestMove];
+    let tested = 0;
+    for (let j = 0; j < rootN && cands.length < cfg.maxCandidates && tested < cfg.maxTests; j++) {
+      const code = mvBuf[j];
+      if (code === bestMove) continue;
+      if (rootBanOn && repeatsGame(code, 0)) continue;
+      tested++;
+      pathH1[0] = h1; pathH2[0] = h2;
+      make(code, 0);
+      const v = negamax(depth - 1, -T, -T + 1, 1);
+      unmake(code, 0);
+      if (stopped) return bestMove;               // budget exhausted: keep the best move
+      if (v <= -T) cands.push(code);              // value for us >= S - margin
+    }
+    if (cands.length === 1) return bestMove;
+    const bias = cfg.bestBias || 2;
+    let total = bias + cands.length - 1, x = rng() * total;
+    if (x < bias) return cands[0];
+    x -= bias;
+    return cands[1 + Math.min(cands.length - 2, Math.floor(x))];
+  }
+
   // ---------- state I/O ----------
   function resolveGoalRows(state) {
     if (goalKnown) return;
@@ -604,7 +619,7 @@ function createEngineV3(options = {}) {
     const size = 1 << opt.ttBits;
     tt = new Int32Array(size * 4); ttMask = size - 1;
     killer1.fill(0); killer2.fill(0); hist.fill(0);
-    gameSeen = new Map(); goalKnown = false; started = true;
+    gameSeen = new Map(); goalKnown = false; started = true; thinkCount = 0;
   }
 
   function think(state, limits = {}) {
@@ -615,28 +630,8 @@ function createEngineV3(options = {}) {
       throw new Error(`v3.think(): asked to move for player ${limits.player}, but player ${turn} is to move`);
 
     const difficulty = limits.difficulty || opt.difficulty || 'hard';
-    applyDifficultyWeights(difficulty);
     const me = turn;
     rootSide = me;
-
-    // random pawn move with probability randomP (tier table or explicit override); moves leading to
-    // an already-seen position are filtered out so randomness can never create a repetition loop
-    const rp = opt.randomP !== null && opt.randomP !== undefined
-      ? opt.randomP
-      : (DIFFICULTY_RANDOM[difficulty] || 0);
-    if (rp > 0 && rng() < rp) {
-      const buf = new Int32Array(8), n = genPawn(me, buf, 0);
-      let free = 0;
-      for (let i = 0; i < n; i++) if (!repeatsGame(buf[i], 0)) free++;
-      let idx;
-      if (free > 0) {
-        let k = Math.floor(rng() * free);
-        for (let i = 0; i < n; i++) { if (repeatsGame(buf[i], 0)) continue; if (k-- === 0) { idx = i; break; } }
-      } else idx = Math.floor(rng() * n);
-      const code = buf[idx];
-      recordAfter(state, code);
-      return { move: opt.encodeMove(code), depth: 0, nodes: 0, timeMs: Date.now() - t0, score: 0 };
-    }
 
     const pick = (a, b) => (a !== undefined && a !== null ? a : b);
     let nodesBudget = pick(limits.nodes, opt.nodes);
@@ -646,6 +641,16 @@ function createEngineV3(options = {}) {
     deadline = timeBudget !== null && timeBudget !== undefined ? t0 + timeBudget : Infinity;
     const maxDepth = Math.min(MAXPLY - 10, pick(limits.maxDepth, pick(opt.maxDepth, DIFFICULTY_DEPTH[difficulty] || 56)));
 
+    // Opening variety: keep 25% of the budget for the near-equal-move tests run after the search.
+    const fullNodeLimit = nodeLimit, fullDeadline = deadline;
+    const myIndex = thinkCount++;
+    const vcfg = opt.variety;
+    const varietyOn = !!vcfg && myIndex < vcfg.plies;
+    if (varietyOn) {
+      if (nodeLimit !== Infinity) nodeLimit = Math.floor(nodeLimit * 0.75);
+      if (deadline !== Infinity) deadline = t0 + (deadline - t0) * 0.75;
+    }
+
     gameSeen.set(hkey(), (gameSeen.get(hkey()) || 0) + 1);
     nodes = 0; stopped = false; killer1.fill(0); killer2.fill(0);
     for (let i = 0; i < hist.length; i++) hist[i] >>= 2; // age history between moves
@@ -654,6 +659,7 @@ function createEngineV3(options = {}) {
     analyzeDist(); analyzeCounts();
     let ttm = -1; const s0 = ttProbe(); if (s0 >= 0) ttm = tt[s0 + 2];
     const n0 = genMoves(me, 0, ttm, true);
+    rootN = n0;
     // hard anti-loop: candidates leading to an already seen position are skipped (unless ALL of them repeat)
     let bi = -1, free = 0;
     for (let j = 0; j < n0; j++) {
@@ -686,6 +692,10 @@ function createEngineV3(options = {}) {
       if (score >= WIN - MAXPLY || score <= -WIN + MAXPLY) break;   // forced result found
       if (deadline !== Infinity && Date.now() - t0 > (deadline - t0) * 0.45) break; // next depth will not fit
     }
+    if (varietyOn && completed >= 2 && Math.abs(bestScore) < 2000) {
+      stopped = false; nodeLimit = fullNodeLimit; deadline = fullDeadline;
+      bestMove = pickVariety(bestMove, bestScore, completed, vcfg);
+    }
     rootBanOn = false;
     recordAfter(state, bestMove);
     return { move: opt.encodeMove(bestMove), depth: completed, nodes, timeMs: Date.now() - t0, score: bestScore };
@@ -710,4 +720,4 @@ function createEngineV3(options = {}) {
   };
 }
 
-module.exports = { createEngineV3, encodeMove, DIFFICULTY_WEIGHTS, DIFFICULTY_RANDOM };
+module.exports = { createEngineV3, encodeMove, VARIETY_DEFAULT };

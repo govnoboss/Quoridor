@@ -2219,12 +2219,17 @@ const DemoBoard = {
       // Отдельный движок на каждое место: ключ транспозиционной таблицы не содержит игрока, поэтому
       // один экземпляр на обе стороны позволял бы читать оценки, посчитанные для соперника.
       if (!this.engines[idx]) {
-        this.engines[idx] = AiV1.createEngineV1({ easyRandomP: 0, maxDepth: AiV1.DEFAULT_MAX_DEPTH });
+        // A fresh seed per demo game + opening variety: without both, every demo game from the start
+        // position is the exact same line (the engine is deterministic).
+        this.engines[idx] = AiV1.createEngineV1({
+          seed: Math.floor(Math.random() * 0x7fffffff),
+          maxDepth: AiV1.DEFAULT_MAX_DEPTH,
+          variety: AiV1.VARIETY_DEFAULT,
+        });
       }
       const res = this.engines[idx].think(Shared.cloneState(state), {
         player: idx,
         maxDepth: AiV1.DEFAULT_MAX_DEPTH,
-        easyRandomP: 0,
       });
       move = res && res.move;
     }

@@ -8,7 +8,7 @@
  * keeps the previous engine.
  */
 importScripts('/shared.js');
-importScripts('/js/ai-v1.js?v=1.2.0');
+importScripts('/js/ai-v1.js?v=1.3.0');
 
 /**
  * One engine per local game.
@@ -17,13 +17,30 @@ importScripts('/js/ai-v1.js?v=1.2.0');
  * single instance shared across games (or across seats) lets stored scores be read back as if they
  * belonged to the side being searched. A worker outlives many games — rematches, "play again" — so the
  * instance is replaced on every new game rather than reused.
+ *
+ * A fresh random seed per game is also what makes the openings varied: the engine is deterministic, so
+ * the same seed would replay the same line. personality(botId) adds a per-bot style on top of it.
  */
 let engine = null;
+let botId = null;
 
-function createEngine(difficulty) {
+function randomSeed() {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const a = new Uint32Array(1);
+        crypto.getRandomValues(a);
+        return a[0] & 0x7fffffff;
+    }
+    return Math.floor(Math.random() * 0x7fffffff);
+}
+
+function createEngine(difficulty, id) {
+    const weights = (id && AiV1.personality) ? AiV1.personality(id).weights : undefined;
     return AiV1.createEngineV1({
+        seed: randomSeed(),
         difficulty: difficulty,
         maxDepth: AiV1.difficultyToMaxDepth(difficulty),
+        weights: weights,
+        variety: AiV1.VARIETY_DEFAULT,
     });
 }
 
@@ -36,7 +53,8 @@ onmessage = function (e) {
     const msg = e.data || {};
 
     if (msg.type === 'newGame') {
-        engine = createEngine(msg.difficulty);
+        botId = msg.botId || ('local-' + Date.now().toString(36));
+        engine = createEngine(msg.difficulty, botId);
         postMessage({ type: 'ready', maxDepth: AiV1.difficultyToMaxDepth(msg.difficulty) });
         return;
     }
@@ -51,7 +69,7 @@ onmessage = function (e) {
 
         // Lazily built so a think() that arrives without a newGame (older tab, restored game) still
         // works instead of throwing.
-        if (!engine) engine = createEngine(difficulty || 'medium');
+        if (!engine) engine = createEngine(difficulty || 'medium', botId || msg.botId);
 
         const startedAt = Date.now();
         const result = engine.think(state, {

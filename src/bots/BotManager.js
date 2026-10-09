@@ -1,5 +1,6 @@
 const crypto = require('crypto');
-const { createEngineV3 } = require('../../quoridor-engine/engines/v3');
+const { createEngineV3, VARIETY_DEFAULT } = require('../../quoridor-engine/engines/v3');
+const { personality } = require('../../quoridor-engine/engines/personality');
 const { difficultyToMaxDepth } = require('../core/ai-v1-bundle');
 const { GUEST_BOTS } = require('./defaultBots');
 
@@ -29,12 +30,26 @@ function pickRandom(items) {
  * instance cannot be had by re-requiring it — hence the factory. finalizeGame() drops the instance on
  * every game end, so the map never survives into a rematch.
  *
- * The tiers are depth + eval-profile + random-move probability, all keyed by the difficulty label
- * (DIFFICULTY_WEIGHTS / DIFFICULTY_RANDOM in engines/v3). Nothing is overridden here, so the site
- * gets exactly what the arena measures.
+ * The tiers differ only by search depth, keyed by the difficulty label (DIFFICULTY_DEPTH in
+ * src/core/ai-v1-bundle.js). Every tier runs the same full eval, so nothing about the eval is overridden
+ * here and the site gets exactly what the arena measures.
+ *
+ * The engine is fully deterministic, so two games from the start position with the same settings would
+ * be the same line. That is fixed on two levels, both required: (1) a fresh random seed per game, so the
+ * seeded rng used by the opening-variety test differs every game; (2) personality(botId), a small
+ * deterministic weight shift so different bot accounts have recognisably different styles even before
+ * the seed. Drop either one and the openings collapse (see engines/v3 VARIETY_DEFAULT).
  */
-function createBotEngine(difficulty) {
-    return createEngineV3({ maxDepth: difficultyToMaxDepth(difficulty), difficulty });
+function createBotEngine(difficulty, botId) {
+    const seed = crypto.randomInt(1, 0x7fffffff);
+    const { weights } = personality(botId || `tier-${difficulty}`);
+    return createEngineV3({
+        seed,
+        maxDepth: difficultyToMaxDepth(difficulty),
+        difficulty,
+        weights,
+        variety: VARIETY_DEFAULT,
+    });
 }
 
 class BotManager {
@@ -198,7 +213,7 @@ class BotManager {
             if (lobbyId) {
                 this.activeBotGames.add(lobbyId);
                 this.botTokens.add(bot.token);
-                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty));
+                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty, bot.token));
 
                 await this.recordBotMatch(playerData.token);
                 return true;
@@ -289,7 +304,7 @@ class BotManager {
             // any path that reaches makeMove without one (restored lobby, hot reload, test stub).
             let engine = this.botEngines.get(lobbyId);
             if (!engine) {
-                engine = createBotEngine(difficulty);
+                engine = createBotEngine(difficulty, game.playerTokens[botIdx]);
                 this.botEngines.set(lobbyId, engine);
             }
 
