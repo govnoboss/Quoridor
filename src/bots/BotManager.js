@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { createEngineV3, VARIETY_DEFAULT, DIFFICULTY_VARIETY } = require('../../quoridor-engine/engines/v3');
 const { personality } = require('../../quoridor-engine/engines/personality');
+const { botIdentity, styleOf, chooseBot } = require('./matchmaking');
 const { difficultyToMaxDepth } = require('../core/ai-v1-bundle');
 const { GUEST_BOTS } = require('./defaultBots');
 
@@ -12,11 +13,6 @@ function readBool(value, fallback = false) {
 function readInt(value, fallback) {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function pickRandom(items) {
-    if (!items.length) return null;
-    return items[Math.floor(Math.random() * items.length)];
 }
 
 /**
@@ -50,6 +46,28 @@ function createBotEngine(difficulty, botId) {
         weights,
         variety: DIFFICULTY_VARIETY[difficulty] || VARIETY_DEFAULT,
         archetype: { names: archetypes },
+    });
+}
+
+/**
+ * Guest bot candidates: the fixed template list, one normalized candidate per template. Each gets a
+ * fresh token (a guest is re-created every match) but a STABLE identity from the template name, so the
+ * matchmaker can recognise it across games and personality() gives it a consistent style.
+ */
+function guestBotCandidates() {
+    return GUEST_BOTS.map((template) => {
+        const identity = botIdentity({ kind: 'guest', name: template.name });
+        return {
+            token: `bot-${crypto.randomUUID()}`,
+            isAccount: false,
+            difficulty: template.difficulty,
+            identity,
+            style: styleOf(identity, template.difficulty),
+            profile: {
+                name: template.name,
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(template.name)}&background=random`,
+            },
+        };
     });
 }
 
@@ -199,7 +217,7 @@ class BotManager {
                 return false;
             }
 
-            const bot = await this.selectBot(isRanked);
+            const bot = await this.selectBot(isRanked, playerData);
             if (!bot) {
                 await this.Redis.addToQueue(
                     playerData.timeControl.base,
@@ -214,9 +232,10 @@ class BotManager {
             if (lobbyId) {
                 this.activeBotGames.add(lobbyId);
                 this.botTokens.add(bot.token);
-                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty, bot.token));
+                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty, bot.identity || bot.token));
 
                 await this.recordBotMatch(playerData.token);
+                await this.recordBotOpponent(playerData.token, bot);
                 return true;
             }
         } catch (err) {
@@ -225,52 +244,66 @@ class BotManager {
         return false;
     }
 
-    async selectBot(isRanked) {
+    async selectBot(isRanked, playerData) {
+        const recent = playerData?.token ? await this.Redis.getBotOpponents(playerData.token) : [];
+        const accounts = await this.accountBotCandidates();
+
         if (isRanked) {
-            const accountBot = await this.selectAccountBot();
-            if (!accountBot) return null;
-            return accountBot;
+            return chooseBot(accounts, recent);
         }
 
-        if (Math.random() < 0.45) {
-            const accountBot = await this.selectAccountBot();
+        // Unranked keeps the existing mix (mostly account bots, sometimes a fresh guest identity); the
+        // matchmaker then spreads the choice within whichever class was drawn.
+        if (accounts.length > 0 && Math.random() < 0.45) {
+            const accountBot = chooseBot(accounts, recent);
             if (accountBot) return accountBot;
         }
 
-        const template = pickRandom(GUEST_BOTS);
-        const token = `bot-${crypto.randomUUID()}`;
-        return {
-            token,
-            isAccount: false,
-            difficulty: template.difficulty,
-            profile: {
-                name: template.name,
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(template.name)}&background=random`,
-            },
-        };
+        const guest = chooseBot(guestBotCandidates(), recent);
+        if (guest) return guest;
+        return chooseBot(accounts, recent);
     }
 
-    async selectAccountBot() {
+    async accountBotCandidates() {
         try {
             const bots = await this.User.find({ isBot: true });
-            if (!bots || bots.length === 0) return null;
+            if (!bots || bots.length === 0) return [];
 
-            const user = pickRandom(bots);
-            const difficulty = this.difficultyForRating(user.rating || 1200);
-            return {
-                token: `bot-${crypto.randomUUID()}`,
-                isAccount: true,
-                userId: user._id,
-                difficulty,
-                profile: {
-                    name: user.username,
-                    avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random`,
-                    rating: user.rating || 1200,
-                },
-            };
+            return bots.map((user) => {
+                const difficulty = this.difficultyForRating(user.rating || 1200);
+                const identity = botIdentity({ kind: 'account', userId: user._id });
+                return {
+                    token: `bot-${crypto.randomUUID()}`,
+                    isAccount: true,
+                    userId: user._id,
+                    difficulty,
+                    identity,
+                    style: styleOf(identity, difficulty),
+                    profile: {
+                        name: user.username,
+                        avatar: user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random`,
+                        rating: user.rating || 1200,
+                    },
+                };
+            });
         } catch (err) {
-            console.error('[BOT] Failed to load account bot:', err);
-            return null;
+            console.error('[BOT] Failed to load account bots:', err);
+            return [];
+        }
+    }
+
+    /** Remember which bot (and style) the player just faced, for the next matchmaking call. */
+    async recordBotOpponent(token, bot) {
+        if (!token || !bot || !bot.identity) return;
+        try {
+            await this.Redis.recordBotOpponent(token, {
+                id: bot.identity,
+                difficulty: bot.difficulty,
+                style: bot.style,
+                at: Date.now(),
+            }, this.config.recentWindowMs);
+        } catch (err) {
+            console.error('[BOT] Failed to record opponent:', err);
         }
     }
 
@@ -305,7 +338,7 @@ class BotManager {
             // any path that reaches makeMove without one (restored lobby, hot reload, test stub).
             let engine = this.botEngines.get(lobbyId);
             if (!engine) {
-                engine = createBotEngine(difficulty, game.playerTokens[botIdx]);
+                engine = createBotEngine(difficulty, game.botIdentity || game.playerTokens[botIdx]);
                 this.botEngines.set(lobbyId, engine);
             }
 

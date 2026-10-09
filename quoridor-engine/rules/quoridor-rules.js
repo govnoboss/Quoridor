@@ -69,6 +69,8 @@
         if (state.hasBot !== undefined) cloned.hasBot = state.hasBot;
         if (state.botPlayerIdx !== undefined) cloned.botPlayerIdx = state.botPlayerIdx;
         if (state.botDifficulty !== undefined) cloned.botDifficulty = state.botDifficulty;
+        if (state.botIdentity !== undefined) cloned.botIdentity = state.botIdentity;
+        if (state.botStyle !== undefined) cloned.botStyle = state.botStyle;
 
         return cloned;
     };

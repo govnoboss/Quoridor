@@ -31,6 +31,7 @@ const KEYS = {
         TOKEN_USER_MAP: 'token:user:',
         USER_ACTIVE_LOBBY: (userId) => `user:active_lobby:${userId}`,
         BOT_RECENT: (token) => `bot:recent:${token}`,
+        BOT_OPPONENTS: (token) => `bot:opponents:${token}`,
         REMATCH: (lobbyId) => `rematch:${lobbyId}`,
     };
 
@@ -52,6 +53,7 @@ class MemoryStore {
         this.userActiveLobbyMapping = new Map();
         this.rematchContexts = new Map();
         this.botRecentMatchCounts = new Map();
+        this.botOpponents = new Map();
         this.lobbyCounter = 0;
         this.connected = false;
     }
@@ -310,6 +312,26 @@ class MemoryStore {
             return 0;
         }
         return existing.count;
+    }
+
+    recordBotOpponent(token, entry, ttlMs, maxLen = 10) {
+        const now = Date.now();
+        const existing = this.botOpponents.get(token);
+        const list = existing && existing.expiresAt > now ? existing.list.slice() : [];
+        list.unshift(entry);
+        const trimmed = list.slice(0, maxLen);
+        this.botOpponents.set(token, { list: trimmed, expiresAt: now + ttlMs });
+        return trimmed;
+    }
+
+    getBotOpponents(token) {
+        const existing = this.botOpponents.get(token);
+        if (!existing) return [];
+        if (existing.expiresAt <= Date.now()) {
+            this.botOpponents.delete(token);
+            return [];
+        }
+        return existing.list.slice();
     }
 }
 
@@ -789,6 +811,39 @@ async function getBotRecentMatchCount(token) {
     return value ? parseInt(value, 10) : 0;
 }
 
+// Recent bot opponents per human, newest first: [{ id, difficulty, style, at }]. Drives matchmaking's
+// anti-repeat / least-recently-seen / contrast rules (src/bots/matchmaking.js).
+async function recordBotOpponent(token, entry, ttlMs, maxLen = 10) {
+    const store = getStore();
+    if (!store || !token) return [];
+    if (isMemoryMode()) return store.recordBotOpponent(token, entry, ttlMs, maxLen);
+    const key = KEYS.BOT_OPPONENTS(token);
+    const raw = await store.get(key);
+    let list = [];
+    if (raw) {
+        try { list = JSON.parse(raw); } catch (_) { list = []; }
+    }
+    if (!Array.isArray(list)) list = [];
+    list.unshift(entry);
+    list = list.slice(0, maxLen);
+    await store.set(key, JSON.stringify(list), { PX: ttlMs });
+    return list;
+}
+
+async function getBotOpponents(token) {
+    const store = getStore();
+    if (!store || !token) return [];
+    if (isMemoryMode()) return store.getBotOpponents(token);
+    const raw = await store.get(KEYS.BOT_OPPONENTS(token));
+    if (!raw) return [];
+    try {
+        const list = JSON.parse(raw);
+        return Array.isArray(list) ? list : [];
+    } catch (_) {
+        return [];
+    }
+}
+
 // ============================================================
 // ЭКСПОРТ
 // ============================================================
@@ -842,6 +897,8 @@ module.exports = {
     clearActiveLobbyForUser,
     incrementBotRecentMatchCount,
     getBotRecentMatchCount,
+    recordBotOpponent,
+    getBotOpponents,
 
     saveRematchContext,
     getRematchContext,
