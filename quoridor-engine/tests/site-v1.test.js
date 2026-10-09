@@ -69,7 +69,7 @@ describe('browser bundle for engine v3', () => {
 
     test('exposes opening variety and per-bot personality', () => {
         const AiV1 = loadBundleInSandbox().AiV1;
-        expect(AiV1.VARIETY_DEFAULT).toEqual({ plies: 8, margin: 25, maxCandidates: 6, maxTests: 14, bestBias: 2 });
+        expect(AiV1.VARIETY_DEFAULT).toEqual({ plies: 8, margin: 80, maxCandidates: 6, maxTests: 14, bestBias: 2 });
         expect(typeof AiV1.personality).toBe('function');
         // Deterministic per id, and different ids give different styles.
         expect(AiV1.personality('bot-a').weights).toEqual(AiV1.personality('bot-a').weights);
@@ -87,7 +87,7 @@ describe('browser bundle for engine v3', () => {
             ];
             let state = Rules.createInitialState({ base: 600, inc: 0 });
             const seq = [];
-            for (let ply = 0; ply < 4; ply++) {
+            for (let ply = 0; ply < 8; ply++) {
                 const p = state.currentPlayer;
                 const res = engines[p].think(state, { player: p, maxDepth: 4, nodes: 10000 });
                 seq.push(enc(res.move));

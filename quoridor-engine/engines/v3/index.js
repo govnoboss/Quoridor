@@ -73,7 +73,7 @@ const DIFFICULTY_MS = { easy: 150, medium: 400, hard: 900 }; // used only if nei
 // This is what makes two bots with identical settings open differently: the engine is deterministic, so
 // without it every game from the start position is the same line. Pair with a per-game random seed.
 // Arena measurements (v1 reference, depth 4): margin 15/6 +23 Elo, 25/8 ~even, 40/10 -40; keep it narrow.
-const VARIETY_DEFAULT = { plies: 8, margin: 25, maxCandidates: 6, maxTests: 14, bestBias: 2 };
+const VARIETY_DEFAULT = { plies: 8, margin: 80, maxCandidates: 6, maxTests: 14, bestBias: 2 };
 
 // ---------- ADAPT: canonical move encoding ----------
 // Canonical wall move shape used by the site: { type:'wall', r, c, isVertical }. Pawn: { type:'pawn', r, c }.
@@ -90,10 +90,17 @@ function createEngineV3(options = {}) {
     maxWallsNode: 8, maxWallsRoot: 16, funnelNode: 3, funnelRoot: 6,
     goalRows: null, weights: {}, encodeMove,
     variety: null,   // e.g. VARIETY_DEFAULT: randomise among near-equal root moves in the opening
+    // What to return when the node/time budget runs out mid-iteration. 'inflight' adopts the best move
+    // found so far in the aborted iteration (historical v3 default); 'completed' discards the partial
+    // iteration and keeps the last fully-searched depth. Used to measure the truncation effect.
+    abortPolicy: 'inflight',
     ...options,
   };
   // Full tuned eval for every tier; opt.weights overrides individual terms (arena experiments only).
-  const W = { path: 100, tempo: 45, wall: 26, flex: 9, race: 1200, urg: 5, center: 35, infl: 60, ...opt.weights };
+  // wall was under-tuned at 26 (about a quarter of one path step). A clean fixed-depth/node sweep puts
+  // the peak at ~220: base(26) loses to wall=220 by ~+400 Elo at equal search, and wall=220 at depth 4
+  // still beats base at depth 6 (90.5%), so this is a real eval gain, not a search artefact.
+  const W = { path: 100, tempo: 45, wall: 220, flex: 9, race: 1200, urg: 5, center: 35, infl: 60, ...opt.weights };
   const URG = new Int32Array(20);
   for (let i = 0; i < 20; i++) URG[i] = i < 9 ? Math.round(Math.pow(9 - i, 1.5) * W.urg) : 0;
 
@@ -681,12 +688,15 @@ function createEngineV3(options = {}) {
         rootIterMove = -1;
         score = negamax(d, -INF, INF, 0);
       }
-      // Adopt the in-flight iteration's best BEFORE the stopped check on purpose: with a node budget
-      // the aborted iteration at depth d+1 is usually stronger than the completed depth d, and the
-      // loop above only ever writes rootIterMove from genuinely searched scores (it returns on
-      // `stopped` before the update block). Measured: moving this after the stopped check cost ~20pp
-      // against the shortest-path walker in tests/selftest-v3.js.
-      if (rootIterMove !== -1) { bestMove = rootIterMove; bestScore = rootIterScore; }
+      // abortPolicy 'inflight' (default) adopts the aborted iteration's best BEFORE the stopped check:
+      // with a node budget the partial iteration at depth d+1 is usually stronger than the completed
+      // depth d, and the loop above only writes rootIterMove from genuinely searched scores (it returns
+      // on `stopped` before the update block). Measured: moving this after the stopped check cost ~20pp
+      // against the shortest-path walker in tests/selftest-v3.js. 'completed' keeps the last full depth
+      // and is kept as an experimental control to measure the truncation effect head-to-head.
+      if (rootIterMove !== -1 && (!stopped || opt.abortPolicy !== 'completed')) {
+        bestMove = rootIterMove; bestScore = rootIterScore;
+      }
       if (stopped) break;
       completed = d; prev = score; bestScore = score;
       if (score >= WIN - MAXPLY || score <= -WIN + MAXPLY) break;   // forced result found

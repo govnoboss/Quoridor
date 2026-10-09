@@ -8,7 +8,7 @@
  * keeps the previous engine.
  */
 importScripts('/shared.js');
-importScripts('/js/ai-v1.js?v=1.3.0');
+importScripts('/js/ai-v1.js?v=1.3.1');
 
 /**
  * One engine per local game.
