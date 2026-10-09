@@ -70,10 +70,47 @@ describe('browser bundle for engine v3', () => {
     test('exposes opening variety and per-bot personality', () => {
         const AiV1 = loadBundleInSandbox().AiV1;
         expect(AiV1.VARIETY_DEFAULT).toEqual({ plies: 8, margin: 80, maxCandidates: 6, maxTests: 14, bestBias: 2 });
+        // Per-tier variety: weaker tiers deviate further (wider margin) than the strong ones.
+        expect(AiV1.varietyForDifficulty('easy').margin).toBeGreaterThan(AiV1.varietyForDifficulty('medium').margin);
+        expect(AiV1.varietyForDifficulty('medium').margin).toBeGreaterThan(AiV1.varietyForDifficulty('hard').margin);
+        expect(AiV1.varietyForDifficulty('nonsense')).toEqual(AiV1.VARIETY_DEFAULT);
         expect(typeof AiV1.personality).toBe('function');
         // Deterministic per id, and different ids give different styles.
         expect(AiV1.personality('bot-a').weights).toEqual(AiV1.personality('bot-a').weights);
         expect(AiV1.personality('bot-a').weights).not.toEqual(AiV1.personality('bot-b').weights);
+    });
+
+    test('personality assigns each bot a small set of valid opening plans', () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        const a = AiV1.personality('bot-a');
+        expect(Array.isArray(a.archetypes)).toBe(true);
+        expect(a.archetypes.length).toBe(3);
+        expect(new Set(a.archetypes).size).toBe(3);
+        for (const n of a.archetypes) expect(AiV1.ARCHETYPE_NAMES).toContain(n);
+        expect(AiV1.personality('bot-a').archetypes).toEqual(a.archetypes);   // deterministic per id
+    });
+
+    test('the opening archetype is drawn per game and changes the plan', () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        const drawn = (seed, names) => AiV1
+            .createEngineV1({ seed, maxDepth: 4, archetype: { names } })
+            ._debug.archetype();
+        expect(drawn(1, ['wall'])).toBe('wall');                    // single-name set is deterministic
+        const names = ['race', 'center', 'flank', 'wall', 'hoard'];
+        for (let s = 1; s <= 8; s++) expect(names).toContain(drawn(s, names));
+        expect(new Set([1, 2, 3, 4, 5, 6, 7, 8].map(s => drawn(s, names))).size).toBeGreaterThan(1);
+    });
+
+    test("a 'hoard' plan never opens with a wall", () => {
+        const AiV1 = loadBundleInSandbox().AiV1;
+        const state = Rules.createInitialState({ base: 600, inc: 0 });
+        const first = (arch, seed) => AiV1.createEngineV1({
+            seed, maxDepth: 4, difficulty: 'hard', variety: AiV1.VARIETY_DEFAULT, archetype: arch,
+        }).think(state, { player: 0, maxDepth: 4, nodes: 10000 }).move;
+        for (let s = 1; s <= 8; s++) {
+            // hoard excludes walls, so the fallback (the best move) is the only way to a wall — it is a pawn.
+            expect(first({ names: ['hoard'] }, s).type).toBe('pawn');
+        }
     });
 
     test('variety makes the opening line depend on the per-game seed', () => {

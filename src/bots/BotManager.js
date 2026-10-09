@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { createEngineV3, VARIETY_DEFAULT } = require('../../quoridor-engine/engines/v3');
+const { createEngineV3, VARIETY_DEFAULT, DIFFICULTY_VARIETY } = require('../../quoridor-engine/engines/v3');
 const { personality } = require('../../quoridor-engine/engines/personality');
 const { difficultyToMaxDepth } = require('../core/ai-v1-bundle');
 const { GUEST_BOTS } = require('./defaultBots');
@@ -42,13 +42,14 @@ function pickRandom(items) {
  */
 function createBotEngine(difficulty, botId) {
     const seed = crypto.randomInt(1, 0x7fffffff);
-    const { weights } = personality(botId || `tier-${difficulty}`);
+    const { weights, archetypes } = personality(botId || `tier-${difficulty}`);
     return createEngineV3({
         seed,
         maxDepth: difficultyToMaxDepth(difficulty),
         difficulty,
         weights,
-        variety: VARIETY_DEFAULT,
+        variety: DIFFICULTY_VARIETY[difficulty] || VARIETY_DEFAULT,
+        archetype: { names: archetypes },
     });
 }
 

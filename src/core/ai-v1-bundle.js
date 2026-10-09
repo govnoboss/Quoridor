@@ -119,9 +119,15 @@ function buildAiV1Bundle() {
     '      var d = ' + JSON.stringify(DIFFICULTY_DEPTH) + '[difficulty];',
     '      return d === undefined ? ' + DEFAULT_MAX_DEPTH + ' : d;',
     '    },',
-        // Opening variety: the worker passes AiV1.VARIETY_DEFAULT (and a per-game random seed) so bots
-        // do not open identically; personality() gives each bot account its own style.
+        // Opening variety: the worker asks for the per-tier variety (varietyForDifficulty) plus a
+        // per-game random seed so bots do not open identically; personality() gives each bot its own
+        // weight style and its set of preferred opening archetypes (soft plan preference in the engine).
         '    VARIETY_DEFAULT: engine.VARIETY_DEFAULT,',
+        '    DIFFICULTY_VARIETY: engine.DIFFICULTY_VARIETY,',
+        '    varietyForDifficulty: function (difficulty) {',
+        '      return engine.DIFFICULTY_VARIETY[difficulty] || engine.VARIETY_DEFAULT;',
+        '    },',
+        '    ARCHETYPE_NAMES: engine.ARCHETYPE_NAMES,',
         '    personality: personality,',
         '  };',
         '}(typeof self !== "undefined" ? self : this));',
