@@ -2418,6 +2418,10 @@ async function startBotGame(socket, humanPlayer, bot, isRanked) {
     gameState.hasBot = true;
     gameState.botPlayerIdx = botIdx;
     gameState.botDifficulty = bot.difficulty || 'medium';
+    // Stable identity is what gives the bot a consistent personality across matches; style is recorded
+    // for matchmaking display/serialization and kept on the game so restarts rebuild the same opponent.
+    gameState.botIdentity = bot.identity || bot.token;
+    gameState.botStyle = bot.style || null;
 
     gameState.playerSockets[humanIdx] = socket.id;
     gameState.playerSockets[botIdx] = null;
