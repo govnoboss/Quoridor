@@ -8,7 +8,7 @@
  * keeps the previous engine.
  */
 importScripts('/shared.js');
-importScripts('/js/ai-v1.js?v=1.3.1');
+importScripts('/js/ai-v1.js?v=1.3.2');
 
 /**
  * One engine per local game.
@@ -34,13 +34,14 @@ function randomSeed() {
 }
 
 function createEngine(difficulty, id) {
-    const weights = (id && AiV1.personality) ? AiV1.personality(id).weights : undefined;
+    const p = (id && AiV1.personality) ? AiV1.personality(id) : null;
     return AiV1.createEngineV1({
         seed: randomSeed(),
         difficulty: difficulty,
         maxDepth: AiV1.difficultyToMaxDepth(difficulty),
-        weights: weights,
-        variety: AiV1.VARIETY_DEFAULT,
+        weights: p ? p.weights : undefined,
+        variety: (AiV1.varietyForDifficulty ? AiV1.varietyForDifficulty(difficulty) : AiV1.VARIETY_DEFAULT),
+        archetype: p ? { names: p.archetypes } : undefined,
     });
 }
 

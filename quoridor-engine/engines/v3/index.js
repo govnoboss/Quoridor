@@ -72,8 +72,33 @@ const DIFFICULTY_MS = { easy: 150, medium: 400, hard: 900 }; // used only if nei
 // full-depth null-window test per candidate. `bestBias` weights the best move so it still dominates.
 // This is what makes two bots with identical settings open differently: the engine is deterministic, so
 // without it every game from the start position is the same line. Pair with a per-game random seed.
-// Arena measurements (v1 reference, depth 4): margin 15/6 +23 Elo, 25/8 ~even, 40/10 -40; keep it narrow.
+// The margin is wide because the strong eval (wall=220) makes the first ~4 plies a near-forced pawn race:
+// at margin 25 the opening collapsed to a single line, at 80 it diversifies again at no measurable cost.
 const VARIETY_DEFAULT = { plies: 8, margin: 80, maxCandidates: 6, maxTests: 14, bestBias: 2 };
+
+// Per-tier opening randomness. Weaker tiers may deviate further from the best move for longer, so the
+// opening lines diverge (the site's "biggest lever" for look-alike bots); the strong tiers stay close to
+// full strength. Measured (arena, top-10-ply line share / Elo vs full strength at that depth):
+//   easy   (d4)  margin 200 plies 12 -> ~0.3% line share
+//   medium (d6)  margin 120 plies 10 -> ~1.2% line share, ~60-70 Elo
+//   hard   (d8)  margin  60 plies  8 -> ~8%   line share, ~12-15 Elo
+//   impossible   margin  30 plies  6 -> near full strength
+// The prod bot mix is dominated by easy/medium (guest bots), so the blended share lands well under 5%.
+const DIFFICULTY_VARIETY = {
+  easy: { plies: 12, margin: 200, maxCandidates: 6, maxTests: 14, bestBias: 2 },
+  medium: { plies: 10, margin: 120, maxCandidates: 6, maxTests: 14, bestBias: 2 },
+  hard: { plies: 8, margin: 60, maxCandidates: 6, maxTests: 14, bestBias: 2 },
+  impossible: { plies: 6, margin: 30, maxCandidates: 6, maxTests: 14, bestBias: 2 },
+};
+
+// Opening archetypes: a per-bot opening *plan* applied for the first few plies. A strong eval makes the
+// opening a forced pawn race, so plans deliberately prefer a class of moves (race/center/flank), spend a
+// wall early, or hoard walls — the diversity the eval alone no longer provides. Each plan is a candidate
+// filter over root moves inside a value margin; moves that lose more than `margin` are still refused, so a
+// plan never plays an outright blunder. Bot id -> preferred plans lives in engines/personality.js; the
+// plan itself is chosen per game from that set with the engine's seeded rng.
+const ARCHETYPE_DEFAULT = { plies: 5, margin: 250, maxCandidates: 6, maxTests: 14, bestBias: 2, matchWeight: 3 };
+const ARCHETYPE_NAMES = ['race', 'center', 'flank', 'wall', 'hoard'];
 
 // ---------- ADAPT: canonical move encoding ----------
 // Canonical wall move shape used by the site: { type:'wall', r, c, isVertical }. Pawn: { type:'pawn', r, c }.
@@ -90,6 +115,9 @@ function createEngineV3(options = {}) {
     maxWallsNode: 8, maxWallsRoot: 16, funnelNode: 3, funnelRoot: 6,
     goalRows: null, weights: {}, encodeMove,
     variety: null,   // e.g. VARIETY_DEFAULT: randomise among near-equal root moves in the opening
+    // e.g. { names: ['race','wall'], plies: 5, margin: 250 }: opening plan(s) for this game. A plain
+    // array of names is accepted too. One name is drawn per game with the seeded rng (see engines/personality).
+    archetype: null,
     // What to return when the node/time budget runs out mid-iteration. 'inflight' adopts the best move
     // found so far in the aborted iteration (historical v3 default); 'completed' discards the partial
     // iteration and keeps the last fully-searched depth. Used to measure the truncation effect.
@@ -104,8 +132,15 @@ function createEngineV3(options = {}) {
   const URG = new Int32Array(20);
   for (let i = 0; i < 20; i++) URG[i] = i < 9 ? Math.round(Math.pow(9 - i, 1.5) * W.urg) : 0;
 
+  // Opening plan option, normalised once per engine; the concrete plan for a game is drawn in newGame().
+  let archCfg = null;
+  if (opt.archetype) {
+    archCfg = Array.isArray(opt.archetype) ? { names: opt.archetype } : opt.archetype;
+    if (!archCfg.names || !archCfg.names.length) archCfg = null;
+  }
+
   // ---------- per-instance state (allocated in newGame) ----------
-  let started = false, rng = null, seed0 = opt.seed;
+  let started = false, rng = null, seed0 = opt.seed, archName = null;
   let zP1, zP2, zH1, zH2, zV1, zV2, zW1, zW2, zT1 = 0, zT2 = 0;
   let tt = null, ttMask = 0;
   const edges = new Uint8Array(81), hW = new Uint8Array(64), vW = new Uint8Array(64);
@@ -565,6 +600,64 @@ function createEngineV3(options = {}) {
     return cands[1 + Math.min(cands.length - 2, Math.floor(x))];
   }
 
+  // Opening plan: classify root moves by the plan's intent. Returns null for 'none' (no filtering).
+  function archPredicate(name, me) {
+    if (!name || name === 'none') return null;
+    const goal = goalRow[me], fwd = goal === 8 ? 1 : -1, curR = (cell[me] / 9) | 0;
+    return (code) => {
+      const isWall = code >= 128;
+      if (name === 'wall') return isWall;
+      if (name === 'hoard') return !isWall;         // avoid spending walls early
+      if (isWall) return false;
+      const r = (code / 9) | 0, c = code % 9, near = c >= 3 && c <= 5;
+      if (name === 'race') return r - curR === fwd;  // one step toward the goal
+      if (name === 'center') return near;            // stay/return to the centre column
+      if (name === 'flank') return !near;            // head for the wings
+      return false;
+    };
+  }
+
+  // Opening plan: a SOFT preference, not a filter. It collects the same near-equal candidates as
+  // pickVariety, then weights plan-matching moves higher. This keeps the branching that makes games
+  // differ (a hard filter collapses the opening to one line per plan) while still giving each bot a
+  // recognisable intent. 'wall'/'funnel' also force an early wall (see archForceWall).
+  function pickOpening(bestMove, S, depth, arch, cfg) {
+    const margin = (arch && arch.margin) || (cfg && cfg.margin) || ARCHETYPE_DEFAULT.margin;
+    const pred = archPredicate(arch && arch.name, turn);
+    const T = S - margin;
+    const maxC = (cfg && cfg.maxCandidates) || ARCHETYPE_DEFAULT.maxCandidates;
+    const maxT = (cfg && cfg.maxTests) || ARCHETYPE_DEFAULT.maxTests;
+    const cands = [{ code: bestMove, m: !pred || pred(bestMove) }];
+    let tested = 0;
+    for (let j = 0; j < rootN && cands.length < maxC && tested < maxT; j++) {
+      const code = mvBuf[j];
+      if (code === bestMove) continue;
+      if (rootBanOn && repeatsGame(code, 0)) continue;
+      tested++;
+      pathH1[0] = h1; pathH2[0] = h2;
+      make(code, 0);
+      const v = negamax(depth - 1, -T, -T + 1, 1);
+      unmake(code, 0);
+      if (stopped) return null;                     // budget exhausted: caller keeps the best move
+      if (v <= -T) cands.push({ code, m: !pred || pred(code) });
+    }
+    if (cands.length === 1) return null;
+    const bias = (cfg && cfg.bestBias) || ARCHETYPE_DEFAULT.bestBias;
+    const matchW = ARCHETYPE_DEFAULT.matchWeight;
+    let total = 0;
+    for (let i = 0; i < cands.length; i++) total += cands[i].m ? matchW : 1;
+    total += bias - 1;                              // best move keeps a small extra pull
+    let x = rng() * total;
+    if (x < bias) return cands[0].code;
+    x -= bias;
+    for (let i = 0; i < cands.length; i++) {
+      const w = cands[i].m ? matchW : 1;
+      if (x < w) return cands[i].code;
+      x -= w;
+    }
+    return cands[cands.length - 1].code;
+  }
+
   // ---------- state I/O ----------
   function resolveGoalRows(state) {
     if (goalKnown) return;
@@ -627,6 +720,8 @@ function createEngineV3(options = {}) {
     tt = new Int32Array(size * 4); ttMask = size - 1;
     killer1.fill(0); killer2.fill(0); hist.fill(0);
     gameSeen = new Map(); goalKnown = false; started = true; thinkCount = 0;
+    // Draw this game's opening plan (if any) from the bot's preferred set — same id, different games.
+    archName = archCfg ? archCfg.names[Math.floor(rng() * archCfg.names.length)] : null;
   }
 
   function think(state, limits = {}) {
@@ -648,11 +743,12 @@ function createEngineV3(options = {}) {
     deadline = timeBudget !== null && timeBudget !== undefined ? t0 + timeBudget : Infinity;
     const maxDepth = Math.min(MAXPLY - 10, pick(limits.maxDepth, pick(opt.maxDepth, DIFFICULTY_DEPTH[difficulty] || 56)));
 
-    // Opening variety: keep 25% of the budget for the near-equal-move tests run after the search.
+    // Opening variety / plan: keep 25% of the budget for the near-equal-move tests run after the search.
     const fullNodeLimit = nodeLimit, fullDeadline = deadline;
     const myIndex = thinkCount++;
     const vcfg = opt.variety;
-    const varietyOn = !!vcfg && myIndex < vcfg.plies;
+    const archPlies = archCfg ? (archCfg.plies || ARCHETYPE_DEFAULT.plies) : 0;
+    const varietyOn = (!!vcfg && myIndex < vcfg.plies) || (!!archCfg && !!archName && archName !== 'none' && myIndex < archPlies);
     if (varietyOn) {
       if (nodeLimit !== Infinity) nodeLimit = Math.floor(nodeLimit * 0.75);
       if (deadline !== Infinity) deadline = t0 + (deadline - t0) * 0.75;
@@ -704,7 +800,13 @@ function createEngineV3(options = {}) {
     }
     if (varietyOn && completed >= 2 && Math.abs(bestScore) < 2000) {
       stopped = false; nodeLimit = fullNodeLimit; deadline = fullDeadline;
-      bestMove = pickVariety(bestMove, bestScore, completed, vcfg);
+      const archOn = archCfg && archName && archName !== 'none' && myIndex < archPlies;
+      if (archOn) {
+        const picked = pickOpening(bestMove, bestScore, completed, { name: archName, margin: archCfg.margin || (vcfg && vcfg.margin) }, vcfg);
+        if (picked !== null) bestMove = picked;
+      } else if (vcfg) {
+        bestMove = pickVariety(bestMove, bestScore, completed, vcfg);
+      }
     }
     rootBanOn = false;
     recordAfter(state, bestMove);
@@ -726,8 +828,9 @@ function createEngineV3(options = {}) {
       makeMove: (code) => { pathH1[0] = h1; pathH2[0] = h2; make(code, 0); },
       unmakeMove: (code) => unmake(code, 0),
       walls: () => ({ hW: Array.from(hW), vW: Array.from(vW) }),
+      archetype: () => archName,
     },
   };
 }
 
-module.exports = { createEngineV3, encodeMove, VARIETY_DEFAULT };
+module.exports = { createEngineV3, encodeMove, VARIETY_DEFAULT, DIFFICULTY_VARIETY, ARCHETYPE_DEFAULT, ARCHETYPE_NAMES };

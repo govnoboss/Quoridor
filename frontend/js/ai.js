@@ -11,7 +11,7 @@ const AI = {
         if (this.worker) return;
         // ?v= must match the ai-worker.js script itself: a worker cached from before the engine
         // switch would import the unversioned bundle URL and stay on the old engine for 4h.
-        this.worker = new Worker('/js/ai-worker.js?v=1.2.0');
+        this.worker = new Worker('/js/ai-worker.js?v=1.2.1');
         this.worker.onmessage = (e) => {
             const data = e.data;
             if (!data) return;
