@@ -128,6 +128,7 @@ function makeBot(spec, name) {
                 weights: spec.weights,
                 difficulty: spec.difficulty,
                 variety: spec.variety,
+                abortPolicy: spec.abortPolicy,
             });
         },
         think(state, playerIdx, limits = {}) {
