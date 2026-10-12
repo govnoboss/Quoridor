@@ -25,6 +25,7 @@ quoridor-engine/arena/results/*.jsonl
 
 # Local IDE / drafts (not part of the project)
 /.idea/
+/.agent/
 /files/
 /server.js
 /net.js

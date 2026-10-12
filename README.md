@@ -101,7 +101,6 @@ services (Redis mock + `mongodb-memory-server`).
 - [WebSocket Protocol](docs/WS_PROTOCOL.md) — client/server Socket.IO events
 - [API Reference](docs/API_REFERENCE.md) — REST endpoints and environment variables
 - [Tools & Config](docs/TOOLS.md) — dev tools, Sentry, Socket.IO Admin UI, Jest, ESLint
-- [AI Agents Guide](docs/AGENTS_GUIDE.md) — manual for automated development
 - [Deployment](DEPLOY.md) — production setup on a VPS (Docker Compose + Caddy)
 
 ## AI Engine & Arena
