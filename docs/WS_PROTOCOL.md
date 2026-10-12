@@ -63,8 +63,9 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 - `findGameFailed` — `{ reason }` (`Too many requests…`, `Invalid time limits…`,
   `Ranked play requires login`, `Already in a queue`, `Server error`).
 - `roomCreated` — `{ roomCode }`.
-- `joinRoomFailed` — `{ reason }` (`Комната не найдена`, `Комната полна`,
-  `Вы уже в этой комнате`, `Нельзя играть с самим собой`, …).
+- `joinRoomFailed` — `{ reason }` (localized, ru/en). RU examples: `Комната не найдена`
+  ("room not found"), `Комната полна` ("room full"), `Вы уже в этой комнате` ("you are already in
+  this room"), `Нельзя играть с самим собой` ("you can't play yourself"), ….
 - `gameStart` — `{ lobbyId, lobbyCode, color, opponent, me, initialTime? }` (full player
   profiles included). Sent to both players of a match, a private-room game or a friend invite.
 - `gameStartFailed` — `{ reason }` (opponent disconnected).

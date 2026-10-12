@@ -1,39 +1,43 @@
 # quoridor-engine
 
-Рабочий стенд для движков Quoridor: канонические правила, версионированные движки, арена, perft и
-инструменты подбора весов. Без Mongo, Redis и Socket.IO — здесь нет ничего, кроме правил игры и
-поиска. Всё, что нужно сайту, лежит в `../src`.
+The Quoridor engine workbench: canonical rules, versioned engines, an arena, perft and weight-tuning
+tools. No Mongo, Redis or Socket.IO — here there is nothing but game rules and search. Everything the
+website needs lives in `../src`.
 
 ```
-rules/       единственная реализация правил: move generation, стены, достижимость цели
-engines/     версии движка. v0 —faithful port прошлого ai-core, дальше сравниваемся только с ним
-arena/       парные партии, Elo, SPRT, round-robin (worker_threads)
-tools/       perft, seedable RNG, микробенч
-tests/       parity с независимой реализацией, perft, parity движка с сайтом, тесты арены
+rules/       the single rules implementation: move generation, walls, goal reachability
+engines/     engine versions. v0 — faithful port of the legacy ai-core; everything else is compared only against it
+arena/       paired matches, Elo, SPRT, round-robin (worker_threads)
+tools/       perft, seedable RNG, micro-benchmark
+tests/       parity vs an independent implementation, perft, site parity, arena tests
 ```
 
-## Правила
+## Rules
 
-`rules/quoridor-rules.js` — UMD, один и тот же файл и для Node, и для браузера (его отдаёт
-`../src/server.js` как `/shared.js`). Правки правил обязаны сопровождаться прогоном perft: числа в
-`tools/perft.js` — это контракт, а не результат «на посмотреть».
+`rules/quoridor-rules.js` is UMD — one file for both Node and the browser (it is what
+`../src/server.js` serves as `/shared.js`). Any rules change must be accompanied by a perft run: the
+numbers in `tools/perft.js` are a contract, not a "for reference" result.
 
 ```bash
-npm test              # jest: parity, perft до глубины 2, контракт движка, адаптер арены
-npm run perft:assert  # полный perft в node: эталонные числа, код возврата != 0 при расхождении
-npm run bench         # микробенч горячих функций правил
+npm test              # jest: parity, perft to depth 2, engine contract, arena adapter
+npm run perft:assert  # full perft in node: reference numbers, non-zero exit code on mismatch
+npm run bench         # micro-benchmark of hot rule functions
 ```
 
-Глубокий perft (глубина 3, ~2 млн листьев) намеренно **не** гоняется внутри jest: jest выполняет
-`quoridor-engine` в vm-контексте, где V8 не оптимизирует эти циклы, и полный обход занимает там
-~3 минуты вместо ~7 секунд. Движок, арена и браузер работают вне jest, поэтому эталон проверяется
-там, где код реально исполняется. Глубокий прогон в jest доступен через `QUORIDOR_SLOW=1`.
+Deep perft (depth 3, ~2M leaves) is deliberately **not** run inside jest: jest executes
+`quoridor-engine` in a vm context where V8 does not optimize these loops, and a full walk takes
+~3 minutes there instead of ~7 seconds. The engine, arena and browser run outside jest, so the
+reference is verified where the code really executes. A deep run inside jest is available via
+`QUORIDOR_SLOW=1`.
 
-## Движки
+## Engines
 
-| версия | что это |
+| version | what it is |
 |---|---|
-| `engines/v0` | Дословный порт `../src/core/ai-core.js`. Включая известные дефекты: оценка от точки зрения одного бота и TT, ключ которой не включает игрока. Это осознанно — иначе любой последующий SPRT измерял бы не изменение поиска, а разницу портирования. |
+| `engines/v0` | Verbatim port of `../src/core/ai-core.js`. Including its known defects: the eval from one bot's point of view and a TT whose key omits the player. Deliberate — otherwise any later SPRT would measure the porting difference, not the search change. |
+| `engines/v1` | negamax with score-sign inversion on side change and a player-aware TT key. The historical production engine for the site; still the reference for the arena. |
+| `engines/v2` | v1 plus a wider wall-move space. Measurably much worse (Elo −263 vs v1), recorded as a dead-end so nobody re-derives it. |
+| `engines/v3` | **Current production engine.** Independent implementation with a compact board, incremental 2×32-bit Zobrist, 2-way bucket TT, negamax + PVS + iterative deepening + aspiration windows + LMR + killers + history, shortest-path wall pruning, exact immediate-win detection, path-race eval and hard-repetition handling. Also the well-known "wall through a pawn" rule is not enforced — a separate conscious decision (see below). |
 
 ```js
 const { createEngineV0 } = require('./engines/v0');
@@ -44,27 +48,34 @@ const res = engine.think(Rules.createInitialState(), { difficulty: 'hard' });
 // res = { move, depth, nodes, timeMs, score, ttStores }
 ```
 
-Состояние движка живёт на экземпляре (таблица, killer moves, счётчик узлов, дедлайн), поэтому два
-движка в одном процессе и в разных `worker_threads` не мешают друг другу. Входное состояние никогда
-не мутируется. `Math.random()` не вызывается нигде: Zobrist-таблицы и случайный выбор в режиме
-`easy` берутся из сида.
+Engine state lives on the instance (table, killer moves, node counter, deadline), so two engines in
+one process — or in different `worker_threads` — never interfere. The input state is never mutated.
+`Math.random()` is not called anywhere: Zobrist tables and random selection in `easy` mode come from
+the seed.
 
-`tests/engine-parity.test.js` требует, чтобы v0 выбирал **тот же ход**, что и движок сайта, на
-16 фиксированных позициях на `medium` и `hard`. Это ровно тот тест, который ломается первым при
-любой правке порта.
+`tests/engine-parity.test.js` requires v0 to pick **the same move** as the site engine on 16 fixed
+positions at `medium` and `hard`. That is exactly the test that breaks first on any port change.
 
-## Арена
+### Per-bot identity — `engines/personality.js`
 
-См. `arena/README.md`. Коротко:
+A deterministic weight perturbation derived from the bot id, so different bot accounts prefer
+different structures (more/less wall-happy, more/less tempo) and open differently game to game.
+`personality(botId, spread)` returns `{ weights, archetypes }`; the engine draws one of the three
+archetype openings per game with its seeded rng. The site bundles this file for the browser alongside
+`engines/v3` (see `src/core/ai-v1-bundle.js`).
+
+## Arena
+
+See `arena/README.md`. In short:
 
 ```bash
 npm run match -- --a v0-hard --b v0-medium --games 2000 --movetime 100 --sprt 0,5
 npm run rr -- --games 200 --movetime 100 --anchor v0-medium
 ```
 
-## Что дальше
+## Open items
 
-- **v1**: negamax с инверсией знака при смене стороны и ключом TT, включающим игрока. Разница
-  `v1 − v0` измеряется SPRT, а не оценивается на глаз.
-- Правило «нельзя ставить стену через пешку» сейчас не соблюдается — это отдельное осознанное решение,
-  и его изменение сломает эталонные числа perft.
+- The "no wall through a pawn" rule is deliberately not enforced. Changing it will break the perft
+  reference numbers.
+- v3's anti-repetition and eval are production-tuned for the site's 4 depth tiers; changes must be
+  accepted via SPRT on the arena before being promoted.

@@ -23,7 +23,8 @@ Core fields:
 }
 ```
 
-Runtime fields added by `createInitialState` (`src/core/shared.js`) when a game starts:
+Runtime fields added by `createInitialState` in `quoridor-engine/rules/quoridor-rules.js`
+(served to the browser as `/shared.js`; `src/core/shared.js` is the Node alias) when a game starts:
 ```javascript
 {
   playerSockets: [socketId, socketId], // server-side (not mirrored to clients)
@@ -59,7 +60,8 @@ lives in `src/server.js` (`handleTurnTimeout` → loser is the player who ran ou
 
 ## Implementation Details
 
-The `shared.js` file uses a **Reducer Pattern**:
+The canonical rules file (`quoridor-engine/rules/quoridor-rules.js`, served as `/shared.js`) uses a
+**Reducer Pattern**:
 - `gameReducer(state, action)`: Pure function that validates the action and returns a new state.
 - **Actions**:
   - `{ type: 'pawn', r, c, playerIdx }`

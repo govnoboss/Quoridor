@@ -1,0 +1,33 @@
+Proprietary License — All Rights Reserved
+
+Copyright (c) 2026 govnoboss. All rights reserved.
+
+This repository, including all source code, documentation, assets, designs and
+other materials it contains (the "Software"), is the exclusive property of the
+copyright holder.
+
+Permission is NOT granted to any person or entity to:
+
+  1. copy, reproduce or duplicate the Software, in whole or in part;
+  2. modify, adapt, translate, or create derivative works based on the Software;
+  3. redistribute, sublicense, publish, sell, rent, lease or otherwise make the
+     Software available to any third party;
+  4. deploy, host or otherwise use the Software, in whole or in part, for any
+     commercial or non-commercial purpose;
+  5. use the Software or any part of it to train, fine-tune or otherwise develop
+     machine-learning models, or to develop any competing or derivative product.
+
+The Software is made publicly available solely for the limited purposes of
+viewing and evaluation (for example, as a portfolio reference). Any such viewing
+does not grant any license or right of use.
+
+No part of the Software may be used without the prior written permission of the
+copyright holder. Requests for permission must be directed to the copyright
+holder via the repository's issue tracker.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

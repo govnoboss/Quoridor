@@ -1,7 +1,7 @@
 {
   "name": "quoridor",
   "version": "1.0.0",
-  "description": "",
+  "description": "Quoridor online board game: real-time multiplayer (Node.js/Express/Socket.IO) with a versioned AI engine and an arena for engine testing.",
   "main": "src/server.js",
   "dependencies": {
     "@sentry/node": "^10.54.0",
@@ -113,9 +113,20 @@
     "type": "git",
     "url": "git+https://github.com/govnoboss/Quoridor.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "quoridor",
+    "board-game",
+    "multiplayer",
+    "socket.io",
+    "express",
+    "nodejs",
+    "game-engine",
+    "ai",
+    "minimax",
+    "capacitor"
+  ],
+  "author": "govnoboss",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/govnoboss/Quoridor/issues"

@@ -2,6 +2,7 @@
   "name": "quoridor-engine",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Quoridor engine workbench: canonical rules, versioned engines, arena, perft and tuning tools. No Mongo/Redis/Socket.IO.",
   "engines": {
     "node": ">=18"

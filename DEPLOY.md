@@ -1,108 +1,109 @@
-# Деплой Quoridor
+# Deploying Quoridor
 
-## Локальный запуск (для разработки и теста)
+## Local run (development and testing)
 
 ```bash
-# Поднять всё одной командой (MongoDB + Redis + приложение)
+# Bring everything up with one command (MongoDB + Redis + app)
 docker compose -f docker-compose.dev.yml up -d
 
-# Логи
+# Logs
 docker compose -f docker-compose.dev.yml logs -f
 
-# Остановить
+# Stop
 docker compose -f docker-compose.dev.yml down
 
-# Тест с двух клиентов:
-# Откройте два окна браузера → http://localhost:3000
-# Зарегистрируйте двух пользователей
-# Нажмите "Играть онлайн" в обоих окнах
+# Two-client test:
+# Open two browser windows → http://localhost:3000
+# Register two users
+# Click "Play online" in both windows
 ```
 
-**Важно:** Docker Desktop должен быть запущен.
+**Important:** Docker Desktop must be running.
 
-## Зависимости
+## Dependencies
 
-| Компонент | Назначение | Бесплатный вариант |
+| Component | Purpose | Free option |
 |---|---|---|
-| **VPS** | Сервер приложения | — |
-| **Docker + Docker Compose** | Запуск приложения | Бесплатно |
-| **MongoDB** | База данных (пользователи, игры) | MongoDB Atlas M0 |
-| **Redis** | Сессии, состояние игр | Upstash Free (30MB) или Redis Stack container |
-| **Caddy** | Reverse proxy + автоматический SSL | Бесплатно |
-| **Домен** | HTTPS для WebSocket | Cloudflare ≈ $9/год |
+| **VPS** | Application server | — |
+| **Docker + Docker Compose** | Run the app | Free |
+| **MongoDB** | Database (users, games) | MongoDB Atlas M0 |
+| **Redis** | Sessions, game state | Upstash Free (30MB) or a Redis Stack container |
+| **Caddy** | Reverse proxy + automatic SSL | Free |
+| **Domain** | HTTPS for WebSocket | Cloudflare ≈ $9/year |
 
-## Структура проекта
+## Project structure
 
 ```
 Quoridor/
-├── Dockerfile                 # Multi-stage сборка
-├── docker-compose.yml         # Продакшен конфиг
-├── deploy.sh                  # Автоматический деплой
-├── .dockerignore              # Исключения для Docker
-├── .env.example               # Шаблон переменных окружения
-├── frontend/                  # HTML, JS, CSS (статический фронтенд)
-└── src/                       # Node.js + Socket.IO бэкенд
+├── Dockerfile                 # Multi-stage build
+├── docker-compose.yml         # Production config
+├── deploy.sh                  # Automated deploy
+├── .dockerignore              # Docker exclusions
+├── .env.example               # Environment variable template
+├── frontend/                  # HTML, JS, CSS (static frontend)
+├── quoridor-engine/           # AI engine workbench + arena
+└── src/                       # Node.js + Socket.IO backend
 ```
 
-## Переменные окружения (.env)
+## Environment variables (.env)
 
-Скопируйте `.env.example` в `.env` и заполните:
+Copy `.env.example` to `.env` and fill it in:
 
 ```bash
 NODE_ENV=production
 PORT=3000
 
-# MongoDB: в проде по умолчанию используется локальный контейнер (mongo:7 из docker-compose.yml)
-# MONGO_URI задаётся автоматически как mongodb://mongo:27017/quoridor; внешний (Atlas) — только при явной переопределении
+# MongoDB: in production the local container is used by default (mongo:7 from docker-compose.yml)
+# MONGO_URI is set automatically to mongodb://mongo:27017/quoridor; an external one (Atlas) only when explicitly overridden
 MONGO_URI=mongodb://mongo:27017/quoridor
 
-# Redis: в проде задаётся docker-compose (redis://redis:6379); для локального запуска НЕ через compose:
+# Redis: in production it is set by docker-compose (redis://redis:6379); for a local run NOT via compose:
 REDIS_URL=redis://localhost:6379
 
 # Session secret: openssl rand -hex 32
 SESSION_SECRET=your_random_secret_here
 
-# Разрешённые origin для CORS (через запятую)
+# Allowed CORS origins (comma-separated)
 ALLOWED_ORIGINS=https://playquor.org
 ```
 
-## 1. Настройка VPS (рекомендуется Hetzner CX22)
+## 1. VPS setup (Hetzner CX22 recommended)
 
 ```bash
-# Обновить систему
+# Update the system
 apt update && apt upgrade -y
 
-# Установить Docker
+# Install Docker
 curl -fsSL https://get.docker.com | sh
 
-# Установить Caddy
+# Install Caddy
 apt install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
 apt update && apt install -y caddy
 ```
 
-## 2. Запуск приложения
+## 2. Running the app
 
 ```bash
-# Клонировать репозиторий
+# Clone the repository
 mkdir -p /opt/quoridor
 git clone https://github.com/govnoboss/Quoridor.git /opt/quoridor
 
-# Создать .env с продакшен-значениями
+# Create .env with production values
 cd /opt/quoridor
-nano .env           # Вставить переменные из раздела выше
+nano .env           # Paste the variables from the section above
 
-# Запустить
+# Start
 docker compose up -d
 
-# Проверить
+# Check
 docker compose logs -f
 ```
 
-## 3. Настройка Caddy (SSL)
+## 3. Caddy setup (SSL)
 
-Создайте `/etc/caddy/Caddyfile`:
+Create `/etc/caddy/Caddyfile`:
 
 ```
 playquor.org {
@@ -115,48 +116,50 @@ caddy fmt --overwrite /etc/caddy/Caddyfile
 systemctl restart caddy
 ```
 
-## 4. Обновление (деплой новой версии)
+## 4. Updating (deploying a new version)
 
 ```bash
 cd /opt/quoridor
 ./deploy.sh
 ```
 
-Скрипт делает `git pull`, пересобирает контейнер и перезапускает.
+The script runs `git pull`, rebuilds the container and restarts it.
 
-## 5. Автоматические задачи (cron)
+## 5. Scheduled tasks (cron)
 
-Ежедневная головоломка создаётся по требованию (при первом запросе `/api/puzzles/today` в новый день), но
-можно предсоздать её заранее и зафиксировать отчёт по ретеншену:
+The daily puzzle is created on demand (on the first `/api/puzzles/today` request of a new day), but
+it can be pre-created ahead of time and the retention report captured:
 
 ```bash
 sudo crontab -e -u root
 
-# Каждый день в 00:05 (UTC) готовит головоломку на новый день
+# Every day at 00:05 (UTC) — prepare the puzzle for the new day
 5 0 * * * cd /opt/quoridor && docker compose exec -T app node scripts/generate_daily_puzzle.js >> /var/log/quoridor-puzzle.log 2>&1
-# Каждый понедельник в 00:30 (UTC) — отчёт по когортам D1/D3/D7
+# Every Monday at 00:30 (UTC) — D1/D3/D7 cohort report
 30 0 * * 1 cd /opt/quoridor && docker compose exec -T app node scripts/retention_report.js >> /var/log/quoridor-retention.log 2>&1
 ```
 
-Проверить, что команда работает внутри контейнера (имя сервиса проверьте в `docker compose ps`):
+Verify the command works inside the container (check the service name in `docker compose ps`):
 
 ```bash
 docker compose exec app node scripts/retention_report.js
 ```
 
-## 6. Мониторинг
+## 6. Monitoring
 
 ```bash
-docker compose logs -f          # Логи приложения
+docker compose logs -f          # Application logs
 docker compose logs -f --tail 50
-docker stats                    # Загрузка CPU/RAM
+docker stats                    # CPU/RAM usage
 ```
 
-## Примечания
+## Notes
 
-- Порт 3000 не нужно открывать в фаерволле — Caddy проксирует с 443 → 3000
-- Фаерволл: открыть только 22 (SSH), 80 (HTTP→HTTPS), 443 (HTTPS)
-- Фронтенд раздаётся статически через Express (папка `frontend/`)
-- Аватары хранятся в volume `avatars_data` → `/app/avatars` (переживает пересборку контейнера)
-- Bot-соперники работают **на сервере** (`src/bots/` + `src/simulation/`): матчмейкинг-фолбэк, move-планирование через движок v1 (`quoridor-engine/engines/v1`), симуляция присутствия. Включение — через `BOTS_ENABLED`/`BOT_RANKED_ENABLED` (по умолчанию выключены)
-- Socket.IO хендлит тысячи одновременных подключений на 1 vCPU
+- Port 3000 does not need to be opened in the firewall — Caddy proxies 443 → 3000
+- Firewall: open only 22 (SSH), 80 (HTTP→HTTPS), 443 (HTTPS)
+- The frontend is served statically through Express (the `frontend/` folder)
+- Avatars are stored in the `avatars_data` volume → `/app/avatars` (survives container rebuilds)
+- Bot opponents run **on the server** (`src/bots/` + `src/simulation/`): matchmaking fallback, move
+  scheduling through engine v3 (`quoridor-engine/engines/v3`), presence simulation. Enabled via
+  `BOTS_ENABLED`/`BOT_RANKED_ENABLED` (off by default)
+- Socket.IO handles thousands of concurrent connections on 1 vCPU
