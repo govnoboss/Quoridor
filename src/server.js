@@ -1362,13 +1362,14 @@ app.use(helmet.contentSecurityPolicy({
     useDefaults: false,
     directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com", "https://cdn.jsdelivr.net"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com", "https://cdn.jsdelivr.net", "https://accounts.google.com", "https://gsi.gstatic.com"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
-        "img-src": ["'self'", "https://ui-avatars.com"],
+        "img-src": ["'self'", "https://ui-avatars.com", "https://*.googleusercontent.com"],
         "media-src": ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io", "https://analytics.playquor.org"]
+        "frame-src": ["'self'", "https://accounts.google.com"],
+        "connect-src": ["'self'", "ws:", "wss:", "http:", "https:", "https://cdn.socket.io", "https://analytics.playquor.org", "https://accounts.google.com"]
     }
 })); // CLOSED Correctly
 
