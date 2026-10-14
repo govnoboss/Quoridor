@@ -29,9 +29,23 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Пароль не обязателен: у аккаунтов, созданных через Google, его нет.
     passwordHash: {
         type: String,
-        required: true
+        required: false
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true // обычные аккаунты без googleId не конфликтуют
+    },
+    authProviders: {
+        type: [String],
+        default: ['password']
+    },
+    emailVerified: {
+        type: Boolean,
+        default: false
     },
     avatarUrl: {
         type: String,
