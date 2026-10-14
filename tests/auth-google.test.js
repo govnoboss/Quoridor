@@ -158,6 +158,50 @@ describe('POST /api/auth/google', () => {
         expect(linked.authProviders).toContain('google');
     });
 
+    it('clears the password when taking over a pre-registered unverified account', async () => {
+        User.__seedUser({
+            _id: 'u2',
+            username: 'victim',
+            email: 'newuser@gmail.com',
+            emailVerified: false,
+            passwordHash: '$2a$10$attackerchosenpasswordhash',
+            authProviders: ['password']
+        });
+        const agent = request.agent(app);
+        const res = await agent.post('/api/auth/google').send({ credential: 'valid-token' });
+        expect(res.status).toBe(200);
+        const linked = await User.findOne({ email: 'newuser@gmail.com' });
+        expect(linked.googleId).toBe('google-sub-123');
+        expect(linked.passwordHash).toBeUndefined();
+        expect(linked.authProviders).not.toContain('password');
+        expect(linked.authProviders).toContain('google');
+    });
+
+    it('preserves the password of an email-verified account', async () => {
+        User.__seedUser({
+            _id: 'u3',
+            username: 'verified',
+            email: 'newuser@gmail.com',
+            emailVerified: true,
+            passwordHash: '$2a$10$keepthispasswordhash',
+            authProviders: ['password']
+        });
+        const agent = request.agent(app);
+        const res = await agent.post('/api/auth/google').send({ credential: 'valid-token' });
+        expect(res.status).toBe(200);
+        const linked = await User.findOne({ email: 'newuser@gmail.com' });
+        expect(linked.googleId).toBe('google-sub-123');
+        expect(linked.passwordHash).toBe('$2a$10$keepthispasswordhash');
+        expect(linked.authProviders).toEqual(expect.arrayContaining(['password', 'google']));
+    });
+
+    it('password login on a Google-only account fails cleanly (400, never 500)', async () => {
+        User.__seedUser({ _id: 'u4', username: 'googleonly', email: 'newuser@gmail.com', authProviders: ['google'] });
+        const res = await request(app).post('/api/auth/login').send({ username: 'googleonly', password: 'anything' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid credentials');
+    });
+
     it('rejects an unverified Google email with 400', async () => {
         const res = await request(app).post('/api/auth/google').send({ credential: 'unverified-token' });
         expect(res.status).toBe(400);

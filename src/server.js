@@ -61,6 +61,10 @@ const BotPresenceManager = require('./bots/BotPresenceManager');
 const { syncBotPopulation } = require('./simulation/PopulationManager');
 
 const bcrypt = require('bcryptjs');
+
+// Фиктивный bcrypt-хеш: выравнивает время ответа логина, когда у пользователя
+// нет пароля (аккаунт только с Google) или пользователь не найден.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('quoridor-placeholder-not-a-real-password', 10);
 const jwt = require('jsonwebtoken');
 const redisPkg = require('redis');
 const session = require('express-session');
@@ -227,10 +231,11 @@ app.post('/api/auth/login', async (req, res) => {
         if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
 
         const user = await User.findOne({ username });
-        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+        // Сравниваем с фиктивным хешем, если пароля нет (Google-аккаунт) или
+        // пользователь не найден, чтобы время ответа не выдавало это.
+        const hash = (user && user.passwordHash) ? user.passwordHash : DUMMY_PASSWORD_HASH;
+        const isMatch = await bcrypt.compare(password, hash);
+        if (!user || !user.passwordHash || !isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
         const ban = await isUserBanned(user);
         if (ban.banned) {
@@ -330,6 +335,15 @@ app.post('/api/auth/google', async (req, res) => {
             // Привязка к существующему аккаунту по email (Google подтвердил владение почтой).
             user = await User.findOne({ email: profile.email });
             if (user) {
+                // Защита от захвата аккаунта: если аккаунт зарегистрирован по email, но почта
+                // не подтверждена, пароль мог поставить злоумышленник, заранее занявший адрес.
+                // Google подтвердил владение почтой — сбрасываем такой пароль.
+                if (user.emailVerified !== true) {
+                    user.passwordHash = undefined;
+                    if (Array.isArray(user.authProviders)) {
+                        user.authProviders = user.authProviders.filter(p => p !== 'password');
+                    }
+                }
                 user.googleId = profile.googleId;
                 if (!Array.isArray(user.authProviders)) user.authProviders = [];
                 if (!user.authProviders.includes('google')) user.authProviders.push('google');
