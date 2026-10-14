@@ -22,6 +22,15 @@ jest.mock('google-auth-library', () => {
                 nonce: idToken.slice('reauth:'.length)
             });
         }
+        if (typeof idToken === 'string' && idToken.startsWith('hashed:')) {
+            return withPayload({
+                sub: 'google-sub-123',
+                email: 'newuser@gmail.com',
+                email_verified: true,
+                iat: nowSec(),
+                nonce: require('crypto').createHash('sha256').update(idToken.slice('hashed:'.length)).digest('hex')
+            });
+        }
         if (idToken === 'stale-token') {
             return withPayload({
                 sub: 'google-sub-123',
@@ -90,6 +99,12 @@ describe('verifyFreshGoogleReauth', () => {
     it('accepts a fresh token with matching sub and nonce', async () => {
         const { verifyFreshGoogleReauth } = require('../src/auth/google');
         const profile = await verifyFreshGoogleReauth('reauth:abc123', 'google-sub-123', { nonce: 'abc123' });
+        expect(profile.googleId).toBe('google-sub-123');
+    });
+
+    it('accepts a token whose nonce claim is the SHA-256 hash of the expected nonce', async () => {
+        const { verifyFreshGoogleReauth } = require('../src/auth/google');
+        const profile = await verifyFreshGoogleReauth('hashed:abc123', 'google-sub-123', { nonce: 'abc123' });
         expect(profile.googleId).toBe('google-sub-123');
     });
 

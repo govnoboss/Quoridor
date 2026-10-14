@@ -252,6 +252,21 @@ const UI = {
       pp_delete_account: "Удалить аккаунт",
       pp_confirm_delete_title: "Подтверждение",
       pp_delete_account_confirm: "Вы уверены? Это навсегда удалит ваш аккаунт и все данные.",
+      pp_set_password: "Задать пароль",
+      pp_change_password: "Сменить пароль",
+      pp_password_current: "Текущий пароль",
+      pp_password_new: "Новый пароль",
+      pp_password_new_confirm: "Повторите новый пароль",
+      pp_password_save: "Сохранить",
+      pp_cancel: "Отмена",
+      pp_password_mismatch: "Пароли не совпадают",
+      pp_password_too_short: "Пароль должен быть не короче 8 символов",
+      pp_password_current_required: "Введите текущий пароль",
+      pp_password_updated: "Пароль сохранён",
+      pp_delete_enter_password: "Введите пароль для удаления аккаунта:",
+      pp_google_reauth_title: "Подтвердите личность",
+      pp_google_reauth_desc: "Для этого действия войдите через Google повторно.",
+      pp_google_reauth_failed: "Не удалось подтвердить через Google",
       pp_my_reports: "Мои репорты",
       pp_load_more: "Загрузить ещё",
       toast_auth_required: "Требуется авторизация",
@@ -523,6 +538,21 @@ const UI = {
       pp_delete_account: "Delete Account",
       pp_confirm_delete_title: "Confirm",
       pp_delete_account_confirm: "Are you sure? This will permanently delete your account and all data.",
+      pp_set_password: "Set Password",
+      pp_change_password: "Change Password",
+      pp_password_current: "Current password",
+      pp_password_new: "New password",
+      pp_password_new_confirm: "Repeat new password",
+      pp_password_save: "Save",
+      pp_cancel: "Cancel",
+      pp_password_mismatch: "Passwords do not match",
+      pp_password_too_short: "Password must be at least 8 characters",
+      pp_password_current_required: "Enter your current password",
+      pp_password_updated: "Password saved",
+      pp_delete_enter_password: "Enter your password to delete the account:",
+      pp_google_reauth_title: "Confirm your identity",
+      pp_google_reauth_desc: "Please sign in with Google again to continue.",
+      pp_google_reauth_failed: "Google re-authentication failed",
       pp_my_reports: "My Reports",
       pp_load_more: "Load more",
       toast_auth_required: "Authentication required",
@@ -1863,18 +1893,47 @@ UI.logout = async function () {
 };
 
 UI.deleteAccount = function () {
-  const password = prompt('Введите пароль для удаления аккаунта:');
-  if (!password) return;
+  const hasPassword = !!(UI.currentUser && UI.currentUser.hasPassword);
 
+  if (hasPassword) {
+    const password = prompt(UI.translate('pp_delete_enter_password') || 'Enter your password:');
+    if (!password) return;
+    UI.showConfirm(
+      UI.translate('pp_confirm_delete_title') || 'Confirm',
+      UI.translate('pp_delete_account_confirm') || 'Are you sure? This will permanently delete your account.',
+      async () => {
+        try {
+          const res = await fetch('/api/user/account', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+          });
+          const data = await res.json();
+          if (data.error) {
+            alert(data.error);
+          } else {
+            window.location.href = '/';
+          }
+        } catch (err) {
+          alert('Error deleting account');
+        }
+      }
+    );
+    return;
+  }
+
+  // Аккаунт без пароля (Google): подтверждаем свежим Google-токеном.
   UI.showConfirm(
     UI.translate('pp_confirm_delete_title') || 'Confirm',
     UI.translate('pp_delete_account_confirm') || 'Are you sure? This will permanently delete your account.',
     async () => {
+      const credential = await UI.requestGoogleReauth();
+      if (!credential) return;
       try {
         const res = await fetch('/api/user/account', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ googleCredential: credential })
         });
         const data = await res.json();
         if (data.error) {
@@ -1882,11 +1941,185 @@ UI.deleteAccount = function () {
         } else {
           window.location.href = '/';
         }
-      } catch (err) {
+      } catch {
         alert('Error deleting account');
       }
     }
   );
+};
+
+// --- GOOGLE RE-AUTH (для действий в аккаунте без пароля) ---
+
+UI.loadGsiScript = function () {
+  if (window.google && window.google.accounts && window.google.accounts.id) return Promise.resolve();
+  if (UI._gsiPromise) return UI._gsiPromise;
+  UI._gsiPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load Google script'));
+    document.head.appendChild(s);
+  });
+  return UI._gsiPromise;
+};
+
+// Открывает модалку с кнопкой Google и возвращает свежий credential (или null).
+UI.requestGoogleReauth = async function () {
+  try {
+    await UI.loadGsiScript();
+  } catch {
+    UI.showToast(UI.translate('pp_google_reauth_failed'), 'error');
+    return null;
+  }
+
+  let cfg, challenge;
+  try {
+    cfg = await (await fetch('/api/auth/config')).json();
+    if (!cfg || !cfg.googleClientId) { UI.showToast(UI.translate('pp_google_reauth_failed'), 'error'); return null; }
+    challenge = await (await fetch('/api/auth/reauth-challenge', { method: 'POST' })).json();
+  } catch {
+    UI.showToast(UI.translate('pp_google_reauth_failed'), 'error');
+    return null;
+  }
+  if (!challenge || !challenge.nonce) { UI.showToast(UI.translate('pp_google_reauth_failed'), 'error'); return null; }
+
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2500;';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#1e293b;border-radius:14px;padding:24px;max-width:360px;width:90%;box-sizing:border-box;text-align:center;color:#e2e8f0;font-family:Arial,sans-serif;';
+
+    const h = document.createElement('h3');
+    h.textContent = UI.translate('pp_google_reauth_title') || 'Confirm your identity';
+    h.style.cssText = 'margin:0 0 8px;';
+
+    const p = document.createElement('p');
+    p.textContent = UI.translate('pp_google_reauth_desc') || 'Please sign in with Google again to continue.';
+    p.style.cssText = 'margin:0 0 16px;color:#94a3b8;font-size:14px;';
+
+    const btnSlot = document.createElement('div');
+    btnSlot.style.cssText = 'display:flex;justify-content:center;margin-bottom:12px;';
+
+    const cancel = document.createElement('button');
+    cancel.textContent = UI.translate('pp_cancel') || 'Cancel';
+    cancel.style.cssText = 'background:none;border:1px solid #475569;color:#cbd5e1;border-radius:8px;padding:8px 16px;cursor:pointer;';
+
+    const finish = (value) => { overlay.remove(); resolve(value); };
+    cancel.onclick = () => finish(null);
+    overlay.onclick = (e) => { if (e.target === overlay) finish(null); };
+
+    card.appendChild(h);
+    card.appendChild(p);
+    card.appendChild(btnSlot);
+    card.appendChild(cancel);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    window.google.accounts.id.initialize({
+      client_id: cfg.googleClientId,
+      nonce: challenge.nonce,
+      callback: (resp) => finish(resp && resp.credential ? resp.credential : null)
+    });
+    window.google.accounts.id.renderButton(btnSlot, { theme: 'outline', size: 'large', text: 'continue_with', width: 280 });
+  });
+};
+
+// Установка или смена пароля. Для аккаунтов без пароля — через свежий Google-токен.
+UI.openPasswordModal = function () {
+  const hasPassword = !!(UI.currentUser && UI.currentUser.hasPassword);
+  const inputStyle = 'width:100%;box-sizing:border-box;padding:10px;margin-bottom:12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;';
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2500;';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#1e293b;border-radius:14px;padding:24px;max-width:380px;width:90%;box-sizing:border-box;color:#e2e8f0;font-family:Arial,sans-serif;';
+
+  const title = document.createElement('h3');
+  title.textContent = (hasPassword ? UI.translate('pp_change_password') : UI.translate('pp_set_password')) || 'Password';
+  title.style.cssText = 'margin:0 0 16px;';
+
+  let currentInput = null;
+  if (hasPassword) {
+    currentInput = document.createElement('input');
+    currentInput.type = 'password';
+    currentInput.placeholder = UI.translate('pp_password_current') || 'Current password';
+    currentInput.style.cssText = inputStyle;
+  }
+  const newInput = document.createElement('input');
+  newInput.type = 'password';
+  newInput.placeholder = UI.translate('pp_password_new') || 'New password';
+  newInput.style.cssText = inputStyle;
+
+  const confirmInput = document.createElement('input');
+  confirmInput.type = 'password';
+  confirmInput.placeholder = UI.translate('pp_password_new_confirm') || 'Repeat new password';
+  confirmInput.style.cssText = inputStyle;
+
+  const err = document.createElement('div');
+  err.style.cssText = 'color:#f87171;font-size:13px;min-height:18px;margin-bottom:12px;';
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
+
+  const cancel = document.createElement('button');
+  cancel.textContent = UI.translate('pp_cancel') || 'Cancel';
+  cancel.style.cssText = 'background:none;border:1px solid #475569;color:#cbd5e1;border-radius:8px;padding:8px 16px;cursor:pointer;';
+
+  const save = document.createElement('button');
+  save.textContent = UI.translate('pp_password_save') || 'Save';
+  save.style.cssText = 'background:#e09f3e;border:none;color:#0f172a;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:bold;';
+
+  const close = () => overlay.remove();
+  cancel.onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+
+  save.onclick = async () => {
+    err.textContent = '';
+    if (newInput.value.length < 8) { err.textContent = UI.translate('pp_password_too_short'); return; }
+    if (newInput.value !== confirmInput.value) { err.textContent = UI.translate('pp_password_mismatch'); return; }
+
+    const body = { newPassword: newInput.value };
+    if (hasPassword) {
+      if (!currentInput.value) { err.textContent = UI.translate('pp_password_current_required'); return; }
+      body.currentPassword = currentInput.value;
+    } else {
+      save.disabled = true;
+      const credential = await UI.requestGoogleReauth();
+      save.disabled = false;
+      if (!credential) return;
+      body.googleCredential = credential;
+    }
+
+    try {
+      const res = await fetch('/api/user/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { err.textContent = data.error || UI.translate('pp_google_reauth_failed'); return; }
+      if (UI.currentUser) UI.currentUser.hasPassword = true;
+      close();
+      UI.showToast(UI.translate('pp_password_updated') || 'Password saved', 'success');
+    } catch {
+      err.textContent = UI.translate('toast_network_error') || 'Network error';
+    }
+  };
+
+  row.appendChild(cancel);
+  row.appendChild(save);
+  card.appendChild(title);
+  if (currentInput) card.appendChild(currentInput);
+  card.appendChild(newInput);
+  card.appendChild(confirmInput);
+  card.appendChild(err);
+  card.appendChild(row);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 };
 
 // --- USER REPORT (жалоба на пользователя) ---
@@ -2431,6 +2664,15 @@ UI.showProfilePage = async function (username, pushState = true) {
       };
       const dropdown = document.createElement('div');
       dropdown.className = 'pp-friend-dropdown';
+      const passwordBtn = document.createElement('button');
+      passwordBtn.textContent = (UI.currentUser && UI.currentUser.hasPassword)
+        ? (UI.translate('pp_change_password') || 'Change Password')
+        : (UI.translate('pp_set_password') || 'Set Password');
+      passwordBtn.onclick = () => {
+        dropdown.classList.remove('show');
+        UI.openPasswordModal();
+      };
+      dropdown.appendChild(passwordBtn);
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'danger';
       deleteBtn.textContent = UI.translate('pp_delete_account') || 'Delete Account';

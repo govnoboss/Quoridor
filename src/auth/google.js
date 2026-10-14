@@ -1,4 +1,5 @@
 const { OAuth2Client } = require('google-auth-library');
+const crypto = require('crypto');
 
 let client = null;
 function getClient() {
@@ -70,7 +71,13 @@ async function verifyFreshGoogleReauth(credential, expectedGoogleId, { nonce, ma
     if (!profile.issuedAt || age > maxAgeMs || age < 0) {
         throw tokenError('REAUTH_STALE', 'Google credential is too old');
     }
-    if (!nonce || !profile.nonce || profile.nonce !== nonce) {
+    if (!nonce || !profile.nonce) {
+        throw tokenError('REAUTH_NONCE', 'Invalid reauthentication nonce');
+    }
+    // GIS возвращает nonce как есть, но часть клиентов Google отдаёт его SHA-256 хеш.
+    // Принимаем оба варианта, чтобы не зависеть от поведения библиотеки.
+    const expectedHash = crypto.createHash('sha256').update(String(nonce)).digest('hex');
+    if (profile.nonce !== nonce && profile.nonce !== expectedHash) {
         throw tokenError('REAUTH_NONCE', 'Invalid reauthentication nonce');
     }
     return profile;
