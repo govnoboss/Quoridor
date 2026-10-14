@@ -14,6 +14,7 @@ const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
 const { sendPasswordResetEmail } = require('./utils/mailer');
+const { verifyGoogleIdToken } = require('./auth/google');
 const Report = require('./models/Report');
 const geoip = require('geoip-lite');
 const multer = require('multer');
@@ -285,6 +286,94 @@ app.get('/api/auth/me', async (req, res) => {
         }
     } else {
         res.json({ isAuthenticated: false });
+    }
+});
+
+// Публичный конфиг для клиента: какие внешние входы включены.
+app.get('/api/auth/config', (req, res) => {
+    res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
+// Собирает уникальное имя пользователя (3-20 симв.) из имени/почты Google.
+async function generateUniqueUsername(email, name) {
+    const base = String(name || email.split('@')[0] || 'player')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 20) || 'player';
+    let candidate = base.length >= 3 ? base : base.padEnd(3, '0');
+    let n = 0;
+    while (await User.findOne({ username: candidate })) {
+        n += 1;
+        const suffix = String(n);
+        candidate = base.slice(0, 20 - suffix.length) + suffix;
+    }
+    return candidate;
+}
+
+// sign in with Google
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { credential } = req.body || {};
+        let profile;
+        try {
+            profile = await verifyGoogleIdToken(credential);
+        } catch (err) {
+            if (err.code === 'EMAIL_NOT_VERIFIED') {
+                return res.status(400).json({ error: 'Google email is not verified' });
+            }
+            return res.status(401).json({ error: 'Invalid Google credential' });
+        }
+
+        let user = await User.findOne({ googleId: profile.googleId });
+
+        if (!user) {
+            // Привязка к существующему аккаунту по email (Google подтвердил владение почтой).
+            user = await User.findOne({ email: profile.email });
+            if (user) {
+                user.googleId = profile.googleId;
+                if (!Array.isArray(user.authProviders)) user.authProviders = [];
+                if (!user.authProviders.includes('google')) user.authProviders.push('google');
+                user.emailVerified = true;
+                await user.save();
+            }
+        }
+
+        if (!user) {
+            const username = await generateUniqueUsername(profile.email, profile.name);
+            const country = detectCountry(getClientIp(req));
+            user = new User({
+                username,
+                email: profile.email,
+                googleId: profile.googleId,
+                authProviders: ['google'],
+                emailVerified: true,
+                country,
+                avatarUrl: profile.picture || undefined
+            });
+            await user.save();
+        }
+
+        const ban = await isUserBanned(user);
+        if (ban.banned) {
+            const expires = ban.expires ? ` until ${ban.expires.toISOString()}` : '';
+            return res.status(403).json({
+                error: `Account banned${expires}`,
+                code: 'ACCOUNT_BANNED',
+                reason: ban.reason,
+                expires: ban.expires
+            });
+        }
+
+        await ensureUserCountry(user, getClientIp(req));
+
+        req.session.userId = user._id;
+        req.session.username = user.username;
+        req.session.avatarUrl = user.avatarUrl;
+
+        res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
+    } catch (err) {
+        console.error('[GOOGLE AUTH ERROR]', err);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
