@@ -1511,6 +1511,10 @@ app.use(helmet({
     generateContentSecurityPolicy: false,
     hsts: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    // GIS popup-поток требует, чтобы popup сохранял window.opener. При значении
+    // по умолчанию 'same-origin' Google-попап зависает на белой странице
+    // accounts.google.com/gsi/transform, и credential не доставляется.
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
 }));
 
 app.use(helmet.contentSecurityPolicy({
