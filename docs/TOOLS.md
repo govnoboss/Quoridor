@@ -158,7 +158,6 @@ module.exports = {
 - `tests/zobrist.test.js` — Zobrist hashing
 - `tests/ai-core.test.js` — legacy AI engine (jest, plus `npm run test:ai` for a standalone run)
 - `tests/analytics.test.js` — `/api/analytics/events` ingestion + `/api/admin/metrics`
-- `tests/puzzle.test.js` — `/api/puzzles/today` + `/api/puzzles/solve` + streaks
 - `quoridor-engine/tests/site-v1.test.js` — browser bundle of the production engine and anti-repetition
 - `tests/load-test.js` — load testing (`npm run load-test`, not jest)
 

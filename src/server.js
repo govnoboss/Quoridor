@@ -55,8 +55,6 @@ const connectDB = require('./storage/db');
 const User = require('./models/User');
 const GameResult = require('./models/GameResult'); // Архив игр
 const AnalyticsEvent = require('./models/AnalyticsEvent');
-const DailyPuzzle = require('./models/DailyPuzzle');
-const puzzleGenerator = require('./puzzles/puzzleGenerator');
 const BotSettings = require('./models/BotSettings');
 const BotPresenceManager = require('./bots/BotPresenceManager');
 const { syncBotPopulation } = require('./simulation/PopulationManager');
@@ -1338,7 +1336,6 @@ app.get('/rules', (req, res) => res.sendFile(path.join(__dirname, '../frontend/r
 app.get('/how-to-play', (req, res) => res.redirect(301, '/rules'));
 app.get('/faq', (req, res) => res.sendFile(path.join(__dirname, '../frontend/faq.html')));
 app.get('/replay/:id', (req, res) => res.sendFile(path.join(__dirname, '../frontend/replay.html')));
-app.get('/puzzle', (req, res) => res.sendFile(path.join(__dirname, '../frontend/puzzle.html')));
 app.get('/leaderboard', (req, res) => res.sendFile(path.join(__dirname, '../frontend/leaderboard.html')));
 
 // --- BUG REPORT API ---
@@ -1942,110 +1939,6 @@ app.patch('/api/admin/user-reports/:id', requireAdmin, async (req, res) => {
     }
 });
 
-// --- DAILY PUZZLE (ежедневная головоломка) ---
-
-const puzzleSolveLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    message: { error: 'Too many solve attempts. Slow down.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-
-function isPuzzlePawnMove(move) {
-    return move && move.type === 'pawn' &&
-        Number.isInteger(move.r) && Number.isInteger(move.c) &&
-        move.r >= 0 && move.r <= 8 && move.c >= 0 && move.c <= 8;
-}
-
-// GET /api/puzzles/today — головоломка на сегодня (создаётся, если нет)
-app.get('/api/puzzles/today', async (req, res) => {
-    try {
-        const puzzle = await puzzleGenerator.getTodayPuzzle();
-        const userInfo = { streak: 0, puzzlesSolved: 0, solvedToday: false };
-        if (req.session && req.session.userId) {
-            const user = await User.findById(req.session.userId).select('puzzleStreak lastPuzzleDate puzzlesSolved');
-            if (user) {
-                userInfo.streak = user.puzzleStreak || 0;
-                userInfo.puzzlesSolved = user.puzzlesSolved || 0;
-                userInfo.solvedToday = user.lastPuzzleDate === puzzle.date;
-            }
-        }
-        res.json({
-            date: puzzle.date,
-            difficulty: puzzle.difficulty || 'medium',
-            result: puzzle.result || 'goal',
-            winner: puzzle.winner === undefined || puzzle.winner === null ? 0 : puzzle.winner,
-            solutionLength: puzzle.solutionLength || 1,
-            moves: puzzle.moves || [],
-            ...userInfo
-        });
-    } catch (e) {
-        console.error('[PUZZLE] Today error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// POST /api/puzzles/solve — проверить ход игрока (одно решение — победа)
-app.post('/api/puzzles/solve', puzzleSolveLimiter, async (req, res) => {
-    try {
-        const { move } = req.body || {};
-        if (!isPuzzlePawnMove(move)) {
-            return res.status(400).json({ error: 'Pawn move required' });
-        }
-        const puzzle = await puzzleGenerator.getTodayPuzzle();
-        const { state, error } = puzzleGenerator.applyPuzzleMove(
-            puzzle,
-            { type: 'pawn', r: move.r, c: move.c, isVertical: false }
-        );
-        if (error) {
-            return res.json({ solved: false, message: error });
-        }
-        const winner = puzzleGenerator.checkGoalWinner(state);
-        if (winner !== puzzle.winner) {
-            return res.json({ solved: false, message: 'Wrong move' });
-        }
-
-        let streak = null;
-        let puzzlesSolved = null;
-        let alreadySolved = false;
-        if (req.session && req.session.userId) {
-            const user = await User.findById(req.session.userId);
-            if (user) {
-                alreadySolved = user.lastPuzzleDate === puzzle.date;
-                if (!alreadySolved) {
-                    streak = user.lastPuzzleDate === puzzleGenerator.yesterdayDateKey()
-                        ? (user.puzzleStreak || 0) + 1
-                        : 1;
-                    user.puzzleStreak = streak;
-                    user.lastPuzzleDate = puzzle.date;
-                    user.puzzlesSolved = (user.puzzlesSolved || 0) + 1;
-                    await user.save();
-                } else {
-                    streak = user.puzzleStreak || 0;
-                }
-                puzzlesSolved = user.puzzlesSolved || 0;
-            }
-        }
-
-        try {
-            await AnalyticsEvent.create({
-                name: 'puzzle-solved',
-                userId: req.session && req.session.userId ? req.session.userId : null,
-                props: { date: puzzle.date },
-                platform: 'web'
-            });
-        } catch (ae) {
-            console.error('[PUZZLE] Analytics event failed:', ae);
-        }
-
-        res.json({ solved: true, alreadySolved, streak, puzzlesSolved, date: puzzle.date });
-    } catch (e) {
-        console.error('[PUZZLE] Solve error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
 // --- PRODUCT ANALYTICS (события + метрики) ---
 
 const analyticsLimiter = rateLimit({
@@ -2060,8 +1953,7 @@ const ANALYTICS_EVENT_WHITELIST = new Set([
     'register-complete', 'login-complete', 'search-started', 'play-online-click',
     'play-friend-click', 'play-local-click', 'surrender-click', 'room-created',
     'room-joined', 'search-cancelled', 'rematch-click', 'game-started',
-    'game-finished', 'play-bot-click', 'puzzle-viewed', 'puzzle-solved',
-    'app-loaded', 'session-start'
+    'game-finished', 'play-bot-click', 'app-loaded', 'session-start'
 ]);
 
 // POST /api/analytics/events — батч событий от клиента (до 20 за запрос)
@@ -2117,7 +2009,7 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
         const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 7));
         const since = new Date(Date.now() - days * 86400000);
 
-        const [byName, daily, activeUsers, totalEvents, puzzleSolved, puzzleViews] = await Promise.all([
+        const [byName, daily, activeUsers, totalEvents] = await Promise.all([
             AnalyticsEvent.aggregate([
                 { $match: { timestamp: { $gte: since } } },
                 { $group: { _id: '$name', count: { $sum: 1 }, users: { $addToSet: '$userId' } } },
@@ -2136,17 +2028,13 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
                 { $match: { timestamp: { $gte: since } } },
                 { $group: { _id: '$userId' } }
             ]),
-            AnalyticsEvent.countDocuments({ timestamp: { $gte: since } }),
-            AnalyticsEvent.countDocuments({ name: 'puzzle-solved' }),
-            AnalyticsEvent.countDocuments({ name: 'puzzle-viewed' })
+            AnalyticsEvent.countDocuments({ timestamp: { $gte: since } })
         ]);
 
         res.json({
             days,
             totalEvents,
             activeUsers: activeUsers.filter((u) => u._id).length,
-            puzzleSolved,
-            puzzleViews,
             byName: byName.map(({ _id, count, users }) => ({
                 name: _id,
                 count,

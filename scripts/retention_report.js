@@ -48,7 +48,7 @@ async function main() {
         eventsByUser.get(String(e.userId)).add(dateKey(e.timestamp));
     }
 
-    const dayEvents = new Set(['session-start', 'game-started', 'game-finished', 'search-started', 'play-online-click', 'play-bot-click', 'puzzle-viewed', 'puzzle-solved']);
+    const dayEvents = new Set(['session-start', 'game-started', 'game-finished', 'search-started', 'play-online-click', 'play-bot-click']);
 
     const cohorts = {};
     for (const reg of registrations) {
@@ -93,7 +93,7 @@ async function main() {
         console.log(`  D7  ${Math.round((closed.d7 / closed.users) * 100)}%`);
     }
 
-    // Воронка: исследование → игра → завершение партии → головоломка
+    // Воронка: исследование → игра → завершение партии
     const sinceMs = since.getTime();
     const countByName = await AnalyticsEvent.aggregate([
         { $match: { timestamp: { $gte: since } } },
@@ -106,9 +106,7 @@ async function main() {
     const funnel = {
         'play-online-click': get('play-online-click'),
         'game-started': get('game-started'),
-        'game-finished': get('game-finished'),
-        'puzzle-viewed': get('puzzle-viewed'),
-        'puzzle-solved': get('puzzle-solved')
+        'game-finished': get('game-finished')
     };
     console.log('\nFunnel (last %d days, counts / unique users):', days);
     for (const [step, v] of Object.entries(funnel)) {

@@ -70,8 +70,6 @@
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card accent"><div class="number" id="statEvents">-</div><div class="label">Events</div></div>
         <div class="stat-card info"><div class="number" id="statUsers">-</div><div class="label">Active Users</div></div>
-        <div class="stat-card ok"><div class="number" id="statPuzzleSolved">-</div><div class="label">Puzzles Solved</div></div>
-        <div class="stat-card"><div class="number" id="statPuzzleViews">-</div><div class="label">Puzzle Views</div></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -131,8 +129,6 @@
             var data = await res.json();
             el('statEvents').textContent = data.totalEvents;
             el('statUsers').textContent = data.activeUsers;
-            el('statPuzzleSolved').textContent = data.puzzleSolved;
-            el('statPuzzleViews').textContent = data.puzzleViews;
             renderByName(data.byName);
             renderDaily(data.daily);
             trackEvent('admin-metrics-viewed', { days: days });

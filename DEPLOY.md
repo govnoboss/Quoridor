@@ -127,14 +127,11 @@ The script runs `git pull`, rebuilds the container and restarts it.
 
 ## 5. Scheduled tasks (cron)
 
-The daily puzzle is created on demand (on the first `/api/puzzles/today` request of a new day), but
 it can be pre-created ahead of time and the retention report captured:
 
 ```bash
 sudo crontab -e -u root
 
-# Every day at 00:05 (UTC) — prepare the puzzle for the new day
-5 0 * * * cd /opt/quoridor && docker compose exec -T app node scripts/generate_daily_puzzle.js >> /var/log/quoridor-puzzle.log 2>&1
 # Every Monday at 00:30 (UTC) — D1/D3/D7 cohort report
 30 0 * * 1 cd /opt/quoridor && docker compose exec -T app node scripts/retention_report.js >> /var/log/quoridor-retention.log 2>&1
 ```

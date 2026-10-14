@@ -16,9 +16,7 @@ Quoridor/
 │   ├── models/                     # Mongoose schemas
 │   │   ├── User.js  GameResult.js  Friendship.js  Notification.js
 │   │   ├── Report.js  UserReport.js  BotSettings.js  AdminLog.js
-│   │   ├── AnalyticsEvent.js  DailyPuzzle.js
-│   ├── puzzles/
-│   │   └── puzzleGenerator.js      # Daily puzzle extraction from finished games + fallback
+│   │   ├── AnalyticsEvent.js
 │   ├── bots/
 │   │   ├── BotManager.js           # Server-side bot play: matchmaking fallback + move scheduling
 │   │   ├── matchmaking.js          # Pure bot-opponent selection: avoid-repeat, least-recently-seen, contrast
@@ -48,7 +46,7 @@ Quoridor/
 │   ├── index.html                  # Game shell (matchmaking, room, game, profile SPA)
 │   ├── login.html register.html forgot-password.html reset-password.html
 │   ├── rules.html faq.html terms.html privacy.html report.html reports.html
-│   ├── leaderboard.html replay.html puzzle.html
+│   ├── leaderboard.html replay.html
 │   ├── admin.html admin-users.html admin-bots.html admin-reports.html
 │   │   admin-user-reports.html admin-logs.html admin-metrics.html
 │   ├── js/
@@ -57,7 +55,6 @@ Quoridor/
 │   │   ├── game.js board-renderer.js   # Canvas board + game loop
 │   │   ├── ai.js ai-worker.js      # Browser AI (Web Worker, engine v3)
 │   │   ├── replay.js               # Replay viewer
-│   │   ├── puzzle.js               # Daily puzzle viewer + solve flow
 │   │   └── analytics.js            # Product analytics tracker (deviceId/sessionId, batch queue)
 │   ├── css/                        # style.css auth.css auth-pages.css profile.css replay.css
 │   ├── img/emoji/                  # Flag SVG assets (~275) rendered by ui.js
@@ -72,12 +69,10 @@ Quoridor/
 │   ├── zobrist.test.js             # Zobrist hashing/chessboard caching
 │   ├── ai-core.test.js             # AI engine (jest + standalone node run)
 │   ├── analytics.test.js           # /api/analytics/events ingestion + /api/admin/metrics
-│   ├── puzzle.test.js              # /api/puzzles/today + /api/puzzles/solve + streaks
 │   ├── load-test.js                # Manual load simulation (npm run load-test, not jest)
 │   └── helpers.js                  # Shared test helpers
 │
 ├── scripts/                        # Ops CLIs (manual, not production entry points)
-│   ├── generate_daily_puzzle.js    # Create today's DailyPuzzle (cron-friendly)
 │   └── retention_report.js         # D1/D3/D7 cohort retention + funnel report
 │
 ├── tools/texel/                    # Texel-style weight tuning for the engine eval

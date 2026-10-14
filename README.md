@@ -24,7 +24,7 @@ Real-time multiplayer implementation of the classic board game **Quoridor** (Ama
   Elo, SPRT and round-robin ratings. `v3` runs in production on both server and client, with per-bot
   personality and anti-repetition search. All engine changes are accepted by measurement, not by feel.
 - **Full product surface** — accounts, ranked ratings, leaderboard, game history/replays, friends,
-  notifications, daily puzzles, product analytics and a complete admin panel.
+  notifications, product analytics and a complete admin panel.
 - **Shippable** — Dockerized (app + Mongo + Redis), Caddy TLS, Android wrapper via Capacitor.
 
 ## Features
@@ -37,7 +37,7 @@ Real-time multiplayer implementation of the classic board game **Quoridor** (Ama
 - Rematch with invite/accept protocol, friends, notifications, in-game reactions
 - Reports (bug reports + player complaints) and a full admin panel
 - Timer game clock with increment, ranked rating changes
-- Daily puzzle, product analytics, D1/D3/D7 retention reporting
+- Product analytics, D1/D3/D7 retention reporting
 
 ## Tech Stack
 

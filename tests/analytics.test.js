@@ -76,16 +76,6 @@ jest.mock('../src/models/GameResult', () => {
     return MockGameResult;
 });
 
-jest.mock('../src/models/DailyPuzzle', () => {
-    const MockDailyPuzzle = jest.fn().mockImplementation((data) => {
-        return { ...data, save: jest.fn().mockResolvedValue(true) };
-    });
-    MockDailyPuzzle.findOne = jest.fn().mockResolvedValue(null);
-    MockDailyPuzzle.findOneAndUpdate = jest.fn().mockResolvedValue(null);
-    MockDailyPuzzle.create = jest.fn().mockResolvedValue(null);
-    return MockDailyPuzzle;
-});
-
 // Self-contained in-memory AnalyticsEvent store
 jest.mock('../src/models/AnalyticsEvent', () => {
     const store = [];
@@ -181,7 +171,7 @@ describe('Analytics Ingest API', () => {
             .post('/api/analytics/events')
             .send([
                 { name: 'game-started', props: { mode: 'ranked' }, ts: new Date().toISOString() },
-                { name: 'puzzle-viewed', props: {}, ts: new Date().toISOString() }
+                { name: 'game-finished', props: {}, ts: new Date().toISOString() }
             ]);
         expect(res.status).toBe(204);
         expect(AnalyticsEvent.insertMany).toHaveBeenCalledTimes(1);
@@ -273,7 +263,7 @@ describe('Admin Metrics API', () => {
             });
         }
         AnalyticsEvent.__events.push({
-            name: 'puzzle-solved',
+            name: 'game-finished',
             userId: 'user1',
             timestamp: new Date()
         });
@@ -281,7 +271,6 @@ describe('Admin Metrics API', () => {
         const res = await agent.get('/api/admin/metrics?days=7');
         expect(res.status).toBe(200);
         expect(res.body.totalEvents).toBe(4);
-        expect(res.body.puzzleSolved).toBe(1);
 
         const gameStarted = res.body.byName.find((e) => e.name === 'game-started');
         expect(gameStarted.count).toBe(3);
