@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #888; font-size: 13px; }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #333; }
+        .google-btn-slot { display: flex; justify-content: center; margin-bottom: 8px; }
+    </style>
 </head>
 <body class="auth-page-body">
     <header class="main-header">
@@ -58,6 +64,8 @@
                 </div>
                 <button type="submit" class="btn-primary" id="submitBtn" disabled>Create account</button>
             </form>
+            <div class="auth-divider"><span>or</span></div>
+            <div id="googleBtn" class="google-btn-slot"></div>
             <div class="auth-footer-links">
                 <span id="footerText">Already have an account?</span>
                 <a href="/login" id="footerLink">Sign In</a>
@@ -90,6 +98,7 @@
                 error_email_taken: 'Email уже используется',
                 error_generic: 'Ошибка регистрации',
                 error_network: 'Ошибка сети',
+                error_google: 'Не удалось войти через Google',
                 page_title: 'Создание аккаунта — PlayQuor',
             },
             en: {
@@ -115,6 +124,7 @@
                 error_email_taken: 'Email already in use',
                 error_generic: 'Registration failed',
                 error_network: 'Network error',
+                error_google: 'Could not sign in with Google',
                 page_title: 'Create account — PlayQuor',
             }
         };
@@ -279,6 +289,39 @@
             });
         }
 
+        function onGoogleCredential(response) {
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: response.credential })
+            }).then(function(r) {
+                return r.json().then(function(data) { return { status: r.status, data: data }; });
+            }).then(function(resp) {
+                if (resp.status === 200) {
+                    trackEvent('login-complete');
+                    window.location.href = '/';
+                } else {
+                    showGlobalError(dict[getLang()].error_google);
+                }
+            }).catch(function() {
+                showGlobalError(dict[getLang()].error_network);
+            });
+        }
+
+        function initGoogleSignIn() {
+            if (!window.google || !google.accounts || !google.accounts.id) {
+                setTimeout(initGoogleSignIn, 200);
+                return;
+            }
+            fetch('/api/auth/config').then(function(r) { return r.json(); }).then(function(cfg) {
+                if (!cfg.googleClientId) return;
+                google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: onGoogleCredential });
+                var el = document.getElementById('googleBtn');
+                if (el) google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', width: 320 });
+            }).catch(function() { /* never block password login */ });
+        }
+
+        initGoogleSignIn();
         applyLang();
     </script>
 </body>
