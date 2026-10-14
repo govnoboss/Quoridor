@@ -3240,6 +3240,33 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Игрок сознательно покидает партию (ушёл в меню, сменил маршрут). Завершаем игру
+    // как сдачу и отписываем сокет от лобби, чтобы просроченный gameOver не всплывал
+    // уходящему игроку поверх главного меню. Иначе партия висела бы до таймаута.
+    socket.on('leaveGame', async (data) => {
+        if (!data || typeof data !== 'object') return;
+
+        let lobbyId = data.lobbyId;
+        if (!Shared.isValidLobbyId(lobbyId) && isValidToken(socket.playerToken)) {
+            lobbyId = await Redis.getLobbyByToken(socket.playerToken);
+        }
+        if (!Shared.isValidLobbyId(lobbyId)) return;
+
+        try {
+            const game = await Redis.getGame(lobbyId);
+            if (!game || game.finished === true) return;
+
+            const leavingIdx = game.playerTokens.indexOf(socket.playerToken);
+            if (leavingIdx === -1) return;
+
+            // Отписываем сокет до финализации: gameOver этому игроку уже не нужен.
+            socket.leave(lobbyId);
+            await finalizeGame(lobbyId, 1 - leavingIdx, 'Surrender');
+        } catch (err) {
+            console.error('[LEAVE GAME ERROR]', err);
+        }
+    });
+
     // ==== EMOJI REACTIONS ====
     const ALLOWED_REACTIONS = [
       '😂', '😈', '🤭', '🙃', '😜',

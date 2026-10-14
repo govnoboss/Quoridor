@@ -67,6 +67,7 @@ const Game = {
     playerProfiles: [null, null] // New: [{name, avatar}, {name, avatar}]
   },
   isInputBlocked: false, // New: Block input flag
+  isGameLive: false, // Идёт ли партия прямо сейчас (таймер запущен, ещё не завершена)
   isReplayMode: false, // Replay mode flag - disables input and timers
   postGameReview: false, // Post-game review: modal closed, board visible for review
   replayReturnProfile: null, // Username to return to after exiting replay
@@ -235,6 +236,7 @@ const Game = {
     if (this.isGameOver) return;
     this.stopTimer();
     this.isGameOver = true;
+    this.isGameLive = false;
 
     // Отпускаем движок локального бота: его транспозиционная таблица больше не нужна, а следующая
     // партия всё равно получит новый экземпляр в startVsBot.
@@ -263,6 +265,13 @@ const Game = {
       statusMessage = UI.translate('modal_win_local').replace('{color}', colorName);
     }
     trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local' });
+
+    // Если игрок уже не на экране игры (ушёл в меню/профиль), не показываем модалку
+    // поверх чужого экрана. Без этого «просроченный» gameOver всплывал бы в главном меню.
+    const activeScreen = document.querySelector('.screen.active');
+    if (!activeScreen || activeScreen.id !== 'gameScreen') {
+      return;
+    }
 
     const contentBox = modal.querySelector('.modal-content');
     contentBox.className = 'modal-content ' + (isWinner ? 'win-state' : 'lose-state');
@@ -331,6 +340,24 @@ const Game = {
 
       }
     }
+  },
+
+  /**
+   * Немедленно завершает активную партию при уходе с экрана игры (кнопка/жест «назад»,
+   * клик по логотипу, смена маршрута). Без этого партия остаётся живой: локальные часы
+   * продолжают идти, а серверный gameOver всплывает модалкой поверх главного меню.
+   * @returns {boolean} true, если активная партия была завершена.
+   */
+  leaveActiveGame() {
+    if (!this.isGameLive) return false;
+
+    if (typeof Net !== 'undefined' && Net.isOnline && typeof Net.leaveGame === 'function') {
+      Net.leaveGame();
+    }
+    this.stopTimer();
+    this.isGameOver = true;
+    this.isGameLive = false;
+    return true;
   },
 
   goToMainMenu() {
@@ -804,12 +831,14 @@ const Game = {
       this.setTimerBase(base, active);
     }
     this.timerInterval = setInterval(() => this.tickTimer(), 250);
+    this.isGameLive = true;
     this.tickTimer();
   },
 
   stopTimer() {
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = null;
+    this.isGameLive = false;
   },
 
   syncTimers(serverTimers, force = false) {
@@ -2117,7 +2146,7 @@ const Game = {
 
   initTimerVisibilityHandlers() {
     const refresh = () => {
-      if (!this.state || this.state.gameOver) return;
+      if (!this.state || this.isGameOver || !this.isGameLive) return;
       if (!this.timerInterval) this.startTimer();
       else this.tickTimer();
       if (typeof Net !== 'undefined' && Net.isOnline && Net.requestTimerSync) {

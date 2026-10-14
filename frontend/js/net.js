@@ -125,15 +125,14 @@ const Net = {
         this.socket.on('gameOver', (data) => {
             console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);
 
-            // Если мы уже не в игре или в главном меню, игнорируем (защита от поздних событий)
-            if (!this.lobbyId && !Game.isOnlineGame) return;
+            // Нет активного лобби — значит мы уже не в игре (меню/профиль/реплей).
+            // Игнорируем поздние события, чтобы они не всплывали модалкой поверх меню.
+            if (!this.lobbyId) return;
 
             // Save lobbyId for rematch
             this.lastGameLobbyId = this.lobbyId;
 
-            this.isOnline = false;
-            this.lobbyId = null;
-            this.myColor = null;
+            this.clearActiveGame();
             UI.clearLobbyRoute();
             this.resetRematchState();
 
@@ -292,6 +291,31 @@ const Net = {
             console.log('[NET] Отправка запроса на сдачу...');
             this.socket.emit('surrender', { lobbyId: this.lobbyId });
         }
+    },
+
+    /**
+     * Сбрасывает локальное состояние активной сетевой партии.
+     */
+    clearActiveGame() {
+        this.isOnline = false;
+        this.lobbyId = null;
+        this.myColor = null;
+        this.myPlayerIndex = -1;
+    },
+
+    /**
+     * Сообщает серверу, что игрок покидает партию (уход в меню и т.п.), и очищает
+     * локальное состояние. Сервер завершает игру и отписывает сокет от лобби, поэтому
+     * поздний gameOver сюда уже не придёт.
+     */
+    leaveGame() {
+        const lobbyId = this.lobbyId;
+        if (lobbyId && this.socket && this.socket.connected) {
+            this.socket.emit('leaveGame', { lobbyId, token: this.playerToken });
+        }
+        UI.clearLobbyRoute();
+        this.resetRematchState();
+        this.clearActiveGame();
     },
 
     sendReaction(emoji) {

@@ -605,6 +605,33 @@ describe('Bot matchmaking fallback', () => {
         await waitForEvent(sock, 'gameOver', 2000);
     });
 
+    it('leaveGame finalizes the game and clears the lobby link', async () => {
+        process.env.BOTS_ENABLED = 'true';
+        process.env.BOT_FALLBACK_MIN_WAIT_MS = '20';
+        process.env.BOT_FALLBACK_MAX_WAIT_MS = '20';
+        process.env.BOT_MAX_ACTIVE_GAMES = '15';
+        process.env.BOT_MOVE_MIN_DELAY_MS = '1000';
+        process.env.BOT_MOVE_MAX_DELAY_MS = '1000';
+
+        const { sock, captured } = await connectClient();
+        const token = captured.find(e => e.event === 'assignToken').args[0].token;
+
+        sock.emit('findGame', { token });
+        const gameStart = await waitForEvent(sock, 'gameStart', 2000);
+        const lobbyId = gameStart.lobbyId;
+
+        const Redis = require('../src/storage/redis');
+        expect(await Redis.getGame(lobbyId)).toBeTruthy();
+
+        sock.emit('leaveGame', { lobbyId, token });
+
+        // Финализация игры и очистка ссылок асинхронны.
+        await new Promise(r => setTimeout(r, 200));
+
+        expect(await Redis.getGame(lobbyId)).toBeFalsy();
+        expect(await Redis.getLobbyByToken(token)).toBeFalsy();
+    });
+
     it('does not start a bot game after cancelSearch', async () => {
         process.env.BOTS_ENABLED = 'true';
         process.env.BOT_FALLBACK_MIN_WAIT_MS = '30';

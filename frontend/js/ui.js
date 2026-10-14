@@ -628,6 +628,9 @@ const UI = {
     document.getElementById('roomCodeInput').value = '';
   },
   backToMenu() {
+    // Уход в меню должен завершить активную партию, иначе её таймер продолжит тикать
+    // и «догонит» игрока модалкой результата уже в главном меню.
+    if (typeof Game !== 'undefined' && Game.leaveActiveGame) Game.leaveActiveGame();
     this.showScreen('mainMenu');
     this.hideDynamicPanel();
   },
@@ -3097,6 +3100,7 @@ UI.initRouting = function () {
     } else if (path.startsWith('/lobby/')) {
       handleLobbyPath(this.getLobbyCodeFromPath(), isReplay);
     } else {
+      if (typeof Game !== 'undefined' && Game.leaveActiveGame) Game.leaveActiveGame();
       this.showScreen('mainMenu');
     }
   });
