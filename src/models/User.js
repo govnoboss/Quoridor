@@ -47,6 +47,12 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Версия сессий: инкремент убивает все ранее выданные сессии пользователя
+    // (слияние аккаунтов, смена/сброс пароля). У старых пользователей undefined => 0.
+    sessionVersion: {
+        type: Number,
+        default: 0
+    },
     avatarUrl: {
         type: String,
         default: 'https://ui-avatars.com/api/?name=User&background=333&color=fff'

@@ -74,6 +74,7 @@ jest.mock('../src/models/User', () => {
             googleId: data.googleId,
             authProviders: data.authProviders || ['password'],
             emailVerified: Boolean(data.emailVerified),
+            sessionVersion: data.sessionVersion || 0,
             avatarUrl: data.avatarUrl || '',
             country: data.country || 'XX',
             banned: false,
@@ -118,6 +119,7 @@ jest.mock('../src/models/BotSettings', () => {
 });
 
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
 const { setupTestEnvironment, teardownTestEnvironment, getApp } = require('./helpers');
 
 describe('POST /api/auth/google', () => {
@@ -129,7 +131,11 @@ describe('POST /api/auth/google', () => {
         app = await getApp();
         User = require('../src/models/User');
     }, 30000);
-    beforeEach(() => { jest.clearAllMocks(); User.__clearStore(); });
+    beforeEach(() => {
+        jest.clearAllMocks();
+        User.__clearStore();
+        require('../src/server').clearSessionVersionCache();
+    });
     afterAll(async () => { await teardownTestEnvironment(); });
 
     it('GET /api/auth/config returns the public client id and creates a session on valid token', async () => {
@@ -175,6 +181,7 @@ describe('POST /api/auth/google', () => {
         expect(linked.passwordHash).toBeUndefined();
         expect(linked.authProviders).not.toContain('password');
         expect(linked.authProviders).toContain('google');
+        expect(linked.sessionVersion).toBe(1);
     });
 
     it('preserves the password of an email-verified account', async () => {
@@ -200,6 +207,33 @@ describe('POST /api/auth/google', () => {
         const res = await request(app).post('/api/auth/login').send({ username: 'googleonly', password: 'anything' });
         expect(res.status).toBe(400);
         expect(res.body.error).toBe('Invalid credentials');
+    });
+
+    it('revokes an existing session when the user session version is bumped', async () => {
+        const { clearSessionVersionCache } = require('../src/server');
+        User.__seedUser({
+            _id: 'u5',
+            username: 'svuser',
+            email: 'sv@example.com',
+            passwordHash: bcrypt.hashSync('correct-password', 10),
+            sessionVersion: 0
+        });
+        const agent = request.agent(app);
+        const login = await agent.post('/api/auth/login').send({ username: 'svuser', password: 'correct-password' });
+        expect(login.status).toBe(200);
+
+        // Первый запрос с валидной сессией проходит.
+        clearSessionVersionCache();
+        const before = await agent.get('/api/auth/me');
+        expect(before.body.isAuthenticated).toBe(true);
+
+        // Другое устройство/слияние повысило версию — наша сессия должна отвалиться.
+        const stored = await User.findOne({ username: 'svuser' });
+        stored.sessionVersion = 1;
+        clearSessionVersionCache();
+
+        const after = await agent.get('/api/auth/me');
+        expect(after.body.isAuthenticated).toBe(false);
     });
 
     it('rejects an unverified Google email with 400', async () => {

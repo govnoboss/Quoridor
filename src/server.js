@@ -94,6 +94,58 @@ const sessionMiddleware = session({
 app.use(express.json()); // Для парсинга JSON тела запросов
 app.use(sessionMiddleware);
 
+// --- SESSION VERSION (инвалидация ранее выданных сессий) ---
+// sessionVersion хранится в User, а его значение — в сессии (req.session.sv).
+// Инкремент версии закрывает все старые сессии (слияние аккаунтов, смена/сброс пароля).
+// Значение кешируется на 60 секунд, чтобы не ходить в БД на каждый запрос.
+const SV_CACHE_TTL = 60000;
+const svCache = new Map(); // userId -> { value, expires }
+
+function setCachedSessionVersion(userId, value) {
+    svCache.set(String(userId), { value, expires: Date.now() + SV_CACHE_TTL });
+}
+
+function clearSessionVersionCache() {
+    svCache.clear();
+}
+
+async function getSessionVersion(userId) {
+    const key = String(userId);
+    const cached = svCache.get(key);
+    if (cached && cached.expires > Date.now()) return cached.value;
+    try {
+        const user = await resolveUserById(userId, 'sessionVersion');
+        const value = (user && user.sessionVersion) || 0;
+        svCache.set(key, { value, expires: Date.now() + SV_CACHE_TTL });
+        return value;
+    } catch (err) {
+        console.error('[SESSION VERSION] Lookup failed:', err);
+        return -1; // fail-open: не блокируем пользователя при сбое БД
+    }
+}
+
+async function bumpSessionVersion(user) {
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
+    await user.save();
+    setCachedSessionVersion(user._id, user.sessionVersion);
+    return user.sessionVersion;
+}
+
+// Отзывает сессии, чья версия не совпадает с текущей версией пользователя.
+app.use(async (req, res, next) => {
+    if (!req.session || !req.session.userId) return next();
+    const current = await getSessionVersion(req.session.userId);
+    if (current === -1) return next();
+    if ((req.session.sv || 0) !== current) {
+        req.session.userId = undefined;
+        req.session.username = undefined;
+        req.session.avatarUrl = undefined;
+        req.session.sv = undefined;
+        res.clearCookie('connect.sid');
+    }
+    next();
+});
+
 // --- HTTP RATE LIMITING ---
 const rateLimit = require('express-rate-limit');
 
@@ -216,6 +268,7 @@ app.post('/api/auth/register', async (req, res) => {
         req.session.userId = newUser._id;
         req.session.username = newUser.username;
         req.session.avatarUrl = newUser.avatarUrl;
+        req.session.sv = newUser.sessionVersion || 0;
 
         res.status(201).json({ message: 'User created', user: { username: newUser.username, email: newUser.email, id: newUser._id } });
     } catch (err) {
@@ -258,6 +311,7 @@ app.post('/api/auth/login', async (req, res) => {
         req.session.userId = user._id;
         req.session.username = user.username;
         req.session.avatarUrl = user.avatarUrl;
+        req.session.sv = user.sessionVersion || 0;
 
         res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
     } catch (err) {
@@ -348,7 +402,9 @@ app.post('/api/auth/google', async (req, res) => {
                 if (!Array.isArray(user.authProviders)) user.authProviders = [];
                 if (!user.authProviders.includes('google')) user.authProviders.push('google');
                 user.emailVerified = true;
-                await user.save();
+                // При слиянии всегда повышаем версию сессий: закрываем все ранее
+                // выданные сессии (в т.ч. авто-логин при регистрации злоумышленником).
+                await bumpSessionVersion(user);
             }
         }
 
@@ -383,6 +439,7 @@ app.post('/api/auth/google', async (req, res) => {
         req.session.userId = user._id;
         req.session.username = user.username;
         req.session.avatarUrl = user.avatarUrl;
+        req.session.sv = user.sessionVersion || 0;
 
         res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
     } catch (err) {
@@ -2228,11 +2285,16 @@ io.use((socket, next) => {
             try {
                 let user;
                 try {
-                    user = await resolveUserById(session.userId, 'banned banReason banExpires');
+                    user = await resolveUserById(session.userId, 'banned banReason banExpires sessionVersion');
                 } catch (e) {
                     user = await User.findById(session.userId);
                 }
                 if (!user) {
+                    session.destroy(() => {});
+                    return next(new Error('unauthorized'));
+                }
+                // Отзываем сокеты со старой версией сессии (слияние аккаунтов, смена пароля).
+                if ((session.sv || 0) !== ((user.sessionVersion) || 0)) {
                     session.destroy(() => {});
                     return next(new Error('unauthorized'));
                 }
@@ -4310,7 +4372,7 @@ process.on('SIGINT', async () => {
 });
 
 // Экспорт для тестов
-module.exports = { app, server, io, startServer };
+module.exports = { app, server, io, startServer, clearSessionVersionCache };
 
 // Запуск (если не тесты)
 if (process.env.NODE_ENV !== 'test') {
