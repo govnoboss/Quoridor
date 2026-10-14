@@ -1,21 +1,43 @@
 jest.mock('google-auth-library', () => {
+    const nowSec = () => Math.floor(Date.now() / 1000);
+    const withPayload = (payload) => ({ getPayload: () => payload });
     const verifyIdToken = jest.fn(async ({ idToken }) => {
         if (idToken === 'valid-token') {
-            return { getPayload: () => ({
+            return withPayload({
                 sub: 'google-sub-123',
                 email: 'NewUser@Gmail.com',
                 email_verified: true,
                 name: 'New User',
-                picture: 'https://lh3.googleusercontent.com/a/pic'
-            })};
+                picture: 'https://lh3.googleusercontent.com/a/pic',
+                iat: nowSec(),
+                nonce: 'test-nonce'
+            });
+        }
+        if (typeof idToken === 'string' && idToken.startsWith('reauth:')) {
+            return withPayload({
+                sub: 'google-sub-123',
+                email: 'newuser@gmail.com',
+                email_verified: true,
+                iat: nowSec(),
+                nonce: idToken.slice('reauth:'.length)
+            });
+        }
+        if (idToken === 'stale-token') {
+            return withPayload({
+                sub: 'google-sub-123',
+                email: 'newuser@gmail.com',
+                email_verified: true,
+                iat: 1000000000,
+                nonce: 'stale-nonce'
+            });
         }
         if (idToken === 'unverified-token') {
-            return { getPayload: () => ({
+            return withPayload({
                 sub: 'google-sub-456',
                 email: 'unverified@gmail.com',
                 email_verified: false,
                 name: 'Unverified'
-            })};
+            });
         }
         throw new Error('Invalid token signature');
     });
@@ -30,13 +52,15 @@ describe('verifyGoogleIdToken', () => {
     it('returns a normalized profile for a valid token', async () => {
         const { verifyGoogleIdToken } = require('../src/auth/google');
         const profile = await verifyGoogleIdToken('valid-token');
-        expect(profile).toEqual({
+        expect(profile).toEqual(expect.objectContaining({
             googleId: 'google-sub-123',
             email: 'newuser@gmail.com', // lowercased
             emailVerified: true,
             name: 'New User',
-            picture: 'https://lh3.googleusercontent.com/a/pic'
-        });
+            picture: 'https://lh3.googleusercontent.com/a/pic',
+            nonce: 'test-nonce'
+        }));
+        expect(profile.issuedAt).toBeGreaterThan(0);
     });
 
     it('rejects an unverified email', async () => {
@@ -55,6 +79,36 @@ describe('verifyGoogleIdToken', () => {
         const { verifyGoogleIdToken } = require('../src/auth/google');
         await expect(verifyGoogleIdToken('valid-token')).rejects.toThrow(/GOOGLE_CLIENT_ID/);
         process.env.GOOGLE_CLIENT_ID = saved;
+    });
+});
+
+describe('verifyFreshGoogleReauth', () => {
+    const OLD = process.env.GOOGLE_CLIENT_ID;
+    beforeAll(() => { process.env.GOOGLE_CLIENT_ID = 'test-client-id'; });
+    afterAll(() => { process.env.GOOGLE_CLIENT_ID = OLD; });
+
+    it('accepts a fresh token with matching sub and nonce', async () => {
+        const { verifyFreshGoogleReauth } = require('../src/auth/google');
+        const profile = await verifyFreshGoogleReauth('reauth:abc123', 'google-sub-123', { nonce: 'abc123' });
+        expect(profile.googleId).toBe('google-sub-123');
+    });
+
+    it('rejects a stale token', async () => {
+        const { verifyFreshGoogleReauth } = require('../src/auth/google');
+        await expect(verifyFreshGoogleReauth('stale-token', 'google-sub-123', { nonce: 'stale-nonce' }))
+            .rejects.toMatchObject({ code: 'REAUTH_STALE' });
+    });
+
+    it('rejects a mismatched subject', async () => {
+        const { verifyFreshGoogleReauth } = require('../src/auth/google');
+        await expect(verifyFreshGoogleReauth('reauth:abc123', 'other-sub', { nonce: 'abc123' }))
+            .rejects.toMatchObject({ code: 'REAUTH_MISMATCH' });
+    });
+
+    it('rejects a wrong nonce', async () => {
+        const { verifyFreshGoogleReauth } = require('../src/auth/google');
+        await expect(verifyFreshGoogleReauth('reauth:abc123', 'google-sub-123', { nonce: 'wrong' }))
+            .rejects.toMatchObject({ code: 'REAUTH_NONCE' });
     });
 });
 
@@ -92,11 +146,22 @@ jest.mock('../src/models/User', () => {
         return null;
     });
     MockUser.findById = jest.fn((id) => ({
-        select() {
-            for (const u of store.values()) if (u._id === id) return Promise.resolve({ ...u });
+        select(fields) {
+            for (const u of store.values()) {
+                if (u._id === id) {
+                    if (fields === '-passwordHash') { const copy = { ...u }; delete copy.passwordHash; return Promise.resolve(copy); }
+                    return Promise.resolve(u);
+                }
+            }
             return Promise.resolve(null);
         }
     }));
+    MockUser.findByIdAndDelete = jest.fn(async (id) => {
+        for (const [key, u] of store) {
+            if (u._id === id) { store.delete(key); return u; }
+        }
+        return null;
+    });
     MockUser.__clearStore = () => { store.clear(); nextId = 1; };
     MockUser.__seedUser = (data) => {
         const user = { _id: String(nextId++), ...data, save: jest.fn().mockResolvedValue(true) };
@@ -109,6 +174,14 @@ jest.mock('../src/models/GameResult', () => {
     const M = jest.fn(() => ({ save: jest.fn().mockResolvedValue(true) }));
     M.find = jest.fn().mockResolvedValue([]);
     M.findById = jest.fn().mockResolvedValue(null);
+    M.updateMany = jest.fn().mockResolvedValue({});
+    return M;
+});
+jest.mock('../src/models/Friendship', () => {
+    const M = jest.fn(() => ({ save: jest.fn().mockResolvedValue(true) }));
+    M.deleteMany = jest.fn().mockResolvedValue({});
+    M.updateMany = jest.fn().mockResolvedValue({});
+    M.find = jest.fn().mockResolvedValue([]);
     return M;
 });
 jest.mock('../src/models/BotSettings', () => {
@@ -152,6 +225,8 @@ describe('POST /api/auth/google', () => {
         const me = await agent.get('/api/auth/me');
         expect(me.body.isAuthenticated).toBe(true);
         expect(me.body.user.googleId).toBe('google-sub-123');
+        expect(me.body.user.hasPassword).toBe(false);
+        expect(me.body.user.passwordHash).toBeUndefined();
     });
 
     it('links an existing password account by email', async () => {
@@ -249,5 +324,49 @@ describe('POST /api/auth/google', () => {
     it('rejects a missing credential with 401', async () => {
         const res = await request(app).post('/api/auth/google').send({});
         expect(res.status).toBe(401);
+    });
+
+    it('sets a password for a Google-only account via a fresh Google credential', async () => {
+        User.__seedUser({ _id: 'g1', username: 'googset', email: 'newuser@gmail.com', googleId: 'google-sub-123', authProviders: ['google'], sessionVersion: 0 });
+        const agent = request.agent(app);
+        expect((await agent.post('/api/auth/google').send({ credential: 'valid-token' })).status).toBe(200);
+
+        const challenge = await agent.post('/api/auth/reauth-challenge');
+        expect(challenge.status).toBe(200);
+
+        const res = await agent.post('/api/user/password').send({ newPassword: 'brandnewpass1', googleCredential: `reauth:${challenge.body.nonce}` });
+        expect(res.status).toBe(200);
+
+        const updated = await User.findOne({ username: 'googset' });
+        expect(updated.passwordHash).toBeTruthy();
+        expect(updated.authProviders).toContain('password');
+        expect(updated.sessionVersion).toBe(1);
+    });
+
+    it('rejects setting a password without a valid Google credential', async () => {
+        User.__seedUser({ _id: 'g2', username: 'googfail', email: 'newuser@gmail.com', googleId: 'google-sub-123', authProviders: ['google'] });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/google').send({ credential: 'valid-token' });
+        const res = await agent.post('/api/user/password').send({ newPassword: 'brandnewpass1' });
+        expect(res.status).toBe(403);
+    });
+
+    it('deletes a Google-only account with a fresh Google credential', async () => {
+        User.__seedUser({ _id: 'g3', username: 'googdel', email: 'newuser@gmail.com', googleId: 'google-sub-123', authProviders: ['google'] });
+        const agent = request.agent(app);
+        await agent.post('/api/auth/google').send({ credential: 'valid-token' });
+        const challenge = await agent.post('/api/auth/reauth-challenge');
+        const res = await agent.delete('/api/user/account').send({ googleCredential: `reauth:${challenge.body.nonce}` });
+        expect(res.status).toBe(200);
+        expect(await User.findOne({ username: 'googdel' })).toBeNull();
+    });
+
+    it('requires the correct password to delete a password account', async () => {
+        User.__seedUser({ _id: 'p1', username: 'pwdel', email: 'pwdel@example.com', passwordHash: bcrypt.hashSync('secret123', 10), authProviders: ['password'], sessionVersion: 0 });
+        const agent = request.agent(app);
+        expect((await agent.post('/api/auth/login').send({ username: 'pwdel', password: 'secret123' })).status).toBe(200);
+        const bad = await agent.delete('/api/user/account').send({ password: 'wrong' });
+        expect(bad.status).toBe(403);
+        expect(await User.findOne({ username: 'pwdel' })).not.toBeNull();
     });
 });

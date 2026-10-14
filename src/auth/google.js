@@ -47,8 +47,33 @@ async function verifyGoogleIdToken(credential) {
         email: String(payload.email).toLowerCase(),
         emailVerified: true,
         name: payload.name || '',
-        picture: payload.picture || ''
+        picture: payload.picture || '',
+        issuedAt: payload.iat ? payload.iat * 1000 : 0,
+        nonce: payload.nonce || ''
     };
 }
 
-module.exports = { verifyGoogleIdToken };
+// Максимальный возраст токена для повторной авторизации (защита от replay).
+const REAUTH_MAX_AGE_MS = 5 * 60 * 1000;
+
+/**
+ * Проверяет «свежий» Google-токен для чувствительных действий (удаление аккаунта,
+ * установка пароля). Требует совпадения sub, свежести iat и одноразового nonce.
+ * Бросает ошибку с code: 'REAUTH_MISMATCH' | 'REAUTH_STALE' | 'REAUTH_NONCE' | ...
+ */
+async function verifyFreshGoogleReauth(credential, expectedGoogleId, { nonce, maxAgeMs = REAUTH_MAX_AGE_MS } = {}) {
+    const profile = await verifyGoogleIdToken(credential);
+    if (!expectedGoogleId || profile.googleId !== expectedGoogleId) {
+        throw tokenError('REAUTH_MISMATCH', 'Google account does not match');
+    }
+    const age = Date.now() - (profile.issuedAt || 0);
+    if (!profile.issuedAt || age > maxAgeMs || age < 0) {
+        throw tokenError('REAUTH_STALE', 'Google credential is too old');
+    }
+    if (!nonce || !profile.nonce || profile.nonce !== nonce) {
+        throw tokenError('REAUTH_NONCE', 'Invalid reauthentication nonce');
+    }
+    return profile;
+}
+
+module.exports = { verifyGoogleIdToken, verifyFreshGoogleReauth };

@@ -14,7 +14,7 @@ const Redis = require('./storage/redis.js');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
 const { sendPasswordResetEmail } = require('./utils/mailer');
-const { verifyGoogleIdToken } = require('./auth/google');
+const { verifyGoogleIdToken, verifyFreshGoogleReauth } = require('./auth/google');
 const Report = require('./models/Report');
 const geoip = require('geoip-lite');
 const multer = require('multer');
@@ -338,6 +338,12 @@ app.get('/api/auth/me', async (req, res) => {
                 }
                 // Принудительно восполняем страну при каждом заходе (без повторного логина)
                 await ensureUserCountry(user, getClientIp(req));
+
+                // Наружу отдаём только булев флаг, сам хеш — никогда.
+                const pwDoc = await User.findById(req.session.userId).select('passwordHash');
+                const userObj = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+                userObj.hasPassword = !!(pwDoc && pwDoc.passwordHash);
+                return res.json({ isAuthenticated: true, user: userObj });
             }
             res.json({ isAuthenticated: true, user });
         } catch (err) {
@@ -447,6 +453,31 @@ app.post('/api/auth/google', async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+// --- РЕ-АВТОРИЗАЦИЯ ЧЕРЕЗ GOOGLE (одноразовый nonce) ---
+// Для удаления аккаунта и установки пароля у аккаунтов без пароля требуется свежий
+// Google-токен. nonce выдаёт сервер, клиент передаёт его в GIS, а мы сверяем и гасим.
+const REAUTH_NONCE_TTL_MS = 5 * 60 * 1000;
+
+app.post('/api/auth/reauth-challenge', (req, res) => {
+    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const nonce = crypto.randomBytes(16).toString('hex');
+    req.session.reauthNonce = nonce;
+    req.session.reauthNonceExpires = Date.now() + REAUTH_NONCE_TTL_MS;
+    res.json({ nonce });
+});
+
+// Возвращает ожидаемый nonce и сразу его гасит (одноразовое использование).
+function consumeReauthNonce(req) {
+    const nonce = req.session && req.session.reauthNonce;
+    const expires = req.session && req.session.reauthNonceExpires;
+    if (req.session) {
+        req.session.reauthNonce = undefined;
+        req.session.reauthNonceExpires = undefined;
+    }
+    if (!nonce || !expires || Date.now() > expires) return null;
+    return nonce;
+}
 
 app.get('/api/game/active', async (req, res) => {
     try {
@@ -1074,14 +1105,24 @@ app.get('/api/user/history', async (req, res) => {
 app.delete('/api/user/account', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password required' });
+    const { password, googleCredential } = req.body;
 
-    const user = await User.findById(req.session.userId);
+    const user = await User.findById(req.session.userId).select('passwordHash googleId');
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(403).json({ error: 'Wrong password' });
+    if (user.passwordHash) {
+      if (!password) return res.status(400).json({ error: 'Password required' });
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
+      if (!isMatch) return res.status(403).json({ error: 'Wrong password' });
+    } else {
+      // Аккаунт без пароля (Google): подтверждаем свежим Google-токеном.
+      const nonce = consumeReauthNonce(req);
+      try {
+        await verifyFreshGoogleReauth(googleCredential, user.googleId, { nonce });
+      } catch (e) {
+        return res.status(403).json({ error: 'Google reauthentication failed', code: e.code || 'REAUTH_FAILED' });
+      }
+    }
 
     const userId = req.session.userId;
 
@@ -1109,6 +1150,49 @@ app.delete('/api/user/account', async (req, res) => {
     console.error('[DELETE ACCOUNT] Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Set or change the account password.
+// - accounts that already have a password: verify currentPassword;
+// - accounts without one (Google-only): require a fresh Google credential.
+// On success every other session is revoked (sessionVersion bump).
+app.post('/api/user/password', async (req, res) => {
+    if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { currentPassword, newPassword, googleCredential } = req.body || {};
+        if (!newPassword || newPassword.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+
+        const user = await User.findById(req.session.userId).select('passwordHash googleId authProviders sessionVersion');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (user.passwordHash) {
+            if (!currentPassword) return res.status(400).json({ error: 'Current password required' });
+            const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+            if (!ok) return res.status(403).json({ error: 'Wrong password' });
+        } else {
+            const nonce = consumeReauthNonce(req);
+            try {
+                await verifyFreshGoogleReauth(googleCredential, user.googleId, { nonce });
+            } catch (e) {
+                return res.status(403).json({ error: 'Google reauthentication failed', code: e.code || 'REAUTH_FAILED' });
+            }
+        }
+
+        user.passwordHash = await bcrypt.hash(newPassword, 10);
+        if (!Array.isArray(user.authProviders)) user.authProviders = [];
+        if (!user.authProviders.includes('password')) user.authProviders.push('password');
+
+        // Установка/смена пароля завершает все прочие сессии, но не текущую.
+        const newSv = await bumpSessionVersion(user);
+        req.session.sv = newSv;
+
+        res.json({ message: 'Password updated' });
+    } catch (err) {
+        console.error('[SET PASSWORD] Error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 app.post('/api/auth/logout', (req, res) => {
