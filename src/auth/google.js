@@ -31,7 +31,7 @@ async function verifyGoogleIdToken(credential) {
             audience: process.env.GOOGLE_CLIENT_ID
         });
         payload = ticket.getPayload();
-    } catch (err) {
+    } catch {
         throw tokenError('INVALID_TOKEN', 'Invalid Google credential');
     }
 
