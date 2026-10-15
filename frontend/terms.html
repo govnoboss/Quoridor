@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title data-i18n="tos_page_title">Terms of Service — PlayQuor</title>
+    <title data-i18n="tos_page_title">Terms of Service | PlayQuor</title>
+    <meta name="description" content="Terms of Service for PlayQuor, the free online Quoridor game." />
+    <link rel="canonical" href="https://playquor.org/terms" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -10,8 +12,8 @@
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
-    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
 </head>
 <body class="auth-page-body">
     <div id="siteHeader"></div>
@@ -168,7 +170,7 @@
                 el.classList.remove('active');
             });
             document.getElementById('content-' + lang).classList.add('active');
-            var t = { ru: 'Условия использования — PlayQuor', en: 'Terms of Service — PlayQuor' };
+            var t = { ru: 'Условия использования | PlayQuor', en: 'Terms of Service | PlayQuor' };
             document.title = t[lang] || t.ru;
         }
         var l = getLang();

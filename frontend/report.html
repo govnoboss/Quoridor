@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Report a Bug — PlayQuor</title>
+    <title>Report a Bug | PlayQuor</title>
+    <meta name="description" content="Found a bug in PlayQuor? Send us a report with details and we will look into it." />
+    <meta name="robots" content="noindex,follow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
-    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
+    <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
     <style>
         textarea {
             background: #333;
@@ -166,7 +168,8 @@ function getLang() {
 function applyLang() {
     var lang = getLang();
     var d = dict[lang];
-    document.title = d.title;
+    document.title = d.title + ' | PlayQuor';
+    document.documentElement.lang = lang;
     document.getElementById('reportTitle').textContent = d.title;
     document.getElementById('lblSubject').textContent = d.lblSubject;
     document.getElementById('lblDesc').textContent = d.lblDesc;

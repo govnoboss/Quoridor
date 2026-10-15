@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Leaderboard — PlayQuor</title>
+    <title>Quoridor Leaderboard — Top Players | PlayQuor</title>
     <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="canonical" href="https://playquor.org/leaderboard" />
@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
-    <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
-    <link rel="stylesheet" href="/css/profile.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
+    <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
+    <link rel="stylesheet" href="/css/profile.css?v=1.0.7" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
@@ -193,7 +193,8 @@
                 col_games: 'Кол-во игр',
                 games1: 'матч',
                 games2: 'матча',
-                games5: 'матчей'
+                games5: 'матчей',
+                page_title: 'Коридор — таблица лидеров | PlayQuor'
             },
             en: {
                 title: 'Leaderboard',
@@ -207,7 +208,8 @@
                 col_games: 'Games',
                 games1: 'game',
                 games2: 'games',
-                games5: 'games'
+                games5: 'games',
+                page_title: 'Quoridor Leaderboard — Top Players | PlayQuor'
             }
         };
 
@@ -218,7 +220,7 @@
         function setLanguage(lang) {
             localStorage.setItem('quoridor-lang', lang);
             var d = dict[lang];
-            document.title = d.title + ' — PlayQuor';
+            document.title = d.page_title;
             document.documentElement.lang = lang;
             document.getElementById('headerLang').value = lang;
             document.getElementById('pageTitle').textContent = d.title;
@@ -240,7 +242,8 @@
                 .replace(/"/g, '&quot;');
         }
 
-        function pluralGames(n, d) {
+        function pluralGames(n, d, lang) {
+            if (lang === 'en') return n === 1 ? 'game' : 'games';
             var n10 = n % 10,
                 n100 = n % 100;
             if (n100 >= 11 && n100 <= 14) return d.games5;
@@ -279,7 +282,7 @@
                                     + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
                                     + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
                                     + '<td class="col-rating">' + p.rating + '</td>'
-                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</td>'
+                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d, lang) + '</td>'
                                     + '</tr>';
                             }).join('')
                             + '</tbody></table>';
