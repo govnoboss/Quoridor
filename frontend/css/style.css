@@ -2014,6 +2014,12 @@ canvas {
     color: #eee;
 }
 
+/* --- DISCORD ANNOUNCEMENT BANNER --- */
+.discord-banner {
+    background: linear-gradient(90deg, rgba(88, 101, 242, 0.16), rgba(88, 101, 242, 0.05) 45%, rgba(88, 101, 242, 0.16));
+    border-bottom: 1px solid rgba(88, 101, 242, 0.32);
+}
+
 /* --- SMALL PHONES --- */
 @media (max-width: 480px) {
     .play-banner {

@@ -73,6 +73,8 @@ const UI = {
       discord_cta: "Больше тактик в Discord",
       play_banner_text: "Playquor теперь в Google Play",
       play_banner_cta: "Установить",
+      discord_banner_text: "Playquor теперь в Discord",
+      discord_banner_cta: "Присоединиться",
       btn_to_menu: "В меню",
       btn_rematch: "Реванш",
       btn_rematch_waiting: "Ждем ответа соперника...",
@@ -359,6 +361,8 @@ const UI = {
       discord_cta: "More tactics on Discord",
       play_banner_text: "Playquor is now on Google Play",
       play_banner_cta: "Get it on",
+      discord_banner_text: "Playquor is now on Discord",
+      discord_banner_cta: "Join",
       btn_to_menu: "Exit",
       btn_rematch: "Rematch",
       btn_rematch_waiting: "Waiting for opponent...",
@@ -3449,6 +3453,20 @@ document.addEventListener('DOMContentLoaded', () => {
       playBannerClose.addEventListener('click', () => {
         playBanner.classList.add('hidden');
         localStorage.setItem('quoridor-play-banner-dismissed', '1');
+      });
+    }
+  }
+
+  const discordBanner = document.getElementById('discordBanner');
+  if (discordBanner) {
+    const discordBannerClose = document.getElementById('discordBannerClose');
+    if (localStorage.getItem('quoridor-discord-banner-dismissed') === '1') {
+      discordBanner.classList.add('hidden');
+    }
+    if (discordBannerClose) {
+      discordBannerClose.addEventListener('click', () => {
+        discordBanner.classList.add('hidden');
+        localStorage.setItem('quoridor-discord-banner-dismissed', '1');
       });
     }
   }
