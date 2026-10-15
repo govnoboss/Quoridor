@@ -27,6 +27,8 @@
     --board: #141516;
 
     --header-h: 64px;
+
+    color-scheme: dark;
 }
 
 /* === MAIN HEADER === */
@@ -1340,6 +1342,11 @@ canvas {
 
 .settings-grid select:focus {
     border-color: var(--accent);
+}
+
+.settings-grid select option {
+    background: var(--panel-light);
+    color: #fff;
 }
 
 
