@@ -4,6 +4,7 @@ html {
 }
 .auth-page-body {
     background: var(--bg);
+    font-family: var(--font-sans);
     height: auto !important;
     min-height: 100vh;
     overflow-y: auto !important;

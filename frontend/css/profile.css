@@ -1,4 +1,7 @@
 /* --- PROFILE PAGE (New Architecture) --- */
+body {
+    font-family: var(--font-sans);
+}
 
 .profile-page-container {
     width: 100%;

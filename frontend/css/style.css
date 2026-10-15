@@ -169,7 +169,7 @@ body {
     /* Uniform solid background */
     background: var(--bg);
     color: var(--text);
-    font-family: 'Manrope', Inter, Arial, sans-serif;
+    font-family: var(--font-sans);
     overflow: hidden;
     /* Prevent selection and tap highlight for "Native App" feel */
     user-select: none;
