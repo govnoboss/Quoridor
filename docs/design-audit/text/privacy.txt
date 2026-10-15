@@ -1,0 +1,333 @@
+PlayQuor
+RU
+EN
+←
+Back to Home
+
+# Политика конфиденциальности
+
+Последнее обновление: 25 марта 2026 г.
+
+## 1. Введение
+
+Ваша конфиденциальность важна для нас. Настоящая Политика конфиденциальности объясняет, какую информацию Quoridor собирает, зачем мы это делаем, как она используется и какие у вас есть возможности в отношении ваших данных.
+
+Используя Сервис, вы подтверждаете свое согласие с практиками, описанными в настоящей Политике.
+
+## 2. Получаемая информация
+
+В зависимости от того, как вы используете Quoridor, мы можем собирать несколько типов информации.
+
+### 2.1. Информация об аккаунте
+
+При регистрации аккаунта мы собираем:
+
+Ваше имя пользователя;
+
+Ваш адрес электронной почты;
+
+Страну по вашему выбору для отображения в профиле (опционально).
+
+Аутентификация осуществляется через доверенного стороннего провайдера. В результате мы не получаем, не храним и не имеем прямого доступа к вашему паролю.
+
+### 2.2. Игровая информация
+
+Для обеспечения соревновательных функций и поддержания рейтингов мы храним информацию, связанную с вашей активностью на платформе, включая:
+
+Историю матчей;
+
+Рейтинги и статистику;
+
+Данные о производительности;
+
+Сообщения внутриигрового чата, отправленные во время матчей.
+
+### 2.3. Обращения
+
+Если вы обращаетесь к нам за поддержкой, с отчётами об ошибках, отзывами или другими запросами, мы можем сохранять записи этих обращений.
+
+### 2.4. Данные об использовании
+
+Мы собираем анонимные или агрегированные аналитические данные, которые помогают нам понять, как используется Сервис. Это может включать игровые события, использование функций и общие паттерны взаимодействия.
+
+### 2.5. Информация о безопасности и технические данные
+
+Для обеспечения безопасности платформы и предотвращения злоупотреблений мы можем собирать ограниченные технические метаданные, такие как:
+
+Информация о браузере;
+
+Псевдонимные идентификаторы;
+
+Время последнего входа;
+
+Информация о стране, полученная из заголовков провайдера или геолокации.
+
+Там, где это возможно, идентификаторы хранятся в хешированном виде, а не в виде исходных значений. Мы не храним IP-адреса в исходном виде в нашей базе данных.
+
+## 3. Зачем мы используем информацию
+
+Мы используем собранную информацию для работы и улучшения Quoridor, в том числе:
+
+Предоставление и поддержка Сервиса;
+
+Аутентификация пользователей и защита аккаунтов;
+
+Улучшение игровых функций и стабильности платформы;
+
+Ответы на запросы поддержки и отзывы;
+
+Расследование нарушений, читерства, мошенничества и инцидентов безопасности;
+
+Мониторинг производительности и тенденций использования;
+
+Отправка важных сообщений, связанных с Сервисом.
+
+Мы не используем личную информацию в несвязанных целях без законного основания или вашего согласия, когда это требуется.
+
+## 4. Передача информации
+
+Мы не продаём, не сдаём в аренду и не обмениваем личную информацию.
+
+Информация может передаваться только в ограниченных ситуациях, включая:
+
+Когда вы запрашиваете или разрешаете такую передачу;
+
+Поставщикам услуг, которые помогают нам в работе Сервиса;
+
+Для соблюдения юридических обязательств или законных запросов;
+
+Для защиты прав, безопасности, собственности или интересов Quoridor, наших пользователей или общества.
+
+Любые сторонние поставщики услуг обязаны обрабатывать информацию только в объёме, необходимом для выполнения своих функций.
+
+## 5. Меры безопасности
+
+Мы принимаем разумные технические и организационные меры для защиты информации пользователей.
+
+Там, где это возможно, системы безопасности используют псевдонимные или хешированные идентификаторы вместо прямого хранения исходных данных. Например, IP-адреса и идентификаторы устройств могут преобразовываться с помощью одностороннего хеширования перед сохранением в журналах безопасности.
+
+Некоторые поставщики услуг могут временно обрабатывать сетевую информацию в исходном виде для обеспечения защиты, ограничения частоты запросов или предотвращения мошенничества. Однако IP-адреса в исходном виде не хранятся в нашей базе данных.
+
+Несмотря на наши усилия, ни один интернет-сервис или система хранения не может быть гарантированно полностью безопасным.
+
+## 6. Хранение данных
+
+Мы храним информацию только до тех пор, пока она служит законным эксплуатационным, безопасностным, юридическим или деловым целям.
+
+### 6.1. Журналы безопасности
+
+События безопасности, связанные со входом и регистрацией, содержащие хешированные идентификаторы, могут храниться до 365 дней для предотвращения злоупотреблений, расследований и устранения неполадок. После этого срока они автоматически удаляются.
+
+### 6.2. Данные аккаунта
+
+Ограниченные метаданные аккаунта, такие как хешированные идентификаторы, информация о последнем входе и связанные поля безопасности, могут оставаться связанными с вашим аккаунтом, пока он существует.
+
+Если ваш аккаунт удалён или получен действительный запрос на удаление, мы удалим, анонимизируем или безвозвратно обнулим такую информацию, где это возможно.
+
+Мы можем сохранять определённую информацию дольше, если это требуется по закону или необходимо для разрешения споров и исполнения наших соглашений.
+
+## 7. Ваши права
+
+В зависимости от вашей юрисдикции вы можете иметь права, включающие:
+
+Доступ к информации, которую мы храним о вас;
+
+Исправление неточной информации;
+
+Запрос на удаление личных данных;
+
+Возражение против определённых форм обработки;
+
+Запрос копии ваших данных в переносимом формате.
+
+Для осуществления этих прав свяжитесь с нами по адресу:
+support@playquor.org
+. Мы можем запросить разумное подтверждение вашей личности перед обработкой запроса.
+
+## 8. Файлы cookie и локальное хранение
+
+Quoridor использует cookie и аналогичные технологии браузерного хранения для поддержки основных функций, поддержания сессий, запоминания предпочтений и улучшения пользовательского опыта.
+
+Вы можете отключить cookie или очистить хранилище браузера через настройки вашего браузера, хотя некоторые функции Сервиса могут перестать работать корректно.
+
+## 9. Конфиденциальность детей
+
+Сервис не предназначен для детей младше 13 лет.
+
+Мы сознательно не собираем личную информацию от детей младше 13 лет. Если вы считаете, что ребёнок предоставил нам информацию, пожалуйста, свяжитесь с нами, чтобы мы могли предпринять соответствующие действия.
+
+## 10. Изменения политики
+
+По мере развития Quoridor настоящая Политика конфиденциальности может меняться. При внесении существенных изменений обновлённая версия будет опубликована на этой странице с обновлённой датой редакции.
+
+Продолжение использования Сервиса после вступления изменений в силу означает принятие обновлённой Политики.
+
+## 11. Контакты
+
+Вопросы, запросы о конфиденциальности или замечания касательно настоящей Политики конфиденциальности можно направлять по адресу:
+
+support@playquor.org
+
+# Privacy Policy
+
+Last updated: 25 March 2026
+
+## 1. Introduction
+
+Your privacy matters to us. This Privacy Policy explains what information Quoridor collects, why we collect it, how it is used, and what choices you have regarding your data.
+
+By using the Service, you acknowledge the practices described in this Policy.
+
+## 2. Information We Receive
+
+Depending on how you use Quoridor, we may collect several types of information.
+
+### 2.1. Account Information
+
+When you register an account, we collect:
+
+Your username;
+
+Your email address;
+
+An optional country selected by you for profile display.
+
+Authentication is handled through a trusted third-party provider. As a result, we do not receive, store, or have direct access to your password.
+
+### 2.2. Gameplay Information
+
+To operate competitive features and maintain rankings, we store information related to your activity on the platform, including:
+
+Match history;
+
+Ratings and statistics;
+
+Performance data;
+
+In-game chat messages exchanged during matches.
+
+### 2.3. Communications
+
+If you contact us for support, bug reports, feedback, or other inquiries, we may keep a record of those communications.
+
+### 2.4. Usage Data
+
+We collect anonymous or aggregated analytics data that helps us understand how the Service is used. This may include gameplay events, feature usage, and general interaction patterns.
+
+### 2.5. Security and Technical Information
+
+To help secure the platform and prevent abuse, we may collect limited technical metadata such as:
+
+Browser information;
+
+Pseudonymous identifiers;
+
+Last login time;
+
+Country information derived from service-provider headers or geolocation lookups.
+
+Where practical, identifiers are stored in hashed form rather than as raw values. We do not store raw IP addresses in our application database.
+
+## 3. Why We Use Information
+
+We use collected information to operate and improve Quoridor, including to:
+
+Provide and maintain the Service;
+
+Authenticate users and secure accounts;
+
+Improve gameplay features and platform stability;
+
+Respond to support requests and feedback;
+
+Investigate abuse, cheating, fraud, and security incidents;
+
+Monitor performance and usage trends;
+
+Send important service-related communications.
+
+We do not use personal information for unrelated purposes without a lawful basis or your consent where required.
+
+## 4. Sharing of Information
+
+We do not sell, rent, or trade personal information.
+
+Information may be shared only in limited situations, including:
+
+When you request or authorize such sharing;
+
+With service providers that help us operate the Service;
+
+To comply with legal obligations or valid legal requests;
+
+To protect the rights, safety, property, or security of Quoridor, our users, or the public.
+
+Any third-party service providers are expected to handle information only as necessary to perform their services.
+
+## 5. Security Practices
+
+We take reasonable technical and organizational measures to protect user information.
+
+Whenever possible, security systems rely on pseudonymous or hashed identifiers rather than directly storing raw data. For example, IP addresses and device-related identifiers may be transformed using one-way hashing before being retained in security logs.
+
+Certain service providers may temporarily process raw network information to provide security protections, rate limiting, or fraud prevention. However, raw IP addresses are not stored in our application database.
+
+Despite our efforts, no internet service or storage system can be guaranteed to be completely secure.
+
+## 6. Data Retention
+
+We keep information only for as long as it serves a legitimate operational, security, legal, or business purpose.
+
+### 6.1. Security Logs
+
+Security-related login and registration events containing hashed identifiers may be retained for up to 365 days for abuse prevention, investigations, and troubleshooting. After that period, they are automatically removed.
+
+### 6.2. Account Data
+
+Limited account metadata, such as hashed identifiers, last login information, and related security fields, may remain associated with your account while it exists.
+
+If your account is deleted or a valid erasure request is received, we will delete, anonymize, or permanently nullify such information where reasonably possible.
+
+We may retain certain information for longer periods when required by law or when necessary to resolve disputes and enforce our agreements.
+
+## 7. Your Rights
+
+Depending on your jurisdiction, you may have rights that include:
+
+Accessing information we hold about you;
+
+Correcting inaccurate information;
+
+Requesting deletion of personal data;
+
+Objecting to certain forms of processing;
+
+Requesting a copy of your data in a portable format.
+
+To exercise these rights, contact us at
+support@playquor.org
+. We may request reasonable verification of your identity before processing a request.
+
+## 8. Cookies and Local Storage
+
+Quoridor uses cookies and similar browser storage technologies to support core functionality, maintain sessions, remember preferences, and improve the user experience.
+
+You can disable cookies or clear browser storage through your browser settings, although some features of the Service may no longer function correctly.
+
+## 9. Children's Privacy
+
+The Service is not intended for children under the age of 13.
+
+We do not knowingly collect personal information from children under 13. If you believe a child has submitted information to us, please contact us so that appropriate action can be taken.
+
+## 10. Policy Updates
+
+As Quoridor evolves, this Privacy Policy may also change. When significant updates are made, the revised version will be posted on this page together with an updated revision date.
+
+Continued use of the Service after changes become effective constitutes acceptance of the updated Policy.
+
+## 11. Contact
+
+Questions, privacy requests, or concerns regarding this Privacy Policy can be sent to:
+
+support@playquor.org
