@@ -379,6 +379,11 @@ const Game = {
   },
 
   goToMainMenu() {
+    // Если бот ещё думает, отменяем поиск: иначе его ответ придёт уже после
+    // выхода в меню и применится к сброшенной позиции.
+    if (typeof AI !== 'undefined' && this.state.gameMode === 'bot') {
+      AI.cancelSearch();
+    }
     this.exitBotMode();
     const modal = document.getElementById('resultModal');
     if (modal) {
@@ -2333,6 +2338,8 @@ const Game = {
     bind('mobileUndoBtn', () => this.undoMove());
     bind('mobileRestartBtn', () => this.openRestartDialog());
     bind('mobileMovesBtn', () => this.toggleMovesSheet());
+    bind('menuBtn', () => this.goToMainMenu());
+    bind('mobileMenuBtn', () => this.goToMainMenu());
 
     document.querySelectorAll('.eval-depth-btn').forEach(b => {
       if (b._botBound) return;

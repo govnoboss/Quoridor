@@ -759,6 +759,19 @@
             </div>
             <div class="eval-label" id="evalLabel" data-i18n="eval_analyzing">Analyzing…</div>
           </div>
+
+          <div class="bot-action-row">
+            <button class="bot-action-btn" id="menuBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12 10 12" />
+                <path d="M3 12l4-4" />
+                <path d="M3 12l4 4" />
+                <path d="M10 5h11v14H10" />
+              </svg>
+              <span data-i18n="btn_menu">Main menu</span>
+            </button>
+          </div>
         </div>
 
         <div class="menu-actions">
@@ -804,6 +817,16 @@
           <path d="M3 18h.01" />
         </svg>
         <span data-i18n="btn_moves">Moves</span>
+      </button>
+      <button class="mb-btn" id="mobileMenuBtn">
+        <svg class="mb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12 10 12" />
+          <path d="M3 12l4-4" />
+          <path d="M3 12l4 4" />
+          <path d="M10 5h11v14H10" />
+        </svg>
+        <span data-i18n="btn_menu">Main menu</span>
       </button>
     </div>
 
@@ -927,7 +950,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.21"></script>
+  <script src="/js/ui.js?v=1.0.22"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>
@@ -937,7 +960,7 @@
        global Shared for the rules. Replaces the old /js/ai-core.js. -->
   <script src="/js/ai-v1.js?v=1.3.2"></script>
   <script src="/js/board-renderer.js?v=1.0.5"></script>
-  <script src="/js/game.js?v=1.0.11"></script>
+  <script src="/js/game.js?v=1.0.12"></script>
 </body>
 
 </html>
