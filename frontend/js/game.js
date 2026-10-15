@@ -736,6 +736,10 @@ const Game = {
     this.state.drag = null;
     this.stopTimer();
     this.timers = [this.initialTime, this.initialTime];
+    // Сбрасываем локальную базу часов: иначе новая партия подхватила бы из
+    // timerBase остаток времени (и 0 после партии, проигранной по времени),
+    // из-за чего таймер сразу показывал бы 0 и выкидывал «Time out».
+    this.timerBase = null;
 
     this.state.history = [];
     this.viewHistoryIndex = -1; // Сброс просмотра при ресете
