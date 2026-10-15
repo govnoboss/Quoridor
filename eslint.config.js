@@ -3,13 +3,14 @@ const js = require('@eslint/js');
 module.exports = [
     js.configs.recommended,
     {
-        files: ['frontend/js/ai-worker.js'],
+        files: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',
             globals: {
                 importScripts: 'readonly',
                 AICore: 'writable',
+                AiV1: 'writable',
                 postMessage: 'readonly',
                 onmessage: 'writable',
                 self: 'readonly',
@@ -39,7 +40,7 @@ module.exports = [
     },
     {
         files: ['src/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'frontend/js/**/*.js'],
-        ignores: ['frontend/js/ai-worker.js'],
+        ignores: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',

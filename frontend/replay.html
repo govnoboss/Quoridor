@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Replay — PlayQuor</title>
     <link rel="stylesheet" href="/css/style.css?v=1.0.16" />
-    <link rel="stylesheet" href="/css/replay.css?v=1.0.4" />
+    <link rel="stylesheet" href="/css/replay.css?v=1.0.5" />
 </head>
 <body>
     <div class="replay-page">
@@ -30,8 +30,16 @@
 
                 <div class="wall-inventory" id="topWallInventory"></div>
 
-                <div id="game-container">
-                    <canvas id="replayCanvas"></canvas>
+                <div class="board-row">
+                    <div class="eval-bar" id="evalBar" title="Engine evaluation (White / Player 0 at the bottom)">
+                        <div class="eval-fill eval-p1" id="evalFillP1"></div>
+                        <div class="eval-fill eval-p0" id="evalFillP0"></div>
+                        <div class="eval-mid"></div>
+                        <div class="eval-num" id="evalNum">&ndash;</div>
+                    </div>
+                    <div id="game-container">
+                        <canvas id="replayCanvas"></canvas>
+                    </div>
                 </div>
 
                 <div class="wall-inventory" id="bottomWallInventory"></div>
@@ -77,6 +85,15 @@
                     </select>
                 </div>
 
+                <div class="replay-row eval-controls">
+                    <select id="evalDepth" class="replay-select" title="Engine search depth">
+                        <option value="4">Eval: Fast (4)</option>
+                        <option value="6" selected>Eval: Normal (6)</option>
+                        <option value="8">Eval: Deep (8)</option>
+                    </select>
+                    <span class="eval-status" id="evalStatus"></span>
+                </div>
+
                 <div class="replay-row">
                     <button class="replay-action-btn" onclick="togglePerspective()">&#x21C4; Flip</button>
                     <button id="copyBtn" class="replay-action-btn" onclick="copyLink()">&#x1F4CB; Copy Link</button>
@@ -109,7 +126,7 @@
     <script src="/shared.js?v=1.0.4"></script>
     <script src="/js/board-renderer.js?v=1.0.5"></script>
     <script src="/js/mp4-muxer.js?v=1.0.4"></script>
-    <script src="/js/replay.js?v=1.0.4"></script>
+    <script src="/js/replay.js?v=1.0.5"></script>
     <script>
         var gameId = window.location.pathname.split('/').pop();
         if (gameId && gameId.length > 5) {
