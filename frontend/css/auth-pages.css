@@ -14,12 +14,6 @@ html {
     flex-direction: column;
     padding-top: 0 !important;
 }
-.auth-page-body .main-header {
-    position: relative;
-}
-.auth-page-body .header-logo {
-    text-decoration: none;
-}
 .auth-page-container {
     min-height: calc(100vh - 50px);
     display: flex;

@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
+    <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
     <style>
@@ -27,6 +28,7 @@
             font-family: var(--font-sans);
             background: var(--bg);
             color: var(--text);
+            padding-top: var(--header-h);
         }
         .container {
             max-width: 780px;
@@ -185,9 +187,11 @@
     </style>
 </head>
 <body>
+<div id="siteHeader"></div>
+<noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
+<script src="/js/site-header.js?v=1.0.0"></script>
 <div class="container">
     <div id="listView" class="list-view">
-        <a href="/" class="back-link">← Home</a>
         <h1 id="pageTitle">My Reports</h1>
         <div id="reportList"></div>
     </div>

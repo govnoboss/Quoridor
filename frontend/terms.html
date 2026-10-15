@@ -9,25 +9,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
+    <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
 </head>
 <body class="auth-page-body">
-    <header class="main-header">
-        <div class="header-left">
-            <a href="/" class="header-logo">PlayQuor</a>
-        </div>
-        <div class="header-right">
-            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
-                <option value="ru">RU</option>
-                <option value="en">EN</option>
-            </select>
-        </div>
-    </header>
+    <div id="siteHeader"></div>
+    <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
+    <script src="/js/site-header.js?v=1.0.0"></script>
 
     <div class="content-page">
-        <a href="/" style="color:#e09f3e;text-decoration:none;font-size:14px;">&larr; <span data-i18n="btn_back_to_home">Back to Home</span></a>
-
         <div id="content-ru" class="lang-block">
             <h1>Условия использования</h1>
             <p class="last-updated">Последнее обновление: 2 июня 2026 г.</p>
@@ -179,7 +170,6 @@
             document.getElementById('content-' + lang).classList.add('active');
             var t = { ru: 'Условия использования — PlayQuor', en: 'Terms of Service — PlayQuor' };
             document.title = t[lang] || t.ru;
-            document.querySelector('[data-i18n="btn_back_to_home"]').textContent = lang === 'ru' ? 'На главную' : 'Back to Home';
         }
         var l = getLang();
         document.getElementById('headerLang').value = l;

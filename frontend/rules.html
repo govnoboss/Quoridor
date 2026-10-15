@@ -55,26 +55,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
+    <link rel="stylesheet" href="/css/header.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.17" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.5" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
 </head>
 <body class="auth-page-body">
-    <header class="main-header">
-        <div class="header-left">
-            <a href="/" class="header-logo">PlayQuor</a>
-        </div>
-        <div class="header-right">
-            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
-                <option value="ru">RU</option>
-                <option value="en">EN</option>
-            </select>
-        </div>
-    </header>
+    <div id="siteHeader"></div>
+    <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
+    <script src="/js/site-header.js?v=1.0.0"></script>
 
     <div class="content-page">
-        <a href="/" class="back-link">&larr; <span data-i18n="btn_back">Back to Home</span></a>
-
         <!-- ENGLISH -->
         <div id="content-en" class="lang-block active">
             <h1>Quoridor Rules — How to Play</h1>
@@ -217,7 +208,6 @@
             document.getElementById('content-' + lang).classList.add('active');
             var t = { ru: 'Правила игры Коридор — как играть | PlayQuor', en: 'Quoridor Rules — How to Play the Board Game | PlayQuor' };
             document.title = t[lang] || t.en;
-            document.querySelector('[data-i18n="btn_back"]').textContent = lang === 'ru' ? 'На главную' : 'Back to Home';
         }
         var l = getLang();
         document.getElementById('headerLang').value = l;

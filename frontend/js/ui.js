@@ -123,6 +123,10 @@ const UI = {
       screen_room_title: "Игра с другом",
       header_sign_in: "Войти",
       header_sign_up: "Регистрация",
+      nav_play: "Играть",
+      nav_leaderboard: "Рейтинг",
+      nav_rules: "Правила",
+      nav_faq: "FAQ",
       btn_create_room: "Создать комнату",
       btn_join_room: "Войти",
       room_created_msg: "Код комнаты создан! Отправьте его другу:",
@@ -433,6 +437,10 @@ const UI = {
       screen_room_title: "Play with Friend",
       header_sign_in: "Sign In",
       header_sign_up: "Sign Up",
+      nav_play: "Play",
+      nav_leaderboard: "Leaderboard",
+      nav_rules: "Rules",
+      nav_faq: "FAQ",
       btn_create_room: "Create Room",
       btn_join_room: "Join",
       room_created_msg: "Room code created! Send it to your friend:",
@@ -697,6 +705,8 @@ const UI = {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     this.updateHeaderVisibility();
+    const playActive = (id === 'mainMenu' || id === 'modeScreen' || id === 'roomScreen' || id === 'gameScreen');
+    document.querySelectorAll('.header-nav-link[data-nav="play"]').forEach(a => playActive ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
@@ -1875,6 +1885,32 @@ UI.initMobileSwipeNav = function () {
     if (dx < 0) UI.openMobileInfoPanel();
     else UI.closeMobileInfoPanel();
   }, { passive: true });
+};
+
+UI.initHeaderNav = function () {
+  const btn = document.getElementById('headerMenuBtn');
+  const panel = document.getElementById('headerNavMobile');
+  if (!btn || !panel) return;
+  const close = () => {
+    panel.classList.add('hidden');
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panel.classList.toggle('hidden');
+    btn.setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true');
+  });
+  panel.addEventListener('click', (e) => {
+    if (e.target.closest('a')) close();
+  });
+  document.addEventListener('click', (e) => {
+    if (panel.classList.contains('hidden')) return;
+    if (e.target.closest('#headerMenuBtn') || e.target.closest('#headerNavMobile')) return;
+    close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
 };
 
 // --- AUTHENTICATION ---
@@ -3491,6 +3527,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init emoji reactions picker
   UI.initEmojiPicker();
+  UI.initHeaderNav();
 
   const playBanner = document.getElementById('playBanner');
   if (playBanner) {
