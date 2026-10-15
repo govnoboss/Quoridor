@@ -277,6 +277,62 @@ function createEngineV3(options = {}) {
     return 0;
   }
 
+  // True iff a wall at (isV,r,c) is placeable and keeps player p a path (callers only pass walls that
+  // block an edge of p's DAG). `ignoreOpp` drops the "opponent keeps a path" legality clause: with it
+  // the candidate set is a superset of legal walls, so a positive "locked" verdict stays valid but is
+  // claimed less often (conservative). Needed because rule-legality is NOT monotone along the opponent's
+  // own moves: a wall that is illegal now (it would trap the opponent's pawn) can become legal after the
+  // opponent steps aside and then cut the leader's DAG. The ignoreOpp variant depends on the leader
+  // position alone, and the leader only walks its DAG, so the property is preserved.
+  function wallCuts(isV, r, c, p, op, ignoreOpp) {
+    const wid = (isV ? 64 : 0) + r * 8 + c;
+    if (wStamp[wid] === stampId) return false;   // already probed this node
+    wStamp[wid] = stampId;
+    if (!wallFree(isV, r, c)) return false;      // occupied / overlapping
+    setWall(isV, r, c, true);
+    bfs(p, tmpD, tmpC, tmpO); const okP = tmpD[cell[p]] !== 255;
+    let okO = true;
+    if (okP && !ignoreOpp) { bfs(op, tmpD, tmpC, tmpO); okO = tmpD[cell[op]] !== 255; }
+    setWall(isV, r, c, false);
+    return okP && okO;
+  }
+  // True iff no wall that p cannot immediately escape cuts an edge of p's shortest-path DAG.
+  // With ignoreOpp=false this is the exact "no LEGAL opponent wall delays p" test. With ignoreOpp=true
+  // it is the strengthened, position-local invariant used by the race prover (see wallCuts). Consumes
+  // dist[p] (analyzeDist) and recomputes forward path counts cF[p]; early-exits on the first cutter.
+  function pathIsLocked(p, ignoreOpp) {
+    if (wallsLeft[1 - p] === 0) return true;
+    const op = 1 - p;
+    fwd(cell[p], dist[p], ord[p], ordN[p], cF[p]);
+    const d = dist[p], cf = cF[p], o = ord[p], n = ordN[p];
+    stampId++;
+    for (let k = 0; k < n; k++) {
+      const u = o[k];
+      if (cf[u] === 0) continue;
+      const du = d[u];
+      if (du === 0) continue;
+      const e = edges[u], ur = (u / 9) | 0, uc = u - ur * 9;
+      if (!(e & B_N) && d[u - 9] === du - 1) {                  // edge to row ur-1
+        if (uc <= 7 && wallCuts(false, ur - 1, uc, p, op, ignoreOpp)) return false;
+        if (uc >= 1 && wallCuts(false, ur - 1, uc - 1, p, op, ignoreOpp)) return false;
+      }
+      if (!(e & B_S) && d[u + 9] === du - 1) {                  // edge to row ur+1
+        if (uc <= 7 && wallCuts(false, ur, uc, p, op, ignoreOpp)) return false;
+        if (uc >= 1 && wallCuts(false, ur, uc - 1, p, op, ignoreOpp)) return false;
+      }
+      if (!(e & B_E) && d[u + 1] === du - 1) {                  // edge to column uc+1
+        if (ur <= 7 && wallCuts(true, ur, uc, p, op, ignoreOpp)) return false;
+        if (ur >= 1 && wallCuts(true, ur - 1, uc, p, op, ignoreOpp)) return false;
+      }
+      if (!(e & B_W) && d[u - 1] === du - 1) {                  // edge to column uc-1
+        const c1 = uc - 1;
+        if (ur <= 7 && wallCuts(true, ur, c1, p, op, ignoreOpp)) return false;
+        if (ur >= 1 && wallCuts(true, ur - 1, c1, p, op, ignoreOpp)) return false;
+      }
+    }
+    return true;
+  }
+
   // ---------- pawn moves ----------
   function genPawn(me, out, base) {
     const c0 = cell[me], oc = cell[1 - me], e = edges[c0];
@@ -824,6 +880,9 @@ function createEngineV3(options = {}) {
     // debugging / tests
     _debug: {
       load, allLegal, computeHash, encodeMove: opt.encodeMove,
+      // recomputes derived fields (dist/ord/cG) then reports whether player p's path is wall-locked.
+      // ignoreOpp=true drops the opponent-path legality clause (superset of walls, conservative).
+      pathIsLocked: (p, ignoreOpp) => { analyzeDist(); return pathIsLocked(p, ignoreOpp); },
       hash: () => [h1, h2], setSide: (t) => { turn = t; },
       makeMove: (code) => { pathH1[0] = h1; pathH2[0] = h2; make(code, 0); },
       unmakeMove: (code) => unmake(code, 0),
