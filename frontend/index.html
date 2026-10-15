@@ -42,7 +42,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=1.0.21" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.22" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.5" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.6" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
@@ -627,7 +627,17 @@
   <div id="gameScreen" class="screen">
     <div class="game-layout">
 
-      <div class="board-area">
+      <div class="board-group" id="boardGroup">
+        <!-- Десктопная вертикальная шкала оценки (только партия против бота) -->
+        <div class="eval-bar-rail" id="evalBarRail">
+          <div class="eval-bar" id="evalBar" role="img" aria-label="Evaluation: even">
+            <div class="eval-fill" id="evalFill"></div>
+            <div class="eval-mid"></div>
+            <div class="eval-num" id="evalNum"></div>
+          </div>
+        </div>
+
+        <div class="board-area">
 
         <div class="player-bar" id="topPlayerBar">
           <div class="avatar-container">
@@ -645,6 +655,13 @@
 
         <!-- Контейнер стен оппонента -->
         <div class="wall-inventory" id="topWallInventory"></div>
+
+        <!-- Мобильная горизонтальная шкала оценки (только партия против бота) -->
+        <div class="eval-bar-h" id="evalBarH" role="img" aria-label="Evaluation: even">
+          <div class="eval-h-fill" id="evalHFill"></div>
+          <div class="eval-h-mid"></div>
+          <div class="eval-h-num" id="evalHNum"></div>
+        </div>
 
         <div id="game-container">
           <canvas id="board" width="1080" height="1080"></canvas>
@@ -673,6 +690,7 @@
           <div class="timer" id="bottomPlayerTimer">10:00</div>
         </div>
 
+        </div>
       </div>
 
       <!-- Сайдбар для будущей истории ходов -->
@@ -689,10 +707,10 @@
               </div>
               <div class="history-list" id="historyList"></div>
               <div class="history-controls">
-                <button id="histFirst" title="В начало" onclick="Game.setHistoryView(-2)">«</button>
-                <button id="histPrev" title="Назад" onclick="Game.navigateHistory(-1)">‹</button>
-                <button id="histNext" title="Вперед" onclick="Game.navigateHistory(1)">›</button>
-                <button id="histLast" title="В конец" onclick="Game.setHistoryView(-1)">»</button>
+                <button id="histFirst" title="В начало" aria-label="First move" onclick="Game.setHistoryView(-2)">«</button>
+                <button id="histPrev" title="Назад" aria-label="Previous move" onclick="Game.navigateHistory(-1)">‹</button>
+                <button id="histNext" title="Вперед" aria-label="Next move" onclick="Game.navigateHistory(1)">›</button>
+                <button id="histLast" title="В конец" aria-label="Last move" onclick="Game.setHistoryView(-1)">»</button>
               </div>
             </div>
 
@@ -700,10 +718,94 @@
             <div class="wall-template h" id="wallTemplateH" title="Горизонтальная стена"></div>
           </div>
         </div>
+
+        <!-- Панель управления партией против бота: Undo / Restart + карточка Evaluation -->
+        <div class="sidebar-controls" id="sidebarControls">
+          <div class="bot-action-row" id="botActionRow">
+            <button class="bot-action-btn" id="undoBtn" aria-disabled="true" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+              </svg>
+              <span data-i18n="btn_undo">Undo</span>
+              <span class="hotkey-chip">Z</span>
+            </button>
+            <button class="bot-action-btn" id="restartBtn" aria-disabled="false">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span data-i18n="btn_restart">Restart</span>
+            </button>
+          </div>
+
+          <div class="eval-card" id="evalCard">
+            <div class="eval-card-head">
+              <span class="eval-card-title" data-i18n="eval_title">Evaluation bar</span>
+              <button class="eval-switch" id="evalSwitch" role="switch" aria-checked="false"
+                aria-label="Evaluation bar">
+                <span class="eval-switch-track"><span class="eval-switch-knob"></span></span>
+              </button>
+            </div>
+            <div class="eval-depth" id="evalDepth" role="radiogroup" aria-label="Analysis depth">
+              <button role="radio" class="eval-depth-btn" data-depth="4" aria-checked="false" tabindex="-1"
+                data-i18n="eval_depth_fast">Fast</button>
+              <button role="radio" class="eval-depth-btn" data-depth="6" aria-checked="true" tabindex="0"
+                data-i18n="eval_depth_normal">Normal</button>
+              <button role="radio" class="eval-depth-btn" data-depth="8" aria-checked="false" tabindex="-1"
+                data-i18n="eval_depth_deep">Deep</button>
+            </div>
+            <div class="eval-label" id="evalLabel" data-i18n="eval_analyzing">Analyzing…</div>
+          </div>
+        </div>
+
         <div class="menu-actions">
-          <button class="secondary-btn" onclick="UI.handleSurrender()" data-i18n="btn_surrender">Сдаться</button>
+          <button class="secondary-btn" id="surrenderBtn" onclick="UI.handleSurrender()"
+            data-i18n="btn_surrender">Сдаться</button>
         </div>
       </div>
+
+    <!-- Мобильный нижний ряд управления (только партия против бота) -->
+    <div class="mobile-bot-bar" id="mobileBotBar">
+      <button class="mb-btn" id="mobileUndoBtn" aria-disabled="true" disabled>
+        <svg class="mb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 14 4 9l5-5" />
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+        </svg>
+        <span data-i18n="btn_undo">Undo</span>
+      </button>
+      <button class="mb-btn" id="mobileRestartBtn">
+        <svg class="mb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        <span data-i18n="btn_restart">Restart</span>
+      </button>
+      <button class="mb-btn" id="mobileEvalBtn" role="switch" aria-checked="false" aria-label="Evaluation bar">
+        <svg class="mb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="9" width="16" height="6" rx="1" />
+          <path d="M12 9v6" />
+        </svg>
+        <span id="mobileEvalLabel" data-i18n="eval_off_short">Eval: Off</span>
+      </button>
+      <button class="mb-btn" id="mobileMovesBtn" aria-expanded="false">
+        <svg class="mb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 6h13" />
+          <path d="M8 12h13" />
+          <path d="M8 18h13" />
+          <path d="M3 6h.01" />
+          <path d="M3 12h.01" />
+          <path d="M3 18h.01" />
+        </svg>
+        <span data-i18n="btn_moves">Moves</span>
+      </button>
+    </div>
 
     </div>
   </div>
@@ -795,6 +897,29 @@
     </div>
   </div>
 
+  <!-- Restart confirmation dialog (bot game) -->
+  <div id="restartModal" class="restart-overlay hidden">
+    <div class="restart-dialog" role="dialog" aria-modal="true" aria-labelledby="restart-title">
+      <div class="restart-head">
+        <div class="restart-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </div>
+        <h2 id="restart-title" data-i18n="restart_title">Restart the game?</h2>
+      </div>
+      <p class="restart-body" data-i18n="restart_body">The board goes back to the starting position and both clocks
+        reset. The current game will not be saved.</p>
+      <p class="restart-hint" data-i18n="restart_hint">Only want to take back a mistake? Use Undo instead.</p>
+      <div class="restart-actions">
+        <button class="restart-cancel" id="restartCancel" data-i18n="btn_cancel">Cancel</button>
+        <button class="restart-confirm" id="restartConfirm" data-i18n="btn_restart">Restart</button>
+      </div>
+    </div>
+  </div>
+
   </div>
 
   <!-- Toasts Container -->
@@ -802,15 +927,17 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.20"></script>
+  <script src="/js/ui.js?v=1.0.21"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
-  <script src="/js/ai.js?v=1.0.8"></script>
+  <script src="/js/eval-shared.js?v=1.0.0"></script>
+  <script src="/js/game-undo.js?v=1.0.0"></script>
+  <script src="/js/ai.js?v=1.0.9"></script>
   <!-- Engine v3, generated server-side from quoridor-engine. Must load after /shared.js: it reads the
        global Shared for the rules. Replaces the old /js/ai-core.js. -->
   <script src="/js/ai-v1.js?v=1.3.2"></script>
   <script src="/js/board-renderer.js?v=1.0.5"></script>
-  <script src="/js/game.js?v=1.0.9"></script>
+  <script src="/js/game.js?v=1.0.10"></script>
 </body>
 
 </html>

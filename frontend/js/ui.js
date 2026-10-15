@@ -50,6 +50,27 @@ const UI = {
       btn_play_white: "⚪ Играть за Белых",
       btn_play_black: "⚫ Играть за Чёрных",
       btn_surrender: "Сдаться",
+      btn_start: "Старт",
+      btn_undo: "Отменить ход",
+      btn_restart: "Начать заново",
+      btn_moves: "Ходы",
+      btn_cancel: "Отмена",
+      eval_title: "Оценка",
+      eval_depth_group: "Глубина расчёта",
+      eval_depth_fast: "Быстро",
+      eval_depth_normal: "Обычно",
+      eval_depth_deep: "Глубоко",
+      eval_label_prefix: "Оценка: ",
+      eval_analyzing: "Анализ…",
+      eval_off_short: "Оценка: выкл",
+      eval_even: "позиция равная",
+      eval_white_mate: "белые ставят мат в {n}",
+      eval_black_mate: "чёрные ставят мат в {n}",
+      eval_white_better: "белые впереди на {n}",
+      eval_black_better: "чёрные впереди на {n}",
+      restart_title: "Начать заново?",
+      restart_body: "Текущая партия будет сброшена и не сохранится. Цвет фигур, сложность бота и контроль времени останутся прежними.",
+      restart_hint: "Esc — отмена, Enter — начать заново",
       screen_settings_title: "Настройки",
       label_theme: "Тема:",
       theme_dark: "Тёмная",
@@ -338,6 +359,27 @@ const UI = {
       btn_play_white: "⚪ Play as White",
       btn_play_black: "⚫ Play as Black",
       btn_surrender: "Surrender",
+      btn_start: "Start",
+      btn_undo: "Undo move",
+      btn_restart: "Restart",
+      btn_moves: "Moves",
+      btn_cancel: "Cancel",
+      eval_title: "Evaluation",
+      eval_depth_group: "Search depth",
+      eval_depth_fast: "Fast",
+      eval_depth_normal: "Normal",
+      eval_depth_deep: "Deep",
+      eval_label_prefix: "Eval: ",
+      eval_analyzing: "Analyzing…",
+      eval_off_short: "Eval: Off",
+      eval_even: "about equal",
+      eval_white_mate: "White wins in {n} moves",
+      eval_black_mate: "Black wins in {n} moves",
+      eval_white_better: "White ahead by {n}",
+      eval_black_better: "Black ahead by {n}",
+      restart_title: "Restart game?",
+      restart_body: "The current game will be discarded and won't be saved. Your colour, bot difficulty and time control stay the same.",
+      restart_hint: "Esc to cancel, Enter to restart",
       screen_settings_title: "Settings",
       label_theme: "Theme:",
       theme_dark: "Dark",
@@ -816,6 +858,11 @@ const UI = {
     // Sync header language selector
     const headerLang = document.getElementById('headerLang');
     if (headerLang) headerLang.value = lang;
+
+    // Dynamic (JS-rendered) labels are not covered by [data-i18n]; refresh them.
+    if (typeof Game !== 'undefined' && Game.refreshBotControls) {
+      try { Game.refreshBotControls(); } catch (e) { /* ignore */ }
+    }
   },
 
   changeLanguage(lang) {

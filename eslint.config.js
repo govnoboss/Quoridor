@@ -3,7 +3,7 @@ const js = require('@eslint/js');
 module.exports = [
     js.configs.recommended,
     {
-        files: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js'],
+        files: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js', 'frontend/js/game-eval-worker.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',
@@ -40,7 +40,7 @@ module.exports = [
     },
     {
         files: ['src/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'frontend/js/**/*.js'],
-        ignores: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js'],
+        ignores: ['frontend/js/ai-worker.js', 'frontend/js/replay-eval-worker.js', 'frontend/js/game-eval-worker.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',
@@ -69,6 +69,23 @@ module.exports = [
                 Game: 'writable',
                 Shared: 'writable',
                 AI: 'writable',
+                GameUndo: 'writable',
+                // Globals exposed by eval-shared.js (classic script)
+                EVAL_ENGINE_VERSION: 'readonly',
+                EVAL_WIN: 'readonly',
+                EVAL_MATE_BAND: 'readonly',
+                EVAL_DEFAULT_NODES: 'readonly',
+                EVAL_DEPTH_DEFAULT: 'readonly',
+                EVAL_K: 'readonly',
+                winProb: 'readonly',
+                isMate: 'readonly',
+                matePlies: 'readonly',
+                formatEval: 'readonly',
+                evalBarText: 'readonly',
+                evalBarHeight: 'readonly',
+                evalBarAria: 'readonly',
+                describeEval: 'readonly',
+                slimEvalState: 'readonly',
                 BoardRenderer: 'writable',
                 trackEvent: 'writable',
                 posthog: 'readonly',

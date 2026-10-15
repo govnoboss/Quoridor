@@ -72,6 +72,17 @@ const Game = {
   postGameReview: false, // Post-game review: modal closed, board visible for review
   replayReturnProfile: null, // Username to return to after exiting replay
 
+  // === Bot-mode eval bar / undo / restart ===
+  evalOn: false, // Eval bar enabled (persisted in localStorage)
+  evalDepth: 6, // 4 | 6 | 8 (persisted in localStorage)
+  evalWorker: null, // Dedicated eval worker (created lazily, only while enabled)
+  evalToken: 0, // Generation token: drops results from a superseded position
+  evalPending: false, // A think for the current position is in flight
+  gameEvals: [], // evals[ply] = {s, mate, term, draw, truncated}
+  currentEval: null, // Eval shown in the bar/label right now
+  _evalRequestPly: 0, // history.length the in-flight eval was requested for
+  restartReturnFocus: null, // Element to restore focus to after closing the restart dialog
+
   // Bind methods
   // Assuming these binds would be in an init method, but placing them here as per diff.
   // This might cause issues if Game is not instantiated as an object.
@@ -186,6 +197,7 @@ const Game = {
     this.reset();
     this.state.botDifficulty = 'none';
     this.state.gameMode = gameMode;
+    this.exitBotMode();
 
     UI.showRematchBtn(false);
     UI.showNewGameBtn(false);
@@ -241,6 +253,12 @@ const Game = {
     // Отпускаем движок локального бота: его транспозиционная таблица больше не нужна, а следующая
     // партия всё равно получит новый экземпляр в startVsBot.
     if (typeof AI !== 'undefined') AI.endGame();
+
+    // Eval bar: freeze at the decisive value (no engine think after the game is over).
+    if (this.state.gameMode === 'bot') {
+      this.applyTerminalEval(winnerIdx, reason);
+      this.refreshBotControls();
+    }
 
     const modal = document.getElementById('resultModal');
     const statusText = document.getElementById('resultStatus');
@@ -361,6 +379,7 @@ const Game = {
   },
 
   goToMainMenu() {
+    this.exitBotMode();
     const modal = document.getElementById('resultModal');
     if (modal) {
       modal.classList.add('hidden');
@@ -749,6 +768,7 @@ const Game = {
   startPvP() {
     this.state.botDifficulty = 'none';
     this.state.gameMode = 'local';
+    this.exitBotMode();
     this.initialTime = 600;
     this.reset();
     UI.showScreen('gameScreen');
@@ -786,13 +806,17 @@ const Game = {
     // индекс игрока, поэтому таблица прошлой партии не должна попасть в новый поиск.
     AI.newGame(diff);
     UI.showScreen('gameScreen');
+    this.enterBotMode();
     this.startTimer();
     this.draw();
     this.updateTimerDisplay();
     this.updateTurnDisplay();
+    this.refreshBotControls();
 
     if (this.myPlayerIndex === 1) {
       setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
+    } else {
+      this.requestEval();
     }
 
     trackEvent('game-started', { mode: 'bot', difficulty: diff });
@@ -1610,6 +1634,8 @@ const Game = {
 
     this.startTimer();
     this.draw();
+    this.refreshBotControls();
+    this.requestEval();
   },
 
   /**
@@ -1909,6 +1935,34 @@ const Game = {
     });
 
     window.addEventListener('keydown', e => {
+      // Bot game: Undo (Z / Ctrl+Z). Handled before the generic guards below, because
+      // Undo must work exactly while the bot is thinking (isInputBlocked === true).
+      if (this.state.gameMode === 'bot' && e.code === 'KeyZ' && !e.shiftKey && !e.altKey && !this.isReplayMode) {
+        const ae = document.activeElement;
+        const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
+        const restartOpen = this.isRestartDialogOpen();
+        if (!typing && !restartOpen) {
+          e.preventDefault();
+          this.undoMove();
+          return;
+        }
+      }
+
+      // Bot game (mobile): Escape closes the bottom sheets.
+      if (e.key === 'Escape') {
+        const screen = document.getElementById('gameScreen');
+        if (screen && screen.classList.contains('eval-sheet-open')) {
+          this.toggleEvalSheet(false);
+          e.preventDefault();
+          return;
+        }
+        if (screen && screen.classList.contains('moves-sheet-open')) {
+          this.toggleMovesSheet(false);
+          e.preventDefault();
+          return;
+        }
+      }
+
       // Exit history mode on Escape
       if (e.key === 'Escape' && this.viewHistoryIndex !== -1) {
         this.setHistoryView(-1);
@@ -2134,6 +2188,9 @@ const Game = {
       this.canvas.style.cursor = 'default';
       this.draw();
     });
+
+    // === 7.9. Элементы управления игры против бота (eval / undo / restart) ===
+    this.initBotControls();
   },
 
   surrender() {
@@ -2142,6 +2199,500 @@ const Game = {
 
     this.stopTimer();
     this.handleGameOver(winnerIdx, 'surrender');
+  },
+
+  // ====================================================================
+  // 8. ИГРА ПРОТИВ БОТА: EVAL BAR / UNDO / RESTART
+  // ====================================================================
+
+  /** Открыт ли сейчас диалог подтверждения Restart. */
+  isRestartDialogOpen() {
+    const m = document.getElementById('restartModal');
+    return !!m && !m.classList.contains('hidden');
+  },
+
+  // ---------- Eval bar ----------
+
+  loadEvalPrefs() {
+    try {
+      this.evalOn = localStorage.getItem('quoridor_eval_on') === '1';
+      const d = parseInt(localStorage.getItem('quoridor_eval_depth'), 10);
+      this.evalDepth = (d === 4 || d === 6 || d === 8) ? d : EVAL_DEPTH_DEFAULT;
+    } catch (e) {
+      this.evalOn = false;
+      this.evalDepth = EVAL_DEPTH_DEFAULT;
+    }
+  },
+
+  saveEvalPrefs() {
+    try {
+      localStorage.setItem('quoridor_eval_on', this.evalOn ? '1' : '0');
+      localStorage.setItem('quoridor_eval_depth', String(this.evalDepth));
+    } catch (e) { /* ignore */ }
+  },
+
+  enterBotMode() {
+    this.loadEvalPrefs();
+    const screen = document.getElementById('gameScreen');
+    if (screen) screen.classList.add('bot-mode');
+    this.gameEvals = [];
+    this.currentEval = null;
+    this.evalPending = false;
+    this.evalToken++;
+    this.applyEvalVisibility();
+    if (this.evalOn) this.ensureEvalWorker();
+    this.refreshBotControls();
+  },
+
+  exitBotMode() {
+    const screen = document.getElementById('gameScreen');
+    if (screen) screen.classList.remove('bot-mode', 'eval-on', 'eval-sheet-open', 'moves-sheet-open');
+    this.terminateEvalWorker();
+    this.gameEvals = [];
+    this.currentEval = null;
+    this.evalPending = false;
+    this.evalToken++;
+  },
+
+  setEvalOn(on) {
+    this.evalOn = !!on;
+    this.saveEvalPrefs();
+    if (!this.evalOn) {
+      this.evalToken++; // отменяем незавершённый расчёт
+      this.evalPending = false;
+      this.terminateEvalWorker();
+    } else {
+      this.ensureEvalWorker();
+    }
+    this.applyEvalVisibility();
+    if (this.evalOn) this.requestEval();
+  },
+
+  setEvalDepth(depth) {
+    const d = parseInt(depth, 10);
+    if (d !== 4 && d !== 6 && d !== 8) return;
+    this.evalDepth = d;
+    this.saveEvalPrefs();
+    // Оценки другой глубины несопоставимы — сбрасываем кэш.
+    this.gameEvals = [];
+    this.applyEvalVisibility();
+    if (this.evalOn) this.requestEval();
+  },
+
+  applyEvalVisibility() {
+    const screen = document.getElementById('gameScreen');
+    if (screen) screen.classList.toggle('eval-on', !!this.evalOn);
+
+    const sw = document.getElementById('evalSwitch');
+    if (sw) sw.setAttribute('aria-checked', this.evalOn ? 'true' : 'false');
+
+    const depth = document.getElementById('evalDepth');
+    if (depth) depth.classList.toggle('disabled', !this.evalOn);
+
+    document.querySelectorAll('.eval-depth-btn').forEach(b => {
+      const on = parseInt(b.dataset.depth, 10) === this.evalDepth;
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+
+    this.updateMobileEvalButton();
+    this.syncEvalBarGeometry();
+  },
+
+  updateMobileEvalButton() {
+    const btn = document.getElementById('mobileEvalBtn');
+    const label = document.getElementById('mobileEvalLabel');
+    if (btn) {
+      btn.setAttribute('aria-checked', this.evalOn ? 'true' : 'false');
+      btn.classList.toggle('eval-on', !!this.evalOn);
+    }
+    if (label && typeof UI !== 'undefined') {
+      if (!this.evalOn) {
+        label.textContent = UI.translate('eval_off_short');
+      } else {
+        const key = this.evalDepth === 4 ? 'eval_depth_fast'
+          : this.evalDepth === 8 ? 'eval_depth_deep' : 'eval_depth_normal';
+        label.textContent = UI.translate('eval_label_prefix') + UI.translate(key);
+      }
+    }
+  },
+
+  initBotControls() {
+    const bind = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el && !el._botBound) { el._botBound = true; el.addEventListener('click', fn); }
+    };
+
+    bind('evalSwitch', () => this.setEvalOn(!this.evalOn));
+    bind('undoBtn', () => this.undoMove());
+    bind('restartBtn', () => this.openRestartDialog());
+    bind('mobileUndoBtn', () => this.undoMove());
+    bind('mobileRestartBtn', () => this.openRestartDialog());
+    bind('mobileMovesBtn', () => this.toggleMovesSheet());
+
+    document.querySelectorAll('.eval-depth-btn').forEach(b => {
+      if (b._botBound) return;
+      b._botBound = true;
+      b.addEventListener('click', () => this.setEvalDepth(b.dataset.depth));
+    });
+
+    // Радиогруппа глубины: навигация стрелками.
+    const depthGroup = document.getElementById('evalDepth');
+    if (depthGroup && !depthGroup._botBound) {
+      depthGroup._botBound = true;
+      depthGroup.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const opts = [4, 6, 8];
+        const i = opts.indexOf(this.evalDepth);
+        const next = e.key === 'ArrowRight'
+          ? opts[(i + 1) % opts.length]
+          : opts[(i + opts.length - 1) % opts.length];
+        e.preventDefault();
+        this.setEvalDepth(next);
+        const btn = document.querySelector('.eval-depth-btn[data-depth="' + next + '"]');
+        if (btn) btn.focus();
+      });
+    }
+
+    // Мобильное: кнопка Eval открывает нижнюю панель.
+    bind('mobileEvalBtn', () => this.toggleEvalSheet());
+
+    // Диалог Restart.
+    const modal = document.getElementById('restartModal');
+    if (modal && !modal._botBound) {
+      modal._botBound = true;
+      bind('restartCancel', () => this.closeRestartDialog(false));
+      bind('restartConfirm', () => this.closeRestartDialog(true));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) this.closeRestartDialog(false);
+      });
+      modal.addEventListener('keydown', (e) => {
+        if (!this.isRestartDialogOpen()) return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeRestartDialog(false);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.closeRestartDialog(true);
+        } else if (e.key === 'Tab') {
+          const f = ['restartCancel', 'restartConfirm']
+            .map(id => document.getElementById(id)).filter(Boolean);
+          if (f.length) {
+            e.preventDefault();
+            const i = f.indexOf(document.activeElement);
+            const next = e.shiftKey
+              ? (i <= 0 ? f.length - 1 : i - 1)
+              : (i === f.length - 1 ? 0 : i + 1);
+            f[next].focus();
+          }
+        }
+      });
+    }
+
+    window.addEventListener('resize', () => this.syncEvalBarGeometry());
+  },
+
+  openRestartDialog() {
+    if (this.state.gameMode !== 'bot') return;
+    // Нет ходов или партия уже окончена — подтверждение не нужно.
+    if (this.isGameOver || !this.state.history || this.state.history.length === 0) {
+      this.restartBotGame();
+      return;
+    }
+    this.toggleEvalSheet(false);
+    this.toggleMovesSheet(false);
+    const modal = document.getElementById('restartModal');
+    if (!modal) { this.restartBotGame(); return; }
+    this.restartReturnFocus = document.activeElement;
+    modal.classList.remove('hidden');
+    const cancel = document.getElementById('restartCancel');
+    if (cancel) cancel.focus();
+  },
+
+  closeRestartDialog(confirmed) {
+    const modal = document.getElementById('restartModal');
+    if (modal) modal.classList.add('hidden');
+    if (confirmed) this.restartBotGame();
+    const back = this.restartReturnFocus;
+    this.restartReturnFocus = null;
+    if (back && typeof back.focus === 'function') {
+      try { back.focus(); } catch (e) { /* ignore */ }
+    }
+  },
+
+  restartBotGame() {
+    if (this.state.gameMode !== 'bot') return;
+    const diff = this.state.botDifficulty;
+    if (typeof AI !== 'undefined') {
+      AI.cancelSearch();
+      AI.newGame(diff, true);
+    }
+    this.evalToken++;
+    this.evalPending = false;
+    this.gameEvals = [];
+    this.currentEval = null;
+    this.isInputBlocked = false;
+
+    // reset() сохраняет gameMode/botDifficulty, заново ставит часы к initialTime.
+    this.reset();
+    this.startTimer();
+    this.draw();
+    this.updateTimerDisplay();
+    this.updateTurnDisplay();
+    this.refreshBotControls();
+
+    if (this.myPlayerIndex === 1) {
+      setTimeout(() => AI.makeMove(this.state.botDifficulty), 50);
+    } else {
+      this.requestEval();
+    }
+  },
+
+  undoMove() {
+    if (this.state.gameMode !== 'bot') return;
+    if (this.isGameOver) return;
+
+    const remove = GameUndo.undoPlies(
+      this.state.history, this.state.currentPlayer, this.myPlayerIndex, this.isGameOver
+    );
+    if (remove <= 0) return;
+
+    // Отменяем поиск бота и обнуляем его память (личность сохраняется).
+    if (typeof AI !== 'undefined') {
+      AI.cancelSearch();
+      AI.newGame(this.state.botDifficulty, true);
+    }
+    this.isInputBlocked = false;
+    this.evalToken++;
+    this.evalPending = false;
+
+    const keep = this.state.history.length - remove;
+    const rebuilt = GameUndo.stateFromHistory(this.state.history, keep);
+
+    this.state.hWalls = rebuilt.hWalls.map(row => row.slice());
+    this.state.vWalls = rebuilt.vWalls.map(row => row.slice());
+    this.state.players = rebuilt.players.map(p => ({
+      color: p.color, pos: { r: p.pos.r, c: p.pos.c }, wallsLeft: p.wallsLeft
+    }));
+    this.state.currentPlayer = rebuilt.currentPlayer;
+    this.state.history = this.state.history.slice(0, keep);
+    this.state.drag = null;
+    this.state.hoverWall = null;
+    this.viewHistoryIndex = -1;
+
+    this._initialSnapshot = Shared.cloneState({
+      hWalls: this.state.hWalls,
+      vWalls: this.state.vWalls,
+      players: this.state.players,
+      currentPlayer: this.state.currentPlayer
+    });
+
+    // Кэш оценок обрезаем до новой позиции (индекс = число полуходов).
+    this.gameEvals = this.gameEvals.slice(0, keep + 1);
+    this.currentEval = this.gameEvals[keep] || null;
+
+    if (typeof UI !== 'undefined' && UI.renderHistory) UI.renderHistory(this.state.history, -1);
+    this.updateTurnDisplay();
+    this.startTimer();
+    this.draw();
+    this.refreshBotControls();
+    this.requestEval();
+  },
+
+  ensureEvalWorker() {
+    if (this.evalWorker) return;
+    try {
+      this.evalWorker = new Worker('/js/game-eval-worker.js?v=1.0.0');
+      this.evalWorker.onmessage = (e) => {
+        const d = e.data;
+        if (!d || d.type !== 'result') return;
+        if (d.token !== this.evalToken) return; // устаревшая позиция
+        this.evalPending = false;
+        this.gameEvals[this._evalRequestPly] = d.eval;
+        this.currentEval = d.eval;
+        this.renderEval();
+      };
+      this.evalWorker.onerror = (err) => {
+        console.error('[EVAL] worker error:', err);
+        this.terminateEvalWorker();
+      };
+    } catch (e) {
+      this.evalWorker = null;
+    }
+  },
+
+  terminateEvalWorker() {
+    if (this.evalWorker) {
+      try { this.evalWorker.terminate(); } catch (e) { /* ignore */ }
+      this.evalWorker = null;
+    }
+  },
+
+  requestEval() {
+    if (this.state.gameMode !== 'bot' || !this.evalOn || this.isGameOver) return;
+    // Обрезаем кэш до текущей позиции, чтобы не переиспользовать оценки отменённых ветвей.
+    this.gameEvals = this.gameEvals.slice(0, this.state.history.length + 1);
+
+    const snapshot = Shared.cloneState({
+      hWalls: this.state.hWalls,
+      vWalls: this.state.vWalls,
+      players: this.state.players,
+      currentPlayer: this.state.currentPlayer
+    });
+
+    const go = (typeof Shared.isGameOver === 'function') ? Shared.isGameOver(snapshot) : null;
+    if (go && go.over) { this.applyTerminalEval(go.winner, 'goal'); return; }
+
+    this.ensureEvalWorker();
+    if (!this.evalWorker) return;
+
+    const token = ++this.evalToken;
+    this._evalRequestPly = this.state.history.length;
+    this.evalPending = true;
+    this.renderEval();
+    this.evalWorker.postMessage({
+      type: 'eval',
+      token: token,
+      depth: this.evalDepth,
+      nodes: EVAL_DEFAULT_NODES,
+      snapshot: snapshot,
+      terminal: false
+    });
+  },
+
+  applyTerminalEval(winnerIdx, reason) {
+    // Знак — относительно Белых (игрок 0), как в остальном eval-модуле.
+    if (reason === 'draw' || winnerIdx === -1 || winnerIdx === null || winnerIdx === undefined) {
+      this.currentEval = { s: 0, mate: false, term: true, draw: true, truncated: false };
+    } else {
+      this.currentEval = {
+        s: winnerIdx === 0 ? EVAL_WIN : -EVAL_WIN,
+        mate: true, term: true, draw: false, truncated: false
+      };
+    }
+    this.evalPending = false;
+    this.renderEval();
+  },
+
+  syncEvalBarGeometry() {
+    const rail = document.getElementById('evalBarRail');
+    const board = document.getElementById('game-container');
+    const bar = document.getElementById('evalBar');
+    if (!rail || !board || !bar) return;
+    const apply = () => {
+      const rr = rail.getBoundingClientRect();
+      const br = board.getBoundingClientRect();
+      if (!rr.height) return;
+      bar.style.top = Math.max(0, br.top - rr.top) + 'px';
+      bar.style.height = br.height + 'px';
+    };
+    apply();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(apply);
+  },
+
+  renderEval() {
+    const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
+    const ev = this.currentEval;
+
+    const bottomColor = bottomIdx === 0 ? 'white' : 'black';
+    const topColor = bottomIdx === 0 ? 'black' : 'white';
+
+    let frac = 0.5;
+    let text = '';
+    let aria = 'Evaluation: even';
+    let bottomLeading = true;
+
+    if (ev) {
+      frac = evalBarHeight(ev, bottomIdx);
+      text = this.evalPending ? '' : evalBarText(ev, bottomIdx);
+      aria = evalBarAria(ev);
+      const sRel = bottomIdx === 1 ? -ev.s : ev.s;
+      bottomLeading = sRel >= 0;
+    }
+
+    const bar = document.getElementById('evalBar');
+    const fill = document.getElementById('evalFill');
+    const num = document.getElementById('evalNum');
+    const hBar = document.getElementById('evalBarH');
+    const hFill = document.getElementById('evalHFill');
+    const hNum = document.getElementById('evalHNum');
+
+    if (bar) {
+      bar.classList.toggle('top-white', topColor === 'white');
+      bar.classList.toggle('top-black', topColor === 'black');
+      bar.setAttribute('aria-label', aria);
+    }
+    if (fill) {
+      fill.classList.toggle('fill-white', bottomColor === 'white');
+      fill.classList.toggle('fill-black', bottomColor === 'black');
+      fill.style.height = (frac * 100).toFixed(2) + '%';
+    }
+    if (num) {
+      num.textContent = text;
+      num.classList.toggle('at-bottom', bottomLeading);
+      num.classList.toggle('at-top', !bottomLeading);
+    }
+    if (hBar) hBar.setAttribute('aria-label', aria);
+    if (hFill) {
+      hFill.classList.toggle('fill-white', bottomColor === 'white');
+      hFill.classList.toggle('fill-black', bottomColor === 'black');
+      hFill.style.width = (frac * 100).toFixed(2) + '%';
+    }
+    if (hNum) {
+      hNum.textContent = text;
+      hNum.classList.toggle('at-left', bottomLeading);
+      hNum.classList.toggle('at-right', !bottomLeading);
+    }
+
+    this.renderEvalLabel();
+  },
+
+  renderEvalLabel() {
+    const el = document.getElementById('evalLabel');
+    if (!el || typeof UI === 'undefined') return;
+    if (!this.evalOn) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    if (this.evalPending || !this.currentEval) {
+      el.textContent = UI.translate('eval_analyzing');
+      return;
+    }
+    const d = describeEval(this.currentEval);
+    el.textContent = UI.translate(d.key).replace('{n}', d.n.toFixed(d.fixed));
+  },
+
+  refreshBotControls() {
+    if (typeof GameUndo === 'undefined') return;
+    const remove = (this.state.gameMode === 'bot')
+      ? GameUndo.undoPlies(this.state.history, this.state.currentPlayer, this.myPlayerIndex, this.isGameOver)
+      : 0;
+    const enabled = remove > 0;
+    ['undoBtn', 'mobileUndoBtn'].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = !enabled;
+      b.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+    });
+    this.renderEval();
+  },
+
+  toggleEvalSheet(force) {
+    const screen = document.getElementById('gameScreen');
+    if (!screen) return;
+    const open = (force === undefined) ? !screen.classList.contains('eval-sheet-open') : !!force;
+    screen.classList.toggle('eval-sheet-open', open);
+    if (open) screen.classList.remove('moves-sheet-open');
+    const btn = document.getElementById('mobileEvalBtn');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  },
+
+  toggleMovesSheet(force) {
+    const screen = document.getElementById('gameScreen');
+    if (!screen) return;
+    const open = (force === undefined) ? !screen.classList.contains('moves-sheet-open') : !!force;
+    screen.classList.toggle('moves-sheet-open', open);
+    if (open) screen.classList.remove('eval-sheet-open');
+    const btn = document.getElementById('mobileMovesBtn');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   },
 
   initTimerVisibilityHandlers() {
