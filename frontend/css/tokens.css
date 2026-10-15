@@ -1,0 +1,98 @@
+/* PlayQuor design tokens — единственный источник значений. v1.0.0 */
+:root {
+  color-scheme: dark;
+
+  /* --- существующие (перенесены из style.css без изменений) --- */
+  --bg: #0B0C0D;
+  --bg-2: #101112;
+  --surface: #171819;
+  --panel: #1B1C1E;
+  --panel-light: #222426;
+  --row: #1E2022;
+  --row-hover: #292B2D;
+  --accent: #E9A22C;
+  --accent-light: #F5B13C;
+  --accent-dark: #C9821E;
+  --wall: #E9A22C;
+  --highlight: #F5B13C;
+  --text: #F2F2F2;
+  --text-dim: #A0A0A0;
+  --text-muted: #A0A0A0;
+  --online-green: #43D17A;
+  --board: #141516;
+  --header-h: 64px;
+
+  /* --- новые: цвет --- */
+  --text-on-accent: #17120A;               /* уточнено по разведке п. б (.primary-btn) */
+  --accent-soft: rgba(233, 162, 44, .16);  /* заливка активных чипов, подсветки */
+  --accent-line: rgba(233, 162, 44, .40);  /* рамка активных чипов */
+  --accent-ring: rgba(233, 162, 44, .25);  /* focus-кольцо инпутов */
+  --success: var(--online-green);
+  --warning: #D6B23C;
+  --danger: #D64646;
+  --danger-soft: rgba(214, 70, 70, .16);
+  --danger-line: rgba(214, 70, 70, .50);
+  --border: rgba(255, 255, 255, .06);
+  --border-strong: rgba(255, 255, 255, .12);
+  --overlay: rgba(0, 0, 0, .60);
+  --hover-tint: rgba(255, 255, 255, .06);
+
+  /* --- новые: типографика --- */
+  --font-sans: 'Manrope', Inter, Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+  --lh-tight: 1.2;
+  --lh-base: 1.5;
+
+  /* --- новые: отступы (шаг 4px) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* --- новые: радиусы --- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* --- новые: тени (значения уже есть в style.css, сведены в шкалу) --- */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, .3);
+  --shadow-2: 0 8px 20px rgba(0, 0, 0, .4);
+  --shadow-3: 0 16px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .06);
+  --shadow-accent: 0 4px 15px rgba(233, 162, 44, .5);
+
+  /* --- новые: z-index (значения те же, что уже в style.css) --- */
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-dropdown: 1000;
+  --z-overlay: 10001;
+  --z-modal: 10002;
+  --z-header: 10010;
+  --z-toast: 10020;
+}
+
+/* Брейкпоинты (CSS-переменные в @media не работают, значения для справки):
+   mobile  ≤ 768px   (desktop ≥ 769px)
+   small   ≤ 480px
+   wide    ≥ 1025px
+   Новые правила писать только по этим трём. 600/420/900/1024 не вводить. */
