@@ -12,6 +12,7 @@ html {
     display: flex;
     flex-direction: column;
     padding-top: 0 !important;
+    font-family: var(--font-sans);
 }
 .auth-page-body .main-header {
     position: relative;
