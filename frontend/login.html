@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Sign In — PlayQuor</title>
+    <title>Sign In | PlayQuor</title>
+    <meta name="description" content="Sign in to PlayQuor to play ranked Quoridor online, track your rating and challenge friends." />
+    <link rel="canonical" href="https://playquor.org/login" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -118,6 +120,7 @@
             document.getElementById('footerLink').textContent = d.footer_link;
             var fp = document.querySelector('.auth-fp-wrapper a');
             if (fp) fp.textContent = d.forgot_link;
+            renderGoogleButton();
         }
 
         function applyLang() {
@@ -239,6 +242,12 @@
             });
         }
 
+        function renderGoogleButton() {
+            if (!window.google || !google.accounts || !google.accounts.id || !window.__googleClientId) return;
+            var el = document.getElementById('googleBtn');
+            if (el) google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', width: 320, locale: getLang() });
+        }
+
         function initGoogleSignIn() {
             if (!window.google || !google.accounts || !google.accounts.id) {
                 setTimeout(initGoogleSignIn, 200);
@@ -246,9 +255,9 @@
             }
             fetch('/api/auth/config').then(function(r) { return r.json(); }).then(function(cfg) {
                 if (!cfg.googleClientId) return;
+                window.__googleClientId = cfg.googleClientId;
                 google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: onGoogleCredential });
-                var el = document.getElementById('googleBtn');
-                if (el) google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', width: 320 });
+                renderGoogleButton();
             }).catch(function() { /* never block password login */ });
         }
 

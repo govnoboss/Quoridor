@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Create account — PlayQuor</title>
+    <title>Create Account | PlayQuor</title>
+    <meta name="description" content="Create a free PlayQuor account to play ranked Quoridor, climb the leaderboard and save your game history." />
+    <link rel="canonical" href="https://playquor.org/register" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -154,6 +156,7 @@
             document.getElementById('privacyLink').textContent = d.privacy_link;
             document.getElementById('footerText').textContent = d.footer;
             document.getElementById('footerLink').textContent = d.footer_link;
+            renderGoogleButton();
         }
 
         function applyLang() {
@@ -312,6 +315,12 @@
             });
         }
 
+        function renderGoogleButton() {
+            if (!window.google || !google.accounts || !google.accounts.id || !window.__googleClientId) return;
+            var el = document.getElementById('googleBtn');
+            if (el) google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', width: 320, locale: getLang() });
+        }
+
         function initGoogleSignIn() {
             if (!window.google || !google.accounts || !google.accounts.id) {
                 setTimeout(initGoogleSignIn, 200);
@@ -319,9 +328,9 @@
             }
             fetch('/api/auth/config').then(function(r) { return r.json(); }).then(function(cfg) {
                 if (!cfg.googleClientId) return;
+                window.__googleClientId = cfg.googleClientId;
                 google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: onGoogleCredential });
-                var el = document.getElementById('googleBtn');
-                if (el) google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with', width: 320 });
+                renderGoogleButton();
             }).catch(function() { /* never block password login */ });
         }
 

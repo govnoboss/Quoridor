@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Leaderboard — PlayQuor</title>
+    <title>Quoridor Leaderboard — Top Players | PlayQuor</title>
     <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="canonical" href="https://playquor.org/leaderboard" />
@@ -246,7 +246,8 @@
                 .replace(/"/g, '&quot;');
         }
 
-        function pluralGames(n, d) {
+        function pluralGames(n, d, lang) {
+            if (lang === 'en') return n === 1 ? d.games1 : d.games2;
             var n10 = n % 10,
                 n100 = n % 100;
             if (n100 >= 11 && n100 <= 14) return d.games5;
@@ -285,7 +286,7 @@
                                     + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
                                     + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
                                     + '<td class="col-rating">' + p.rating + '</td>'
-                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</td>'
+                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d, lang) + '</td>'
                                     + '</tr>';
                             }).join('')
                             + '</tbody></table>';
