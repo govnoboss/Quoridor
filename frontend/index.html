@@ -44,7 +44,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
   <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
-  <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
   <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.7" type="text/css" />
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
@@ -69,18 +69,28 @@
     <div class="header-left">
       <span class="header-logo" onclick="UI.backToMenu()">PlayQuor</span>
       <span class="header-version">v1.04</span>
+    </div>
+    <nav class="header-nav" aria-label="Main">
+      <a class="header-nav-link active" data-nav="play" href="/" onclick="UI.backToMenu(); return false;" data-i18n="nav_play">Play</a>
+      <a class="header-nav-link" data-nav="leaderboard" href="/leaderboard" data-i18n="nav_leaderboard">Leaderboard</a>
+      <a class="header-nav-link" data-nav="rules" href="/rules" data-i18n="nav_rules">Rules</a>
+    </nav>
+    <button id="headerMenuBtn" class="header-menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="headerNavMobile" onclick="UI.toggleMobileNav(event)">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16"/>
+      </svg>
+    </button>
+    <div class="header-right">
       <select id="headerLang" class="header-lang" onchange="UI.changeLanguage(this.value)">
         <option value="ru" data-i18n="lang_ru">RU</option>
         <option value="en" data-i18n="lang_en">EN</option>
       </select>
-    </div>
-    <div class="header-right">
       <div id="notificationBell" class="notification-bell hidden" onclick="UI.toggleNotifications(event)">
         <svg class="bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        <span id="notifBadge" class="notif-badge hidden">0</span>
+        <span id="notifBadge" class="pq-badge hidden">0</span>
       </div>
       <div id="notifDropdown" class="notif-dropdown hidden">
         <div class="notif-header">
@@ -91,8 +101,8 @@
         <div id="notifEmpty" class="notif-empty hidden" data-i18n="notifications_empty">No notifications</div>
       </div>
       <div id="headerAuth">
-        <a href="/login" id="headerLoginBtn" class="h-btn h-btn-ghost" data-i18n="header_sign_in">Sign In</a>
-        <a href="/register" id="headerRegisterBtn" class="h-btn h-btn-primary" data-i18n="header_sign_up">Sign Up</a>
+        <a href="/login" id="headerLoginBtn" class="pq-btn pq-btn--neutral" data-i18n="header_sign_in">Sign In</a>
+        <a href="/register" id="headerRegisterBtn" class="pq-btn pq-btn--primary" data-i18n="header_sign_up">Sign Up</a>
       </div>
       <div id="headerProfile" class="header-profile hidden" onclick="UI.openMyProfile()">
         <span id="headerUsername">User</span>
@@ -100,9 +110,15 @@
           <img id="headerAvatarImg" src="https://ui-avatars.com/api/?name=User&background=333&color=fff" alt="Avatar">
         </div>
       </div>
-      <a id="headerAdminLink" href="/admin" class="h-btn h-btn-ghost hidden" data-i18n="header_admin" style="margin-left:8px">Admin</a>
+      <a id="headerAdminLink" href="/admin" class="pq-btn pq-btn--neutral hidden" data-i18n="header_admin">Admin</a>
     </div>
   </header>
+  <nav id="headerNavMobile" class="header-nav-mobile hidden" aria-label="Mobile">
+    <a class="header-nav-link active" data-nav="play" href="/" onclick="UI.backToMenu(); return false;" data-i18n="nav_play">Play</a>
+    <a class="header-nav-link" data-nav="leaderboard" href="/leaderboard" data-i18n="nav_leaderboard">Leaderboard</a>
+    <a class="header-nav-link" data-nav="rules" href="/rules" data-i18n="nav_rules">Rules</a>
+    <a class="header-nav-link" id="headerLoginBtnMobile" href="/login" data-i18n="header_sign_in">Sign In</a>
+  </nav>
 
   <div id="mainMenu" class="screen">
 
@@ -952,7 +968,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.22"></script>
+  <script src="/js/ui.js?v=1.0.23"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>

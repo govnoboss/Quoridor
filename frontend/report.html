@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
     <style>
         textarea {
             background: #333;
@@ -68,9 +68,7 @@
 </head>
 <body class="auth-page-body">
 
-<header id="mainHeader" class="main-header">
-    <a href="/" class="header-logo">PlayQuor</a>
-</header>
+  <div id="siteHeader"></div>
 
 <div class="auth-page-container">
     <div class="auth-form-wrapper">
@@ -106,7 +104,6 @@
             <p id="successText">Thank you! Your report has been submitted.</p>
             <div class="ticket-id" id="ticketId"></div>
             <p style="color:#999;font-size:13px" id="trackText">You can track responses in your profile.</p>
-            <a href="/" class="back-link" id="backLink">← Back to home</a>
             <a href="/profile/reports" class="back-link" id="myReportsLink" style="margin-left:16px">→ My Reports</a>
         </div>
     </div>
@@ -173,7 +170,7 @@ function applyLang() {
     document.getElementById('lblDesc').textContent = d.lblDesc;
     document.getElementById('submitBtn').textContent = d.submit;
     document.getElementById('successText').textContent = d.success;
-    document.getElementById('backLink').textContent = d.back;
+    var _b=document.getElementById('backLink'); if(_b) _b.textContent = d.back;
     document.getElementById('myReportsLink').textContent = d.my_reports;
     document.getElementById('trackText').textContent = d.track_text;
     document.getElementById('loginPrompt').textContent = d.not_logged_in;
@@ -307,5 +304,7 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
 applyLang();
 checkSession();
 </script>
+  <div id="siteFooter"></div>
+  <script src="/js/site-shell.js?v=1.0.0" defer></script>
 </body>
 </html>

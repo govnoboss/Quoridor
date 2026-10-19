@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.23" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
     <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
     <link rel="stylesheet" href="/css/profile.css?v=1.0.7" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
@@ -161,17 +161,7 @@
     </style>
 </head>
 <body>
-    <header class="main-header">
-        <div class="header-left">
-            <a href="/" class="header-logo">PlayQuor</a>
-        </div>
-        <div class="header-right">
-            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
-                <option value="ru">RU</option>
-                <option value="en">EN</option>
-            </select>
-        </div>
-    </header>
+  <div id="siteHeader"></div>
 
     <div class="lb-page">
         <div class="lb-container">
@@ -227,7 +217,7 @@
             var d = dict[lang];
             document.title = d.title + ' — PlayQuor';
             document.documentElement.lang = lang;
-            document.getElementById('headerLang').value = lang;
+            var _hl=document.getElementById('headerLang'); if(_hl) _hl.value = lang;
             document.getElementById('pageTitle').textContent = d.title;
             document.getElementById('pageSubtitle').textContent = d.subtitle;
             var lt = document.getElementById('loadingText');
@@ -299,5 +289,7 @@
 
         applyLang();
     </script>
+  <div id="siteFooter"></div>
+  <script src="/js/site-shell.js?v=1.0.0" defer></script>
 </body>
 </html>

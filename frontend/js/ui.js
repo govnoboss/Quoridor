@@ -123,6 +123,9 @@ const UI = {
       screen_room_title: "Игра с другом",
       header_sign_in: "Войти",
       header_sign_up: "Регистрация",
+      nav_play: "Играть",
+      nav_leaderboard: "Рейтинг",
+      nav_rules: "Правила",
       btn_create_room: "Создать комнату",
       btn_join_room: "Войти",
       room_created_msg: "Код комнаты создан! Отправьте его другу:",
@@ -433,6 +436,9 @@ const UI = {
       screen_room_title: "Play with Friend",
       header_sign_in: "Sign In",
       header_sign_up: "Sign Up",
+      nav_play: "Play",
+      nav_leaderboard: "Leaderboard",
+      nav_rules: "Rules",
       btn_create_room: "Create Room",
       btn_join_room: "Join",
       room_created_msg: "Room code created! Send it to your friend:",
@@ -696,7 +702,56 @@ const UI = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    this.setActiveNav(['mainMenu', 'modeScreen', 'roomScreen'].includes(id) ? 'play' : null);
+    this.closeMobileNav();
     this.updateHeaderVisibility();
+  },
+
+  setActiveNav(key) {
+    document.querySelectorAll('.header-nav-link[data-nav]').forEach(a => {
+      const on = a.dataset.nav === key;
+      a.classList.toggle('active', on);
+      if (on) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+  },
+
+  closeMobileNav() {
+    const nav = document.getElementById('headerNavMobile');
+    const btn = document.getElementById('headerMenuBtn');
+    if (nav) {
+      nav.classList.add('hidden');
+      nav.classList.remove('open');
+    }
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', UI._onDocClickNav);
+    document.removeEventListener('keydown', UI._onKeydownNav);
+  },
+
+  toggleMobileNav(e) {
+    if (e) e.stopPropagation();
+    const nav = document.getElementById('headerNavMobile');
+    const btn = document.getElementById('headerMenuBtn');
+    if (!nav) return;
+    const willOpen = nav.classList.contains('hidden');
+    if (!willOpen) {
+      this.closeMobileNav();
+      return;
+    }
+    nav.classList.remove('hidden');
+    nav.classList.add('open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    UI._onDocClickNav = function (ev) {
+      if (btn && btn.contains(ev.target)) return;
+      UI.closeMobileNav();
+    };
+    UI._onKeydownNav = function (ev) {
+      if (ev.key === 'Escape') UI.closeMobileNav();
+    };
+    setTimeout(() => {
+      document.addEventListener('click', UI._onDocClickNav);
+      document.addEventListener('keydown', UI._onKeydownNav);
+    }, 0);
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
@@ -2378,8 +2433,10 @@ UI.updateAuthUI = function () {
   const avatarImg = document.getElementById('headerAvatarImg');
   const notifBell = document.getElementById('notificationBell');
   const adminLink = document.getElementById('headerAdminLink');
+  const loginBtnMobile = document.getElementById('headerLoginBtnMobile');
 
   if (this.currentUser) {
+    if (loginBtnMobile) loginBtnMobile.classList.add('hidden');
     if (headerAuth) headerAuth.classList.add('hidden');
     if (headerProfile) headerProfile.classList.remove('hidden');
     if (usernameEl) usernameEl.textContent = this.currentUser.username;
@@ -2397,6 +2454,7 @@ UI.updateAuthUI = function () {
     if (headerProfile) headerProfile.classList.add('hidden');
     if (notifBell) notifBell.classList.add('hidden');
     if (adminLink) adminLink.classList.add('hidden');
+    if (loginBtnMobile) loginBtnMobile.classList.remove('hidden');
     this.notifications = [];
     this.updateNotifBadge();
   }
