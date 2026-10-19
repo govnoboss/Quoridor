@@ -1,0 +1,116 @@
+/* PlayQuor components v1.0.0 — источник: design-reference */
+.pq-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;
+  border:0;border-radius:8px;background:transparent;color:var(--text-2);
+  font:600 13px/1 var(--font-sans);text-decoration:none;white-space:nowrap;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.pq-btn:focus-visible,.pq-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pq-btn[disabled],.pq-btn.is-disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.pq-btn--primary{background:var(--accent);color:var(--on-accent);font-weight:700}
+.pq-btn--primary:hover{background:var(--accent-light)}
+.pq-btn--primary:active{background:var(--accent-dark)}
+.pq-btn--outline{border:1px solid var(--accent);color:var(--accent)}
+.pq-btn--outline:hover{background:var(--accent-bg-2)}
+.pq-btn--neutral{border:1px solid var(--border-ctl);color:var(--text-2)}
+.pq-btn--neutral:hover{background:var(--surface);color:var(--text)}
+.pq-btn--r10{border-radius:10px}
+.pq-btn--solid{background:var(--panel-light);border:1px solid var(--border-strong);color:var(--text);font-size:14px;font-weight:400;padding:0 18px}
+.pq-btn--solid:hover{background:var(--raised)}
+.pq-btn--game{background:var(--btn-neutral);border:1px solid var(--border-btn);color:#eee;font-size:14px;font-weight:400}
+.pq-btn--game:hover{background:#34363c}
+.pq-btn--icon{width:44px;padding:0}
+.pq-btn--block{display:flex;width:100%}
+.pq-btn--more{height:48px;border:1px solid var(--accent-border);border-radius:10px;color:var(--accent);font-size:14px;font-weight:700}
+.pq-btn--danger{color:var(--danger)}
+
+/* меню-кнопка главной */
+.pq-menu-btn{display:flex;align-items:center;gap:14px;height:64px;box-sizing:border-box;padding:0 16px;width:100%;
+  background:var(--panel);border:1px solid var(--border-ctl);border-radius:12px;color:var(--text);text-align:left;cursor:pointer;font-family:var(--font-sans)}
+.pq-menu-btn:hover{border-color:var(--border-btn)}
+.pq-menu-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pq-menu-btn__icon{width:36px;height:36px;border-radius:8px;background:var(--panel-light);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
+.pq-menu-btn__text{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pq-menu-btn__title{font-size:15px;font-weight:600}
+.pq-menu-btn__sub{font-size:12px;color:var(--text-dim)}
+.pq-menu-btn__chev{flex:none;color:var(--chevron)}
+.pq-menu-btn--primary{background:var(--accent);border:0;color:var(--on-accent)}
+.pq-menu-btn--primary .pq-menu-btn__icon{background:rgba(0,0,0,.12);color:var(--on-accent)}
+.pq-menu-btn--primary .pq-menu-btn__title{font-size:16px;font-weight:700}
+.pq-menu-btn--primary .pq-menu-btn__sub{color:#3d2a06}
+.pq-menu-btn--primary .pq-menu-btn__chev{color:var(--on-accent)}
+.pq-menu-btn--primary:hover{background:var(--accent-light)}
+
+/* карточки */
+.pq-card{box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+.pq-card--accent{background:var(--accent-bg);border-color:var(--accent-border)}
+.pq-card--discord{background:var(--discord-bg);border-color:var(--discord-border);padding:14px 16px}
+
+/* сегмент-контрол */
+.pq-seg{display:flex;gap:3px;padding:3px;background:var(--panel);border:1px solid var(--border);border-radius:10px}
+.pq-seg__item{flex:1;height:38px;border:0;border-radius:8px;background:transparent;color:var(--text-2);font:400 13px/1 var(--font-sans);cursor:pointer}
+.pq-seg__item.is-active,.pq-seg__item[aria-pressed="true"],.pq-seg__item[aria-checked="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.pq-seg--sm{background:var(--raised);border:0;border-radius:8px}
+.pq-seg--sm .pq-seg__item{flex:none;height:32px;padding:0 12px;border-radius:6px;font-size:12px}
+.pq-seg--game{background:var(--raised);border:0;border-radius:8px}
+.pq-seg--game .pq-seg__item{border-radius:6px}
+.pq-seg--game .pq-seg__item.is-active,.pq-seg--game .pq-seg__item[aria-checked="true"]{font-weight:600}
+
+/* вкладки */
+.pq-tabs{display:flex;gap:8px;border-bottom:1px solid var(--border)}
+.pq-tab{height:48px;padding:0 16px;background:transparent;border:0;color:var(--text-3);font:600 14px/1 var(--font-sans);cursor:pointer}
+.pq-tab.is-active,.pq-tab[aria-selected="true"]{color:var(--accent);font-weight:700;box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* чипы-фильтры: внешняя кнопка 44 px (зона нажатия), внутри видимая пилюля */
+.pq-chip{height:44px;padding:0 4px;background:transparent;border:0;cursor:pointer;font-family:var(--font-sans)}
+.pq-chip__pill{display:block;padding:6px 12px;border-radius:var(--r-chip);color:var(--text-3);font-size:13px}
+.pq-chip.is-active .pq-chip__pill,.pq-chip[aria-pressed="true"] .pq-chip__pill{background:var(--border-ctl);color:var(--text);font-weight:600}
+
+/* теги */
+.pq-tag{display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.04em}
+.pq-tag--lost{color:var(--danger);background:var(--danger-bg)}
+.pq-tag--won{color:var(--success);background:rgba(62,207,142,.12)} /* производное */
+.pq-tag--outline{padding:1px 6px;color:var(--text-dim);border:1px solid var(--border-strong);font-weight:400;letter-spacing:0}
+.pq-role{display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:var(--text-2);background:var(--panel-light)}
+.pq-role--admin{color:var(--accent);background:var(--accent-chip)}
+
+/* аватары (размер задаётся модификатором) */
+.pq-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:50%;background:var(--border-ctl);color:var(--text);font-weight:700;overflow:hidden}
+.pq-avatar img{width:100%;height:100%;object-fit:cover}
+.pq-avatar--28{width:28px;height:28px;font-size:12px}
+.pq-avatar--32{width:32px;height:32px;font-size:14px;font-weight:800}
+.pq-avatar--48{width:48px;height:48px;font-size:18px}
+.pq-avatar--56{width:56px;height:56px;font-size:22px}
+.pq-avatar--88{width:88px;height:88px;font-size:40px;font-weight:800}
+.pq-avatar--me{background:var(--accent);color:var(--on-accent);font-weight:800}
+
+/* медали рангов */
+.pq-medal{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:12px;font-weight:800;color:var(--on-accent)}
+.pq-medal--1{background:var(--accent)}
+.pq-medal--2{background:var(--silver);color:var(--medal-on-silver)}
+.pq-medal--3{background:var(--bronze)}
+
+/* переключатель */
+.pq-switch{width:56px;height:44px;padding:0;background:transparent;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pq-switch__track{position:relative;display:block;width:44px;height:24px;border-radius:12px;background:var(--border-btn)}
+.pq-switch__knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--text)}
+.pq-switch[aria-checked="true"] .pq-switch__track{background:var(--accent)}
+.pq-switch[aria-checked="true"] .pq-switch__knob{left:auto;right:3px;background:var(--on-accent)}
+.pq-switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* поповер-меню */
+.pq-menu{box-sizing:border-box;padding:6px;background:var(--raised);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.5);display:flex;flex-direction:column}
+.pq-menu__item{height:44px;padding:0 12px;display:flex;align-items:center;background:transparent;border:0;border-radius:6px;color:var(--text);font:400 14px/1 var(--font-sans);text-align:left;text-decoration:none;cursor:pointer}
+.pq-menu__item:hover{background:var(--border-strong)}
+.pq-menu__item--danger{color:var(--danger)}
+.pq-menu__sep{height:1px;margin:4px 0;background:var(--border-strong)}
+
+/* таблицы-списки на div-ах */
+.pq-table{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pq-table__head{display:flex;align-items:center;gap:12px;box-sizing:border-box;height:40px;padding:0 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-dim)}
+.pq-table__row{display:flex;align-items:center;gap:12px;box-sizing:border-box;height:52px;padding:0 16px;font-size:14px;border-bottom:1px solid var(--divider)}
+.pq-table__row:last-child{border-bottom:0}
+.pq-table__row:hover{background:var(--row-hover)}
+
+/* скелетон */
+.pq-skeleton{display:block;border-radius:8px;background:linear-gradient(90deg,var(--panel) 0%,var(--panel-light) 50%,var(--panel) 100%);background-size:200% 100%;animation:pq-shimmer 1.4s linear infinite}
+@keyframes pq-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.pq-skeleton{animation:none}}
