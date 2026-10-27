@@ -1201,6 +1201,11 @@ const UI = {
       const row = document.createElement('div');
       row.className = 'history-row';
 
+      const num = document.createElement('span');
+      num.className = 'history-num';
+      num.textContent = (i / 2) + 1;
+      row.appendChild(num);
+
       // Белые
       const cellW = document.createElement('div');
       cellW.className = 'history-cell';

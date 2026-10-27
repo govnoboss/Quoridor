@@ -718,6 +718,7 @@ const Game = {
       const isActive2 = (this._replayMoveIndex === i + 2);
 
       row.innerHTML = `
+        <span class="history-num">${(i / 2) + 1}</span>
         <span class="move ${isActive1 ? 'active' : ''}" onclick="Game.replayGoToMove(${i + 1})">${notation1}</span>
         <span class="move ${isActive2 ? 'active' : ''}" onclick="Game.replayGoToMove(${i + 2})">${notation2}</span>
       `;
