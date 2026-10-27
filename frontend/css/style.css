@@ -2059,21 +2059,22 @@ canvas {
 @media (max-width: 768px) {
     .game-layout {
         flex-direction: column;
-        padding: 4px;
-        gap: 10px;
+        padding: 24px 12px 12px;
+        gap: 8px;
     }
 
     .board-area {
         width: 100%;
         height: auto;
+        gap: 8px;
         /* На мобильных меньше вертикального места из-за баров браузера */
         max-height: 85vh;
     }
 
     #game-container {
-        /* Уменьшаем ширину доски, чтобы были отступы */
-        max-width: calc(100vw - 32px);
-        max-height: calc(100vw - 32px);
+        /* Доска почти во всю ширину экрана (макет canvas1-Mobile: 390-24) */
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vw - 24px);
     }
 
     .sidebar {
@@ -2083,27 +2084,58 @@ canvas {
         margin-top: 10px;
     }
 
+    /* Плашка игрока: mock canvas1-Mobile (48px, r8, bg #1c1d20) */
+    .player-bar {
+        height: 48px;
+        font-size: 14px;
+        background: var(--raised);
+        border-radius: var(--r-8);
+        padding: 0 10px;
+        gap: 10px;
+    }
+
+    .player-bar.active-turn {
+        background: var(--raised);
+        box-shadow: inset 0 -2px 0 0 var(--accent);
+    }
+
+    .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--r-6);
+    }
+
+    /* Таймер: mono 16/700, chip r6; активный — светлый чип */
+    .timer {
+        font-size: 16px;
+        padding: 5px 8px;
+        border-radius: var(--r-6);
+        background: var(--bg-2);
+    }
+
+    .active-turn .timer {
+        background: #f3f3f3;
+        color: #111;
+    }
+
+    /* Стеносток: mock (20px, r6, свотчи 24×5) */
     .wall-inventory {
+        background: var(--raised);
+        border-radius: var(--r-6);
         padding: 4px 8px;
         min-height: 20px;
         gap: 4px;
     }
 
     .wall-piece {
-        width: 8vw;
-        /* Адаптивная ширина стенок */
-        max-width: 30px;
-        height: 8px;
+        width: 24px;
+        height: 5px;
+        max-width: none;
     }
 
-    .player-bar {
-        height: 40px;
-        font-size: 0.9em;
-    }
-
-    .avatar {
-        width: 32px;
-        height: 32px;
+    .wall-piece.used {
+        opacity: 1;
+        background: #3a2f1a;
     }
 }
 

@@ -23,7 +23,7 @@ const Game = {
    * @property {number} gap Небольшой отступ от краев ячейки (4).
    */
   /** @type {GameConfig} Конфигурация игры. */
-  CONFIG: { cellSize: 120, gridCount: 9, slotCount: 8, wallThick: 20, gap: 8 },
+  CONFIG: { cellSize: 120, gridCount: 9, slotCount: 8, wallThick: 15, gap: 8 },
 
   /**
    * @typedef {object} Direction
@@ -243,6 +243,32 @@ const Game = {
     // this.canvas.style.width = size + 'px'; // <--- REMOVED: Managed by CSS (100%)
     // this.canvas.style.height = size + 'px';// <--- REMOVED
     this.ctx.scale(dpr, dpr);
+  },
+
+  /**
+   * Палитра игровой доски — из CSS-токенов (макеты Rules/canvas1-Mobile).
+   * Кешируется: getComputedStyle на каждый кадр недопустимо.
+   */
+  boardTheme() {
+    if (this._boardTheme) return this._boardTheme;
+    var style = getComputedStyle(document.documentElement);
+    var cssVar = function (name, fallback) {
+      var v = style.getPropertyValue(name);
+      v = v ? v.trim() : '';
+      return v || fallback;
+    };
+    this._boardTheme = {
+      cellFill: cssVar('--cell-2'),
+      coordColor: cssVar('--text-faint'),
+      fontFamily: cssVar('--font-sans', 'Manrope, sans-serif'),
+      pawnWhite: cssVar('--pawn-white'),
+      pawnWhiteBorder: cssVar('--pawn-white-border'),
+      pawnBlack: cssVar('--pawn-black'),
+      pawnBlackBorder: cssVar('--pawn-black-border'),
+      accent: cssVar('--accent'),
+      accentLight: cssVar('--accent-light'),
+    };
+    return this._boardTheme;
   },
   handleGameOver(winnerIdx, reason, ratingChanges, gameResultId, hasBot) {
     if (this.isGameOver) return;
@@ -1019,15 +1045,27 @@ const Game = {
    * Рисует сетку игрового поля 9x9 (темные квадраты).
    */
   drawGrid() {
+    var theme = this.boardTheme();
     BoardRenderer.drawGrid(this.ctx, {
       cellSize: this.CONFIG.cellSize,
+      cellFill: theme.cellFill,
+      cellRadius: 9,
       transformRow: (r) => this.transformRow(r),
     });
   },
 
   drawCoordinates() {
+    var theme = this.boardTheme();
     BoardRenderer.drawCoordinates(this.ctx, {
       cellSize: this.CONFIG.cellSize,
+      coordColor: theme.coordColor,
+      fontFamily: theme.fontFamily,
+      fontSize: this.CONFIG.cellSize * 0.22,
+      padding: 0,
+      coordInsetLeft: 9,
+      coordInsetTop: 6,
+      coordInsetRight: 9,
+      coordInsetBottom: 6,
       transformRow: (r) => this.transformRow(r),
     });
   },
@@ -1060,10 +1098,15 @@ const Game = {
       }
     }
 
+    var theme = this.boardTheme();
     BoardRenderer.drawPawns(this.ctx, state, {
       cellSize: this.CONFIG.cellSize,
       transformRow: (r) => this.transformRow(r),
       pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
+      pawnFillColors: [theme.pawnWhite, theme.pawnBlack],
+      pawnStrokeColors: [theme.pawnWhiteBorder, theme.pawnBlackBorder],
+      pawnStrokeWidth: 6,
+      pawnRadius: this.CONFIG.cellSize * 0.368,
     });
 
     if (needsRedraw) {
@@ -1112,10 +1155,13 @@ const Game = {
       }
     }
 
+    var theme = this.boardTheme();
     BoardRenderer.drawPlacedWalls(this.ctx, state, {
       cellSize: this.CONFIG.cellSize,
       gap: this.CONFIG.gap,
       wallThick: this.CONFIG.wallThick,
+      wallRadius: 6,
+      wallColor: theme.accent,
       transformWallRow: (r) => this.myPlayerIndex === 1 ? 7 - r : r,
       wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
     });
@@ -1183,21 +1229,23 @@ const Game = {
       const { r, c } = this.state.players[this.state.drag.playerIdx].pos;
       // Если целевая клетка допустима, рисуем полупрозрачную фишку там
       if (target && Shared.canMovePawn(this.state, r, c, target.r, target.c)) {
+        var theme2 = this.boardTheme();
         const x = (target.c + 0.5) * this.CONFIG.cellSize;
         const y = (this.transformRow(target.r) + 0.5) * this.CONFIG.cellSize;
         this.ctx.globalAlpha = 0.5;
-        this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#F2F2F2' : '#0E0E10';
+        this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? theme2.pawnWhite : theme2.pawnBlack;
         this.ctx.beginPath();
         this.ctx.arc(x, y, this.CONFIG.cellSize * 0.35, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.globalAlpha = 1;
       }
       // Рисуем фишку под курсором (саму "руку")
-      this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? '#F2F2F2' : '#0E0E10';
+      var theme = this.boardTheme();
+      this.ctx.fillStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? theme.pawnWhite : theme.pawnBlack;
       this.ctx.beginPath();
       this.ctx.arc(this.state.drag.x, this.state.drag.y, this.CONFIG.cellSize * 0.35, 0, Math.PI * 2);
       this.ctx.fill();
-      this.ctx.strokeStyle = '#9A9A9A';
+      this.ctx.strokeStyle = this.state.players[this.state.drag.playerIdx].color === 'white' ? theme.pawnWhiteBorder : theme.pawnBlackBorder;
       this.ctx.lineWidth = 3;
       this.ctx.stroke();
 
@@ -1246,7 +1294,7 @@ const Game = {
         }
       }
       // Рисуем стену под курсором (саму "руку")
-      this.ctx.fillStyle = '#F5B13C';
+      this.ctx.fillStyle = this.boardTheme().accentLight;
       const w = this.state.drag.isVertical ? this.CONFIG.wallThick : this.CONFIG.cellSize * 2;
       const h = this.state.drag.isVertical ? this.CONFIG.cellSize * 2 : this.CONFIG.wallThick;
       this.ctx.fillRect(this.state.drag.x - w / 2, this.state.drag.y - h / 2, w, h);
