@@ -482,7 +482,7 @@ canvas {
 
 .wall-template:hover {
     transform: scale(1.1);
-    box-shadow: 0 4px 15px rgba(233, 162, 44, 0.5);
+    box-shadow: 0 4px 15px rgba(240, 168, 42, 0.5);
 }
 
 .wall-template:active {
@@ -709,9 +709,9 @@ canvas {
 /* Win state – glass gold */
 .win-state {
     background: rgba(15, 25, 10, 0.92);
-    border: 1px solid rgba(233, 162, 44, 0.4);
+    border: 1px solid rgba(240, 168, 42, 0.4);
     box-shadow:
-        0 0 60px rgba(233, 162, 44, 0.15),
+        0 0 60px rgba(240, 168, 42, 0.15),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
     color: var(--accent);
 }
@@ -723,7 +723,7 @@ canvas {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle at 50% 0%, rgba(233, 162, 44, 0.06), transparent 60%);
+    background: radial-gradient(circle at 50% 0%, rgba(240, 168, 42, 0.06), transparent 60%);
     pointer-events: none;
 }
 
@@ -882,7 +882,7 @@ canvas {
 }
 
 .primary-btn {
-    background: linear-gradient(180deg, #F5B13C 0%, #E9A22C 55%, #C9821E 100%);
+    background: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 55%, var(--accent-dark) 100%);
     color: #17120A;
     border: none;
     padding: 12px 24px;
@@ -894,7 +894,7 @@ canvas {
 }
 
 .primary-btn:hover {
-    background: linear-gradient(180deg, #FFC35C 0%, #F5B13C 55%, #D68F24 100%);
+    background: linear-gradient(180deg, #FFC35C 0%, var(--accent-light) 55%, #D68F24 100%);
     transform: translateY(-1px);
     filter: brightness(1.03)
 }
@@ -1047,7 +1047,7 @@ canvas {
     margin-bottom: 1rem;
     z-index: 10;
     width: 100%;
-    text-shadow: 0 4px 15px rgba(233, 162, 44, 0.2);
+    text-shadow: 0 4px 15px rgba(240, 168, 42, 0.2);
     /* Font specifically for title? */
     letter-spacing: 2px;
 }
@@ -1075,7 +1075,7 @@ canvas {
     user-select: none;
     text-align: center;
     margin-bottom: 2px;
-    text-shadow: 0 0 20px rgba(233, 162, 44, 0.5), 0 0 60px rgba(233, 162, 44, 0.2);
+    text-shadow: 0 0 20px rgba(240, 168, 42, 0.5), 0 0 60px rgba(240, 168, 42, 0.2);
 }
 
 .menu-tagline {
@@ -1249,7 +1249,7 @@ canvas {
 }
 
 .menu-panel button.primary-btn {
-    background: linear-gradient(180deg, #F5B13C 0%, #E9A22C 55%, #C9821E 100%);
+    background: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 55%, var(--accent-dark) 100%);
     color: #17120A;
     border: none;
     font-weight: 400;
@@ -1257,7 +1257,7 @@ canvas {
 }
 
 .menu-panel button.primary-btn:hover {
-    background: linear-gradient(180deg, #FFC35C 0%, #F5B13C 55%, #D68F24 100%);
+    background: linear-gradient(180deg, #FFC35C 0%, var(--accent-light) 55%, #D68F24 100%);
 }
 
 .menu-panel button.primary-btn:disabled {
@@ -2412,14 +2412,14 @@ canvas {
 }
 
 .panel-buttons .primary-btn {
-    background: linear-gradient(180deg, #F5B13C 0%, #E9A22C 55%, #C9821E 100%);
+    background: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 55%, var(--accent-dark) 100%);
     color: #17120A;
     font-weight: 700;
     text-align: center;
 }
 
 .panel-buttons .primary-btn:hover {
-    background: linear-gradient(180deg, #FFC35C 0%, #F5B13C 55%, #D68F24 100%);
+    background: linear-gradient(180deg, #FFC35C 0%, var(--accent-light) 55%, #D68F24 100%);
 }
 
 /* How to Play panel */
@@ -2571,7 +2571,7 @@ canvas {
 
 .time-opt.selected {
     border-color: var(--wall);
-    background: rgba(233, 162, 44, 0.1);
+    background: rgba(240, 168, 42, 0.1);
     color: var(--wall);
 }
 
@@ -2664,7 +2664,7 @@ canvas {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 3px;
-    text-shadow: 0 2px 15px rgba(233, 162, 44, 0.3);
+    text-shadow: 0 2px 15px rgba(240, 168, 42, 0.3);
     margin: 0;
     text-align: center;
     line-height: 1.2;

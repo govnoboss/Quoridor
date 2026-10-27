@@ -1,94 +1,94 @@
-/* PlayQuor design tokens — единственный источник значений. v1.0.0 */
+/* PlayQuor design tokens v2.0.0 — значения взяты из макетов */
 :root {
   color-scheme: dark;
 
-  /* --- существующие (перенесены из style.css без изменений) --- */
-  --bg: #0B0C0D;
-  --bg-2: #101112;
-  --surface: #171819;
-  --panel: #1B1C1E;
-  --panel-light: #222426;
-  --row: #1E2022;
-  --row-hover: #292B2D;
-  --accent: #E9A22C;
-  --accent-light: #F5B13C;
-  --accent-dark: #C9821E;
-  --wall: #E9A22C;
-  --highlight: #F5B13C;
-  --text: #F2F2F2;
-  --text-dim: #A0A0A0;
-  --text-muted: #A0A0A0;
-  --online-green: #43D17A;
-  --board: #141516;
-  --header-h: 64px;
+  /* фоны и поверхности */
+  --bg: #0a0b0d;            /* страница */
+  --bg-2: #0b0c0f;          /* фон игровой панели */
+  --surface: #131417;       /* карточки, плашки, строки */
+  --panel: #131417;
+  --panel-light: #1c1e22;   /* плитка иконки, чип роли, кнопка «Edit profile» */
+  --raised: #1c1d20;        /* боковая панель партии, сегмент-контролы, меню-поповер */
+  --btn-neutral: #2a2b30;   /* кнопки панели партии */
+  --row: #131417;
+  --row-hover: #191b1f;
+  --cell: #1b1c20;          /* клетка доски на главной */
+  --cell-2: #222327;        /* клетка схем в правилах, отключённая кнопка, карточка Evaluation */
+  --board: #0a0b0d;
 
-  /* --- новые: цвет --- */
-  --text-on-accent: #17120A;               /* уточнено по разведке п. б (.primary-btn) */
-  --accent-soft: rgba(233, 162, 44, .16);  /* заливка активных чипов, подсветки */
-  --accent-line: rgba(233, 162, 44, .40);  /* рамка активных чипов */
-  --accent-ring: rgba(233, 162, 44, .25);  /* focus-кольцо инпутов */
-  --success: var(--online-green);
-  --warning: #D6B23C;
-  --danger: #D64646;
-  --danger-soft: rgba(214, 70, 70, .16);
-  --danger-line: rgba(214, 70, 70, .50);
-  --border: rgba(255, 255, 255, .06);
-  --border-strong: rgba(255, 255, 255, .12);
-  --overlay: rgba(0, 0, 0, .60);
-  --hover-tint: rgba(255, 255, 255, .06);
+  /* линии */
+  --border: #1f2125;        /* рамки карточек, разделители таблиц-шапок */
+  --border-ctl: #23252a;    /* рамки контролов и меню-кнопок */
+  --border-header: #1d1f23; /* нижняя рамка шапки и верхняя подвала */
+  --border-strong: #2a2c32; /* рамки кнопок профиля, меню */
+  --border-btn: #3a3c42;    /* рамки кнопок панели партии */
+  --divider: #191b1f;       /* строки таблиц */
 
-  /* --- новые: типографика --- */
+  /* текст */
+  --text: #ececee;
+  --text-strong: #ffffff;
+  --text-body: #c4c7ce;     /* абзацы правил */
+  --text-2: #b9bcc4;        /* контролы, цифры в таблицах */
+  --text-3: #9a9ea7;        /* неактивные пункты, подзаголовки */
+  --text-dim: #8b8f98;      /* подписи, шапки колонок */
+  --text-muted: #7d818a;    /* версия, подвал */
+  --text-faint: #6c6f76;    /* подписи осей/клеток */
+  --text-disabled: #5d6068;
+  --chevron: #6f7480;
+
+  /* акцент */
+  --accent: #f0a82a;
+  --accent-light: #f5b13c;  /* hover, в макете не нарисован: взято из старого сайта */
+  --accent-dark: #c9821e;   /* active, то же */
+  --wall: #f0a82a;
+  --highlight: #f0a82a;
+  --on-accent: #1a1204;     /* текст на акценте */
+  --accent-bg: #17130b;     /* акцентная карточка */
+  --accent-bg-2: #1f180a;   /* строка «You», пункт TOC */
+  --accent-chip: #2a2210;   /* чип Admin, плитка Tip */
+  --accent-border: #3a2c10;
+  --accent-text-dim: #a39a86;
+  --accent-text-2: #c9bfa6;
+  --accent-text-3: #d4c9b0;
+
+  /* статусы и награды */
+  --online-green: #3ecf8e;
+  --success: #3ecf8e;
+  --danger: #f2555a;
+  --danger-bg: #2a1214;
+  --silver: #c0c4cc;
+  --bronze: #c98a52;
+  --medal-on-silver: #15161a;
+  --discord-bg: #14162a;
+  --discord-border: #232647;
+
+  /* доска и eval bar */
+  --eval-track: #2b2d33;
+  --eval-fill: #ececec;
+  --pawn-white: #f3f3f3;
+  --pawn-white-border: #ffffff;
+  --pawn-black: #0f0f11;
+  --pawn-black-border: #4a4c52;
+  --pawn-marker-black-border: #6a6d75;
+  --pawn-marker-white-border: #8b8f98;
+
+  --hover-tint: rgba(255,255,255,.06);
+
+  /* компоновка */
+  --header-h: 56px;
+  --page-pad-x: 64px;
+
+  /* шрифт */
   --font-sans: 'Manrope', Inter, Arial, sans-serif;
-  --font-mono: 'Courier New', monospace;
-  --fs-xs: 12px;
-  --fs-sm: 13px;
-  --fs-base: 14px;
-  --fs-md: 16px;
-  --fs-lg: 18px;
-  --fs-xl: 20px;
-  --fs-2xl: 24px;
-  --fs-3xl: 32px;
-  --fs-4xl: 40px;
-  --fw-regular: 400;
-  --fw-medium: 500;
-  --fw-semibold: 600;
-  --fw-bold: 700;
-  --fw-extrabold: 800;
-  --lh-tight: 1.2;
-  --lh-base: 1.5;
+  --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
 
-  /* --- новые: отступы (шаг 4px) --- */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
+  /* радиусы (значения из макетов) */
+  --r-2: 2px; --r-3: 3px; --r-4: 4px; --r-6: 6px; --r-8: 8px;
+  --r-10: 10px; --r-12: 12px; --r-14: 14px; --r-chip: 16px; --r-pill: 22px;
 
-  /* --- новые: радиусы --- */
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 999px;
-
-  /* --- новые: тени (значения уже есть в style.css, сведены в шкалу) --- */
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, .3);
-  --shadow-2: 0 8px 20px rgba(0, 0, 0, .4);
-  --shadow-3: 0 16px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .06);
-  --shadow-accent: 0 4px 15px rgba(233, 162, 44, .5);
-
-  /* --- новые: z-index (значения те же, что уже в style.css) --- */
-  --z-base: 1;
-  --z-sticky: 100;
-  --z-dropdown: 1000;
-  --z-overlay: 10001;
-  --z-modal: 10002;
-  --z-header: 10010;
-  --z-toast: 10020;
+  /* z-index: значения прежние */
+  --z-sticky: 100; --z-dropdown: 1000; --z-overlay: 10001; --z-modal: 10002;
+  --z-header: 1000; --z-toast: 10020;
 }
 
 /* Брейкпоинты (CSS-переменные в @media не работают, значения для справки):
