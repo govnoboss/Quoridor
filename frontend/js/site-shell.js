@@ -214,12 +214,22 @@
       });
   }
 
-  mountHeader();
-  mountFooter();
-  applyLabels();
-  setActiveNav();
-  markProfileActive();
-  bindMenu();
-  bindLang();
-  loadAuth();
+    mountHeader();
+
+    function init() {
+      mountFooter();
+      applyLabels();
+      setActiveNav();
+      markProfileActive();
+      bindMenu();
+      bindLang();
+      loadAuth();
+    }
+
+    // Скрипт подключён до #siteFooter в разметке — подвал появится позже.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
 })();
