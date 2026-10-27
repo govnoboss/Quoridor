@@ -12,8 +12,18 @@ jest.mock('../src/models/User', () => {
     const store = new Map();
     let nextId = 1;
 
+    // Adds a toObject() shim so document-style routes (e.g. /api/profiles) can
+    // serialize a mock user the same way Mongoose does.
+    const withToObject = (user) => {
+        user.toObject = function () {
+            const { save, toObject: _ignored, ...rest } = user;
+            return rest;
+        };
+        return user;
+    };
+
     const MockUser = jest.fn().mockImplementation((data) => {
-        const user = {
+        const user = withToObject({
             _id: String(nextId++),
             username: data.username,
             email: data.email || `${data.username}@test.com`,
@@ -36,14 +46,37 @@ jest.mock('../src/models/User', () => {
     });
 
     MockUser.findOne = jest.fn((query = {}) => {
-        if (query.username) return store.get(query.username) || null;
-        if (query.email) {
+        // Порядок: username → email. Возвращает thenable:
+        // `await` даёт сырой документ (со всеми полями), `.select()` —
+        // проекцию как в Mongoose (поля с '-' удаляются).
+        let picked = null;
+        if (query.username) picked = store.get(query.username) || null;
+        else if (query.email) {
             for (const user of store.values()) {
-                if (user.email === query.email) return user;
+                if (user.email === query.email) { picked = user; break; }
             }
+        } else {
             return null;
         }
-        return null;
+        return {
+            select(fields) {
+                if (!picked) return Promise.resolve(null);
+                const clone = { ...picked };
+                if (typeof fields === 'string') {
+                    fields.split(/\s+/).filter(Boolean).forEach((f) => {
+                        if (f.startsWith('-')) delete clone[f.slice(1)];
+                    });
+                }
+                clone.toObject = function () {
+                    const { save, toObject: _ignored, ...rest } = clone;
+                    return rest;
+                };
+                return Promise.resolve(clone);
+            },
+            then(resolve, reject) {
+                return Promise.resolve(picked).then(resolve, reject);
+            },
+        };
     });
     MockUser.findById = jest.fn((id) => ({
         select(fields) {
@@ -105,7 +138,7 @@ jest.mock('../src/models/User', () => {
 
     MockUser.__clearStore = () => { store.clear(); nextId = 1; };
     MockUser.__seedUser = (data) => {
-        const user = { _id: String(nextId++), ...data, save: jest.fn().mockResolvedValue(true) };
+        const user = withToObject({ _id: String(nextId++), ...data, save: jest.fn().mockResolvedValue(true) });
         store.set(user.username, user);
         return user;
     };
@@ -372,6 +405,48 @@ describe('Leaderboard Me API', () => {
         const res = await agent.get('/api/leaderboard/me');
         expect(res.status).toBe(404);
         expect(res.body.error).toBe('Not ranked');
+    });
+});
+
+describe('Profile rank API', () => {
+    const hash = bcrypt.hashSync('testpass123', 10);
+
+    beforeEach(() => {
+        User.__clearStore();
+    });
+
+    it('GET /api/profiles/:username returns rank for non-admin player', async () => {
+        User.__seedUser({ username: 'topA', passwordHash: hash, rating: 1800 });
+        User.__seedUser({ username: 'topB', passwordHash: hash, rating: 1600 });
+        User.__seedUser({ username: 'viewme', passwordHash: hash, rating: 1400 });
+        const res = await request(app).get('/api/profiles/viewme');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBe(3);
+    });
+
+    it('equal ratings share the same profile rank', async () => {
+        User.__seedUser({ username: 'halfA', passwordHash: hash, rating: 1200 });
+        User.__seedUser({ username: 'halfB', passwordHash: hash, rating: 1200 });
+        const res = await request(app).get('/api/profiles/halfB');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBe(1);
+    });
+
+    it('admin accounts are skipped in ranking', async () => {
+        User.__seedUser({ username: 'chief', passwordHash: hash, rating: 2500, isAdmin: true });
+        User.__seedUser({ username: 'solo', passwordHash: hash, rating: 1000 });
+        const res = await request(app).get('/api/profiles/solo');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBe(1);
+    });
+
+    it('profile response contains no admin-only fields', async () => {
+        User.__seedUser({ username: 'plain', passwordHash: hash, rating: 1100 });
+        const res = await request(app).get('/api/profiles/plain');
+        expect(res.status).toBe(200);
+        expect(res.body.passwordHash).toBeUndefined();
+        expect(res.body.email).toBeUndefined();
+        expect(res.body.isAdmin).toBeUndefined();
     });
 });
 
