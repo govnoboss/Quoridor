@@ -890,6 +890,31 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
+// Собственное место игрока в лидерборде (строка «You» на главной, этап 2 §5.1).
+// Ранг = 1 + число игроков с рейтингом выше (тот же фильтр isAdmin, что у топа).
+app.get('/api/leaderboard/me', async (req, res) => {
+    try {
+        if (!req.session || !req.session.userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const user = await User.findById(req.session.userId).select('username rating isAdmin');
+        if (!user) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        if (user.isAdmin) {
+            return res.status(404).json({ error: 'Not ranked' });
+        }
+        const betterCount = await User.countDocuments({
+            isAdmin: { $ne: true },
+            rating: { $gt: user.rating },
+        });
+        res.json({ rank: betterCount + 1, total: betterCount + 1, rating: user.rating, username: user.username });
+    } catch (err) {
+        console.error('[LEADERBOARD ME] Error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Single Game Details (for Replay)
 app.get('/api/games/:id', async (req, res) => {
     try {

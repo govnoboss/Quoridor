@@ -84,6 +84,24 @@ jest.mock('../src/models/User', () => {
         return chain;
     });
     MockUser.findByIdAndUpdate = jest.fn(() => Promise.resolve(null));
+    MockUser.countDocuments = jest.fn((query = {}) => {
+        const users = Array.from(store.values());
+        return Promise.resolve(users.filter((user) => {
+            if (query && Object.keys(query).length > 0) {
+                return Object.entries(query).every(([k, v]) => {
+                    if (k === 'isAdmin' && v?.$ne === true) return user.isAdmin !== true;
+                    if (k === 'rating' && v && typeof v === 'object' && !Array.isArray(v)) {
+                        if ('$gt' in v && !((user.rating || 0) > v.$gt)) return false;
+                        if ('$gte' in v && !((user.rating || 0) >= v.$gte)) return false;
+                        if ('$lt' in v && !((user.rating || 0) < v.$lt)) return false;
+                        return true;
+                    }
+                    return user[k] === v;
+                });
+            }
+            return true;
+        }).length);
+    });
 
     MockUser.__clearStore = () => { store.clear(); nextId = 1; };
     MockUser.__seedUser = (data) => {
@@ -293,6 +311,67 @@ describe('Auth API', () => {
         const res = await request(app).get('/api/auth/me');
         expect(res.status).toBe(200);
         expect(res.body.isAuthenticated).toBe(false);
+    });
+});
+
+describe('Leaderboard Me API', () => {
+    const hash = bcrypt.hashSync('testpass123', 10);
+
+    beforeEach(() => {
+        User.__clearStore();
+    });
+
+    async function loginAgent(username) {
+        const agent = request.agent(app);
+        await agent.post('/api/auth/login').send({ username, password: 'testpass123' });
+        return agent;
+    }
+
+    it('guest gets 401', async () => {
+        const res = await request(app).get('/api/leaderboard/me');
+        expect(res.status).toBe(401);
+    });
+
+    it('top player gets rank 1', async () => {
+        User.__seedUser({ username: 'topuser', passwordHash: hash, rating: 1500 });
+        const agent = await loginAgent('topuser');
+        const res = await agent.get('/api/leaderboard/me');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBe(1);
+        expect(res.body.rating).toBe(1500);
+        expect(res.body.username).toBe('topuser');
+    });
+
+    it('equal rating shares the same rank', async () => {
+        User.__seedUser({ username: 'tiedone', passwordHash: hash, rating: 1600 });
+        User.__seedUser({ username: 'tiedtwo', passwordHash: hash, rating: 1600 });
+        const agentA = await loginAgent('tiedone');
+        const agentB = await loginAgent('tiedtwo');
+        const [resA, resB] = await Promise.all([
+            agentA.get('/api/leaderboard/me'),
+            agentB.get('/api/leaderboard/me'),
+        ]);
+        expect(resA.status).toBe(200);
+        expect(resB.status).toBe(200);
+        expect(resA.body.rank).toBe(1);
+        expect(resB.body.rank).toBe(1);
+    });
+
+    it('player with lower rating is ranked behind better players', async () => {
+        User.__seedUser({ username: 'betterone', passwordHash: hash, rating: 1700 });
+        User.__seedUser({ username: 'lowerrate', passwordHash: hash, rating: 1300 });
+        const agent = await loginAgent('lowerrate');
+        const res = await agent.get('/api/leaderboard/me');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBe(2);
+    });
+
+    it('admin is not ranked (404)', async () => {
+        User.__seedUser({ username: 'bossuser', passwordHash: hash, rating: 2000, isAdmin: true });
+        const agent = await loginAgent('bossuser');
+        const res = await agent.get('/api/leaderboard/me');
+        expect(res.status).toBe(404);
+        expect(res.body.error).toBe('Not ranked');
     });
 });
 
