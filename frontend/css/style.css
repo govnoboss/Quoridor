@@ -1550,50 +1550,60 @@ canvas {
     font-weight: 500;
 }
 
-/* --- SOCIAL BAR --- */
+/* --- FOOTER (SPA: social-bar shown on mainMenu only) --- */
 .social-bar {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
+    height: 56px;
+    box-sizing: border-box;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 10px 20px;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 64px;
+    border-top: 1px solid var(--border-header);
+    font-size: 13px;
+    color: var(--text-muted);
     z-index: 50;
     pointer-events: none;
 }
 .social-bar .social-link {
-    color: #777;
+    color: var(--text-muted);
     transition: color 0.2s;
     display: inline-flex;
     align-items: center;
     text-decoration: none;
-    font-size: 12px;
+    font-size: 13px;
     pointer-events: auto;
 }
 .social-bar .social-link:hover {
-    color: var(--wall);
+    color: var(--text);
 }
 .social-bar .social-link svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     fill: currentColor;
 }
 .social-bar .social-text {
-    letter-spacing: 0.5px;
+    letter-spacing: 0;
 }
 .social-bar .social-separator {
-    color: #444;
-    font-size: 13px;
-    pointer-events: none;
+    display: none;
 }
 .social-group {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
+}
+/* "Found a bug?" — right group is accent */
+.social-bar .social-group:last-of-type .social-link {
+    color: var(--accent);
+    font-weight: 600;
+}
+.social-bar .social-group:last-of-type .social-link:hover {
+    color: var(--accent-light);
 }
 .discord-link svg {
     width: 28px;

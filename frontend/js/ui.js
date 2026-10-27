@@ -705,7 +705,7 @@ const UI = {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     this.updateHeaderVisibility();
-    const playActive = (id === 'mainMenu' || id === 'modeScreen' || id === 'roomScreen' || id === 'gameScreen');
+    const playActive = (id === 'mainMenu' || id === 'modeScreen' || id === 'roomScreen');
     document.querySelectorAll('.header-nav-link[data-nav="play"]').forEach(a => playActive ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   },
   showModeSelect() { this.showScreen('modeScreen'); },
