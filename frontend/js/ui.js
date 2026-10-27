@@ -319,7 +319,33 @@ const UI = {
       banned_reason: "Причина: ",
       banned_until: "Бан действует до: ",
       banned_permanent: "Этот бан бессрочный.",
-      banned_ok: "OK"
+      banned_ok: "OK",
+      // Главная v2 (этап 2)
+      menu_tagline: "THINK · BLOCK · WIN",
+      home_title: "Quoridor онлайн.",
+      home_lead: "Дойдите до другой стороны и блокируйте соперника стенами.",
+      menu_online_sub: "Рейтинговая · онлайн: {n}",
+      menu_bot: "Играть с ботом",
+      menu_bot_sub: "От лёгкого до невозможного",
+      menu_friend_sub: "Отправьте ссылку-приглашение",
+      menu_pass: "Игра вдвоём",
+      menu_pass_sub: "Один экран, два игрока",
+      card_new_title: "Новичок в Quoridor?",
+      card_new_sub: "Правила за 2 минуты",
+      card_new_btn: "Начать",
+      lb_title: "Рейтинг",
+      lb_view_all: "Весь рейтинг",
+      lb_you: "Вы",
+      lb_empty: "Пока нет игроков",
+      lb_error: "Не удалось загрузить рейтинг",
+      online_label: "online · {n} в игре",
+      discord_card: "Вливайтесь в наш Discord",
+      discord_join: "Вступить",
+      ranked_sub: "Рейтинг меняется",
+      normal_sub: "Без изменения рейтинга",
+      room_copy: "Копировать",
+      color_title: "Выберите цвет",
+      search_title: "Поиск игры…"
     },
     en: {
       menu_rules: "Rules",
@@ -633,7 +659,33 @@ const UI = {
       banned_reason: "Reason: ",
       banned_until: "Ban expires: ",
       banned_permanent: "This ban is permanent.",
-      banned_ok: "OK"
+      banned_ok: "OK",
+      // Home v2 (stage 2) — texts from the design reference
+      menu_tagline: "THINK · BLOCK · WIN",
+      home_title: "Quoridor, online.",
+      home_lead: "Race to the other side and block your rival with walls.",
+      menu_online_sub: "Ranked · {n} players online",
+      menu_bot: "Play vs Bot",
+      menu_bot_sub: "Easy to Impossible",
+      menu_friend_sub: "Send an invite link",
+      menu_pass: "Pass & Play",
+      menu_pass_sub: "Two players, one device",
+      card_new_title: "New to Quoridor?",
+      card_new_sub: "Learn the rules in a 2-minute walkthrough",
+      card_new_btn: "Start",
+      lb_title: "Leaderboard",
+      lb_view_all: "View all",
+      lb_you: "You",
+      lb_empty: "No players yet",
+      lb_error: "Couldn't load the leaderboard",
+      online_label: "online · {n} in game",
+      discord_card: "Join us on Discord",
+      discord_join: "Join",
+      ranked_sub: "Your rating changes",
+      normal_sub: "No rating change",
+      room_copy: "Copy",
+      color_title: "Choose your color",
+      search_title: "Searching for game…"
     }
   },
 
@@ -655,50 +707,48 @@ const UI = {
       ? data
       : { online: data, playing: arguments[1] || 0 };
 
-    const onlineEl = document.getElementById('statsOnlineCount');
-    const playingEl = document.getElementById('statsPlayingCount');
-    if (onlineEl) onlineEl.textContent = payload.online || 0;
-    if (playingEl) playingEl.textContent = payload.playing || 0;
+    // Сохраняем последние значения: setLanguage перерисовывает [data-i18n] по словарю,
+    // и динамические подписи надо заново наполнить числами.
+    this.lastOnlineStats = {
+      online: payload.online || 0,
+      playing: payload.playing || 0,
+    };
 
+    this.refreshDynamicTexts();
     this.renderPresenceLists(payload);
   },
 
+  // Динамические подписи главной — подставляем свежую статистику в словарные строки с {n}.
+  refreshDynamicTexts() {
+    const stats = this.lastOnlineStats || { online: 0, playing: 0 };
+    const labelEl = document.getElementById('onlineStatsLabel');
+    if (labelEl) labelEl.textContent = this.translate('online_label').replace('{n}', stats.playing);
+    const subEl = document.getElementById('menuOnlineSub');
+    if (subEl) subEl.textContent = this.translate('menu_online_sub').replace('{n}', stats.online);
+  },
+
   renderPresenceLists(data) {
-    const onlineList = document.getElementById('onlinePlayersList');
-    const gamesList = document.getElementById('liveGamesList');
+    // Новая главная показывает присутствие стеком аватаров в карточке online
+    // (3 инициала + пилюля «+N»; legacy-списки #onlinePlayersList/#liveGamesList удалены).
+    const stack = document.getElementById('onlineAvatarStack');
+    if (!stack) return;
 
-    const entries = [
-      ...(data.humans || []),
-      ...(data.bots || []),
-    ];
+    const online = Number(data.online)
+      || ((data.humans || []).length + (data.bots || []).length)
+      || 0;
+    const entries = [...(data.humans || []), ...(data.bots || [])];
 
-    if (!entries.length) {
-      onlineList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_empty'))}</li>`;
-    } else {
-      onlineList.innerHTML = entries.map((entry) => {
-        const queue = entry.inQueue ? '<span class="presence-queue">…</span>' : '';
-        return `<li class="presence-row" onclick="UI.showProfilePage('${this.escapeJsString(entry.name)}')">
-          <span class="presence-name">${this.escapeHtml(entry.name)}</span>${queue}
-        </li>`;
-      }).join('');
+    const parts = entries.slice(0, 3).map((entry, i) => {
+      const name = String(entry.name || '?');
+      const initial = name.charAt(0).toUpperCase();
+      return `<span class="home-av home-av--${i + 1}" title="${this.escapeHtml(name)}">${this.escapeHtml(initial)}</span>`;
+    });
+    const rest = online - parts.length;
+    if (rest > 0) {
+      parts.push(`<span class="home-av home-av--plus">+${rest}</span>`);
     }
 
-    if (gamesList) {
-      const games = data.liveGames || [];
-      if (!games.length) {
-        gamesList.innerHTML = `<li class="presence-empty">${this.escapeHtml(this.translate('presence_no_games'))}</li>`;
-      } else {
-        gamesList.innerHTML = games.map((game) => {
-          const left = game.players[0];
-          const right = game.players[1];
-          return `<li class="presence-game">
-            <span onclick="UI.showProfilePage('${this.escapeJsString(left.name)}')">${this.escapeHtml(left.name)}</span>
-            <span class="presence-vs">vs</span>
-            <span onclick="UI.showProfilePage('${this.escapeJsString(right.name)}')">${this.escapeHtml(right.name)}</span>
-          </li>`;
-        }).join('');
-      }
-    }
+    stack.innerHTML = parts.join('');
   },
 
   showScreen(id) {
@@ -804,8 +854,12 @@ const UI = {
       if (panelId === 'panelRoom' && autoCreate && !this.currentRoomCode) {
         this.createPrivateRoom();
       }
+
+      // Фокус: запоминаем вызвавший элемент, переносим фокус в окно (a11y).
+      this.lastFocusedElement = document.activeElement;
+      const focusable = panel.querySelector('button, input, select, a[href]');
+      if (focusable && typeof focusable.focus === 'function') focusable.focus();
     }
-    this.updateHeaderVisibility();
   },
 
   hideDynamicPanel() {
@@ -823,7 +877,12 @@ const UI = {
     // В остальных случаях просто очищаем классы и скрываем контент
     document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
     container.classList.add('empty');
-    this.updateHeaderVisibility();
+
+    // Возврат фокуса на элемент, вызвавший окно.
+    if (this.lastFocusedElement && typeof this.lastFocusedElement.focus === 'function') {
+      this.lastFocusedElement.focus();
+    }
+    this.lastFocusedElement = null;
   },
 
   updateHeaderVisibility() {
@@ -835,18 +894,18 @@ const UI = {
     const activeScreen = document.querySelector('.screen.active');
     const isMainMenu = activeScreen && activeScreen.id === 'mainMenu';
 
-    const isMobile = window.innerWidth <= 768;
+    // Окна этапа 2 — полноценные оверлеи и перекрывают шапку сами (ТЗ: скрывать не нужно).
+    if (isPanelOpen) {
+      header.classList.remove('hidden');
+      return;
+    }
 
     if (!isMainMenu) {
       header.classList.add('hidden');
       return;
     }
 
-    if (isMobile && isPanelOpen) {
-      header.classList.add('hidden');
-    } else {
-      header.classList.remove('hidden');
-    }
+    header.classList.remove('hidden');
   },
 
   setLanguage(lang) {
@@ -871,10 +930,16 @@ const UI = {
     const headerLang = document.getElementById('headerLang');
     if (headerLang) headerLang.value = lang;
 
-    // Dynamic (JS-rendered) labels are not covered by [data-i18n]; refresh them.
-    if (typeof Game !== 'undefined' && Game.refreshBotControls) {
-      try { Game.refreshBotControls(); } catch (e) { /* ignore */ }
-    }
+    // Dynamic (JS-rendered) labels are not covered by [data-i18n]; refresh them first
+    // (ссылка на Game ниже может быть в TDZ, если game.js не догрузился — это не должно ломать перевод).
+    try {
+      this.refreshDynamicTexts();
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof Game !== 'undefined' && Game.refreshBotControls) {
+        Game.refreshBotControls();
+      }
+    } catch (e) { /* ignore */ }
   },
 
   changeLanguage(lang) {
@@ -897,15 +962,16 @@ const UI = {
   },
 
   saveSettingsInline() {
-    const theme = document.getElementById('themeSelectInline').value;
+    // Селект темы удалён из разметки (в наборе только Dark) — null-safe.
+    const themeEl = document.getElementById('themeSelectInline');
     const lang = document.getElementById('langSelectInline').value;
     const sound = document.getElementById('soundSelectInline').value;
 
-    document.body.className = theme;
+    if (themeEl) document.body.className = themeEl.value;
     this.setLanguage(lang);
     this.AudioManager.enabled = (sound === 'on');
 
-    localStorage.setItem('quoridor-theme', theme);
+    localStorage.setItem('quoridor-theme', (themeEl ? themeEl.value : 'dark'));
     localStorage.setItem('quoridor-lang', lang);
     localStorage.setItem('quoridor-sound', sound);
 
@@ -940,30 +1006,19 @@ const UI = {
   },
 
   showSearch(timeData, isRanked = false) {
-    // 1. Изменение UI
+    // 1. Показываем окно поиска поверх страницы. Шапку НЕ скрываем — окно её перекрывает.
     this.disableAll();
-    const btnOnline = document.getElementById('playOnlineBtn');
-    if (btnOnline) btnOnline.classList.add('hidden');
-    document.getElementById('cancelSearchBtn').classList.remove('hidden');
-    document.getElementById('cancelSearchBtn').disabled = false;
-    const header = document.getElementById('mainHeader');
-    if (header) header.classList.add('hidden');
-
-    // 2. Показываем оверлей поиска в динамической панели
+    this.showDynamicPanel('searchOverlay', false);
     const container = document.getElementById('dynamicPanel');
-    const overlay = document.getElementById('searchOverlay');
-    document.querySelectorAll('.dynamic-content').forEach(p => p.classList.add('hidden'));
-    if (overlay) overlay.classList.remove('hidden');
-    container.classList.remove('empty');
-    container.classList.add('searching');
+    if (container) container.classList.add('searching');
 
-    // 3. Запуск таймера
+    // 2. Запуск таймера
     this.searchTime = 0;
     this.updateSearchTimer();
     if (this.searchTimerInterval) clearInterval(this.searchTimerInterval);
     this.searchTimerInterval = setInterval(() => this.updateSearchTimer(), 1000);
 
-    // 4. Сетевой запрос на поиск игры
+    // 3. Сетевой запрос на поиск игры
     if (typeof Net !== 'undefined') {
       Net.findGame(timeData, isRanked);
     }
@@ -978,19 +1033,13 @@ const UI = {
 
     // Возвращаем кнопки в исходное состояние
     this.enableAll();
-    const btnOnline = document.getElementById('playOnlineBtn');
-    if (btnOnline) btnOnline.classList.remove('hidden');
-    document.getElementById('cancelSearchBtn').classList.add('hidden');
-    const header = document.getElementById('mainHeader');
-    if (header) header.classList.remove('hidden');
 
     const container = document.getElementById('dynamicPanel');
     const overlay = document.getElementById('searchOverlay');
     if (overlay) overlay.classList.add('hidden');
-    container.classList.remove('searching');
+    if (container) container.classList.remove('searching');
 
-    // Возвращаемся в меню выбора времени или просто закрываем панель
-    // Всегда закрываем панель поиска и возвращаемся в меню
+    // Всегда закрываем окно поиска
     this.hideDynamicPanel();
   },
 
@@ -2405,6 +2454,8 @@ UI.handleAuthSuccess = function (user) {
     rankedBtn.classList.remove('btn-disabled');
     rankedBtn.title = '';
   }
+  // После входа — строка «You» в лидерборде главной (сброс кэша и загрузка).
+  this.refreshLeaderboardYou();
 };
 
 UI.updateAuthUI = function () {
@@ -3449,28 +3500,94 @@ UI.initRouting = function () {
   }
 };
 
-// Leaderboard loader - fetches top players from API
+// Leaderboard loader - fetches top players from API.
+// Правая колонка главной: строки из макета (медали 1–3, места 4–5),
+// строка «You» — из /api/leaderboard/me (только вниз, если игрок не в топе).
 UI.loadLeaderboard = async function () {
-  try {
-    const res = await fetch('/api/leaderboard?limit=10');
-    const players = await res.json();
-    const container = document.getElementById('leaderboard');
-    if (!container) return;
+  const rowsEl = document.getElementById('leaderboard');
+  if (!rowsEl) return;
 
-    if (players.length === 0) {
-      container.innerHTML = '<div class="leaderboard-row" style="justify-content: center; color: #888;">No players yet</div>';
+  try {
+    const res = await fetch('/api/leaderboard?limit=5');
+    const players = await res.json();
+
+    if (!Array.isArray(players) || players.length === 0) {
+      rowsEl.innerHTML = `<div class="home-lb-empty">${UI.escapeHtml(UI.translate('lb_empty'))}</div>`;
       return;
     }
 
-    container.innerHTML = players.map((p, i) => `
-            <div class="leaderboard-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">
-                <span class="rank">${i + 1}</span>
-                <span class="name">${UI.escapeHtml(p.username)}</span>
-                <span class="score">${p.rating}</span>
-            </div>
-        `).join('');
+    rowsEl.innerHTML = players.map((p, i) => {
+      const place = i + 1;
+      const rank = place <= 3
+        ? `<span class="pq-medal pq-medal--${place}">${place}</span>`
+        : `<span class="home-lb-place">${place}</span>`;
+      return `<div class="home-lb-row" onclick="UI.showProfilePage('${UI.escapeJsString(p.username)}')">${rank}` +
+        `<span class="home-lb-name">${UI.escapeHtml(p.username)}</span>` +
+        `<span class="home-lb-score">${UI.escapeHtml(String(p.rating))}</span></div>`;
+    }).join('');
+
+    // LIVE-строка: показываем пару из топа лидерборда — будущая лайв-игра
+    // лучших игроков; пока реальных трансляций нет, это демо-пара ботов на доске.
+    const liveText = document.getElementById('liveGameText');
+    if (liveText && players.length >= 2) {
+      liveText.textContent = `${players[0].username} ${players[0].rating} vs ${players[1].username} ${players[1].rating}`;
+    } else if (liveText && players.length === 1) {
+      liveText.textContent = `${players[0].username} ${players[0].rating}`;
+    }
+
+    UI.loadLeaderboardYou();
   } catch (err) {
     console.error('[LEADERBOARD] Failed to load:', err);
+    rowsEl.innerHTML = `<div class="home-lb-empty">${UI.escapeHtml(UI.translate('lb_error'))}</div>`;
+  }
+};
+
+// Собственное место игрока: GET /api/leaderboard/me, кэш 60 с.
+UI.leaderboardYouCache = { data: null, fetchedAt: 0 };
+UI.loadLeaderboardYou = async function () {
+  const meEl = document.getElementById('leaderboardYou');
+  if (!meEl) return;
+  if (!this.currentUser) {
+    meEl.classList.add('hidden');
+    return;
+  }
+
+  const cache = this.leaderboardYouCache;
+  const isFresh = cache.data && (Date.now() - cache.fetchedAt < 60000);
+  if (!isFresh) {
+    try {
+      const res = await fetch('/api/leaderboard/me');
+      if (!res.ok) throw new Error('not ranked');
+      cache.data = await res.json();
+    } catch (err) {
+      cache.data = null;
+    }
+    cache.fetchedAt = Date.now();
+  }
+
+  const me = cache.data;
+  const rowCount = document.querySelectorAll('#leaderboard .home-lb-row').length;
+  if (!me || typeof me.rank !== 'number' || me.rank <= rowCount) {
+    meEl.classList.add('hidden');
+    return;
+  }
+  // Игрок не входит в топ-5 — показываем строку «You» из макета.
+  meEl.classList.remove('hidden');
+  meEl.innerHTML = `<span class="home-lb-you-rank">#${me.rank}</span>` +
+    `<span class="home-lb-you-name">${UI.escapeHtml(UI.translate('lb_you'))}</span>` +
+    `<span class="home-lb-you-score">${UI.escapeHtml(String(me.rating))}</span>`;
+};
+
+// Сброс кэша «You» (после входа и после каждой завершённой рейтингово-подобной партии).
+UI.refreshLeaderboardYou = function () {
+  this.leaderboardYouCache = { data: null, fetchedAt: 0 };
+  if (document.getElementById('leaderboardYou')) this.loadLeaderboardYou();
+};
+
+// Открытие своего профиля из строки «You».
+UI.showMyProfile = function () {
+  if (this.currentUser && this.currentUser.username) {
+    this.showProfilePage(this.currentUser.username);
   }
 };
 
@@ -3560,6 +3677,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load leaderboard data
   UI.initMobileSwipeNav();
   UI.loadLeaderboard();
+
+  // Закрытие динамической панели: Esc и клик по затемнению (a11y, этап 2)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const panel = document.getElementById('dynamicPanel');
+    if (panel && !panel.classList.contains('empty')) {
+      UI.hideDynamicPanel();
+    }
+  });
+  const homePanel = document.getElementById('dynamicPanel');
+  if (homePanel) {
+    homePanel.addEventListener('mousedown', (e) => {
+      if (e.target === homePanel) UI.hideDynamicPanel();
+    });
+  }
 
   // Legacy query room support -> canonical lobby path
   const urlParams = new URLSearchParams(window.location.search);

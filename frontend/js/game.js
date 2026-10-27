@@ -284,6 +284,12 @@ const Game = {
     }
     trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local' });
 
+    // После завершённой партии сбрасываем кэш строки «You» (рейтинг мог измениться).
+    if (typeof UI !== 'undefined' && UI.refreshLeaderboardYou
+      && this.state.gameMode !== 'local' && this.state.gameMode !== 'bot') {
+      UI.refreshLeaderboardYou();
+    }
+
     // Если игрок уже не на экране игры (ушёл в меню/профиль), не показываем модалку
     // поверх чужого экрана. Без этого «просроченный» gameOver всплывал бы в главном меню.
     const activeScreen = document.querySelector('.screen.active');
@@ -2730,6 +2736,10 @@ const DemoBoard = {
   canvas: null,
   ctx: null,
   cellSize: 80,
+  // Тема «новой» главной (ТЗ этапа 2 §4.1): значения — в внутренних пикселях canvas,
+  // k = внутренняя сторона canvas / 528 (макетная сторона доски в CSS-пикселях).
+  theme: null,
+  k: 1,
   animationInterval: null,
   moveIndex: 0,
   activeScenario: null,
@@ -2791,9 +2801,36 @@ const DemoBoard = {
     this.canvas = document.getElementById('demoBoard');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
+    this.applyDemoTheme();
     this.reset();
     this.draw();
     this.scheduleNext();
+  },
+
+  // Тема §4.1: k = canvas.width / 528, шаг сетки 59·k, клетка 56·k, стены/координаты — по таблице.
+  applyDemoTheme() {
+    var k = this.canvas.width / 528;
+    if (!k || !isFinite(k)) k = 1;
+    this.k = k;
+    this.cellSize = 59 * k;
+
+    // Цвета — из CSS-переменных токенов (не дублируем hex в JS).
+    var style = getComputedStyle(document.documentElement);
+    var cssVar = function (name, fallback) {
+      var v = style.getPropertyValue(name);
+      v = v ? v.trim() : '';
+      return v || fallback;
+    };
+    this.theme = {
+      cellFill: cssVar('--cell'),
+      coordColor: cssVar('--text-faint'),
+      accent: cssVar('--accent'),
+      pawnWhite: cssVar('--pawn-white'),
+      pawnWhiteBorder: cssVar('--pawn-white-border'),
+      pawnBlack: cssVar('--pawn-black'),
+      pawnBlackBorder: cssVar('--pawn-black-border'),
+      fontFamily: cssVar('--font-sans', 'Manrope, sans-serif'),
+    };
   },
 
   scheduleNext() {
@@ -2930,33 +2967,52 @@ const DemoBoard = {
   },
 
   drawGrid() {
+    var th = this.theme || {};
     BoardRenderer.drawGrid(this.ctx, {
       cellSize: this.cellSize,
-      padding: 2,
+      padding: 0,
+      // Ровная сетка макета: клетка 56·k, зазор 3·k → 9·56 + 8·3 = 528·k.
+      cellVisual: 56 * this.k,
+      cellRadius: 4 * this.k,
+      cellFill: th.cellFill,
     });
   },
 
   drawCoordinates() {
+    var th = this.theme || {};
     BoardRenderer.drawCoordinates(this.ctx, {
       cellSize: this.cellSize,
-      padding: 2,
-      fontSize: this.cellSize * 0.18,
+      padding: 0,
+      fontSize: 10 * this.k,
+      coordColor: th.coordColor,
+      // Сдвиги макета: цифры left 4·k / top 3·k, буквы right 5·k / bottom 3·k.
+      coordInsetLeft: 4 * this.k,
+      coordInsetTop: 3 * this.k,
+      coordInsetRight: 5 * this.k,
+      coordInsetBottom: 3 * this.k,
+      fontFamily: th.fontFamily,
     });
   },
 
   drawWalls() {
+    var th = this.theme || {};
     BoardRenderer.drawPlacedWalls(this.ctx, this.state, {
       cellSize: this.cellSize,
-      gap: 4,
-      wallThick: 10,
+      gap: 1.5 * this.k,
+      wallThick: 5 * this.k,
+      wallRadius: 2 * this.k,
+      wallColor: th.accent,
     });
   },
 
   drawPawns() {
+    var th = this.theme || {};
     BoardRenderer.drawPawns(this.ctx, this.state, {
       cellSize: this.cellSize,
-      pawnFillColors: ['#F2F2F2', '#1A1C20'],
-      pawnStrokeColors: ['#9A9A9A', '#5A5A5E'],
+      pawnRadius: 20 * this.k,
+      pawnStrokeWidth: 2 * this.k,
+      pawnFillColors: [th.pawnWhite, th.pawnBlack],
+      pawnStrokeColors: [th.pawnWhiteBorder, th.pawnBlackBorder],
     });
   }
 };
