@@ -56,8 +56,9 @@
     <link rel="stylesheet" href="/css/tokens.css?v=2.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.25" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.26" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
+    <link rel="stylesheet" href="/css/rules.css?v=1.0.0" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
 </head>
 <body class="auth-page-body">
@@ -65,130 +66,327 @@
     <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
     <script src="/js/site-shell.js?v=1.0.0"></script>
 
-    <div class="content-page">
+    <main class="rulp-page">
         <!-- ENGLISH -->
         <div id="content-en" class="lang-block active">
-            <h1>Quoridor Rules — How to Play</h1>
-            <p class="last-updated">Last updated: June 14, 2026</p>
+            <aside class="rulp-toc">
+                <div class="rulp-toc-title">ON THIS PAGE</div>
+                <nav class="rulp-toc-nav">
+                    <a href="#rulp-objective" class="rulp-toc-link is-active" data-rs-target="rulp-objective">Objective</a>
+                    <a href="#rulp-setup" class="rulp-toc-link" data-rs-target="rulp-setup">Board setup</a>
+                    <a href="#rulp-moving" class="rulp-toc-link" data-rs-target="rulp-moving">Moving your pawn</a>
+                    <a href="#rulp-walls" class="rulp-toc-link" data-rs-target="rulp-walls">Placing walls</a>
+                    <a href="#rulp-jumping" class="rulp-toc-link" data-rs-target="rulp-jumping">Jumping over pawns</a>
+                    <a href="/faq" class="rulp-toc-link">FAQ</a>
+                </nav>
+                <div class="rulp-try-card">
+                    <span class="rulp-try-title">Ready to try it?</span>
+                    <span class="rulp-try-text">Play a bot on Easy and learn by doing.</span>
+                    <a href="/" class="rulp-try-btn">Play vs Bot</a>
+                </div>
+            </aside>
 
-            <p>Quoridor is a strategic board game for 2 players. The rules are simple to learn but the game offers deep tactical play. Here is everything you need to know to start playing.</p>
+            <article class="rulp-content">
+                <div class="rulp-eyebrow">HOW TO PLAY</div>
+                <h1>Quoridor Rules</h1>
+                <p class="rulp-lead">Quoridor is a strategic board game for 2 players. The rules are simple to learn, but the game offers deep tactical play. Here is everything you need to start playing.</p>
+                <div class="rulp-meta">2 players · 3 min read · Updated June 14, 2026</div>
 
-            <h2>Objective</h2>
-            <p>Be the first player to reach any square on the opposite side of the board from where you started.</p>
+                <section class="rulp-section" id="rulp-objective">
+                    <div class="rulp-section-body">
+                        <h2>Objective</h2>
+                        <p>Be the <b>first player to reach any square</b> on the opposite side of the board from where you started.</p>
+                    </div>
+                    <div class="rulp-figure">
+                        <div class="rulp-board-wrap">
+                            <div class="rulp-grid" aria-hidden="true">
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                            <div class="rulp-board-pawn rulp-board-pawn--top" aria-hidden="true"></div>
+                            <div class="rulp-board-pawn rulp-board-pawn--bottom" aria-hidden="true"></div>
+                        </div>
+                        <span class="rulp-caption">Highlighted rows are the goals. Each player aims for the far one.</span>
+                    </div>
+                </section>
 
-            <h2>Board Setup</h2>
-            <p>The game is played on a <strong>9×9 grid</strong>. Each player has one <strong>pawn</strong> and <strong>10 walls</strong>. Players start on opposite sides of the board, and each player's goal is the row directly opposite their starting position.</p>
+                <section class="rulp-section" id="rulp-setup">
+                    <div class="rulp-section-body">
+                        <h2>Board setup</h2>
+                        <p>The game is played on a <b>9×9 grid</b>. Each player has <b>one pawn</b> and <b>10 walls</b>. Players start on opposite sides, and each player's goal is the row directly opposite their starting position.</p>
+                    </div>
+                    <div class="rulp-figure rulp-figure-start">
+                        <div class="rulp-setup-row">
+                            <span class="rulp-setup-pawn rulp-setup-pawn--white" aria-hidden="true"></span>
+                            <span class="rulp-setup-label">White</span>
+                            <div class="rulp-setup-walls" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                        <div class="rulp-setup-row">
+                            <span class="rulp-setup-pawn rulp-setup-pawn--black" aria-hidden="true"></span>
+                            <span class="rulp-setup-label">Black</span>
+                            <div class="rulp-setup-walls" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                        <span class="rulp-caption" style="text-align: left">Each player starts with 10 walls. They are spent as you place them.</span>
+                    </div>
+                </section>
 
-            <h2>Moving Your Pawn</h2>
-            <p>On your turn, you can move your pawn <strong>one square orthogonally</strong> (up, down, left, or right). You cannot move diagonally. You cannot move through walls or exit the board.</p>
-            <p>If there is no wall blocking you, you simply advance one square in any direction.</p>
+                <section class="rulp-section" id="rulp-moving">
+                    <div class="rulp-section-body">
+                        <h2>Moving your pawn</h2>
+                        <p>On your turn, you can move your pawn <b>one square orthogonally</b> (up, down, left, or right). You cannot move diagonally, move through walls, or leave the board.</p>
+                        <p>If there is no wall blocking you, you simply advance one square in any direction.</p>
+                    </div>
+                    <div class="rulp-figure">
+                        <div class="rulp-moves-grid" aria-hidden="true">
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-pawn"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                        </div>
+                        <span class="rulp-caption">Orange dots are legal moves. Diagonals are not.</span>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Tip:</strong> Moving forward is usually best, but sometimes you need to go sideways or even backward to outmaneuver your opponent.</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Tip:</b> moving forward is usually best, but sometimes you need to go sideways or even backward to outmaneuver your opponent.</p>
+                </div>
 
-            <h2>Placing Walls</h2>
-            <p>Instead of moving your pawn, you may <strong>place a wall</strong>. Walls block two adjacent squares along their edge. Key rules:</p>
-            <ul>
-                <li>Walls are placed between squares, not on top of them</li>
-                <li>A wall blocks movement through that passage for both players</li>
-                <li>You <strong>cannot</strong> place a wall that completely blocks a player from reaching their goal — at least one path must always remain</li>
-                <li>Walls can touch each other, forming longer barriers</li>
-                <li>Once placed, a wall cannot be moved or removed</li>
-            </ul>
-            <p>Walls are your main tactical tool. Use them to block your opponent while keeping your own path open.</p>
+                <section class="rulp-section" id="rulp-walls">
+                    <div class="rulp-section-body">
+                        <h2>Placing walls</h2>
+                        <p>Instead of moving, you may place one of your walls. A wall covers <b>two squares</b> of the board, and you can never block a player's path to their goal completely.</p>
+                        <ul>
+                            <li>Walls are placed between squares, not on top of them</li>
+                            <li>A wall blocks movement through that passage for both players</li>
+                            <li>You <b>cannot</b> place a wall that completely blocks a player from reaching their goal — at least one path must always remain</li>
+                            <li>Walls can touch each other, forming longer barriers</li>
+                            <li>Once placed, a wall cannot be moved or removed</li>
+                        </ul>
+                        <p>Walls are your main tactical tool. Use them to block your opponent while keeping your own path open.</p>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Tip:</strong> In the opening, focus on advancing your pawn rather than placing walls. Save walls for mid-game when you know which direction your opponent wants to go.</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Tip:</b> in the opening, focus on advancing your pawn rather than placing walls. Save walls for mid-game when you know which direction your opponent wants to go.</p>
+                </div>
 
-            <h2>Jumping Over Opponents</h2>
-            <p>If your pawn is <strong>directly adjacent</strong> (orthogonally) to an opponent's pawn, you can <strong>jump over them</strong> on your turn instead of a normal move. The rules depend on what is behind the opponent:</p>
-            <ul>
-                <li><strong>Clear space behind:</strong> Jump to the square immediately behind the opponent</li>
-                <li><strong>Wall behind the opponent:</strong> If the square behind is blocked by a wall, you may land diagonally instead</li>
-                <li><strong>Another pawn behind:</strong> If another pawn is directly behind, you may land diagonally</li>
-            </ul>
-            <p>Jumping is optional — you can always make a normal move instead.</p>
+                <section class="rulp-section" id="rulp-jumping">
+                    <div class="rulp-section-body">
+                        <h2>Jumping over pawns</h2>
+                        <p>If your pawn is <b>directly adjacent</b> (orthogonally) to an opponent's pawn, you can <b>jump over them</b> on your turn instead of a normal move. The rules depend on what is behind the opponent:</p>
+                        <ul>
+                            <li><b>Clear space behind:</b> Jump to the square immediately behind the opponent</li>
+                            <li><b>Wall behind the opponent:</b> If the square behind is blocked by a wall, you may land diagonally instead</li>
+                            <li><b>Another pawn behind:</b> If another pawn is directly behind, you may land diagonally</li>
+                        </ul>
+                        <p>Jumping is optional — you can always make a normal move instead.</p>
+                    </div>
+                </section>
 
-            <h2>Winning the Game</h2>
-            <p>The <strong>first player</strong> to reach any square on the opposite edge of the board <strong>wins</strong>. You do not need to land exactly on the edge — reaching any square on the final row is enough.</p>
-            <p>If you run out of walls, you can only move your pawn for the rest of the game.</p>
+                <section class="rulp-section" id="rulp-winning">
+                    <div class="rulp-section-body">
+                        <h2>Winning the game</h2>
+                        <p>The <b>first player</b> to reach any square on the opposite edge of the board <b>wins</b>. You do not need to land exactly on the edge — reaching any square on the final row is enough.</p>
+                        <p>If you run out of walls, you can only move your pawn for the rest of the game.</p>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Summary:</strong> Move forward, use walls to block your opponent, jump over them when adjacent, and reach the opposite side first. That is all you need to know to start playing!</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Summary:</b> move forward, use walls to block your opponent, jump over them when adjacent, and reach the opposite side first. That is all you need to know to start playing!</p>
+                </div>
 
-            <div class="cta-section">
-                <p>Ready to play?</p>
-                <a href="/" class="cta-button">Play Quoridor Online Now</a>
-            </div>
+                <div class="rulp-cta">
+                    <p>Ready to play?</p>
+                    <a href="/" class="rulp-cta-btn">Play Quoridor Online Now</a>
+                </div>
 
-            <div class="internal-links">
-                <a href="/faq">FAQ — Common Questions</a>
-            </div>
+                <div class="rulp-links">
+                    <a href="/faq">FAQ — Common Questions</a>
+                </div>
+            </article>
         </div>
 
         <!-- RUSSIAN -->
         <div id="content-ru" class="lang-block">
-            <h1>Правила игры Коридор — как играть</h1>
-            <p class="last-updated">Последнее обновление: 14 июня 2026 г.</p>
+            <aside class="rulp-toc">
+                <div class="rulp-toc-title">НА ЭТОЙ СТРАНИЦЕ</div>
+                <nav class="rulp-toc-nav">
+                    <a href="#rulp-objective" class="rulp-toc-link is-active" data-rs-target="rulp-objective">Цель игры</a>
+                    <a href="#rulp-setup" class="rulp-toc-link" data-rs-target="rulp-setup">Подготовка к игре</a>
+                    <a href="#rulp-moving" class="rulp-toc-link" data-rs-target="rulp-moving">Перемещение пешки</a>
+                    <a href="#rulp-walls" class="rulp-toc-link" data-rs-target="rulp-walls">Размещение стен</a>
+                    <a href="#rulp-jumping" class="rulp-toc-link" data-rs-target="rulp-jumping">Прыжок через соперника</a>
+                    <a href="/faq" class="rulp-toc-link">Вопросы и ответы</a>
+                </nav>
+                <div class="rulp-try-card">
+                    <span class="rulp-try-title">Готовы попробовать?</span>
+                    <span class="rulp-try-text">Сыграйте с ботом на уровне Easy и учитесь прямо в процессе.</span>
+                    <a href="/" class="rulp-try-btn">Играть с ботом</a>
+                </div>
+            </aside>
 
-            <p>Коридор (Quoridor) — стратегическая настольная игра для 2 игроков. Правила просты, но игра предлагает глубокую тактику. Вот всё, что нужно знать для начала.</p>
+            <article class="rulp-content">
+                <div class="rulp-eyebrow">КАК ИГРАТЬ</div>
+                <h1>Правила игры Коридор</h1>
+                <p class="rulp-lead">Коридор (Quoridor) — стратегическая настольная игра для 2 игроков. Правила просты, но игра предлагает глубокую тактику. Вот всё, что нужно знать для начала.</p>
+                <div class="rulp-meta">2 игрока · 3 минуты чтения · Обновлено 14 июня 2026 г.</div>
 
-            <h2>Цель игры</h2>
-            <p>Первым достичь любого поля на противоположной стороне доски от своей стартовой позиции.</p>
+                <section class="rulp-section ru" data-rs="objective">
+                    <div class="rulp-section-body">
+                        <h2>Цель игры</h2>
+                        <p>Первым достичь <b>любого поля на противоположной стороне доски</b> от своей стартовой позиции.</p>
+                    </div>
+                    <div class="rulp-figure">
+                        <div class="rulp-board-wrap">
+                            <div class="rulp-grid" aria-hidden="true">
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                            <div class="rulp-board-pawn rulp-board-pawn--top" aria-hidden="true"></div>
+                            <div class="rulp-board-pawn rulp-board-pawn--bottom" aria-hidden="true"></div>
+                        </div>
+                        <span class="rulp-caption">Подсвеченные ряды — цели игроков. Каждый стремится к дальнему.</span>
+                    </div>
+                </section>
 
-            <h2>Подготовка к игре</h2>
-            <p>Игра проходит на <strong>доске 9×9</strong>. У каждого игрока есть одна <strong>пешка</strong> и <strong>10 стен</strong>. Игроки начинают на противоположных сторонах доски. Цель каждого — ряд напротив своей стартовой позиции.</p>
+                <section class="rulp-section ru" data-rs="setup">
+                    <div class="rulp-section-body">
+                        <h2>Подготовка к игре</h2>
+                        <p>Игра проходит на <b>доске 9×9</b>. У каждого игрока <b>одна пешка</b> и <b>10 стен</b>. Игроки начинают на противоположных сторонах, и цель каждого — ряд напротив своей стартовой позиции.</p>
+                    </div>
+                    <div class="rulp-figure rulp-figure-start">
+                        <div class="rulp-setup-row">
+                            <span class="rulp-setup-pawn rulp-setup-pawn--white" aria-hidden="true"></span>
+                            <span class="rulp-setup-label">Белые</span>
+                            <div class="rulp-setup-walls" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                        <div class="rulp-setup-row">
+                            <span class="rulp-setup-pawn rulp-setup-pawn--black" aria-hidden="true"></span>
+                            <span class="rulp-setup-label">Чёрные</span>
+                            <div class="rulp-setup-walls" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                        </div>
+                        <span class="rulp-caption" style="text-align: left">У каждого игрока 10 стен. Они расходуются по мере установки.</span>
+                    </div>
+                </section>
 
-            <h2>Перемещение пешки</h2>
-            <p>В свой ход вы можете переместить пешку <strong>на одно поле ортогонально</strong> (вверх, вниз, влево или вправо). Нельзя ходить по диагонали, через стены или за пределы доски.</p>
+                <section class="rulp-section ru" data-rs="moving">
+                    <div class="rulp-section-body">
+                        <h2>Перемещение пешки</h2>
+                        <p>В свой ход вы можете переместить пешку <b>на одно поле ортогонально</b> (вверх, вниз, влево или вправо). Нельзя ходить по диагонали, через стены или за пределы доски.</p>
+                        <p>Если нет стены на пути — просто шагните в любую сторону.</p>
+                    </div>
+                    <div class="rulp-figure">
+                        <div class="rulp-moves-grid" aria-hidden="true">
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-pawn"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-dot"></span></div>
+                            <div class="rulp-move-cell"><span class="rulp-move-no">×</span></div>
+                        </div>
+                        <span class="rulp-caption">Оранжевые точки — допустимые ходы. Диагонали недоступны.</span>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Совет:</strong> Обычно лучше двигаться вперёд, но иногда нужно отступить или пойти в сторону, чтобы перехитрить соперника.</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Совет:</b> обычно лучше двигаться вперёд, но иногда нужно отступить или пойти в сторону, чтобы перехитрить соперника.</p>
+                </div>
 
-            <h2>Размещение стен</h2>
-            <p>Вместо хода пешкой вы можете <strong>поставить стену</strong>. Стена блокирует проход между двумя полями. Основные правила:</p>
-            <ul>
-                <li>Стены ставятся между полями, а не на сами поля</li>
-                <li>Стена блокирует проход для обоих игроков</li>
-                <li><strong>Нельзя</strong> ставить стену так, чтобы полностью перекрыть путь к цели для любого игрока — хотя бы один путь должен оставаться</li>
-                <li>Стены могут соприкасаться друг с другом</li>
-                <li>Поставленную стену нельзя переместить или убрать</li>
-            </ul>
+                <section class="rulp-section ru" data-rs="walls">
+                    <div class="rulp-section-body">
+                        <h2>Размещение стен</h2>
+                        <p>Вместо хода пешкой вы можете <b>поставить стену</b>. Стена занимает <b>два поля</b>, и нельзя полностью перекрыть любому игроку путь к цели.</p>
+                        <ul>
+                            <li>Стены ставятся между полями, а не на сами поля</li>
+                            <li>Стена блокирует проход для обоих игроков</li>
+                            <li><b>Нельзя</b> ставить стену так, чтобы полностью перекрыть путь к цели для любого игрока — хотя бы один путь должен оставаться</li>
+                            <li>Стены могут соприкасаться друг с другом</li>
+                            <li>Поставленную стену нельзя переместить или убрать</li>
+                        </ul>
+                        <p>Стены — ваш главный тактический инструмент. Блокируйте соперника, но держите открытым свой путь.</p>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Совет:</strong> В начале игры сосредоточьтесь на продвижении пешки, а не на установке стен. Приберегите стены для середины игры, когда станет ясно, куда направляется соперник.</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Совет:</b> в начале игры сосредоточьтесь на продвижении пешки, а не на установке стен. Приберегите стены для середины игры, когда станет ясно, куда направляется соперник.</p>
+                </div>
 
-            <h2>Прыжок через соперника</h2>
-            <p>Если ваша пешка <strong>находится рядом</strong> с пешкой соперника, вы можете <strong>перепрыгнуть</strong> через неё. Правила зависят от того, что находится за соперником:</p>
-            <ul>
-                <li><strong>Свободное поле:</strong> прыгайте на поле сразу за соперником</li>
-                <li><strong>Стена за соперником:</strong> если поле за ним занято стеной, можно приземлиться по диагонали</li>
-                <li><strong>Ещё одна пешка:</strong> если за соперником стоит другая пешка, можно приземлиться по диагонали</li>
-            </ul>
-            <p>Прыжок не обязателен — вы всегда можете сделать обычный ход.</p>
+                <section class="rulp-section ru" data-rs="jumping">
+                    <div class="rulp-section-body">
+                        <h2>Прыжок через соперника</h2>
+                        <p>Если ваша пешка <b>находится рядом</b> (по вертикали или горизонтали) с пешкой соперника, вы можете <b>перепрыгнуть</b> через неё вместо обычного хода. Правила зависят от того, что находится за соперником:</p>
+                        <ul>
+                            <li><b>Свободное поле:</b> прыгайте на поле сразу за соперником</li>
+                            <li><b>Стена за соперником:</b> если поле за ним занято стеной, можно приземлиться по диагонали</li>
+                            <li><b>Ещё одна пешка:</b> если за соперником стоит другая пешка, можно приземлиться по диагонали</li>
+                        </ul>
+                        <p>Прыжок не обязателен — вы всегда можете сделать обычный ход.</p>
+                    </div>
+                </section>
 
-            <h2>Конец игры</h2>
-            <p><strong>Первый игрок</strong>, достигший любого поля на противоположном краю доски, <strong>побеждает</strong>. Точно останавливаться на краю не нужно — достаточно попасть на любое поле последнего ряда. Если у вас закончились стены, вы можете только ходить пешкой.</p>
+                <section class="rulp-section ru" data-rs="winning">
+                    <div class="rulp-section-body">
+                        <h2>Конец игры</h2>
+                        <p><b>Первый игрок</b>, достигший любого поля на противоположном краю доски, <b>побеждает</b>. Точно останавливаться на краю не нужно — достаточно попасть на любое поле последнего ряда.</p>
+                        <p>Если у вас закончились стены, до конца игры можно только ходить пешкой.</p>
+                    </div>
+                </section>
 
-            <div class="highlight-box">
-                <p><strong>Кратко:</strong> Двигайтесь вперёд, используйте стены для блокировки соперника, перепрыгивайте через него при возможности и первым достигните противоположной стороны.</p>
-            </div>
+                <div class="rulp-tip">
+                    <span class="rulp-tip-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                    </span>
+                    <p class="rulp-tip-body"><b>Кратко:</b> двигайтесь вперёд, используйте стены для блокировки соперника, перепрыгивайте через него при возможности и первым достигните противоположной стороны.</p>
+                </div>
 
-            <div class="cta-section">
-                <p>Готовы играть?</p>
-                <a href="/" class="cta-button">Играть в Коридор онлайн</a>
-            </div>
+                <div class="rulp-cta">
+                    <p>Готовы играть?</p>
+                    <a href="/" class="rulp-cta-btn">Играть в Коридор онлайн</a>
+                </div>
 
-            <div class="internal-links">
-                <a href="/faq">Часто задаваемые вопросы</a>
-            </div>
+                <div class="rulp-links">
+                    <a href="/faq">Часто задаваемые вопросы</a>
+                </div>
+            </article>
         </div>
-    </div>
+    </main>
 
     <script>
         function getLang() { return localStorage.getItem('quoridor-lang') || 'en'; }
@@ -203,9 +401,32 @@
             var t = { ru: 'Правила игры Коридор — как играть | PlayQuor', en: 'Quoridor Rules — How to Play the Board Game | PlayQuor' };
             document.title = t[lang] || t.en;
         }
+
+        // Scroll-spy: подсветка активного пункта TOC по видимой секции
+        // RU-секции не имеют id (дублирование с EN запрещено), сопоставляем по data-rs
+        function updateRulesToc() {
+            var block = document.querySelector('.lang-block.active');
+            if (!block) return;
+            var links = block.querySelectorAll('.rulp-toc-link[data-rs-target]');
+            var best = null;
+            links.forEach(function(link) {
+                var key = link.getAttribute('data-rs-target');
+                var sec = block.querySelector('section.rulp-section[id="' + key + '"]') ||
+                          block.querySelector('section.rulp-section[data-rs="' + key.replace('rulp-', '') + '"]');
+                if (!sec) return;
+                if (sec.getBoundingClientRect().top <= 140) best = link;
+            });
+            links.forEach(function(link) { link.classList.toggle('is-active', link === best); });
+            // Верх страницы — активен первый пункт
+            var first = links[0];
+            if (first && best === null) first.classList.add('is-active');
+        }
+        window.addEventListener('scroll', updateRulesToc, { passive: true });
+
         var l = getLang();
         document.getElementById('headerLang').value = l;
         setLanguage(l);
+        updateRulesToc();
     </script>
   <div id="siteFooter"></div>
 </body>
