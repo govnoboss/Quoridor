@@ -245,11 +245,24 @@ const UI = {
       friends_online: "Online",
       friends_offline: "Offline",
       pp_back: "← Назад",
+      pp_title: "Профиль",
+      pp_admin: "Админ",
+      pp_all_time: "За всё время",
+      pp_rank: "Место #{n}",
+      pp_chart_last: "Рейтинг за последние {n} партий",
+      pp_chart_all: "Рейтинг за все партии",
+      pp_filter_all: "Все",
+      pp_filter_wins: "Победы",
+      pp_filter_losses: "Поражения",
+      pp_filter_ranked: "Рейтинговые",
+      pp_unrated: "Без рейтинга",
+      pp_edit_profile: "Редактировать профиль",
+      pp_more_actions: "Ещё",
       pp_no_bio: "Описание отсутствует",
       pp_bio_edit: "Изменить биографию",
       pp_bio_placeholder: "Расскажите о себе (до 300 символов)...",
       pp_bio_save: "Сохранить",
-      pp_joined: "Регистрация:",
+      pp_joined: "Регистрация",
       pp_games: "Игры",
       pp_wl: "В/П",
       pp_winrate: "% побед",
@@ -585,14 +598,27 @@ const UI = {
       friends_online: "Online",
       friends_offline: "Offline",
       pp_back: "← Back",
+      pp_title: "Profile",
+      pp_admin: "Admin",
+      pp_all_time: "All time",
+      pp_rank: "Rank #{n}",
+      pp_chart_last: "Rating, last {n} games",
+      pp_chart_all: "Rating, all games",
+      pp_filter_all: "All",
+      pp_filter_wins: "Wins",
+      pp_filter_losses: "Losses",
+      pp_filter_ranked: "Ranked",
+      pp_unrated: "Unrated",
+      pp_edit_profile: "Edit profile",
+      pp_more_actions: "More actions",
       pp_no_bio: "No bio description yet.",
       pp_bio_edit: "Edit bio",
       pp_bio_placeholder: "Tell us about yourself (up to 300 chars)...",
       pp_bio_save: "Save",
-      pp_joined: "Joined:",
+      pp_joined: "Joined",
       pp_games: "Games",
       pp_wl: "W/L",
-      pp_winrate: "Winrate",
+      pp_winrate: "Win rate",
       pp_history_tab: "History",
       pp_friends_tab: "Friends",
       pp_th_date: "Date",
@@ -2683,6 +2709,80 @@ UI.openMyProfile = function () {
   }
 };
 
+// Общий рендер строки истории профиля (макет Profile): дата, соперник
+// (аватар-инициал + граватар + тег Unrated), pill результата, Δрейтинга, ходы, replay.
+UI._profileGameRowHtml = function (game, username) {
+  const isWhite = game.playerWhite && game.playerWhite.username === username;
+  const opponentName = isWhite
+    ? (game.playerBlack ? game.playerBlack.username : 'Unknown')
+    : (game.playerWhite ? game.playerWhite.username : 'Unknown');
+
+  let resultKey = 'draw';
+  let resultLabel = UI.translate('pp_draw');
+  if (game.winner !== -1) {
+    const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
+    resultKey = iWon ? 'win' : 'loss';
+    resultLabel = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
+  }
+
+  let ratingChangeDisplay = '—';
+  let ratingClass = 'neutral';
+  if (game.isRanked) {
+    const myRatingChange = isWhite
+      ? (game.playerWhite?.ratingChange || 0)
+      : (game.playerBlack?.ratingChange || 0);
+    if (myRatingChange > 0) {
+      ratingChangeDisplay = `+${myRatingChange}`;
+      ratingClass = 'positive';
+    } else if (myRatingChange < 0) {
+      ratingChangeDisplay = `${myRatingChange}`;
+      ratingClass = 'negative';
+    } else {
+      ratingChangeDisplay = '0';
+      ratingClass = 'neutral';
+    }
+  }
+
+  const initial = opponentName === 'Unknown' ? '?' : opponentName.charAt(0).toUpperCase();
+  const nameCell = opponentName !== 'Unknown'
+    ? `<a href="javascript:void(0)" class="opponent-link" onclick="event.stopPropagation(); UI.showProfilePage('${UI.escapeJsString(opponentName)}')">${UI.escapeHtml(opponentName)}</a>`
+    : `<span>${UI.escapeHtml(opponentName)}</span>`;
+  const unratedTag = game.isRanked ? '' :
+    `<span class="pp-unrated-tag">${UI.escapeHtml(UI.translate('pp_unrated') || 'Unrated')}</span>`;
+  const gameId = UI.escapeJsString(game._id);
+
+  return `<tr data-result="${resultKey}" data-ranked="${game.isRanked ? 1 : 0}" onclick="UI.openReplayModal('${gameId}')">
+    <td class="col-date">${UI.escapeHtml(new Date(game.date).toLocaleDateString())}</td>
+    <td class="col-opp"><span class="pp-hist-av">${UI.escapeHtml(initial)}</span>${nameCell}${unratedTag}</td>
+    <td class="col-result"><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
+    <td class="col-rating"><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
+    <td class="col-moves">${game.turns ?? 0}</td>
+    <td class="col-replay"><button class="pp-replay-btn" aria-label="Replay game" title="Replay game" onclick="event.stopPropagation(); UI.openReplayModal('${gameId}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg></button></td>
+  </tr>`;
+};
+
+// --- PROFILE HISTORY FILTERS (чипы All/Wins/Losses/Ranked из макета Profile) ---
+UI.setHistoryFilter = function (key, btn) {
+  const bar = document.getElementById('ppFilters');
+  if (bar) bar.dataset.active = key;
+  document.querySelectorAll('.pp-filter-chip').forEach(c => c.classList.toggle('is-active', c === btn));
+  this._applyHistoryFilter();
+};
+
+UI._applyHistoryFilter = function () {
+  const bar = document.getElementById('ppFilters');
+  const active = (bar && bar.dataset.active) || 'all';
+  document.querySelectorAll('#ppHistoryBody tr').forEach(tr => {
+    const rs = tr.getAttribute('data-result');
+    const ranked = tr.getAttribute('data-ranked') === '1';
+    let show = true;
+    if (active === 'win') show = rs === 'win';
+    else if (active === 'loss') show = rs === 'loss';
+    else if (active === 'ranked') show = ranked;
+    tr.classList.toggle('pp-hidden-row', !show);
+  });
+};
+
 UI.showProfilePage = async function (username, pushState = true) {
   try {
     // 0. Show Screen Immediately to avoid FOUC
@@ -2723,14 +2823,25 @@ UI.showProfilePage = async function (username, pushState = true) {
 
     const avImg = document.getElementById('ppAvatar');
     avImg.src = user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}`;
-    UI.setPlayerFlag(user.country, 'ppFlag');
+
+    // Страна — текстовый чип по макету Profile («KZ»); реквизит ppFlag (img) заменён.
+    const countryChip = document.getElementById('ppCountryChip');
+    if (countryChip) {
+      const code = (typeof user.country === 'string' && /^[A-Z]{2}$/.test(user.country) && user.country !== 'XX') ? user.country : '';
+      countryChip.textContent = code;
+      countryChip.classList.toggle('hidden', !code);
+    }
+
+    // Rank (сервер считает 1 + игроки с рейтингом выше).
+    const rankEl = document.getElementById('ppRank');
+    if (rankEl) rankEl.textContent = (typeof user.rank === 'number') ? UI.translate('pp_rank').replace('{n}', user.rank) : '';
 
     // Stats
     const stats = user.stats || {};
     document.getElementById('ppTotalGames').textContent = stats.totalGames || 0;
     const wins = stats.wins || 0;
     const losses = stats.losses || 0;
-    document.getElementById('ppWins').innerHTML = `<span class="text-green">${wins}</span>/<span class="text-red">${losses}</span>`;
+    document.getElementById('ppWins').innerHTML = `<span class="text-green">${wins}</span><span class="pp-wl-sep">/</span><span class="text-red">${losses}</span>`;
 
     const winrate = stats.totalGames ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
     document.getElementById('ppWinrate').textContent = winrate + '%';
@@ -2744,6 +2855,10 @@ UI.showProfilePage = async function (username, pushState = true) {
     actionsContainer.innerHTML = '';
 
     const isOwnProfile = this.currentUser && this.currentUser.username === username;
+
+    // Admin-бейдж — только на своём профиле (в публичном ответе профиля нет isAdmin).
+    const adminChip = document.getElementById('ppAdminChip');
+    if (adminChip) adminChip.classList.toggle('hidden', !(isOwnProfile && this.currentUser && this.currentUser.isAdmin));
 
     // Allow avatar upload only on the user's own profile page
     const avatarSection = document.getElementById('ppAvatarSection');
@@ -2784,87 +2899,100 @@ UI.showProfilePage = async function (username, pushState = true) {
     }
 
     if (isOwnProfile) {
-      const logoutBtn = document.createElement('button');
-      logoutBtn.className = 'pp-logout-btn';
-      const label = UI.translate('profile_logout') || 'Log Out';
-      logoutBtn.textContent = label;
-      logoutBtn.onclick = () => this.logout();
-      actionsContainer.appendChild(logoutBtn);
+      // Edit profile (по макету): редактирование био; аватар — клик по аватару.
+      const editBtn = document.createElement('button');
+      editBtn.className = 'pp-action-btn';
+      editBtn.textContent = UI.translate('pp_edit_profile') || 'Edit profile';
+      editBtn.onclick = () => UI.startEditBio();
+      actionsContainer.appendChild(editBtn);
 
-      // 3-dots dropdown menu
+      // Кнопка «···» + меню (Settings / My Reports / Password / Delete / Log out).
       const dotsWrapper = document.createElement('div');
-      dotsWrapper.style.position = 'relative';
+      dotsWrapper.className = 'pp-dots';
       const dotsBtn = document.createElement('button');
-      dotsBtn.className = 'pp-friend-menu-btn';
-      dotsBtn.textContent = '⋮';
+      dotsBtn.className = 'pp-dots-btn';
+      dotsBtn.setAttribute('aria-label', UI.translate('pp_more_actions') || 'More actions');
+      dotsBtn.setAttribute('aria-expanded', 'false');
+      dotsBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5h.01"/><path d="M12 12h.01"/><path d="M12 19h.01"/></svg>';
+      const dropdown = document.createElement('div');
+      dropdown.className = 'pp-dots-menu';
+      const addMenuItem = (label, action, cls) => {
+        const item = document.createElement('button');
+        item.textContent = label;
+        if (cls) item.className = cls;
+        item.onclick = () => {
+          dropdown.classList.remove('show');
+          dotsBtn.setAttribute('aria-expanded', 'false');
+          action();
+        };
+        return item;
+      };
+      dropdown.appendChild(addMenuItem(UI.translate('pp_my_reports') || 'My Reports', () => { window.location.href = '/profile/reports'; }));
+      dropdown.appendChild(addMenuItem(UI.translate('menu_settings') || 'Settings', () => { this.showDynamicPanel('panelSettings'); }));
+      dropdown.appendChild(addMenuItem(
+        (UI.currentUser && UI.currentUser.hasPassword) ? UI.translate('pp_change_password') : UI.translate('pp_set_password'),
+        () => UI.openPasswordModal()
+      ));
+      const menuSep = document.createElement('div');
+      menuSep.className = 'pp-dots-sep';
+      dropdown.appendChild(menuSep);
+      dropdown.appendChild(addMenuItem(UI.translate('pp_delete_account') || 'Delete Account', () => UI.deleteAccount(), 'danger'));
+      dropdown.appendChild(addMenuItem(UI.translate('profile_logout') || 'Log Out', () => this.logout(), 'danger'));
       dotsBtn.onclick = (e) => {
         e.stopPropagation();
-        const dd = dotsWrapper.querySelector('.pp-friend-dropdown');
-        dd.classList.toggle('show');
+        const show = dropdown.classList.toggle('show');
+        dotsBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
       };
-      const dropdown = document.createElement('div');
-      dropdown.className = 'pp-friend-dropdown';
-      const passwordBtn = document.createElement('button');
-      passwordBtn.textContent = (UI.currentUser && UI.currentUser.hasPassword)
-        ? (UI.translate('pp_change_password') || 'Change Password')
-        : (UI.translate('pp_set_password') || 'Set Password');
-      passwordBtn.onclick = () => {
-        dropdown.classList.remove('show');
-        UI.openPasswordModal();
-      };
-      dropdown.appendChild(passwordBtn);
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'danger';
-      deleteBtn.textContent = UI.translate('pp_delete_account') || 'Delete Account';
-      deleteBtn.onclick = () => {
-        dropdown.classList.remove('show');
-        UI.deleteAccount();
-      };
-      dropdown.appendChild(deleteBtn);
       dotsWrapper.appendChild(dotsBtn);
       dotsWrapper.appendChild(dropdown);
       actionsContainer.appendChild(dotsWrapper);
+      document.addEventListener('click', function closeProfileDots(e) {
+        if (!dropdown.classList.contains('show')) { document.removeEventListener('click', closeProfileDots); return; }
+        if (dotsWrapper.contains(e.target)) return;
+        dropdown.classList.remove('show');
+        dotsBtn.setAttribute('aria-expanded', 'false');
+      }, { once: true });
     } else if (this.currentUser) {
       // Friend action buttons for non-own profiles
       const status = user.friendshipStatus;
       if (status === 'friends') {
         const removeBtn = document.createElement('button');
-        removeBtn.className = 'pp-logout-btn';
+        removeBtn.className = 'pp-action-btn';
         removeBtn.textContent = UI.translate('friends_remove_friend');
         removeBtn.style.cssText = 'background: rgba(244,67,54,0.1); color: #f44336; border-color: rgba(244,67,54,0.3);';
         removeBtn.onclick = () => UI.removeFriend(user._id);
         actionsContainer.appendChild(removeBtn);
 
         const inviteBtn = document.createElement('button');
-        inviteBtn.className = 'pp-logout-btn';
+        inviteBtn.className = 'pp-action-btn';
         inviteBtn.textContent = UI.translate('friends_invite_to_game');
         inviteBtn.style.cssText = 'background: rgba(224,159,62,0.1); color: #e09f3e; border-color: rgba(224,159,62,0.3);';
         inviteBtn.onclick = () => UI.inviteToGame(user._id);
         actionsContainer.appendChild(inviteBtn);
       } else if (status === 'requested') {
         const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'pp-logout-btn';
+        cancelBtn.className = 'pp-action-btn';
         cancelBtn.textContent = UI.translate('friends_cancel_request');
         cancelBtn.style.cssText = 'background: rgba(255,255,255,0.05); color: #aaa; border-color: rgba(255,255,255,0.1);';
         cancelBtn.onclick = () => UI.cancelRequest(user._id);
         actionsContainer.appendChild(cancelBtn);
       } else if (status === 'received') {
         const acceptBtn = document.createElement('button');
-        acceptBtn.className = 'pp-logout-btn';
+        acceptBtn.className = 'pp-action-btn';
         acceptBtn.textContent = UI.translate('friends_btn_accept');
         acceptBtn.style.cssText = 'background: rgba(76,175,80,0.1); color: #4caf50; border-color: rgba(76,175,80,0.3);';
         acceptBtn.onclick = () => UI.acceptFriend(user._id);
         actionsContainer.appendChild(acceptBtn);
 
         const declineBtn = document.createElement('button');
-        declineBtn.className = 'pp-logout-btn';
+        declineBtn.className = 'pp-action-btn';
         declineBtn.textContent = UI.translate('friends_btn_decline');
         declineBtn.style.cssText = 'background: rgba(244,67,54,0.1); color: #f44336; border-color: rgba(244,67,54,0.3);';
         declineBtn.onclick = () => UI.declineFriend(user._id);
         actionsContainer.appendChild(declineBtn);
       } else if (status === 'none') {
         const addBtn = document.createElement('button');
-        addBtn.className = 'pp-logout-btn';
+        addBtn.className = 'pp-action-btn';
         addBtn.textContent = UI.translate('friends_add_friend');
         addBtn.style.cssText = 'background: rgba(76,175,80,0.1); color: #4caf50; border-color: rgba(76,175,80,0.3);';
         addBtn.onclick = () => UI.addFriend(user._id);
@@ -2873,7 +3001,7 @@ UI.showProfilePage = async function (username, pushState = true) {
 
       // Report button for non-own profiles
       const reportBtn = document.createElement('button');
-      reportBtn.className = 'pp-logout-btn';
+      reportBtn.className = 'pp-action-btn';
       reportBtn.textContent = UI.translate('pp_report_user') || 'Report';
       reportBtn.style.cssText = 'background: rgba(244,67,54,0.08); color: #e57373; border-color: rgba(244,67,54,0.25);';
       reportBtn.onclick = () => UI.openUserReport(user._id, user.username);
@@ -2882,67 +3010,10 @@ UI.showProfilePage = async function (username, pushState = true) {
 
     // Render History
     const historyBody = document.getElementById('ppHistoryBody');
-    historyBody.innerHTML = '';
-
-    if (!history || history.length === 0) {
-      historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #666;">${UI.translate('pp_no_games')}</td></tr>`;
-    } else {
-      history.forEach(game => {
-        const row = document.createElement('tr');
-        row.style.cursor = 'pointer';
-        row.onclick = () => UI.openReplayModal(game._id);
-
-        const isWhite = game.playerWhite && game.playerWhite.username === user.username; // Robust check
-        // Handle missing player objects if schema changed or legacy data
-        const opponentName = isWhite ?
-          (game.playerBlack ? game.playerBlack.username : 'Unknown') :
-          (game.playerWhite ? game.playerWhite.username : 'Unknown');
-
-        let resultKey = 'draw';
-        let resultLabel = UI.translate('pp_draw');
-
-        if (game.winner !== -1) {
-          const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
-          resultKey = iWon ? 'win' : 'loss';
-          resultLabel = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
-        }
-
-        // Calculate rating change for the profile owner
-        let ratingChangeDisplay = '—';
-        let ratingClass = 'neutral';
-
-        if (game.isRanked) {
-          const myRatingChange = isWhite
-            ? (game.playerWhite?.ratingChange || 0)
-            : (game.playerBlack?.ratingChange || 0);
-
-          if (myRatingChange > 0) {
-            ratingChangeDisplay = `+${myRatingChange}`;
-            ratingClass = 'positive';
-          } else if (myRatingChange < 0) {
-            ratingChangeDisplay = `${myRatingChange}`;
-            ratingClass = 'negative';
-          } else {
-            ratingChangeDisplay = '0';
-            ratingClass = 'neutral';
-          }
-        }
-
-        // Create clickable link for opponent (skip if Unknown)
-        const opponentLink = opponentName !== 'Unknown'
-          ? `<a href="javascript:void(0)" class="opponent-link" onclick="event.stopPropagation(); UI.showProfilePage('${UI.escapeJsString(opponentName)}')">${UI.escapeHtml(opponentName)}</a>`
-          : opponentName;
-
-        row.innerHTML = `
-                <td>${new Date(game.date).toLocaleDateString()}</td>
-                <td>vs ${opponentLink}</td>
-                <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
-                <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
-                <td>${game.turns}</td>
-            `;
-        historyBody.appendChild(row);
-      });
-    }
+    historyBody.innerHTML = (!history || !history.length)
+      ? `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#666;">${UI.translate('pp_no_games')}</td></tr>`
+      : history.map(g => UI._profileGameRowHtml(g, username)).join('');
+    UI._applyHistoryFilter();
 
     // Add/update "Load more" button
     let loadMoreBtn = document.getElementById('ppLoadMoreBtn');
@@ -2992,55 +3063,8 @@ UI._loadMoreProfileGames = async function (username, limit) {
     const games = data.games || data;
     const historyBody = document.getElementById('ppHistoryBody');
 
-    games.forEach(game => {
-      const row = document.createElement('tr');
-      row.style.cursor = 'pointer';
-      row.onclick = () => UI.openReplayModal(game._id);
-
-      const isWhite = game.playerWhite && game.playerWhite.username === username;
-      const opponentName = isWhite
-        ? (game.playerBlack ? game.playerBlack.username : 'Unknown')
-        : (game.playerWhite ? game.playerWhite.username : 'Unknown');
-
-      let resultKey = 'draw';
-      let resultLabel = UI.translate('pp_draw');
-      if (game.winner !== -1) {
-        const iWon = (isWhite && game.winner === 0) || (!isWhite && game.winner === 1);
-        resultKey = iWon ? 'win' : 'loss';
-        resultLabel = iWon ? UI.translate('pp_won') : UI.translate('pp_lost');
-      }
-
-      let ratingChangeDisplay = '—';
-      let ratingClass = 'neutral';
-      if (game.isRanked) {
-        const myRatingChange = isWhite
-          ? (game.playerWhite?.ratingChange || 0)
-          : (game.playerBlack?.ratingChange || 0);
-        if (myRatingChange > 0) {
-          ratingChangeDisplay = `+${myRatingChange}`;
-          ratingClass = 'positive';
-        } else if (myRatingChange < 0) {
-          ratingChangeDisplay = `${myRatingChange}`;
-          ratingClass = 'negative';
-        } else {
-          ratingChangeDisplay = '0';
-          ratingClass = 'neutral';
-        }
-      }
-
-      const opponentLink = opponentName !== 'Unknown'
-        ? `<a href="javascript:void(0)" class="opponent-link" onclick="event.stopPropagation(); UI.showProfilePage('${UI.escapeJsString(opponentName)}')">${UI.escapeHtml(opponentName)}</a>`
-        : opponentName;
-
-      row.innerHTML = `
-        <td>${new Date(game.date).toLocaleDateString()}</td>
-        <td>vs ${opponentLink}</td>
-        <td><span class="history-result-badge ${resultKey}">${resultLabel}</span></td>
-        <td><span class="rating-change ${ratingClass}">${ratingChangeDisplay}</span></td>
-        <td>${game.turns}</td>
-      `;
-      historyBody.appendChild(row);
-    });
+    historyBody.insertAdjacentHTML('beforeend', games.map(g => UI._profileGameRowHtml(g, username)).join(''));
+    UI._applyHistoryFilter();
 
     this._profilePage = page;
 
@@ -3083,120 +3107,165 @@ UI.switchProfileTab = function (tabName, btn) {
 
 // --- RATING CHART ---
 UI._ratingChartInstance = null;
+UI._ratingHistoryData = null;
+UI._profileChartRange = '30';
 
 UI._loadRatingChart = async function (username) {
     try {
         const res = await fetch(`/api/profiles/${username}/rating-history`);
         if (!res.ok) throw new Error('Failed to load rating history');
         const data = await res.json();
-
-        if (!data || data.length < 2) {
-            document.getElementById('ppChartNoData').classList.remove('hidden');
-            return;
-        }
-
-        document.getElementById('ppChartNoData').classList.add('hidden');
-
-        const canvas = document.getElementById('ppRatingChart');
-        if (!canvas) return;
-
-        if (this._ratingChartInstance) {
-            this._ratingChartInstance.destroy();
-        }
-
-        const ctx = canvas.getContext('2d');
-        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-        const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-        const textColor = isDark ? '#aaa' : '#666';
-
-        this._ratingChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data.map(d => new Date(d.date)),
-                datasets: [{
-                    label: 'Rating',
-                    data: data.map(d => d.ratingAfter),
-                    borderColor: '#e09f3e',
-                    backgroundColor: 'rgba(224, 159, 62, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    pointBackgroundColor: '#e09f3e',
-                    pointBorderColor: isDark ? '#1a1a1a' : '#fff',
-                    pointBorderWidth: 1.5,
-                    fill: false,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)',
-                        titleColor: isDark ? '#fff' : '#222',
-                        bodyColor: isDark ? '#ccc' : '#555',
-                        borderColor: 'rgba(224,159,62,0.4)',
-                        borderWidth: 1,
-                        padding: 10,
-                        cornerRadius: 8,
-                        titleFont: { weight: '600' },
-                        callbacks: {
-                            title: function (items) {
-                                if (!items.length) return '';
-                                const d = new Date(items[0].label);
-                                return d.toLocaleDateString();
-                            },
-                            label: function (item) {
-                                return 'Rating: ' + item.raw;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            color: textColor,
-                            maxTicksLimit: 8,
-                            font: { size: 11 },
-                            callback: function (value, index) {
-                                const d = new Date(this.getLabelForValue(value));
-                                return d.toLocaleDateString();
-                            }
-                        },
-                        grid: { color: gridColor }
-                    },
-                    y: {
-                        ticks: {
-                            color: textColor,
-                            font: { size: 11 }
-                        },
-                        grid: { color: gridColor }
-                    }
-                }
-            }
-        });
+        this._ratingHistoryData = Array.isArray(data) ? data : [];
+        this._profileChartRange = '30';
+        document.querySelectorAll('.pp-range-btn').forEach(b =>
+            b.classList.toggle('is-active', b.getAttribute('data-range') === '30'));
+        const title = document.getElementById('ppChartTitle');
+        if (title) title.textContent = this._profileChartTitle();
+        this._renderProfileChart();
     } catch (err) {
         console.error('[RATING CHART] Error:', err);
     }
 };
 
-UI.toggleRatingChart = function () {
-    const container = document.getElementById('ppRatingChartContainer');
-    const arrow = document.querySelector('.pp-chart-arrow');
-    if (!container) return;
+UI._profileChartTitle = function () {
+    const range = this._profileChartRange || '30';
+    const key = range === 'all' ? 'pp_chart_all' : 'pp_chart_last';
+    return this.translate(key).replace('{n}', range);
+};
 
-    const isOpen = container.classList.toggle('open');
-    if (arrow) arrow.classList.toggle('open', isOpen);
+// Переключение среза 30 / 90 / All (макет Profile: сегмент возле заголовка).
+UI.setProfileChartRange = function (range, btn) {
+    this._profileChartRange = range;
+    document.querySelectorAll('.pp-range-btn').forEach(b => b.classList.toggle('is-active', b === btn));
+    const title = document.getElementById('ppChartTitle');
+    if (title) title.textContent = this._profileChartTitle();
+    this._renderProfileChart();
+};
 
-    if (isOpen && this._ratingChartInstance) {
-        this._ratingChartInstance.resize();
+UI._renderProfileChart = function () {
+    const noData = document.getElementById('ppChartNoData');
+    const wrapper = document.querySelector('.pp-chart-wrapper');
+    if (!noData || !wrapper) return;
+
+    const all = this._ratingHistoryData || [];
+    const range = this._profileChartRange || '30';
+    const data = (range === 'all') ? all : (all.slice(-parseInt(range, 10)));
+
+    if (this._ratingChartInstance) {
+        this._ratingChartInstance.destroy();
+        this._ratingChartInstance = null;
     }
+
+    if (!data || data.length < 2) {
+        wrapper.classList.add('hidden');
+        noData.classList.remove('hidden');
+        return;
+    }
+    wrapper.classList.remove('hidden');
+    noData.classList.add('hidden');
+
+    const canvas = document.getElementById('ppRatingChart');
+    const ctx = canvas.getContext('2d');
+    const lastIdx = data.length - 1;
+
+    // Подписи первого и последнего значения у краёв (макет: 1117 … 1063).
+    const endLabels = {
+        id: 'ppEndLabels',
+        afterDatasetsDraw(chart) {
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data.length) return;
+            const area = chart.chartArea;
+            const c = chart.ctx;
+            const vals = chart.data.datasets[0].data;
+            const li = meta.data.length - 1;
+            const p0 = meta.data[0];
+            const pl = meta.data[li];
+            c.save();
+            c.font = '11px Manrope, sans-serif';
+            c.fillStyle = '#8b8f98';
+            c.textBaseline = 'alphabetic';
+            c.textAlign = 'left';
+            c.fillText(String(vals[0]), area.left + 4, Math.max(p0.y - 8, area.top + 12));
+            c.beginPath();
+            c.arc(pl.x, pl.y, 5, 0, Math.PI * 2);
+            c.fillStyle = '#f0a82a';
+            c.fill();
+            c.font = '700 12px Manrope, sans-serif';
+            c.fillStyle = '#f0a82a';
+            c.textAlign = 'right';
+            c.fillText(String(vals[li]), area.right - 4, Math.min(pl.y + 20, area.bottom - 4));
+            c.restore();
+        }
+    };
+
+    this._ratingChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => new Date(d.date)),
+            datasets: [{
+                label: 'Rating',
+                data: data.map(d => d.ratingAfter),
+                borderColor: '#f0a82a',
+                backgroundColor: 'rgba(240, 168, 42, 0.08)',
+                borderWidth: 2.5,
+                pointRadius: 0,
+                pointHitRadius: 12,
+                fill: true,
+                tension: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(13, 14, 17, 0.95)',
+                    titleColor: '#fff',
+                    bodyColor: '#c4c7ce',
+                    borderColor: 'rgba(240,168,42,0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 8,
+                    titleFont: { weight: '600' },
+                    callbacks: {
+                        title: function (items) {
+                            if (!items.length) return '';
+                            const d = new Date(items[0].label);
+                            return d.toLocaleDateString();
+                        },
+                        label: function (item) {
+                            return 'Rating: ' + item.raw;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#8b8f98',
+                        maxTicksLimit: 8,
+                        font: { size: 11 },
+                        callback: function (value, index) {
+                            const d = new Date(this.getLabelForValue(value));
+                            return d.toLocaleDateString();
+                        }
+                    },
+                    grid: { display: false }
+                },
+                y: {
+                    // В макете подписей оси Y нет — только сетка и метки на концах линии.
+                    ticks: { display: false },
+                    grid: { color: '#1f2125' }
+                }
+            }
+        },
+        plugins: [endLabels]
+    });
 };
 // --- END RATING CHART ---
 
