@@ -1,110 +1,204 @@
-/* --- PROFILE PAGE (New Architecture) --- */
+/* --- PROFILE PAGE (макет design-reference/html/Profile.html) --- */
 body {
     font-family: var(--font-sans);
 }
 
+/* Обёртка страницы: колонка 720px, страница скроллится целиком */
 .profile-page-container {
     width: 100%;
-    max-width: 700px;
-    /* Compact wrapper */
+    max-width: 720px;
     height: 100%;
-    overflow-y: hidden;
-    padding: 20px;
+    overflow-y: auto;
+    padding: 32px 16px 80px;
     display: flex;
     flex-direction: column;
-    gap: 25px;
+    gap: 16px;
     box-sizing: border-box;
 }
 
-/* Header Section */
-.profile-page-header {
+/* Headrow: back + заголовок */
+.pp-headrow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.pp-back {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--border-ctl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.pp-back:hover {
+    border-color: var(--border-strong);
+}
+
+.pp-back svg {
+    display: block;
+}
+
+.pp-page-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+/* Skeleton Loading */
+.pp-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 4px 0;
+}
+.pp-skeleton.hidden { display: none; }
+.pp-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+}
+.pp-content.hidden { display: none; }
+
+@keyframes pp-shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+}
+
+.pp-skeleton-header {
     display: flex;
     gap: 20px;
     align-items: center;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
     padding: 20px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
+}
+.pp-skeleton-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #1c1e22 25%, #23252a 50%, #1c1e22 75%);
+    background-size: 200px 100%;
+    animation: pp-shimmer 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+.pp-skeleton-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pp-skeleton-line {
+    height: 14px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #1c1e22 25%, #23252a 50%, #1c1e22 75%);
+    background-size: 200px 100%;
+    animation: pp-shimmer 1.5s ease-in-out infinite;
+}
+.pp-skeleton-line.w-40 { width: 40%; }
+.pp-skeleton-line.w-60 { width: 60%; }
+.pp-skeleton-line.w-20 { width: 20%; }
+
+.pp-skeleton-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.pp-skeleton-card {
+    height: 96px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #1c1e22 25%, #23252a 50%, #1c1e22 75%);
+    background-size: 200px 100%;
+    animation: pp-shimmer 1.5s ease-in-out infinite;
 }
 
-.profile-page-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at top right, rgba(224, 159, 62, 0.1), transparent 60%);
-    pointer-events: none;
+.pp-skeleton-tabs {
+    display: flex;
+    gap: 20px;
+    padding: 0 4px;
+}
+.pp-skeleton-tab {
+    height: 48px;
+    width: 96px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #1c1e22 25%, #23252a 50%, #1c1e22 75%);
+    background-size: 200px 100%;
+    animation: pp-shimmer 1.5s ease-in-out infinite;
+}
+
+.pp-skeleton-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.pp-skeleton-row {
+    height: 56px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #1c1e22 25%, #23252a 50%, #1c1e22 75%);
+    background-size: 200px 100%;
+    animation: pp-shimmer 1.5s ease-in-out infinite;
+}
+.pp-skeleton-row:nth-child(odd) { width: 95%; }
+.pp-skeleton-row:nth-child(even) { width: 88%; }
+
+/* Хедер-карточка профиля */
+.profile-page-header {
+    position: relative;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
 .pp-avatar-section {
     position: relative;
-    flex-shrink: 0;
-}
-
-.pp-avatar-section.own {
+    width: 88px;
+    height: 88px;
+    flex: none;
     cursor: pointer;
 }
 
-.pp-avatar-section.own .pp-avatar {
-    transition: filter 0.2s ease, transform 0.2s ease;
-}
-
-.pp-avatar-section.own:hover .pp-avatar {
-    filter: brightness(1.15);
-    transform: scale(1.03);
+.pp-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 40px;
+    font-weight: 800;
 }
 
 .pp-avatar-edit-hint {
     position: absolute;
     bottom: 0;
-    left: 0;
     right: 0;
-    margin-bottom: 4px;
-    background: rgba(0, 0, 0, 0.65);
-    color: #fff;
-    font-size: 11px;
-    text-align: center;
-    padding: 3px 0;
-    border-radius: 0 0 50% 50%;
-    opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
-}
-
-.pp-avatar-section.own:hover .pp-avatar-edit-hint {
-    opacity: 1;
-}
-
-.pp-avatar {
-    width: 80px;
-    height: 80px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid var(--bg);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-}
-
-.pp-country-flag {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-    font-size: 24px;
-    background: var(--bg);
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
+    background: var(--panel-light);
+    border: 1px solid var(--border-strong);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    font-size: 12px;
 }
 
 .pp-info-section {
-    flex-grow: 1;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -113,18 +207,41 @@ body {
 .pp-username-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    min-width: 0;
 }
 
-.pp-info-section h1 {
+.pp-username-row h1 {
     margin: 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: -1px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
+.pp-country-chip {
+    flex: none;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-2);
+    background: var(--panel-light);
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+
+.pp-admin-chip {
+    flex: none;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-chip);
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+
+/* Био */
 .pp-bio-wrap {
     position: relative;
     display: flex;
@@ -133,13 +250,13 @@ body {
 }
 
 .pp-bio {
-    color: #aaa;
-    font-style: italic;
-    max-width: 500px;
-    line-height: 1.4;
+    color: var(--text-3);
+    font-size: 13px;
+    line-height: 1.5;
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
+    font-style: normal;
 }
 
 .pp-bio-edit-btn {
@@ -166,9 +283,9 @@ body {
 }
 
 .pp-bio-edit-form textarea {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-    border: 1px solid #555;
+    background: var(--bg-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     padding: 8px 10px;
     resize: vertical;
@@ -180,7 +297,7 @@ body {
 
 .pp-bio-edit-form textarea:focus {
     outline: none;
-    border-color: #7aa2f7;
+    border-color: var(--accent);
 }
 
 .pp-bio-edit-actions {
@@ -192,29 +309,29 @@ body {
 
 .pp-bio-edit-actions > span {
     font-size: 0.78rem;
-    color: #888;
+    color: var(--text-dim);
     margin-right: auto;
 }
 
 .pp-bio-save-btn {
-    background: #e04444;
+    background: var(--accent);
     border: none;
-    color: #fff;
+    color: var(--on-accent);
     border-radius: 6px;
     padding: 6px 14px;
     cursor: pointer;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .pp-bio-save-btn:hover {
-    background: #c93737;
+    background: var(--accent-light);
 }
 
 .pp-bio-cancel-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid #555;
-    color: #ccc;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-2);
     border-radius: 6px;
     padding: 6px 14px;
     cursor: pointer;
@@ -222,243 +339,625 @@ body {
 }
 
 .pp-bio-cancel-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--hover-tint);
 }
 
 .pp-joined {
-    font-size: 0.85rem;
-    color: #666;
-    margin-top: 5px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0;
 }
 
+/* Действия в хедере (Edit profile, ⋯, Add friend у чужого профиля) */
 .pp-actions {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 24px;
+    right: 24px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
-.pp-logout-btn {
-    background: rgba(255, 68, 68, 0.1);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 68, 68, 0.3);
-    padding: 10px 18px;
-    border-radius: 25px;
+.pp-action-btn {
+    height: 44px;
+    padding: 0 18px;
+    background: var(--panel-light);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.pp-action-btn:hover {
+    border-color: var(--text-faint);
+    background: var(--raised);
+}
+
+/* Кнопка «···» и её меню */
+.pp-dots {
+    position: relative;
+    flex: none;
+}
+
+.pp-dots-btn {
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    background: var(--panel-light);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
 }
 
-.pp-logout-btn:hover {
-    background: #ff4444;
-    color: #fff;
-    border-color: #ff4444;
-    transform: translateY(-1px);
+.pp-dots-btn:hover {
+    border-color: var(--text-faint);
+    background: var(--raised);
 }
 
-/* Stats Overview */
+.pp-dots-btn svg {
+    display: block;
+}
+
+.pp-dots-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 52px;
+    width: 200px;
+    box-sizing: border-box;
+    background: var(--raised);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    z-index: var(--z-dropdown);
+}
+
+.pp-dots-menu.show {
+    display: flex;
+    flex-direction: column;
+}
+
+.pp-dots-menu button {
+    height: 44px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.pp-dots-menu button:hover {
+    background: var(--hover-tint);
+}
+
+.pp-dots-menu .danger {
+    color: var(--danger);
+}
+
+.pp-dots-sep {
+    height: 1px;
+    background: var(--border-strong);
+    margin: 4px 0;
+}
+
+/* Статистика: 4 карточки */
 .pp-stats-overview {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
 }
 
 .pp-stat-card {
-    background: rgba(30, 30, 30, 0.6);
-    padding: 10px;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: transform 0.2s;
-}
-
-.pp-stat-card:hover {
-    transform: translateY(-2px);
-    background: rgba(40, 40, 40, 0.8);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
 }
 
 .pp-stat-card .label {
-    font-size: 0.8rem;
-    color: #888;
-    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pp-stat-card .value {
-    font-size: 1.25rem;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.pp-stat-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+/* Акцентная карточка RATING */
+.pp-stat-card--accent {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+}
+
+.pp-stat-card--accent .label {
+    color: var(--accent-text-dim);
+}
+
+.pp-stat-card--accent .value {
+    color: var(--accent);
+}
+
+.pp-stat-card--accent .pp-stat-sub {
+    color: var(--accent-text-dim);
+}
+
+/* Разделитель В/П и цвета внутри значения */
+.pp-wl-sep {
+    color: var(--chevron);
+    margin: 0 2px;
+}
+
+.pp-stat-card .value .text-red {
+    color: var(--danger);
+}
+
+/* Карточка графика */
+.pp-chart-card {
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px 12px;
+}
+
+.pp-chart-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.pp-chart-title {
+    font-size: 14px;
     font-weight: 700;
-    color: #eee;
+    color: var(--text);
 }
 
-.pp-stat-card .value.text-green {
-    color: #4caf50;
+/* Сегмент-контрол 30 / 90 / All */
+.pp-chart-range {
+    display: flex;
+    gap: 3px;
+    background: var(--raised);
+    border-radius: 8px;
+    padding: 3px;
+    flex: none;
 }
 
-.pp-stat-card.rating {
-    background: linear-gradient(to bottom right, rgba(224, 159, 62, 0.1), rgba(0, 0, 0, 0.3));
-    border-color: rgba(224, 159, 62, 0.4);
-    grid-column: 1 / -1;
+.pp-range-btn {
+    height: 32px;
+    padding: 0 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
 }
 
-@media (max-width: 600px) {
-    .pp-stats-overview {
-        grid-template-columns: 1fr;
-    }
+.pp-range-btn.is-active {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 700;
 }
 
-/* Tabs */
+.pp-chart-wrapper {
+    position: relative;
+    height: 130px;
+}
+
+.pp-chart-wrapper.hidden {
+    display: none;
+}
+
+.pp-chart-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.pp-chart-empty.hidden {
+    display: none;
+}
+
+/* Ряд вкладок + чипы-фильтры */
+.pp-tabs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
 .pp-tabs {
     display: flex;
-    gap: 10px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 0;
+    gap: 8px;
 }
 
 .pp-tab {
+    height: 48px;
+    padding: 0 16px;
     background: transparent;
-    border: none;
-    padding: 10px 20px;
-    color: #888;
-    font-size: 1rem;
+    border: 0;
+    color: var(--text-3);
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-    margin-bottom: -2px;
-}
-
-.pp-tab:hover {
-    color: #ccc;
+    box-shadow: inset 0 -2px 0 transparent;
+    font-family: inherit;
 }
 
 .pp-tab.active {
-    color: var(--wall);
-    border-bottom-color: var(--wall);
+    color: var(--accent);
+    font-weight: 700;
+    box-shadow: inset 0 -2px 0 var(--accent);
 }
 
+.pp-filters {
+    display: flex;
+    gap: 6px;
+}
+
+.pp-filter-chip {
+    height: 44px;
+    padding: 0 4px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.pp-filter-chip span {
+    display: block;
+    padding: 6px 12px;
+    border-radius: 16px;
+    color: var(--text-3);
+    font-size: 13px;
+}
+
+.pp-filter-chip.is-active span {
+    background: var(--border-ctl);
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* Контент вкладок */
 .pp-tab-content {
     display: none;
-    animation: fadeIn 0.3s ease;
 }
 
 .pp-tab-content.active {
     display: flex;
     flex-direction: column;
-    flex: 1;
     min-height: 0;
+}
+
+/* Таблица истории */
+.pp-history-scroll-area {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     overflow: hidden;
 }
-
-/* History Table Styles */
-.pp-history-scroll-area {
-    flex: 1;
-    max-height: none;
-    overflow-y: auto;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-
 
 .pp-history-table {
     width: 100%;
     border-collapse: collapse;
-    /* margin-top: 10px; Removed margin as wrapper handles layout */
 }
 
 .pp-history-table th {
-    position: sticky;
-    top: 0;
-    background: #121212;
-    /* Fallback dark bg */
-    background: var(--bg-card, #121212);
-    /* Try to match card bg */
+    height: 36px;
+    box-sizing: border-box;
+    padding: 0 8px 0 16px;
     text-align: left;
-    color: #666;
-    padding: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    font-weight: 400;
-    z-index: 10;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
 }
 
-.pp-history-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    color: #ccc;
-    font-size: 0.9rem;
+.pp-history-table th.col-rating,
+.pp-history-table th.col-moves {
+    text-align: right;
 }
 
-.pp-history-table tr:hover td {
-    background: rgba(255, 255, 255, 0.02);
+.pp-history-table th.col-replay {
+    width: 44px;
 }
 
-.history-result-badge {
-    padding: 4px 8px;
+.pp-history-table tbody td {
+    height: 56px;
+    box-sizing: border-box;
+    padding: 0 8px 0 16px;
+    font-size: 14px;
+    color: var(--text);
+    border-bottom: 1px solid var(--divider);
+}
+
+.pp-history-table tbody tr {
+    cursor: pointer;
+}
+
+.pp-history-table tbody tr:hover td {
+    background: var(--row-hover);
+}
+
+.pp-history-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pp-history-table td.col-date {
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+.pp-history-table td.col-rating,
+.pp-history-table td.col-moves {
+    text-align: right;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+.pp-history-table td.col-opp {
+    min-width: 0;
+}
+
+.pp-history-table tr.pp-hidden-row {
+    display: none;
+}
+
+/* Пустой список истории — инлайн-стили в JS; здесь только запасной вид */
+.pp-history-table tbody td[colspan] {
+    text-align: center;
+    color: var(--text-dim);
+    cursor: default;
+}
+
+/* Аватар-инициал соперника */
+.pp-hist-av {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--btn-neutral);
+    font-size: 12px;
+    font-weight: 700;
+    flex: none;
+    margin-right: 4px;
+}
+
+/* Тег Unrated */
+.pp-unrated-tag {
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
     border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: bold;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+
+/* Pill результата */
+.history-result-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    border-radius: 4px;
+    padding: 3px 7px;
 }
 
 .history-result-badge.win {
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
+    color: var(--online-green);
+    background: rgba(62, 207, 142, 0.1);
 }
 
 .history-result-badge.loss {
-    background: rgba(244, 67, 54, 0.2);
-    color: #f44336;
+    color: var(--danger);
+    background: var(--danger-bg);
 }
 
 .history-result-badge.draw {
-    background: rgba(158, 158, 158, 0.2);
-    color: #9e9e9e;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border-strong);
 }
 
-/* Rating Change Styles */
+/* Изменение рейтинга */
 .rating-change {
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 14px;
 }
 
 .rating-change.positive {
-    color: #4caf50;
+    color: var(--online-green);
 }
 
 .rating-change.negative {
-    color: #f44336;
+    color: var(--danger);
 }
 
 .rating-change.neutral {
-    color: #888;
+    color: var(--text-dim);
+    font-weight: 600;
 }
 
-.btn-back-floating {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 30px;
-    cursor: pointer;
-    z-index: 100;
-    transition: all 0.2s;
-    font-weight: 600;
+/* Кнопка replay в строке */
+.pp-replay-btn {
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    color: var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
 }
 
-.btn-back-floating:hover {
-    background: var(--wall);
-    color: #000;
-    border-color: var(--wall);
+.pp-replay-btn:hover {
+    background: var(--accent-bg);
+}
+
+.pp-replay-btn svg {
+    display: block;
+}
+
+/* Кнопка Load more */
+.pp-load-more-btn {
+    display: block;
+    width: 100%;
+    height: 48px;
+    margin-top: 4px;
+    background: transparent;
+    border: 1px solid var(--accent-border);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: center;
+    font-family: inherit;
+}
+
+.pp-load-more-btn:hover {
+    background: var(--accent-bg);
+}
+
+/* Ссылка на соперника */
+.opponent-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.opponent-link:hover {
+    color: var(--accent);
+}
+
+/* Friend tabs */
+.pp-friends-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.pp-friend-tab {
+    flex: 1; padding: 10px; background: transparent; border: none;
+    color: var(--text-dim); cursor: pointer; font-size: 14px; font-weight: 600;
+    border-bottom: 2px solid transparent; transition: all 0.2s; font-family: inherit;
+}
+.pp-friend-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.pp-friend-tab-content { display: none; }
+.pp-friend-tab-content.active { display: block; }
+
+/* Friend item */
+.pp-friend-item {
+    display: flex; align-items: center; padding: 10px 12px; gap: 10px;
+    border-radius: 8px; cursor: pointer; position: relative;
+}
+.pp-friend-item:hover { background: var(--hover-tint); }
+.pp-friend-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.pp-friend-name { flex: 1; font-weight: 500; color: var(--text); }
+.pp-friend-status { font-size: 12px; color: var(--text-dim); }
+.pp-friend-online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--online-green); flex-shrink: 0; }
+.pp-friend-offline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+
+/* Dropdown menu (друзья) */
+.pp-friend-menu-btn {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    font-size: 18px; padding: 4px 8px; border-radius: 4px; font-family: inherit;
+}
+.pp-friend-menu-btn:hover { background: var(--hover-tint); }
+.pp-friend-dropdown {
+    display: none; position: absolute; right: 0; top: 100%;
+    background: var(--raised); border: 1px solid var(--border-strong); border-radius: 8px;
+    z-index: var(--z-dropdown); min-width: 160px; overflow: hidden;
+}
+.pp-friend-dropdown.show { display: block; }
+.pp-friend-dropdown button {
+    display: block; width: 100%; padding: 10px 16px; background: none;
+    border: none; color: var(--text-2); text-align: left; cursor: pointer; font-size: 13px;
+    font-family: inherit;
+}
+.pp-friend-dropdown button:hover { background: var(--hover-tint); }
+.pp-friend-dropdown .danger { color: var(--danger); }
+
+/* Request buttons */
+.pp-request-btn {
+    padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 12px; transition: all 0.2s; font-family: inherit;
+}
+.pp-request-btn.accept { background: var(--online-green); color: #0a120c; }
+.pp-request-btn.decline { background: var(--danger); color: #fff; }
+.pp-request-btn.cancel { background: var(--btn-neutral); color: var(--text-2); }
+
+/* Add friend section */
+.pp-add-friend-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.pp-add-friend-section h4 { margin: 0 0 4px; color: var(--text); font-size: 14px; }
+.pp-add-friend-row { display: flex; gap: 8px; margin-top: 8px; }
+.pp-add-friend-row input {
+    flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-ctl);
+    background: var(--bg-2); color: var(--text); font-size: 14px;
+}
+.pp-add-friend-row input:focus { outline: none; border-color: var(--accent); }
+.pp-error-msg { color: var(--danger); font-size: 13px; margin-top: 6px; }
+.pp-error-msg.hidden { display: none; }
+.pp-empty-state { text-align: center; padding: 30px; color: var(--text-dim); }
+
+/* Прочее */
+.mini-btn-view {
+    font-size: 1.2rem;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    transition: transform 0.2s;
+}
+
+.mini-btn-view:hover {
+    transform: scale(1.2);
 }
 
 /* Animations */
@@ -474,290 +973,69 @@ body {
     }
 }
 
-/* Opponent link in history table */
-.opponent-link {
-    color: #4ade80;
-    text-decoration: none;
-    cursor: pointer;
-    transition: color 0.2s;
-}
+/* Адаптив */
+@media (max-width: 768px) {
+    .pp-stats-overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 
-.opponent-link:hover {
-    color: #22c55e;
-    text-decoration: underline;
-}
-
-@media (max-width: 600px) {
     .profile-page-header {
         flex-direction: column;
-        text-align: center;
-        gap: 15px;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .pp-actions {
+        position: static;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .pp-username-row h1 {
+        font-size: 22px;
+    }
+
+    .pp-tabs-row {
+        flex-wrap: wrap;
+        gap: 0;
+    }
+
+    .pp-tab {
+        flex: 1;
+        padding: 0;
     }
 }
 
-.mini-btn-view {
-    font-size: 1.2rem;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    transition: transform 0.2s;
-}
+@media (max-width: 480px) {
+    .pp-stats-overview {
+        gap: 8px;
+    }
 
-.mini-btn-view:hover {
-    transform: scale(1.2);
-}
+    .pp-stat-card {
+        padding: 10px 12px;
+    }
 
-/* Friend tabs */
-.pp-friends-tabs {
-    display: flex; gap: 0; border-bottom: 1px solid #333; margin-bottom: 16px;
-}
-.pp-friend-tab {
-    flex: 1; padding: 10px; background: transparent; border: none;
-    color: #888; cursor: pointer; font-size: 14px; font-weight: 600;
-    border-bottom: 2px solid transparent; transition: all 0.2s;
-}
-.pp-friend-tab.active { color: #e09f3e; border-bottom-color: #e09f3e; }
-.pp-friend-tab-content { display: none; }
-.pp-friend-tab-content.active { display: block; }
+    .pp-stat-card .value {
+        font-size: 22px;
+    }
 
-/* Friend item */
-.pp-friend-item {
-    display: flex; align-items: center; padding: 10px 12px; gap: 10px;
-    border-radius: 8px; cursor: pointer; position: relative;
-}
-.pp-friend-item:hover { background: rgba(255,255,255,0.05); }
-.pp-friend-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
-.pp-friend-name { flex: 1; font-weight: 500; }
-.pp-friend-status { font-size: 12px; color: #888; }
-.pp-friend-online-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
-.pp-friend-offline-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
+    .pp-chart-card {
+        padding: 12px 12px 8px;
+    }
 
-/* Dropdown menu */
-.pp-friend-menu-btn {
-    background: none; border: none; color: #888; cursor: pointer;
-    font-size: 18px; padding: 4px 8px; border-radius: 4px;
-}
-.pp-friend-menu-btn:hover { background: rgba(255,255,255,0.1); }
-.pp-friend-dropdown {
-    display: none; position: absolute; right: 0; top: 100%;
-    background: #2a2a2a; border: 1px solid #444; border-radius: 8px;
-    z-index: 100; min-width: 160px; overflow: hidden;
-}
-.pp-friend-dropdown.show { display: block; }
-.pp-friend-dropdown button {
-    display: block; width: 100%; padding: 10px 16px; background: none;
-    border: none; color: #ddd; text-align: left; cursor: pointer; font-size: 13px;
-}
-.pp-friend-dropdown button:hover { background: rgba(255,255,255,0.08); }
-.pp-friend-dropdown .danger { color: #f44336; }
+    .pp-chart-head {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 
-/* Request buttons */
-.pp-request-btn {
-    padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer;
-    font-weight: 600; font-size: 12px; transition: all 0.2s;
-}
-.pp-request-btn.accept { background: #4caf50; color: #fff; }
-.pp-request-btn.decline { background: #f44336; color: #fff; }
-.pp-request-btn.cancel { background: #555; color: #ddd; }
+    .pp-history-table th.col-moves,
+    .pp-history-table td.col-moves,
+    .pp-history-table th.col-date,
+    .pp-history-table td.col-date {
+        display: none;
+    }
 
-/* Add friend section */
-.pp-add-friend-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid #333; }
-.pp-add-friend-row { display: flex; gap: 8px; margin-top: 8px; }
-.pp-add-friend-row input {
-    flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #444;
-    background: #222; color: #fff; font-size: 14px;
-}
-.pp-error-msg { color: #f44336; font-size: 13px; margin-top: 6px; }
-.pp-error-msg.hidden { display: none; }
-.pp-empty-state { text-align: center; padding: 30px; color: #666; }
-
-/* Rating Chart Section */
-.pp-rating-chart-section {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    overflow: hidden;
-    background: rgba(30, 30, 30, 0.4);
-}
-
-.pp-chart-toggle {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 18px;
-    background: transparent;
-    border: none;
-    color: #ccc;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.pp-chart-toggle:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.pp-chart-toggle span:first-child {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.pp-chart-arrow {
-    font-size: 0.9rem;
-    transition: transform 0.25s ease;
-    color: #888;
-}
-
-.pp-chart-arrow.open {
-    transform: rotate(180deg);
-}
-
-.pp-chart-container {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.35s ease;
-}
-
-.pp-chart-container.open {
-    max-height: 320px;
-}
-
-.pp-chart-wrapper {
-    padding: 8px 16px 16px;
-    height: 260px;
-    position: relative;
-}
-
-.pp-chart-empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: #666;
-    font-style: italic;
-}
-
-#ppChartGameCount {
-    font-size: 0.8rem;
-    color: #888;
-    font-weight: 400;
-}
-
-/* --- Skeleton Loading --- */
-.pp-skeleton {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-    padding: 4px 0;
-}
-.pp-skeleton.hidden { display: none; }
-.pp-content {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-.pp-content.hidden { display: none; }
-
-@keyframes pp-shimmer {
-    0% { background-position: -200px 0; }
-    100% { background-position: calc(200px + 100%) 0; }
-}
-
-.pp-skeleton-header {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    padding: 20px;
-}
-.pp-skeleton-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-    background-size: 200px 100%;
-    animation: pp-shimmer 1.5s ease-in-out infinite;
-    flex-shrink: 0;
-}
-.pp-skeleton-lines {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.pp-skeleton-line {
-    height: 14px;
-    border-radius: 8px;
-    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-    background-size: 200px 100%;
-    animation: pp-shimmer 1.5s ease-in-out infinite;
-}
-.pp-skeleton-line.w-40 { width: 40%; }
-.pp-skeleton-line.w-60 { width: 60%; }
-.pp-skeleton-line.w-20 { width: 20%; }
-
-.pp-skeleton-stats {
-    display: flex;
-    gap: 12px;
-}
-.pp-skeleton-card {
-    flex: 1;
-    height: 60px;
-    border-radius: 12px;
-    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-    background-size: 200px 100%;
-    animation: pp-shimmer 1.5s ease-in-out infinite;
-}
-
-.pp-skeleton-tabs {
-    display: flex;
-    gap: 20px;
-    padding: 0 4px;
-}
-.pp-skeleton-tab {
-    height: 32px;
-    width: 80px;
-    border-radius: 8px;
-    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-    background-size: 200px 100%;
-    animation: pp-shimmer 1.5s ease-in-out infinite;
-}
-
-.pp-skeleton-table {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.pp-skeleton-row {
-    height: 40px;
-    border-radius: 8px;
-    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
-    background-size: 200px 100%;
-    animation: pp-shimmer 1.5s ease-in-out infinite;
-}
-.pp-skeleton-row:nth-child(odd) { width: 95%; }
-.pp-skeleton-row:nth-child(even) { width: 88%; }
-
-/* Load More button */
-.pp-load-more-btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    margin-top: 12px;
-    background: rgba(224, 159, 62, 0.1);
-    border: 1px solid rgba(224, 159, 62, 0.3);
-    border-radius: 8px;
-    color: #e09f3e;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: center;
-}
-.pp-load-more-btn:hover {
-    background: rgba(224, 159, 62, 0.2);
-    border-color: rgba(224, 159, 62, 0.5);
-    transform: translateY(-1px);
+    .pp-filter-chip span {
+        padding: 5px 8px;
+    }
 }
