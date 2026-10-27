@@ -803,6 +803,15 @@ app.get('/api/profiles/:username', async (req, res) => {
 
         const result = user.toObject();
         result.friendshipStatus = friendshipStatus;
+
+        // Rank (profile card «Rank #N»): 1 + number of better-rated non-admin players.
+        if (!user.isAdmin && typeof user.rating === 'number') {
+            try {
+                const better = await User.countDocuments({ isAdmin: { $ne: true }, rating: { $gt: user.rating } });
+                result.rank = better + 1;
+            } catch (_e) { /* rank is optional */ }
+        }
+
         res.json(result);
     } catch (err) {
         console.error(err);
@@ -880,7 +889,7 @@ app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
         const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl stats.totalGames')
+            .select('username rating avatarUrl stats.totalGames stats.wins')
             .sort({ rating: -1 })
             .limit(limit);
         res.json(topPlayers);
@@ -897,7 +906,7 @@ app.get('/api/leaderboard/me', async (req, res) => {
         if (!req.session || !req.session.userId) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
-        const user = await User.findById(req.session.userId).select('username rating isAdmin');
+        const user = await User.findById(req.session.userId).select('username rating isAdmin stats');
         if (!user) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -908,7 +917,14 @@ app.get('/api/leaderboard/me', async (req, res) => {
             isAdmin: { $ne: true },
             rating: { $gt: user.rating },
         });
-        res.json({ rank: betterCount + 1, total: betterCount + 1, rating: user.rating, username: user.username });
+        res.json({
+            rank: betterCount + 1,
+            total: betterCount + 1,
+            rating: user.rating,
+            username: user.username,
+            wins: (user.stats && user.stats.wins) || 0,
+            totalGames: (user.stats && user.stats.totalGames) || 0,
+        });
     } catch (err) {
         console.error('[LEADERBOARD ME] Error:', err);
         res.status(500).json({ error: 'Server error' });

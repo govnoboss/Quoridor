@@ -13,151 +13,264 @@
     <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.25" type="text/css" />
-    <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
-    <link rel="stylesheet" href="/css/profile.css?v=1.0.7" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
-        .lb-page {
+        html, body { overflow-y: auto; }
+
+        /* --- Leaderboard page (mockup Leaderboard.html) --- */
+        .lbp-page {
             min-height: calc(100vh - var(--header-h));
+            display: flex;
+            justify-content: center;
+            padding: calc(var(--header-h) + 32px) 16px 80px;
+            box-sizing: border-box;
+        }
+        .lbp-main {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+        }
+        .lbp-headrow {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .lbp-back {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--panel);
+            border: 1px solid var(--border-ctl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            flex: none;
+        }
+        .lbp-back svg { display: block; }
+        .lbp-headrow h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
+        }
+        .lbp-sub {
+            margin: 8px 0 20px 60px;
+            font-size: 14px;
+            color: #8b8f98;
+        }
+
+        /* Tabs (Rating / Win rate / This week) */
+        .lbp-tabs {
+            display: flex;
+            gap: 3px;
+            width: 360px;
+            max-width: 100%;
+            box-sizing: border-box;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 3px;
+        }
+        .lbp-tab {
+            flex: 1;
+            height: 38px;
+            background: transparent;
+            border: 0;
+            border-radius: 8px;
+            color: var(--text-3);
+            font-size: 13px;
+            font-weight: 400;
+            cursor: pointer;
+        }
+        .lbp-tab.is-active {
+            background: var(--accent);
+            color: var(--on-accent);
+            font-weight: 700;
+        }
+        .lbp-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .lbp-tab.is-soon {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Podium */
+        .lbp-podium {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+        .lbp-card {
+            box-sizing: border-box;
+            height: 168px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: calc(var(--header-h) + 20px) 16px 80px;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
         }
-        .lb-container {
+        .lbp-card:hover { border-color: var(--border-strong); }
+        .lbp-card--gold {
+            height: 196px;
+            background: var(--accent-bg);
+            border-color: var(--accent-border);
+        }
+        .lbp-medal {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: var(--on-accent);
+            font-size: 13px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .lbp-medal--2 { background: var(--silver); color: var(--medal-on-silver); }
+        .lbp-medal--3 { background: var(--bronze); color: var(--on-accent); }
+        .lbp-avatar {
+            border-radius: 50%;
+            background: var(--btn-neutral);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex: none;
+            overflow: hidden;
+        }
+        .lbp-card:not(.lbp-card--gold) .lbp-avatar {
+            width: 48px;
+            height: 48px;
+            font-size: 18px;
+        }
+        .lbp-card--gold .lbp-avatar {
+            width: 56px;
+            height: 56px;
+            background: var(--accent-chip);
+            font-size: 22px;
+            color: var(--accent);
+        }
+        .lbp-avatar img {
             width: 100%;
-            max-width: 520px;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
-        .lb-header {
+        .lbp-name { font-size: 16px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lbp-card--gold .lbp-name { font-size: 17px; }
+        .lbp-score { font-size: 20px; font-weight: 800; }
+        .lbp-card--gold .lbp-score { font-size: 24px; color: var(--accent); }
+        .lbp-games { font-size: 12px; color: #8b8f98; }
+        .lbp-card--gold .lbp-games { color: #a39a86; }
+
+        /* Table */
+        .lbp-table {
+            margin-top: 24px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .lbp-thead,
+        .lbp-row,
+        .lbp-you {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 20px;
+            box-sizing: border-box;
+            padding: 0 16px;
         }
-        .lb-header h1 {
-            font-size: 1.4rem;
-            margin: 0;
-            flex: 1;
+        .lbp-thead {
+            height: 40px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: #8b8f98;
+            border-bottom: 1px solid var(--border);
         }
-        .lb-back-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.08);
-            color: var(--text);
-            font-size: 1.2rem;
-            text-decoration: none;
-            transition: background 0.2s;
-            flex-shrink: 0;
-        }
-        .lb-back-btn:hover {
-            background: rgba(255,255,255,0.15);
-        }
-        .lb-subtitle {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        .lb-loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-        .lb-empty {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-        .lb-table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 12px;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.03);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
-        }
-        .lb-table th,
-        .lb-table td {
-            padding: 10px 14px;
-            text-align: left;
-        }
-        .lb-table thead th {
-            color: #888;
-            font-size: 0.7rem;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.02);
-            white-space: nowrap;
-        }
-        .lb-table th.col-rank {
-            width: 62px;
-        }
-        .lb-table th.col-rating {
-            text-align: right;
-        }
-        .lb-table th.col-games {
-            text-align: right;
-        }
-        .lb-table tbody tr {
+        .lbp-col-rank, .lbp-col-days, .lbp-col-rating, .lbp-col-rate, .lbp-col-games { flex: none; }
+        .lbp-col-rank { width: 40px; }
+        .lbp-player { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .lbp-thead .lbp-col-rating, .lbp-thead .lbp-col-days, .lbp-thead .lbp-col-rate, .lbp-thead .lbp-col-games { text-align: right; }
+        .lbp-col-rating { width: 64px; }
+        .lbp-col-days { width: 64px; }
+        .lbp-col-rate { width: 72px; }
+        .lbp-col-games { width: 64px; }
+
+        .lbp-row {
+            height: 52px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--divider);
             cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-            transition: background 0.15s;
         }
-        .lb-table tbody tr:last-child {
-            border-bottom: none;
+        .lbp-row:last-child { border-bottom: 0; }
+        .lbp-row:hover { background: var(--row-hover); }
+        .lbp-rank { font-weight: 700; color: var(--text-3); }
+        .lbp-row .lbp-avatar {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
         }
-        .lb-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.08);
+        .lbp-uname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lbp-row .lbp-col-rating { font-weight: 800; }
+        .lbp-row .lbp-col-rate { color: var(--text-3); }
+        .lbp-row .lbp-col-days, .lbp-row .lbp-col-games { color: #8b8f98; }
+        .lbp-delta-up { font-weight: 600; color: var(--online-green); }
+        .lbp-delta-down { font-weight: 600; color: var(--danger); }
+        .lbp-delta-na { color: #8b8f98; }
+
+        /* You row */
+        .lbp-you {
+            margin-top: 12px;
+            height: 56px;
+            font-size: 14px;
+            background: var(--accent-bg-2);
+            border: 1px solid var(--accent-border);
+            border-radius: 12px;
+            cursor: pointer;
         }
-        .lb-table td {
-            color: var(--text);
+        .lbp-you .lbp-rank { font-weight: 800; color: var(--accent); }
+        .lbp-you .lbp-avatar {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+            font-weight: 800;
+            background: var(--accent);
+            color: var(--on-accent);
         }
-        .lb-table td.col-rank {
-            font-weight: 700;
-            color: #aaa;
+        .lbp-you .lbp-uname { font-weight: 700; color: var(--accent); }
+        .lbp-you .lbp-col-rating { font-weight: 800; color: var(--accent); }
+        .lbp-you .lbp-col-rate { color: #c9bfa6; }
+        .lbp-you .lbp-col-days, .lbp-you .lbp-col-games { color: #a39a86; }
+
+        .lbp-empty {
+            padding: 40px 16px;
+            text-align: center;
+            color: #8b8f98;
+            font-size: 14px;
         }
-        .lb-table td.col-rank.top1 {
-            color: #e09f3e;
+
+        @media (max-width: 560px) {
+            .lbp-col-days, .lbp-thead .lbp-col-days,
+            .lbp-col-games, .lbp-thead .lbp-col-games { display: none; }
+            .lbp-sub { margin-left: 0; }
         }
-        .lb-table td.col-rank.top2 {
-            color: #c8c8c8;
-        }
-        .lb-table td.col-rank.top3 {
-            color: #cd7f32;
-        }
-        .lb-table td.col-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .lb-table td.col-rating {
-            text-align: right;
-            font-weight: 700;
-            color: #aaa;
-            white-space: nowrap;
-        }
-        .lb-table td.col-games {
-            text-align: right;
-            color: #888;
-            font-size: 0.85rem;
-            white-space: nowrap;
-        }
-        @media (max-width: 768px) {
-            .lb-page {
-                padding: 16px 12px 80px;
-            }
-        }
-    </style>
-    <style>
-        html, body {
-            overflow-y: auto;
+        @media (max-width: 480px) {
+            .lbp-podium { gap: 8px; }
+            .lbp-card { padding: 10px 6px; }
+            .lbp-name { font-size: 13px; }
+            .lbp-score { font-size: 16px; }
+            .lbp-card--gold .lbp-name { font-size: 14px; }
+            .lbp-card--gold .lbp-score { font-size: 19px; }
         }
     </style>
 </head>
@@ -166,50 +279,65 @@
     <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
     <script src="/js/site-shell.js?v=1.0.0"></script>
 
-    <div class="lb-page">
-        <div class="lb-container">
-            <div class="lb-header">
-                <a href="/" class="lb-back-btn" id="backBtn" aria-label="Back">&larr;</a>
+    <div class="lbp-page">
+        <div class="lbp-main">
+            <div class="lbp-headrow">
+                <a href="/" class="lbp-back" id="backBtn" aria-label="Back">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                </a>
                 <h1 id="pageTitle">Leaderboard</h1>
             </div>
-            <p class="lb-subtitle" id="pageSubtitle">Top 100 players by rating</p>
-            <div class="leaderboard" id="leaderboardList">
-                <div class="lb-loading" id="loadingText">Loading...</div>
+            <p class="lbp-sub" id="pageSubtitle">Top 100 players by rating</p>
+
+            <div class="lbp-tabs" role="tablist" aria-label="Leaderboard sorting">
+                <button class="lbp-tab is-active" data-sort="rating" role="tab" aria-selected="true" data-i18n="lb_tab_rating">Rating</button>
+                <button class="lbp-tab" data-sort="winrate" role="tab" aria-selected="false" data-i18n="lb_tab_winrate">Win rate</button>
+                <button class="lbp-tab is-soon" data-sort="week" role="tab" aria-selected="false" aria-disabled="true" title="Not available yet" data-i18n="lb_tab_week">This week</button>
             </div>
+
+            <div class="lbp-podium" id="lbPodium" hidden></div>
+            <div class="lbp-table" id="lbTable">
+                <div class="lbp-thead">
+                    <span class="lbp-col-rank" data-i18n="lb_col_rank">RANK</span>
+                    <span class="lbp-player" data-i18n="lb_col_player">PLAYER</span>
+                    <span class="lbp-col-rating" data-i18n="lb_col_rating">RATING</span>
+                    <span class="lbp-col-days" data-i18n="lb_col_days">7 DAYS</span>
+                    <span class="lbp-col-rate" data-i18n="lb_col_rate">WIN RATE</span>
+                    <span class="lbp-col-games" data-i18n="lb_col_games">GAMES</span>
+                </div>
+                <div id="lbRows">
+                    <div class="lbp-empty" id="lbEmpty">Loading…</div>
+                </div>
+            </div>
+            <div class="lbp-you" id="lbYouRow" hidden onclick="window.location.href='/profile'"></div>
         </div>
     </div>
 
     <script>
         var dict = {
             ru: {
-                title: 'Лидеры',
+                title: 'Рейтинг',
                 subtitle: 'Топ-100 игроков по рейтингу',
-                loading: 'Загрузка...',
+                loading: 'Загрузка…',
                 empty: 'Пока нет игроков',
                 error: 'Ошибка загрузки',
-                col_rank: 'Ранг',
-                col_name: 'Имя',
-                col_rating: 'Рейтинг',
-                col_games: 'Кол-во игр',
-                games1: 'матч',
-                games2: 'матча',
-                games5: 'матчей',
-                page_title: 'Коридор — таблица лидеров | PlayQuor'
+                lb_tab_rating: 'Рейтинг',
+                lb_tab_winrate: 'Процент побед',
+                lb_tab_week: 'За неделю',
+                badge_won: 'ПОБЕДА',
+                you_label: 'Вы'
             },
             en: {
                 title: 'Leaderboard',
                 subtitle: 'Top 100 players by rating',
-                loading: 'Loading...',
+                loading: 'Loading…',
                 empty: 'No players yet',
                 error: 'Failed to load',
-                col_rank: 'Rank',
-                col_name: 'Name',
-                col_rating: 'Rating',
-                col_games: 'Games',
-                games1: 'game',
-                games2: 'games',
-                games5: 'games',
-                page_title: 'Quoridor Leaderboard — Top Players | PlayQuor'
+                lb_tab_rating: 'Rating',
+                lb_tab_winrate: 'Win rate',
+                lb_tab_week: 'This week',
+                badge_won: 'WON',
+                you_label: 'You'
             }
         };
 
@@ -217,21 +345,25 @@
             return localStorage.getItem('quoridor-lang') || 'en';
         }
 
-        function setLanguage(lang) {
-            localStorage.setItem('quoridor-lang', lang);
-            var d = dict[lang];
-            document.title = d.page_title;
-            document.documentElement.lang = lang;
-            document.getElementById('headerLang').value = lang;
-            document.getElementById('pageTitle').textContent = d.title;
-            document.getElementById('pageSubtitle').textContent = d.subtitle;
-            var lt = document.getElementById('loadingText');
-            if (lt) lt.textContent = d.loading;
-            if (typeof loadLeaderboard === 'function') loadLeaderboard();
+        function t(key) {
+            var d = dict[getLang()] || dict.en;
+            return d[key] || dict.en[key] || key;
         }
 
-        function applyLang() {
-            setLanguage(getLang());
+        function setLanguage(lang) {
+            localStorage.setItem('quoridor-lang', lang);
+            document.title = (lang === 'ru')
+                ? 'Коридор — таблица лидеров | PlayQuor'
+                : 'Quoridor Leaderboard — Top Players | PlayQuor';
+            document.documentElement.lang = lang;
+            var hl = document.getElementById('headerLang');
+            if (hl) hl.value = lang;
+            document.querySelectorAll('[data-i18n]').forEach(function (el) {
+                el.textContent = t(el.getAttribute('data-i18n'));
+            });
+            document.getElementById('pageTitle').textContent = t('title');
+            document.getElementById('pageSubtitle').textContent = t('subtitle');
+            renderAll();
         }
 
         function escapeHtml(str) {
@@ -241,58 +373,142 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
         }
-
-        function pluralGames(n, d, lang) {
-            if (lang === 'en') return n === 1 ? 'game' : 'games';
-            var n10 = n % 10,
-                n100 = n % 100;
-            if (n100 >= 11 && n100 <= 14) return d.games5;
-            if (n10 === 1) return d.games1;
-            if (n10 >= 2 && n10 <= 4) return d.games2;
-            return d.games5;
+        function escapeJsString(value) {
+            return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
-        function loadLeaderboard() {
-            var container = document.getElementById('leaderboardList');
-            var lang = getLang();
-            var d = dict[lang];
+        var players = [];
+        var you = null;
+        var activeSort = 'rating';
 
+        function winRate(p) {
+            var total = p.stats && p.stats.totalGames ? p.stats.totalGames : 0;
+            var wins = p.stats && p.stats.wins ? p.stats.wins : 0;
+            if (!total) return 0;
+            return Math.round((wins / total) * 100);
+        }
+
+        function sortedPlayers() {
+            var list = players.slice();
+            if (activeSort === 'winrate') {
+                list.sort(function (a, b) {
+                    var d = winRate(b) - winRate(a);
+                    if (d !== 0) return d;
+                    return (b.rating || 0) - (a.rating || 0);
+                });
+            }
+            return list;
+        }
+
+        function avatarHtml(p, classes) {
+            var initial = String(p.username || '?').charAt(0).toUpperCase();
+            if (p.avatarUrl) {
+                return '<span class="' + classes + '"><img src="' + escapeHtml(p.avatarUrl) + '" alt=""></span>';
+            }
+            return '<span class="' + classes + '">' + escapeHtml(initial) + '</span>';
+        }
+
+        function podiumCard(p, place) {
+            var gold = place === 1;
+            return '<div class="lbp-card' + (gold ? ' lbp-card--gold' : '') + '"' +
+                ' onclick="window.location.href=\'/profiles/' + escapeJsString(p.username) + '\'">' +
+                '<span class="lbp-medal lbp-medal--' + place + '">' + place + '</span>' +
+                avatarHtml(p, 'lbp-avatar') +
+                '<span class="lbp-name">' + escapeHtml(p.username) + '</span>' +
+                '<span class="lbp-score">' + (p.rating || 0) + '</span>' +
+                '<span class="lbp-games">' + ((p.stats && p.stats.totalGames) || 0) + '</span>' +
+                '</div>';
+        }
+
+        function tableRow(p, place) {
+            // 7-days delta: нет данных на сервере — прочерк (см. отчёт этапа 3).
+            return '<div class="lbp-row"' +
+                ' onclick="window.location.href=\'/profiles/' + escapeJsString(p.username) + '\'">' +
+                '<span class="lbp-rank lbp-col-rank">' + place + '</span>' +
+                '<span class="lbp-player">' + avatarHtml(p, 'lbp-avatar') +
+                '<span class="lbp-uname">' + escapeHtml(p.username) + '</span></span>' +
+                '<span class="lbp-col-rating">' + (p.rating || 0) + '</span>' +
+                '<span class="lbp-col-days lbp-delta-na">—</span>' +
+                '<span class="lbp-col-rate">' + winRate(p) + '%</span>' +
+                '<span class="lbp-col-games">' + ((p.stats && p.stats.totalGames) || 0) + '</span>' +
+                '</div>';
+        }
+
+        function renderAll() {
+            var podiumEl = document.getElementById('lbPodium');
+            var rowsEl = document.getElementById('lbRows');
+            var youEl = document.getElementById('lbYouRow');
+
+            if (!players.length) {
+                podiumEl.hidden = true;
+                rowsEl.innerHTML = '<div class="lbp-empty" id="lbEmpty">' + escapeHtml(t('empty')) + '</div>';
+                youEl.hidden = true;
+                return;
+            }
+
+            var list = sortedPlayers();
+            var top3 = list.slice(0, 3);
+            podiumEl.hidden = false;
+            podiumEl.innerHTML = top3
+                .map(function (p, i) { return podiumCard(p, i + 1); })
+                .join('');
+
+            rowsEl.innerHTML = list.slice(3).length
+                ? list.slice(3).map(function (p, i) { return tableRow(p, i + 4); }).join('')
+                : '<div class="lbp-empty">' + escapeHtml(t('empty')) + '</div>';
+
+            // Row «You» (только для авторизованного; 401/404 — скрыто).
+            if (you) {
+                youEl.hidden = false;
+                var wr = (you.totalGames ? Math.round((you.wins / you.totalGames) * 100) : 0);
+                youEl.innerHTML =
+                    '<span class="lbp-rank lbp-col-rank">#' + you.rank + '</span>' +
+                    '<span class="lbp-player">' +
+                    '<span class="lbp-avatar">' + escapeHtml(String(you.username || '?').charAt(0).toUpperCase()) + '</span>' +
+                    '<span class="lbp-uname">' + escapeHtml(t('you_label')) + ' · ' + escapeHtml(you.username) + '</span></span>' +
+                    '<span class="lbp-col-rating">' + (you.rating || 0) + '</span>' +
+                    '<span class="lbp-col-days lbp-delta-na">—</span>' +
+                    '<span class="lbp-col-rate">' + wr + '%</span>' +
+                    '<span class="lbp-col-games">' + (you.totalGames || 0) + '</span>';
+            } else {
+                youEl.hidden = true;
+            }
+        }
+
+        function loadPlayers() {
             fetch('/api/leaderboard?limit=100')
-                .then(function(r) { return r.json(); })
-                .then(function(players) {
-                    if (!players || players.length === 0) {
-                        container.innerHTML = '<div class="lb-empty">' + d.empty + '</div>';
-                        return;
-                    }
-
-                    container.innerHTML = '<table class="lb-table">'
-                            + '<thead><tr>'
-                            + '<th class="col-rank">' + d.col_rank + '</th>'
-                            + '<th class="col-name">' + d.col_name + '</th>'
-                            + '<th class="col-rating">' + d.col_rating + '</th>'
-                            + '<th class="col-games">' + d.col_games + '</th>'
-                            + '</tr></thead><tbody>'
-                            + players.map(function(p, i) {
-                                var rankClass = '';
-                                if (i === 0) rankClass = ' top1';
-                                else if (i === 1) rankClass = ' top2';
-                                else if (i === 2) rankClass = ' top3';
-
-                                return '<tr onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
-                                    + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
-                                    + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
-                                    + '<td class="col-rating">' + p.rating + '</td>'
-                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d, lang) + '</td>'
-                                    + '</tr>';
-                            }).join('')
-                            + '</tbody></table>';
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    players = Array.isArray(data) ? data : [];
+                    document.getElementById('lbEmpty').textContent = '';
+                    renderAll();
+                    // Строка «You» — после загрузки топа.
+                    fetch('/api/leaderboard/me')
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (me) { you = me; renderAll(); })
+                        .catch(function () { you = null; renderAll(); });
                 })
-                .catch(function() {
-                    container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
+                .catch(function () {
+                    document.getElementById('lbRows').innerHTML =
+                        '<div class="lbp-empty">' + escapeHtml(t('error')) + '</div>';
                 });
         }
 
-        applyLang();
+        document.querySelectorAll('.lbp-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                if (tab.classList.contains('is-soon')) return;
+                activeSort = tab.getAttribute('data-sort');
+                document.querySelectorAll('.lbp-tab').forEach(function (x) {
+                    var on = x === tab;
+                    x.classList.toggle('is-active', on);
+                    x.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                renderAll();
+            });
+        });
+
+        setLanguage(getLang());
+        loadPlayers();
     </script>
   <div id="siteFooter"></div>
 </body>
