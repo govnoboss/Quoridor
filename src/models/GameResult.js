@@ -57,4 +57,8 @@ const gameResultSchema = new mongoose.Schema({
     }
 });
 
+// Индексы: выборка рейтинга за 7 дней для лидерборда и графиков
+gameResultSchema.index({ date: -1 });
+gameResultSchema.index({ isRanked: 1, date: -1 });
+
 module.exports = mongoose.model('GameResult', gameResultSchema);

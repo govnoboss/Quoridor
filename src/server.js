@@ -803,6 +803,15 @@ app.get('/api/profiles/:username', async (req, res) => {
 
         const result = user.toObject();
         result.friendshipStatus = friendshipStatus;
+        // Флаг админа — только булево (плачек «Admin» в макете профиля), сам контракт остаётся
+        result.isAdmin = user.isAdmin === true;
+        // Ранг игрока — нужен для карточки RATING (в макете: Rank #142)
+        try {
+            result.rank = await computePlayerRank(user.rating || 1200);
+        } catch (rankErr) {
+            console.error('[PROFILE] Rank lookup failed:', rankErr);
+            result.rank = null;
+        }
         res.json(result);
     } catch (err) {
         console.error(err);
@@ -876,17 +885,82 @@ app.get('/api/profiles/:username/rating-history', async (req, res) => {
 });
 
 // Leaderboard API - top players (humans + bots) by rating
+// Возвращает расширенные поля для макета: винрейт, количество игр,
+// изменение рейтинга за 7 дней (по архиву завершённых партий).
+
+// Кэш агрегата "изменение рейтинга за 7 дней" — пересчёт не чаще раза в минуту
+const LB7D_CACHE_TTL = 60000;
+let lb7dCache = { at: 0, map: null };
+
+async function computeRating7dMap() {
+    if (lb7dCache.map && (Date.now() - lb7dCache.at) < LB7D_CACHE_TTL) return lb7dCache.map;
+    const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const [whiteSum, blackSum] = await Promise.all([
+        GameResult.aggregate([
+            { $match: { isRanked: true, date: { $gte: since } } },
+            { $group: { _id: '$playerWhite.id', delta: { $sum: '$playerWhite.ratingChange' } } }
+        ]),
+        GameResult.aggregate([
+            { $match: { isRanked: true, date: { $gte: since } } },
+            { $group: { _id: '$playerBlack.id', delta: { $sum: '$playerBlack.ratingChange' } } }
+        ]),
+    ]);
+    const map = new Map();
+    for (const r of whiteSum) if (r._id) map.set(String(r._id), r.delta || 0);
+    for (const r of blackSum) {
+        if (!r._id) continue;
+        map.set(String(r._id), (map.get(String(r._id)) || 0) + (r.delta || 0));
+    }
+    lb7dCache = { at: Date.now(), map };
+    return map;
+}
+
+// Ранг игрока: сколько участников (без админов, как в лидерборде) имеют рейтинг выше
+async function computePlayerRank(rating) {
+    const better = await User.countDocuments({ rating: { $gt: rating }, isAdmin: { $ne: true } });
+    return better + 1;
+}
+
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl stats.totalGames')
-            .sort({ rating: -1 })
-            .limit(limit);
-        res.json(topPlayers);
+        const [topPlayers, deltas] = await Promise.all([
+            User.find({ isAdmin: { $ne: true } })
+                .select('username rating avatarUrl stats.totalGames stats.wins stats.losses')
+                .sort({ rating: -1 })
+                .limit(limit),
+            computeRating7dMap(),
+        ]);
+        res.json(topPlayers.map((p, i) => {
+            const obj = typeof p.toObject === 'function' ? p.toObject() : { ...p };
+            obj.rank = i + 1;
+            obj.change7d = deltas.get(String(p._id)) || 0;
+            return obj;
+        }));
     } catch (err) {
         console.error('[LEADERBOARD] Error:', err);
         res.status(500).json([]);
+    }
+});
+
+// Ранг и статистика текущего игрока (для плашки «You» под лидербордом)
+app.get('/api/leaderboard/me', async (req, res) => {
+    try {
+        if (!req.session?.userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const user = await User.findById(req.session.userId)
+            .select('username rating avatarUrl stats.totalGames stats.wins stats.losses');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        const rank = await computePlayerRank(user.rating || 1200);
+        const deltas = await computeRating7dMap();
+        const obj = typeof user.toObject === 'function' ? user.toObject() : { ...user };
+        obj.rank = rank;
+        obj.change7d = deltas.get(String(user._id)) || 0;
+        res.json(obj);
+    } catch (err) {
+        console.error('[LEADERBOARD ME] Error:', err);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 

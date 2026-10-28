@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Quoridor Leaderboard — Top Players | PlayQuor</title>
-    <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
+    <title>Quoridor Leaderboard — Top 100 Players by Rating | PlayQuor</title>
+    <meta name="description" content="Top 100 Quoridor players ranked by rating. See ratings, 7-day progress, win rate and games played on the official PlayQuor leaderboard." />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="canonical" href="https://playquor.org/leaderboard" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,151 +12,248 @@
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
-    <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
-    <link rel="stylesheet" href="/css/profile.css?v=1.0.7" type="text/css" />
-    <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
-    <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
+        html, body { overflow-y: auto; }
+
         .lb-page {
             min-height: calc(100vh - var(--header-h));
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: calc(var(--header-h) + 20px) 16px 80px;
+            padding: calc(var(--header-h) + 24px) 16px 96px;
+            box-sizing: border-box;
         }
         .lb-container {
             width: 100%;
-            max-width: 520px;
+            max-width: 720px;
+            box-sizing: border-box;
         }
+
         .lb-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 6px;
         }
-        .lb-header h1 {
-            font-size: 1.4rem;
-            margin: 0;
-            flex: 1;
-        }
-        .lb-back-btn {
+        .lb-back {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.08);
+            background: var(--panel-light);
             color: var(--text);
-            font-size: 1.2rem;
             text-decoration: none;
-            transition: background 0.2s;
-            flex-shrink: 0;
+            flex: none;
+            transition: background .15s;
         }
-        .lb-back-btn:hover {
-            background: rgba(255,255,255,0.15);
+        .lb-back:hover { background: var(--raised); }
+        .lb-header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+            margin: 0;
         }
         .lb-subtitle {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 16px;
-            text-align: center;
+            font-size: 13px;
+            color: var(--text-dim);
+            margin: 0 0 24px;
+            padding-left: 56px;
         }
-        .lb-loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
+
+        /* табы */
+        .lb-tabs {
+            display: inline-flex;
+            padding: 3px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 28px;
         }
-        .lb-empty {
-            text-align: center;
-            padding: 40px;
-            color: #888;
+        .lb-tab {
+            height: 38px;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-2);
+            font: 400 13px/1 var(--font-sans);
+            cursor: pointer;
         }
+        .lb-tab.is-active { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+        .lb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        /* подиум */
+        .lb-podium {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            align-items: stretch;
+            margin-bottom: 24px;
+        }
+        .lb-podium-card {
+            box-sizing: border-box;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text);
+            cursor: pointer;
+            transition: border-color .15s;
+        }
+        .lb-podium-card:hover { border-color: var(--border-strong); }
+        .lb-medal-lg {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--on-accent);
+        }
+        .lb-podium-card.m2 .lb-medal-lg { background: var(--silver); color: var(--medal-on-silver); }
+        .lb-podium-card.m3 .lb-medal-lg { background: var(--bronze); }
+        .lb-podium-card .pq-avatar { background: var(--border-ctl); }
+        .lb-podium-name { font-size: 15px; font-weight: 700; }
+        .lb-podium-rating { font-size: 22px; font-weight: 800; }
+        .lb-podium-games { font-size: 12px; color: var(--text-dim); }
+        /* первый элемент в центре выше и акцентный */
+        .lb-podium-card.m1 {
+            background: var(--accent-bg);
+            border-color: var(--accent-border);
+            padding: 28px 16px;
+        }
+        .lb-podium-card.m1 .lb-podium-name { font-size: 17px; }
+        .lb-podium-card.m1 .lb-podium-rating { font-size: 26px; color: var(--accent); }
+        /* порядок: 2, 1, 3 */
+        .lb-podium-card.m2 { grid-column: 1; }
+        .lb-podium-card.m1 { grid-column: 2; }
+        .lb-podium-card.m3 { grid-column: 3; }
+
+        /* таблица */
         .lb-table {
-            width: 100%;
-            border-collapse: collapse;
+            box-sizing: border-box;
+            background: var(--panel);
+            border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
-            background: rgba(255, 255, 255, 0.03);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
         }
-        .lb-table th,
-        .lb-table td {
-            padding: 10px 14px;
-            text-align: left;
+        .lb-thead, .lb-row {
+            display: grid;
+            grid-template-columns: 64px minmax(0,1fr) 88px 72px 80px 64px;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            box-sizing: border-box;
         }
-        .lb-table thead th {
-            color: #888;
-            font-size: 0.7rem;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.02);
-            white-space: nowrap;
-        }
-        .lb-table th.col-rank {
-            width: 62px;
-        }
-        .lb-table th.col-rating {
-            text-align: right;
-        }
-        .lb-table th.col-games {
-            text-align: right;
-        }
-        .lb-table tbody tr {
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-            transition: background 0.15s;
-        }
-        .lb-table tbody tr:last-child {
-            border-bottom: none;
-        }
-        .lb-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.08);
-        }
-        .lb-table td {
-            color: var(--text);
-        }
-        .lb-table td.col-rank {
+        .lb-thead {
+            height: 40px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
             font-weight: 700;
-            color: #aaa;
+            letter-spacing: .08em;
+            color: var(--text-dim);
+            text-transform: uppercase;
         }
-        .lb-table td.col-rank.top1 {
-            color: #e09f3e;
+        .lb-row {
+            height: 52px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--divider);
+            color: var(--text);
+            cursor: pointer;
+            transition: background .12s;
         }
-        .lb-table td.col-rank.top2 {
-            color: #c8c8c8;
+        .lb-row:hover { background: var(--row-hover); }
+        .lb-row:last-child { border-bottom: 0; }
+        .lb-cell-rank { font-weight: 700; color: var(--text-2); }
+        .lb-cell-player {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
         }
-        .lb-table td.col-rank.top3 {
-            color: #cd7f32;
-        }
-        .lb-table td.col-name {
+        .lb-cell-player span {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .lb-table td.col-rating {
-            text-align: right;
-            font-weight: 700;
-            color: #aaa;
-            white-space: nowrap;
+        .lb-cell-rating { font-weight: 800; }
+        .lb-cell-delta { font-weight: 700; font-size: 13px; }
+        .lb-cell-delta.up { color: var(--success); }
+        .lb-cell-delta.down { color: var(--danger); }
+        .lb-cell-delta.zero { color: var(--text-3); font-weight: 400; }
+        .lb-cell-games { color: var(--text-dim); }
+
+        .lb-empty, .lb-loading {
+            text-align: center;
+            padding: 48px 16px;
+            color: var(--text-dim);
+            font-size: 14px;
         }
-        .lb-table td.col-games {
-            text-align: right;
-            color: #888;
-            font-size: 0.85rem;
-            white-space: nowrap;
+        .lb-error { color: var(--danger); }
+
+        /* строка «You» */
+        .lb-you {
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 64px minmax(0,1fr) 88px 72px 80px 64px;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            height: 56px;
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 12px;
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text);
+            cursor: pointer;
         }
+        .lb-you .lb-cell-rank { color: var(--accent); }
+        .lb-you .lb-cell-rating { color: var(--accent); }
+        .lb-you-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .lb-you-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-you-name .you-label { font-weight: 800; }
+
+        .lb-hidden { display: none !important; }
+
         @media (max-width: 768px) {
-            .lb-page {
-                padding: 16px 12px 80px;
+            .lb-page { padding: calc(var(--header-h) + 16px) 12px 40px; }
+            .lb-header { gap: 12px; }
+            .lb-header h1 { font-size: 22px; }
+            .lb-subtitle { padding-left: 0; }
+            .lb-tabs { width: 100%; display: flex; }
+            .lb-tab { flex: 1; padding: 0 8px; }
+            .lb-podium { gap: 8px; }
+            .lb-podium-card { padding: 14px 8px; gap: 8px; }
+            .lb-podium-name { font-size: 13px; }
+            .lb-podium-rating { font-size: 16px; }
+            .lb-podium-games { display: none; }
+            .lb-podium-card.m1 { padding: 18px 8px; }
+            .lb-podium-card.m1 .lb-podium-name { font-size: 14px; }
+            .lb-podium-card.m1 .lb-podium-rating { font-size: 20px; }
+            .lb-thead, .lb-row, .lb-you {
+                grid-template-columns: 40px minmax(0,1fr) 56px 56px 56px;
             }
-        }
-    </style>
-    <style>
-        html, body {
-            overflow-y: auto;
+            .lb-thead .th-games, .lb-row .lb-cell-games, .lb-you .lb-cell-games { display: none; }
+            .lb-thead, .lb-row, .lb-you { padding: 0 10px; gap: 6px; }
+            .lb-row { font-size: 13px; height: 48px; }
         }
     </style>
 </head>
@@ -166,13 +263,29 @@
     <div class="lb-page">
         <div class="lb-container">
             <div class="lb-header">
-                <a href="/" class="lb-back-btn" id="backBtn" aria-label="Back">&larr;</a>
+                <a href="/" class="lb-back" id="backBtn" aria-label="Back">&larr;</a>
                 <h1 id="pageTitle">Leaderboard</h1>
             </div>
             <p class="lb-subtitle" id="pageSubtitle">Top 100 players by rating</p>
-            <div class="leaderboard" id="leaderboardList">
+
+            <div class="lb-tabs" role="tablist" aria-label="Leaderboard sort">
+                <button class="lb-tab is-active" data-sort="rating" role="tab" aria-selected="true">Rating</button>
+                <button class="lb-tab" data-sort="winrate" role="tab" aria-selected="false">Win rate</button>
+                <button class="lb-tab" data-sort="week" role="tab" aria-selected="false">This week</button>
+            </div>
+
+            <div id="leaderboardList">
                 <div class="lb-loading" id="loadingText">Loading...</div>
             </div>
+
+            <a id="youRow" class="lb-you lb-hidden" href="/profiles/" tabindex="-1" aria-hidden="true">
+                <span class="lb-cell-rank">#?</span>
+                <span class="lb-you-name"><span class="you-label">You</span><span class="you-name"></span></span>
+                <span class="lb-cell-rating"></span>
+                <span class="lb-cell-delta zero">0</span>
+                <span class="lb-cell-winrate"></span>
+                <span class="lb-cell-games"></span>
+            </a>
         </div>
     </div>
 
@@ -185,12 +298,16 @@
                 empty: 'Пока нет игроков',
                 error: 'Ошибка загрузки',
                 col_rank: 'Ранг',
-                col_name: 'Имя',
+                col_name: 'Игрок',
                 col_rating: 'Рейтинг',
-                col_games: 'Кол-во игр',
-                games1: 'матч',
-                games2: 'матча',
-                games5: 'матчей'
+                col_week: '7 дней',
+                col_winrate: 'Винрейт',
+                col_games: 'Игр',
+                games1: 'игра',
+                games2: 'игры',
+                games5: 'игр',
+                you: 'Вы',
+                games_all: 'всего игр'
             },
             en: {
                 title: 'Leaderboard',
@@ -199,14 +316,21 @@
                 empty: 'No players yet',
                 error: 'Failed to load',
                 col_rank: 'Rank',
-                col_name: 'Name',
+                col_name: 'Player',
                 col_rating: 'Rating',
+                col_week: '7 days',
+                col_winrate: 'Win rate',
                 col_games: 'Games',
                 games1: 'game',
                 games2: 'games',
-                games5: 'games'
+                games5: 'games',
+                you: 'You',
+                games_all: 'games'
             }
         };
+
+        var players = [];
+        var currentSort = 'rating';
 
         function getLang() {
             return localStorage.getItem('quoridor-lang') || 'en';
@@ -217,12 +341,20 @@
             var d = dict[lang];
             document.title = d.title + ' — PlayQuor';
             document.documentElement.lang = lang;
-            var _hl=document.getElementById('headerLang'); if(_hl) _hl.value = lang;
+            var _hl = document.getElementById('headerLang'); if (_hl) _hl.value = lang;
             document.getElementById('pageTitle').textContent = d.title;
             document.getElementById('pageSubtitle').textContent = d.subtitle;
-            var lt = document.getElementById('loadingText');
-            if (lt) lt.textContent = d.loading;
-            if (typeof loadLeaderboard === 'function') loadLeaderboard();
+            ['rating', 'winrate', 'week'].forEach(function (key) {
+                var el = document.querySelector('.lb-tab[data-sort="' + key + '"]');
+                if (el) el.textContent = key === 'week' ? (lang === 'ru' ? 'Неделя' : 'This week')
+                    : (key === 'winrate' ? d.col_winrate : d.col_rating);
+            });
+            if (players.length) render();
+            else if (currentSort === 'rating') {
+                var lt = document.getElementById('loadingText');
+                if (lt) lt.textContent = d.loading;
+                load();
+            }
         }
 
         function applyLang() {
@@ -237,57 +369,157 @@
                 .replace(/"/g, '&quot;');
         }
 
-        function pluralGames(n, d, lang) {
+        function pluralGames(n, lang) {
+            var d = dict[lang];
             if (lang === 'en') return n === 1 ? d.games1 : d.games2;
-            var n10 = n % 10,
-                n100 = n % 100;
+            var n10 = n % 10, n100 = n % 100;
             if (n100 >= 11 && n100 <= 14) return d.games5;
             if (n10 === 1) return d.games1;
             if (n10 >= 2 && n10 <= 4) return d.games2;
             return d.games5;
         }
 
-        function loadLeaderboard() {
-            var container = document.getElementById('leaderboardList');
+        function winrateOf(p) {
+            var g = (p.stats && p.stats.totalGames) || 0;
+            if (!g) return 0;
+            return Math.round(((p.stats && p.stats.wins) || 0) / g * 100);
+        }
+
+        function sorted() {
+            var list = players.slice();
+            if (currentSort === 'winrate') {
+                list.sort(function (a, b) { return winrateOf(b) - winrateOf(a) || (b.rating || 0) - (a.rating || 0); });
+            } else if (currentSort === 'week') {
+                list.sort(function (a, b) { return (b.change7d || 0) - (a.change7d || 0) || (b.rating || 0) - (a.rating || 0); });
+            } else {
+                list.sort(function (a, b) { return (a.rank || 0) - (b.rank || 0); });
+            }
+            return list;
+        }
+
+        function deltaHtml(value) {
+            var v = value || 0;
+            var cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'zero');
+            var text = v > 0 ? '\u25B2 ' + v : (v < 0 ? '\u25BC ' + Math.abs(v) : '0');
+            return '<span class="lb-cell-delta ' + cls + '">' + text + '</span>';
+        }
+
+        function avatarUrl(p, size) {
+            return (p.avatarUrl && p.avatarUrl.indexOf('http') === 0)
+                ? p.avatarUrl
+                : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(p.username || 'User') + '&background=333&color=fff&size=' + (size || 64);
+        }
+
+        function render() {
             var lang = getLang();
             var d = dict[lang];
+            var list = sorted();
+            var holder = document.getElementById('leaderboardList');
+            if (!list.length) {
+                holder.innerHTML = '<div class="lb-empty">' + d.empty + '</div>';
+                return;
+            }
+            // подиум строится по рангу рейтинга — единственный стабильный порядок
+            var podium = players.filter(function (p) { return p.rank && p.rank <= 3; });
+            var html = '';
+            if (currentSort === 'rating') {
+                html += '<div class="lb-podium">';
+                [2, 1, 3].forEach(function (r) {
+                    var p = podium.find(function (x) { return x.rank === r; });
+                    if (!p) return;
+                    html += '<a class="lb-podium-card m' + r + '" href="/profiles/' + encodeURIComponent(p.username) + '">'
+                        + '<span class="lb-medal-lg">' + r + '</span>'
+                        + '<span class="pq-avatar pq-avatar--56"><img src="' + escapeHtml(avatarUrl(p)) + '" alt=""></span>'
+                        + '<span class="lb-podium-name">' + escapeHtml(p.username) + '</span>'
+                        + '<span class="lb-podium-rating">' + p.rating + '</span>'
+                        + '<span class="lb-podium-games">' + ((p.stats && p.stats.totalGames) || 0) + ' ' + pluralGames((p.stats && p.stats.totalGames) || 0, lang) + '</span>'
+                        + '</a>';
+                });
+                html += '</div>';
+            }
+            html += '<div class="lb-table">';
+            html += '<div class="lb-thead">'
+                + '<span>' + d.col_rank + '</span><span>' + d.col_name + '</span><span>' + d.col_rating + '</span>'
+                + '<span>' + d.col_week + '</span><span>' + d.col_winrate + '</span><span>' + d.col_games + '</span>'
+                + '</div>';
+            html += list.map(function (p) {
+                return '<div class="lb-row" onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
+                    + '<span class="lb-cell-rank">' + (p.rank || '—') + '</span>'
+                    + '<span class="lb-cell-player"><span class="pq-avatar pq-avatar--32"><img src="' + escapeHtml(avatarUrl(p)) + '" alt=""></span><span>' + escapeHtml(p.username) + '</span></span>'
+                    + '<span class="lb-cell-rating">' + p.rating + '</span>'
+                    + deltaHtml(p.change7d)
+                    + '<span>' + winrateOf(p) + '%</span>'
+                    + '<span class="lb-cell-games">' + ((p.stats && p.stats.totalGames) || 0) + '</span>'
+                    + '</div>';
+            }).join('');
+            html += '</div>';
+            holder.innerHTML = html;
+            updateYouRow();
+        }
 
-            fetch('/api/leaderboard?limit=100')
-                .then(function(r) { return r.json(); })
-                .then(function(players) {
-                    if (!players || players.length === 0) {
-                        container.innerHTML = '<div class="lb-empty">' + d.empty + '</div>';
-                        return;
+        function updateYouRow() {
+            var row = document.getElementById('youRow');
+            if (!row || !window.__me) return;
+            var me = window.__me;
+            var lang = getLang();
+            var d = dict[lang];
+            row.classList.remove('lb-hidden');
+            row.setAttribute('aria-hidden', 'false');
+            row.setAttribute('tabindex', '0');
+            row.href = '/profiles/' + encodeURIComponent(me.username);
+            row.innerHTML = ''
+                + '<span class="lb-cell-rank">#' + (me.rank || '?') + '</span>'
+                + '<span class="lb-you-name"><span class="you-label">' + d.you + '</span><span> · ' + escapeHtml(me.username) + '</span></span>'
+                + '<span class="lb-cell-rating">' + me.rating + '</span>'
+                + deltaHtml(me.change7d)
+                + '<span>' + winrateOf(me) + '%</span>'
+                + '<span class="lb-cell-games">' + ((me.stats && me.stats.totalGames) || 0) + '</span>';
+        }
+
+        function load() {
+            Promise.all([
+                fetch('/api/leaderboard?limit=100').then(function (r) { return r.ok ? r.json() : null; }),
+                fetch('/api/auth/me', { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        window.__me = null;
+                        if (data && data.isAuthenticated) {
+                            return fetch('/api/leaderboard/me', { credentials: 'same-origin' })
+                                .then(function (r) { return r.ok ? r.json() : null; });
+                        }
+                        return null;
+                    })
+                    .catch(function () { window.__me = null; return null; }),
+            ])
+                .then(function (res) {
+                    var list = res[0];
+                    window.__me = res[1] || null;
+                    players = Array.isArray(list) ? list : [];
+                    if (!players.length) {
+                        document.getElementById('leaderboardList').innerHTML = '<div class="lb-empty">' + dict[getLang()].empty + '</div>';
+                    } else {
+                        render();
                     }
-
-                    container.innerHTML = '<table class="lb-table">'
-                            + '<thead><tr>'
-                            + '<th class="col-rank">' + d.col_rank + '</th>'
-                            + '<th class="col-name">' + d.col_name + '</th>'
-                            + '<th class="col-rating">' + d.col_rating + '</th>'
-                            + '<th class="col-games">' + d.col_games + '</th>'
-                            + '</tr></thead><tbody>'
-                            + players.map(function(p, i) {
-                                var rankClass = '';
-                                if (i === 0) rankClass = ' top1';
-                                else if (i === 1) rankClass = ' top2';
-                                else if (i === 2) rankClass = ' top3';
-
-                                return '<tr onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
-                                    + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
-                                    + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
-                                    + '<td class="col-rating">' + p.rating + '</td>'
-                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d, lang) + '</td>'
-                                    + '</tr>';
-                            }).join('')
-                            + '</tbody></table>';
                 })
-                .catch(function() {
-                    container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
+                .catch(function () {
+                    document.getElementById('leaderboardList').innerHTML = '<div class="lb-empty">' + dict[getLang()].error + '</div>';
                 });
         }
 
+        document.querySelectorAll('.lb-tab').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (currentSort === btn.dataset.sort) return;
+                document.querySelectorAll('.lb-tab').forEach(function (b) {
+                    b.classList.toggle('is-active', b === btn);
+                    b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+                });
+                currentSort = btn.dataset.sort;
+                if (players.length) render();
+            });
+        });
+
         applyLang();
+        load();
     </script>
   <div id="siteFooter"></div>
   <script src="/js/site-shell.js?v=1.0.0" defer></script>
