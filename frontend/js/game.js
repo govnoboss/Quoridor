@@ -273,6 +273,8 @@ const Game = {
       pawnBlackBorder: cssVar('--pawn-black-border'),
       accent: cssVar('--accent'),
       accentLight: cssVar('--accent-light'),
+      /* canvas1-Main: стены доски #e8a02f — токен --wall (совпадает с стеностоком DOM) */
+      wall: cssVar('--wall', '#e8a02f'),
     };
     return this._boardTheme;
   },
@@ -1177,7 +1179,7 @@ const Game = {
       wallThick: this.CONFIG.wallThick,
       // canvas1-Main: скругление стены = половина толщины (3/6).
       wallRadius: this.CONFIG.wallThick / 2,
-      wallColor: theme.accent,
+      wallColor: theme.wall,
       transformWallRow: (r) => this.myPlayerIndex === 1 ? 7 - r : r,
       wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
     });

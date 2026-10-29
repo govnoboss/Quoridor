@@ -325,39 +325,39 @@ canvas {
     color: var(--text);
 }
 
-/* --- РџР›РђРЁРљР РР“Р РћРљРћР’ --- */
+/* --- ПЛАШКИ ИГРОКОВ --- */
+/* canvas1-Main: h50, r8, bg #1c1d20, pad 0 12, gap 14 */
 .player-bar {
     display: flex;
     align-items: center;
-    background: var(--panel);
-    padding: 8px 16px;
-    /* Увеличенные отступы */
-    border-radius: 4px;
+    background: #1c1d20;
+    padding: 0 12px;
+    gap: 14px;
+    border-radius: 8px;
     color: #fff;
     height: 50px;
     width: 100%;
     position: relative;
+    box-sizing: border-box;
     transition: background 0.3s;
 }
 
-/* Подсветка активного игрока */
+/* Подсветка активного игрока: bg тот же, ход показывает полоса #e8a02f снизу */
 .player-bar.active-turn {
-    background: var(--panel-light);
-    /* Чуть светлее */
-    box-shadow: inset 0 -2px 0 0 var(--accent);
-    /* Оранжевая полоска снизу */
+    background: #1c1d20;
+    box-shadow: inset 0 -2px 0 0 #e8a02f;
 }
 
 .avatar-container {
-    margin-right: 14px;
-    /* Увеличенный отступ от аватара */
+    margin-right: 0;
+    /* gap 14px у .player-bar (canvas1-Main) */
 }
 
 .avatar {
     width: 40px;
     height: 40px;
-    background: var(--panel-light);
-    border-radius: 4px;
+    background: #2a2b30;
+    border-radius: 6px;
     object-fit: cover;
     transition: transform 0.2s;
     display: block;
@@ -371,8 +371,8 @@ canvas {
 }
 
 .player-name {
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 15px;
     color: var(--text);
 }
 
@@ -410,39 +410,44 @@ canvas {
     font-size: 10px;
 }
 
+/* canvas1-Main: таймер 18/700 ui-monospace, чип r6 pad 6 10,
+   ожидающий — bg #0b0c0f (var(--bg-2)), активный — светлый чип */
 .timer {
-    font-family: monospace;
-    font-size: 20px;
-    font-weight: bold;
-    background: var(--bg);
-    padding: 5px 10px;
-    border-radius: 4px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 18px;
+    font-weight: 700;
+    background: var(--bg-2);
+    padding: 6px 10px;
+    border-radius: 6px;
     color: #fff;
+    white-space: nowrap;
 }
 
-/* РћС‚Р»РёС‡Р°РµРј С‚Р°Р№РјРµСЂ Р°РєС‚РёРІРЅРѕРіРѕ РёРіСЂРѕРєР° (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ) */
+/* Активный таймер: светлый чип по макету */
 .active-turn .timer {
-    background: var(--text);
+    background: #f3f3f3;
     color: #111;
 }
 
 /* --- WALL INVENTORY (Контейнеры стен над/под доской) --- */
+/* canvas1-Main: h26, r6, bg #1c1d20, элементы 36×6 r2, gap 6 */
 .wall-inventory {
     display: flex;
     gap: 6px;
     justify-content: center;
     align-items: center;
-    background: var(--panel-light);
-    border-radius: 4px;
-    padding: 8px 12px;
+    background: #1c1d20;
+    border-radius: 6px;
+    padding: 10px 12px;
     width: 100%;
     min-height: 26px;
+    box-sizing: border-box;
 }
 
-/* Отдельная стенка в инвентаре */
+/* Отдельная стенка в инвентаре — цвет несёт токен --wall (#e8a02f по макету) */
 .wall-piece {
     width: 36px;
-    height: 10px;
+    height: 6px;
     background: var(--wall);
     border-radius: 2px;
     cursor: default;
@@ -507,8 +512,10 @@ canvas {
     height: 14px;
 }
 
+/* canvas1-Main (desktop): использованные стены — #3a2f1a, без приглушения opacity */
 .wall-piece.used {
-    opacity: 0.15;
+    background: #3a2f1a;
+    opacity: 1;
     cursor: default;
     pointer-events: none;
 }
