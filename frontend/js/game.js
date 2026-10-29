@@ -23,8 +23,14 @@ const Game = {
    * @property {number} gap Небольшой отступ от краев ячейки (4).
    */
   /** @type {GameConfig} Конфигурация игры. */
-  CONFIG: { cellSize: 120, gridCount: 9, slotCount: 8, wallThick: 15, gap: 8 },
-
+  CONFIG: { cellSize: 120, gridCount: 9, slotCount: 8, wallThick: 10, gap: 2.4 },
+  /**
+   * @property {number} wallThick Толщина стены в пикселях (10).
+   *   Макет canvas1-Main: стена 6px при клетке 72 → 6/72*120 = 10.
+   * @property {number} gap Подрезка стен по краям слота (2.4).
+   *   Макет: длина стены = 2 клетки + зазор между ними (3/75 клетки) →
+   *   подрезка = половина зазора: (3/75*120)/2 = 2.4.
+   */
   /**
    * @typedef {object} Direction
    * @property {number} dr Смещение по строке (-1, 1, 0).
@@ -1051,8 +1057,11 @@ const Game = {
     var theme = this.boardTheme();
     BoardRenderer.drawGrid(this.ctx, {
       cellSize: this.CONFIG.cellSize,
+      // canvas1-Main: зазор 3px при клетке 72 → pad 2.4 (визуальная клетка 115.2/120);
+      // радиус 4 при 72 → 4*(115.2/72) = 6.4.
+      padding: 2.4,
+      cellRadius: 6.4,
       cellFill: theme.cellFill,
-      cellRadius: 9,
       transformRow: (r) => this.transformRow(r),
     });
   },
@@ -1063,12 +1072,14 @@ const Game = {
       cellSize: this.CONFIG.cellSize,
       coordColor: theme.coordColor,
       fontFamily: theme.fontFamily,
-      fontSize: this.CONFIG.cellSize * 0.22,
-      padding: 0,
-      coordInsetLeft: 9,
-      coordInsetTop: 6,
-      coordInsetRight: 9,
-      coordInsetBottom: 6,
+      // canvas1-Main: 12px при клетке 72 → 12/72*120 = 20.
+      fontSize: this.CONFIG.cellSize * (12 / 72),
+      padding: 2.4,
+      // Инсеты 6/4/7/4 при клетке 72, плюс pad 2.4 от края слота.
+      coordInsetLeft: 2.4 + 6 * (120 / 72),
+      coordInsetTop: 2.4 + 4 * (120 / 72),
+      coordInsetRight: 2.4 + 7 * (120 / 72),
+      coordInsetBottom: 2.4 + 4 * (120 / 72),
       transformRow: (r) => this.transformRow(r),
     });
   },
@@ -1108,8 +1119,9 @@ const Game = {
       pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
       pawnFillColors: [theme.pawnWhite, theme.pawnBlack],
       pawnStrokeColors: [theme.pawnWhiteBorder, theme.pawnBlackBorder],
-      pawnStrokeWidth: 6,
-      pawnRadius: this.CONFIG.cellSize * 0.368,
+      pawnStrokeWidth: 3.3,
+      // canvas1-Main: пешка 52px при клетке 72 → радиус 26/72 клетки.
+      pawnRadius: this.CONFIG.cellSize * (26 / 72),
     });
 
     if (needsRedraw) {
@@ -1163,7 +1175,8 @@ const Game = {
       cellSize: this.CONFIG.cellSize,
       gap: this.CONFIG.gap,
       wallThick: this.CONFIG.wallThick,
-      wallRadius: 6,
+      // canvas1-Main: скругление стены = половина толщины (3/6).
+      wallRadius: this.CONFIG.wallThick / 2,
       wallColor: theme.accent,
       transformWallRow: (r) => this.myPlayerIndex === 1 ? 7 - r : r,
       wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
