@@ -2894,13 +2894,17 @@ canvas {
     display: flex;
     flex-direction: row;
     align-items: center;
+    /* Макет canvas1-Main: зазор 12px между шакой оценки и доской. Когда rail скрыт
+       (не eval-on) gap не рендерится и на online-режим не влияет. */
+    gap: 12px;
     flex: 0 1 auto;
 }
 
-/* 40px column = 28px bar + 12px gap. Hidden unless eval is on. */
+/* Макет canvas1-Main: rail = 28px. Rail прозрачен — сам бар позиционирует JS
+   (syncEvalBarGeometry) по прямоугольнику #game-container. */
 .eval-bar-rail {
-    flex: 0 0 32px;
-    width: 32px;
+    flex: 0 0 28px;
+    width: 28px;
     align-self: stretch;
     position: relative;
     display: none;
@@ -2914,10 +2918,10 @@ canvas {
     position: absolute;
     left: 0;
     top: 0;
-    width: 32px;
+    width: 28px;
     height: 0;
     background: #2b2d33;
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
@@ -2951,34 +2955,16 @@ canvas {
     left: 0;
     right: 0;
     text-align: center;
-    font-size: 13px;
-    font-weight: 800;
+    font-size: 11px;
+    font-weight: 700;
 }
 
-.eval-num.at-bottom { bottom: 32px; color: #111; }
-.eval-num.at-top { top: 32px; color: #ececec; }
+/* Макет canvas1-Main: знак инвертирования сидит внутри шкалы с отступом 8px. */
+.eval-num.at-bottom { bottom: 8px; color: #111; }
+.eval-num.at-top { top: 8px; color: #ececec; }
 
-/* Pawn side markers on the vertical eval bar (mock: GamePanel) */
-.eval-dot {
-    position: absolute;
-    left: 11px;
-    width: 10px;
-    height: 10px;
-    box-sizing: border-box;
-    border-radius: 50%;
-}
-
-.eval-dot-top {
-    top: 10px;
-    background: #0f0f11;
-    border: 2px solid #6a6d75;
-}
-
-.eval-dot-bottom {
-    bottom: 10px;
-    background: #f3f3f3;
-    border: 2px solid #8b8f98;
-}
+/* Pawn side markers on the vertical eval bar были убраны: канон полного десктопного
+   экрана — canvas1-Main (rail без маркеров). GamePanel.html оставлен для eval-карточки. */
 
 /* --- Mobile horizontal eval bar (shown only on small screens) --- */
 .eval-bar-h {
@@ -3033,6 +3019,13 @@ canvas {
     gap: 14px;
 }
 
+/* canvas1-Main: зазор между досочной колонкой и сайдбаром 36px (в online остаётся 30px). */
+@media (min-width: 769px) {
+    #gameScreen.bot-mode .game-layout {
+        gap: 36px;
+    }
+}
+
 #gameScreen.bot-mode .sidebar-controls {
     display: flex;
 }
@@ -3045,13 +3038,40 @@ canvas {
 /* Bot-mode sidebar container per spec (online sidebar keeps its old look). */
 @media (min-width: 769px) {
     #gameScreen.bot-mode .sidebar {
-        width: 320px;
+        width: 300px;
         min-width: 260px;
         background: #1c1d20;
         border-radius: 10px;
         padding: 16px;
         box-sizing: border-box;
     }
+}
+
+/* canvas1-Main: история без подложки и внутренних паддингов — таблица лежит
+   прямо на панели (pad даёт сам сайдбар), колонка «#» 28px. */
+#gameScreen.bot-mode #moveHistory {
+    padding: 0;
+    background: transparent;
+}
+
+/* База .history-container-wrapper (для скрытых drag-шаблонов стен) центрирует
+   детей и сжимает #moveHistory до контента — в bot-режиме таблица на всю ширину. */
+#gameScreen.bot-mode .history-container-wrapper {
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+}
+
+#gameScreen.bot-mode .history-header,
+#gameScreen.bot-mode .history-row {
+    grid-template-columns: 28px 1fr 1fr;
+}
+
+/* canvas1-Main: nav-кнопки вплотную к ширине панели, без верхнего бордера. */
+#gameScreen.bot-mode .history-controls {
+    border-top: 0;
+    background: transparent;
+    padding: 10px 0 0;
 }
 
 /* --- Undo / Restart action row --- */
@@ -3226,16 +3246,16 @@ canvas {
     height: 44px;
     margin: 0;
     padding: 0;
-    background: #2a2b30;
+    background: #222327;
     border: 0;
     border-radius: 8px;
-    color: #ececee;
+    color: #b5b8be;
     font-size: 18px;
     cursor: pointer;
 }
 
 .history-controls button:hover:not(:disabled) {
-    background: #33343a;
+    background: #2a2b30;
     box-shadow: none;
 }
 
