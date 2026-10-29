@@ -163,6 +163,12 @@ button:hover {
     display: none
 }
 
+/* Guard: #mainMenu ниже получает display:flex (1-0-0) и без этого id-правила
+   неактивный home просвечивал бы под другими экранами. */
+#mainMenu:not(.active) {
+    display: none
+}
+
 .menu-buttons {
     display: flex;
     flex-direction: column;
