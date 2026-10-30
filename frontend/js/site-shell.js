@@ -234,7 +234,15 @@
             return;
         }
         if (typeof window.setLanguage === 'function' && window.setLanguage !== setLanguage) {
-            window.setLanguage(lang);
+            // легаси-страница переводит свой контент сама; шапку обновляем сами,
+            // т.к. её setLanguage не рассылает pq:language (t() читает localStorage)
+            lang = normalizeLang(lang);
+            localStorage.setItem('quoridor-lang', lang);
+            document.documentElement.lang = lang;
+            var legacySel = document.getElementById('headerLang');
+            if (legacySel) legacySel.value = lang;
+            try { window.setLanguage(lang); } catch (e) { /* контент страницы */ }
+            refreshHeaderText();
             return;
         }
         applyLang(lang);
@@ -309,7 +317,7 @@
             + '<div class="notif-list" id="notifList"></div>'
             + '<div class="notif-empty hidden" id="notifEmpty">' + PQ.escapeHtml(t('notifications_empty')) + '</div>'
             + '</div>'
-            + '<a class="header-profile" href="/profiles/' + encodeURIComponent(rawNick) + '" title="' + PQ.escapeHtml(rawNick) + '">'
+            + '<a class="header-profile" href="/profiles/' + encodeURIComponent(rawNick) + '" title="' + PQ.escapeHtml(nick) + '">'
             + '<span id="headerUsername">' + PQ.escapeHtml(nick) + '</span>'
             + '<span class="header-avatar">' + avatarInner + '</span>'
             + '</a>'
