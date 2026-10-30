@@ -55,6 +55,7 @@
 .pq-avatar--40 { width: 40px; height: 40px; font-size: 16px; }
 .pq-avatar--48 { width: 48px; height: 48px; font-size: 18px; }
 .pq-avatar--56 { width: 56px; height: 56px; font-size: 22px; }
+.pq-avatar--64 { width: 64px; height: 64px; font-size: 24px; }
 /* центральная карточка подиума: акцентный фон и цвет буквы */
 .pq-avatar--accent {
     background: var(--accent-chip);
@@ -223,35 +224,68 @@
 .pq-you__winrate { color: var(--accent-text-2); }
 .pq-you__games { color: var(--accent-text-dim); }
 
-/* ---------- Подиум ---------- */
+/* ---------- Подиум (ТЗ 3a, вариант A «свет и корона») ---------- */
+/* Зазор вкладки → подиум 24px, отступ сверху сетки при короне +16px */
 .pq-podium {
-    margin-top: 24px;
+    margin-top: 40px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     align-items: end;
 }
+/* Высоты строго 176/216 (ТЗ 3a): медаль вынесена из потока (absolute),
+   текст сжат line-height — иначе контент не влезает в фикс. высоту */
 .pq-podium__card {
     box-sizing: border-box;
     padding: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 6px;
     border-radius: 12px;
     text-align: center;
     background: var(--panel);
     border: 1px solid var(--border);
-    min-height: 168px;
+    height: 176px;
     text-decoration: none;
     color: inherit;
     min-width: 0;
 }
 .pq-podium__card--center {
-    min-height: 196px;
-    background: var(--accent-bg);
-    border-color: var(--accent-border);
+    position: relative;
+    height: 216px;
+    background: radial-gradient(120% 70% at 50% 0, #3a2c10 0, #17130b 55%, #131109 100%);
+    border: 1px solid #5a4417;
+    box-shadow: 0 0 0 1px rgba(240, 168, 42, .15), 0 10px 40px rgba(240, 168, 42, .14);
+}
+/* золотая линия сверху центральной карточки */
+.pq-podium__card--center::before {
+    content: "";
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    top: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f0a82a, transparent);
+}
+/* корона над центром (место 1) */
+.pq-podium__crown {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 2px 6px rgba(240, 168, 42, .5));
+    line-height: 0;
+}
+/* медаль — у верхней кромки карточки, по центру.
+   top:10px: при фикс. высотах 176/216 контент прижат к низу,
+   иначе медаль касается кольца аватара у боковых карточек */
+.pq-podium__card .pq-medal {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
 }
 /* порядок в DOM 1,2,3 — визуально 2-1-3 */
 .pq-podium__card[data-place="1"] { order: 2; }
@@ -261,6 +295,7 @@
 .pq-podium__name {
     font-size: 16px;
     font-weight: 700;
+    line-height: 1.1;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -269,11 +304,50 @@
 .pq-podium__rating {
     font-size: 20px;
     font-weight: 800;
+    line-height: 1.1;
 }
 .pq-podium__games {
     font-size: 12px;
-    color: var(--text-dim);
+    line-height: 1.1;
+    color: #8b8f98;
 }
-.pq-podium__card--center .pq-podium__name   { font-size: 17px; }
-.pq-podium__card--center .pq-podium__rating { font-size: 24px; color: var(--accent); }
-.pq-podium__card--center .pq-podium__games  { color: var(--accent-text-dim); }
+/* аватары с кольцом цвета медали (ТЗ 3a) */
+.pq-podium__card[data-place="1"] .pq-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+    font-weight: 700;
+    background: #2a2210;
+    color: #f0a82a;
+    box-shadow: 0 0 0 3px #17130b, 0 0 0 5px #f0a82a;
+}
+.pq-podium__card[data-place="2"] .pq-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #23252a;
+    box-shadow: 0 0 0 2px #131417, 0 0 0 4px #c0c4cc;
+}
+.pq-podium__card[data-place="3"] .pq-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #23252a;
+    box-shadow: 0 0 0 2px #131417, 0 0 0 4px #c98a52;
+}
+.pq-podium__card--center .pq-podium__name   { font-size: 18px; }
+.pq-podium__card--center .pq-podium__rating { font-size: 28px; color: #f0a82a; }
+.pq-podium__card--center .pq-podium__games  { color: #a39a86; }
+/* появление: места 3 / 2 / 1 → задержки 0 / 80 / 160 мс */
+@media (prefers-reduced-motion: no-preference) {
+    .pq-podium__card { animation: pq-podium-in 400ms ease both; }
+    .pq-podium__card[data-place="3"] { animation-delay: 0ms; }
+    .pq-podium__card[data-place="2"] { animation-delay: 80ms; }
+    .pq-podium__card[data-place="1"] { animation-delay: 160ms; }
+}
+@keyframes pq-podium-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

@@ -8,7 +8,7 @@
     <link rel="canonical" href="https://playquor.org/leaderboard" />
     <link rel="stylesheet" href="/css/tokens.css?v=1.0.1" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
-    <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
+    <link rel="stylesheet" href="/css/components.css?v=1.0.1" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
@@ -89,8 +89,18 @@
             }
             .pq-seg { width: 100%; }
             .pq-podium { gap: 8px; }
-            .pq-podium__card { padding: 12px 8px; min-height: 140px; }
-            .pq-podium__card--center { min-height: 160px; }
+            /* ТЗ 3a: без свечения и короны; высоты авто, аватары 40/48 */
+            .pq-podium__card,
+            .pq-podium__card--center { height: auto; min-height: 150px; box-shadow: none; }
+            .pq-podium__card--center { min-height: 180px; }
+            .pq-podium__crown { display: none; }
+            .pq-podium__card .pq-avatar,
+            .pq-podium__card[data-place="1"] .pq-avatar {
+                width: 40px; height: 40px; font-size: 16px; box-shadow: none;
+            }
+            .pq-podium__card--center .pq-avatar {
+                width: 48px; height: 48px; font-size: 18px;
+            }
             .pq-podium__name { font-size: 13px; }
             .pq-podium__rating { font-size: 16px; }
             .pq-podium__card--center .pq-podium__rating { font-size: 18px; }
@@ -107,9 +117,10 @@
         @media (min-width: 769px) and (max-height: 960px) {
             .lb-container { padding-top: 24px; }
             .lb-subtitle { margin: 6px 0 16px 60px; }
-            .pq-podium { margin-top: 18px; }
-            .pq-podium__card { min-height: 144px; }
-            .pq-podium__card--center { min-height: 168px; }
+            /* 32px: корона занимает 16px над сеткой → зазор вкладки→корона ≥16 */
+            .pq-podium { margin-top: 32px; }
+            .pq-podium__card { height: 176px; }
+            .pq-podium__card--center { height: 216px; }
             .pq-table { margin-top: 18px; }
         }
         /* Тир 3 (очень низкие окна) */
@@ -120,9 +131,9 @@
             .lb-subtitle { margin-left: 52px; }
             .pq-seg { height: 42px; padding: 2px; }
             .pq-seg__item { height: 36px; }
-            .pq-podium { margin-top: 14px; gap: 10px; }
-            .pq-podium__card { min-height: 124px; padding: 10px 12px; gap: 4px; }
-            .pq-podium__card--center { min-height: 144px; }
+            .pq-podium { margin-top: 32px; gap: 10px; }
+            .pq-podium__card { height: auto; min-height: 124px; padding: 10px 12px; gap: 4px; }
+            .pq-podium__card--center { height: auto; min-height: 144px; }
             .pq-podium__rating { font-size: 17px; }
             .pq-podium__card--center .pq-podium__rating { font-size: 20px; }
             .pq-table { margin-top: 14px; }
@@ -327,9 +338,9 @@
             podium.hidden = false;
             document.getElementById('lbYouSlot').innerHTML = '';
             podium.innerHTML =
-                '<div class="pq-podium__card" data-place="2"><div class="pq-skeleton" style="width:80%;height:168px;"></div></div>' +
-                '<div class="pq-podium__card pq-podium__card--center" data-place="1"><div class="pq-skeleton" style="width:80%;height:196px;"></div></div>' +
-                '<div class="pq-podium__card" data-place="3"><div class="pq-skeleton" style="width:80%;height:168px;"></div></div>';
+                '<div class="pq-podium__card pq-podium__card--center" data-place="1"><div class="pq-skeleton" style="width:80%;height:216px;"></div></div>' +
+                '<div class="pq-podium__card" data-place="2"><div class="pq-skeleton" style="width:80%;height:176px;"></div></div>' +
+                '<div class="pq-podium__card" data-place="3"><div class="pq-skeleton" style="width:80%;height:176px;"></div></div>';
             var table = document.getElementById('lbTable');
             table.hidden = false;
             var rowCount = 8;
@@ -404,10 +415,18 @@
             var medalClass = 'pq-medal pq-medal--lg';
             if (place === 2) medalClass += ' pq-medal--silver';
             if (place === 3) medalClass += ' pq-medal--bronze';
-            var avSize = place === 1 ? 56 : 48;
+            var avSize = place === 1 ? '64' : '48';
+            /* корона над центром — только у места 1 (ТЗ 3a) */
+            var crown = place === 1
+                ? '<span class="pq-podium__crown" aria-hidden="true">'
+                  + '<svg width="34" height="24" viewBox="0 0 32 22" fill="none">'
+                  + '<path d="M2 6l7 6 7-10 7 10 7-6-3 15H5z" fill="#f0a82a" stroke="#1a1204" stroke-width="1.5" stroke-linejoin="round"/>'
+                  + '</svg></span>'
+                : '';
             return '<a class="pq-podium__card' + (place === 1 ? ' pq-podium__card--center' : '') + '" data-place="' + place + '" href="' + podiumProfile + '" data-username="' + PQ.escapeHtml(p.username) + '">'
+                + crown
                 + '<span class="' + medalClass + '">' + place + '</span>'
-                + avatarHtml(p, String(avSize))
+                + avatarHtml(p, avSize)
                 + '<span class="pq-podium__name">' + PQ.escapeHtml(p.displayName) + '</span>'
                 + '<span class="pq-podium__rating">' + p.rating + '</span>'
                 + '<span class="pq-podium__games">' + gamesLabel(p.stats.totalGames || 0) + '</span>'
