@@ -97,12 +97,16 @@
         applyLang(lang);
     }
 
-    /* Масштаб контентных страниц по ширине окна (ТЗ 5):
-       sp = clamp(1, W / 1440, 1.5). Ниже 1440 масштаб не уменьшается.
+    /* Масштаб контентных страниц по размеру окна (ТЗ 5, отступление см. отчёт):
+       sp = clamp(1, min(W / 1440, H / 960), 1.5).
+       Ограничение и по высоте: иначе на широких мониторах контент масштабируется
+       быстрее вьюпорта по вертикали, и подиум+шапка съедают экран.
+       Ниже 1440/960 масштаб не уменьшается.
        Элемент с атрибутом data-pq-content получает zoom. */
     function currentScale() {
         var w = window.innerWidth || document.documentElement.clientWidth;
-        var sp = w / 1440;
+        var h = window.innerHeight || document.documentElement.clientHeight;
+        var sp = Math.min(w / 1440, h / 960);
         if (sp < 1) sp = 1;
         if (sp > 1.5) sp = 1.5;
         return sp;

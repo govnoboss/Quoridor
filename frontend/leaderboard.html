@@ -101,6 +101,32 @@
             .pq-col-rating { width: 56px; }
             .pq-col-winrate { width: 64px; }
         }
+
+        /* Компактный режим по ВЫСОТЕ: больше строк таблицы в первом экране.
+           Тир 2 (лаптопы ~1366×768, 1440×820, zoom-скейл 1) */
+        @media (min-width: 769px) and (max-height: 960px) {
+            .lb-container { padding-top: 24px; }
+            .lb-subtitle { margin: 6px 0 16px 60px; }
+            .pq-podium { margin-top: 18px; }
+            .pq-podium__card { min-height: 144px; }
+            .pq-podium__card--center { min-height: 168px; }
+            .pq-table { margin-top: 18px; }
+        }
+        /* Тир 3 (очень низкие окна) */
+        @media (min-width: 769px) and (max-height: 820px) {
+            .lb-container { padding-top: 16px; }
+            .lb-subtitle { margin: 4px 0 12px 60px; }
+            .lb-back { width: 36px; height: 36px; }
+            .lb-subtitle { margin-left: 52px; }
+            .pq-seg { height: 42px; padding: 2px; }
+            .pq-seg__item { height: 36px; }
+            .pq-podium { margin-top: 14px; gap: 10px; }
+            .pq-podium__card { min-height: 124px; padding: 10px 12px; gap: 4px; }
+            .pq-podium__card--center { min-height: 144px; }
+            .pq-podium__rating { font-size: 17px; }
+            .pq-podium__card--center .pq-podium__rating { font-size: 20px; }
+            .pq-table { margin-top: 14px; }
+        }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -142,7 +168,7 @@
         </div>
     </div>
 
-    <script src="/js/site-shell.js?v=1.0.0"></script>
+    <script src="/js/site-shell.js?v=1.0.1"></script>
     <script>
     (function () {
         'use strict';
@@ -261,6 +287,9 @@
             return { html: '<span class="pq-delta--zero">0</span>' };
         }
         function gamesLabel(n) { return PQ.formatGames(n, PQ.getLang()); }
+        // в таблице и строке «You» — просто число (колонка 64px, ТЗ 2.4),
+        // подпись «N games / N игр» — только в подиуме (дефект 3)
+        function gamesCell(n) { return String(n || 0); }
 
         /* ---------- аватар: одна буква или фото (раздел 2.5) ---------- */
         function avatarLetter(name) {
@@ -365,14 +394,14 @@
                 + '<span class="pq-col-rating pq-table__rating' + (isMe ? ' pq-me-rating' : '') + '" role="cell">' + p.rating + '</span>'
                 + '<span class="pq-col-week pq-table__week" role="cell">' + week.html + '</span>'
                 + '<span class="pq-col-winrate pq-table__winrate" role="cell">' + fmtWinrate(p) + '</span>'
-                + '<span class="pq-col-games pq-table__games" role="cell">' + gamesLabel(p.stats.totalGames || 0) + '</span>'
+                + '<span class="pq-col-games pq-table__games" role="cell">' + gamesCell(p.stats.totalGames || 0) + '</span>'
                 + '</a>';
         }
 
         function podiumHtml(p) {
             var place = p.rank;
             var podiumProfile = '/profiles/' + encodeURIComponent(p.username);
-            var medalClass = place === 1 ? 'pq-medal--lg' : 'pq-medal pq-medal--lg';
+            var medalClass = 'pq-medal pq-medal--lg';
             if (place === 2) medalClass += ' pq-medal--silver';
             if (place === 3) medalClass += ' pq-medal--bronze';
             var avSize = place === 1 ? 56 : 48;
@@ -430,7 +459,7 @@
                 + '<span class="pq-col-rating pq-you__place" role="cell">' + rating + '</span>'
                 + '<span class="pq-col-week pq-you__week" role="cell">' + week.html + '</span>'
                 + '<span class="pq-col-winrate pq-you__winrate" role="cell">' + winrate + '</span>'
-                + '<span class="pq-col-games pq-you__games" role="cell">' + gamesLabel(games) + '</span>'
+                + '<span class="pq-col-games pq-you__games" role="cell">' + gamesCell(games) + '</span>'
                 + '</div>';
         }
 
