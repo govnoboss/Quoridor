@@ -1,33 +1,4 @@
-:root {
-    /* === PREMIUM DARK PALETTE === */
-    --bg: #0B0C0D;
-    --bg-2: #101112;
-    --surface: #171819;
-    --panel: #1B1C1E;
-    --panel-light: #222426;
-    --row: #1E2022;
-    --row-hover: #292B2D;
 
-    /* === ORANGE ACCENT === */
-    --accent: #E9A22C;
-    --accent-light: #F5B13C;
-    --accent-dark: #C9821E;
-    --wall: #E9A22C;
-    --highlight: #F5B13C;
-
-    /* === TEXT === */
-    --text: #F2F2F2;
-    --text-dim: #A0A0A0;
-    --text-muted: #A0A0A0;
-
-    /* === STATUS === */
-    --online-green: #43D17A;
-
-    /* === BOARD (canvas base between cells) === */
-    --board: #141516;
-
-    --header-h: 64px;
-}
 
 /* === MAIN HEADER === */
 .main-header {
@@ -77,11 +48,18 @@
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.12);
     color: #aaa;
-    padding: 4px 8px;
+    padding: 4px 22px 4px 8px;
     border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
     outline: none;
+    /* шеврон 14px справа (этап 1 / дефект 11 из ТЗ tz-03) */
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+    background-size: 14px;
 }
 
 .header-lang:focus {
@@ -120,7 +98,7 @@
 }
 
 .h-btn-primary:hover {
-    background: #F5B13C;
+    background: var(--accent-light);
 }
 
 .header-profile {
@@ -172,7 +150,7 @@
         padding: 0 5%;
     }
     .header-version { display: none; }
-    .header-lang { font-size: 11px; padding: 3px 6px; }
+    .header-lang { font-size: 11px; padding: 3px 20px 3px 6px; background-size: 12px; }
     .header-left, .header-right { gap: 8px; }
     .h-btn { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
     .header-logo { font-size: 1rem; letter-spacing: 2px; }
@@ -200,7 +178,7 @@ body {
     /* Uniform solid background */
     background: var(--bg);
     color: var(--text);
-    font-family: 'Manrope', Inter, Arial, sans-serif;
+    font-family: var(--font-sans);
     overflow: hidden;
     /* Prevent selection and tap highlight for "Native App" feel */
     user-select: none;
@@ -1092,7 +1070,7 @@ canvas {
 .notif-mark-read {
     background: none;
     border: none;
-    color: #E9A22C;
+    color: var(--accent);
     font-size: 12px;
     cursor: pointer;
     padding: 2px 6px;
@@ -1118,7 +1096,7 @@ canvas {
 .notif-item:hover { background: rgba(255,255,255,0.04); }
 .notif-item.unread {
     background: rgba(233, 162, 44, 0.06);
-    border-left: 3px solid #E9A22C;
+    border-left: 3px solid var(--accent);
     color: #fff;
 }
 .notif-item.unread:hover { background: rgba(233, 162, 44, 0.1); }
@@ -1135,7 +1113,7 @@ canvas {
 }
 .notif-icon.friend { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
 .notif-icon.game { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.notif-icon.admin { background: rgba(233, 162, 44, 0.15); color: #E9A22C; }
+.notif-icon.admin { background: rgba(233, 162, 44, 0.15); color: var(--accent); }
 .notif-icon.streak { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
 .notif-body {
     flex: 1;
@@ -1174,7 +1152,7 @@ canvas {
 .notif-btn-accept { background: #22c55e; color: #000; }
 .notif-btn-decline { background: #555; color: #fff; }
 .notif-btn-join { background: #3b82f6; color: #fff; }
-.notif-btn-rematch { background: #E9A22C; color: #000; }
+.notif-btn-rematch { background: var(--accent); color: var(--text-on-accent); }
 .notif-btn:hover { opacity: 0.85; }
 .notif-empty {
     text-align: center;
@@ -1441,7 +1419,7 @@ canvas {
 .center-stats-value {
     font-size: 1rem;
     font-weight: 700;
-    color: #43D17A;
+    color: var(--online-green);
     display: inline;
 }
 
@@ -1805,7 +1783,7 @@ canvas {
 }
 
 .presence-queue {
-    color: #43D17A;
+    color: var(--online-green);
     font-size: 0.75rem;
 }
 
@@ -3370,7 +3348,7 @@ canvas {
 }
 
 .text-green {
-    color: #43D17A;
+    color: var(--online-green);
 }
 
 .text-red {
@@ -3442,7 +3420,7 @@ canvas {
 }
 
 .result-btn.primary:hover {
-    background: #C9821E;
+    background: var(--accent-dark);
     transform: scale(1.05);
 }
 
@@ -3470,7 +3448,7 @@ canvas {
 }
 
 .signup-btn:hover {
-    background: #C9821E;
+    background: var(--accent-dark);
     transform: scale(1.05);
 }
 
