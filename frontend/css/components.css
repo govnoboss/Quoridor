@@ -1,0 +1,279 @@
+/* PlayQuor components — переиспользуемые элементы редизайна. v1.0.0
+   Значения — по ТЗ (tz-03 разделы 2.2–2.4, 2.7). */
+
+/* ---------- Общие ---------- */
+.pq-btn {
+    height: 40px;
+    padding: 0 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.pq-btn--outline {
+    background: transparent;
+    border: 1px solid var(--border-ctl);
+    color: var(--text);
+}
+.pq-btn--outline:hover {
+    background: var(--hover-tint);
+    border-color: var(--border-strong);
+}
+
+/* ---------- Скелетоны ---------- */
+@keyframes pq-skeleton-pulse {
+    0%, 100% { opacity: .55; }
+    50% { opacity: 1; }
+}
+.pq-skeleton {
+    background: var(--row-hover);
+    animation: pq-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---------- Аватары ---------- */
+.pq-avatar {
+    border-radius: 50%;
+    background: var(--border-ctl);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-weight: 700;
+    user-select: none;
+}
+.pq-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.pq-avatar--28 { width: 28px; height: 28px; font-size: 13px; }
+.pq-avatar--40 { width: 40px; height: 40px; font-size: 16px; }
+.pq-avatar--48 { width: 48px; height: 48px; font-size: 18px; }
+.pq-avatar--56 { width: 56px; height: 56px; font-size: 22px; }
+/* центральная карточка подиума: акцентный фон и цвет буквы */
+.pq-avatar--accent {
+    background: var(--accent-chip);
+    color: var(--accent);
+}
+/* вариант «это я» */
+.pq-avatar--me {
+    background: var(--accent-chip);
+    color: var(--accent);
+}
+
+/* ---------- Медали ---------- */
+.pq-medal {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--accent);
+    color: var(--on-accent);
+    user-select: none;
+}
+.pq-medal--silver { background: var(--silver); color: var(--medal-on-silver); }
+.pq-medal--bronze { background: var(--bronze); color: var(--on-accent); }
+.pq-medal--lg { width: 28px; height: 28px; font-size: 13px; }
+
+/* ---------- Вкладки (segmented) ---------- */
+.pq-seg {
+    width: 360px;
+    max-width: 100%;
+    height: 46px;
+    box-sizing: border-box;
+    padding: 3px;
+    display: flex;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--border-ctl);
+    border-radius: 10px;
+}
+.pq-seg__item {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 0 10px;
+    transition: background .15s, color .15s;
+}
+.pq-seg__item:hover { color: var(--text); }
+.pq-seg__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pq-seg__item[aria-selected="true"] {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 700;
+}
+.pq-seg__item:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    color: var(--text-dim) !important;
+}
+
+/* ---------- Таблица ---------- */
+.pq-table { display: flex; flex-direction: column; }
+.pq-table__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+}
+.pq-table__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 14px;
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    min-width: 0;
+}
+.pq-table__row:last-child { border-bottom: none; }
+.pq-table__row:hover { background: var(--row-hover); }
+.pq-table__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* колонки (одинаковые в шапке и строках) */
+.pq-col-rank    { width: 40px; flex-shrink: 0; text-align: left; }
+.pq-col-player  { flex: 1; min-width: 0; text-align: left; }
+.pq-col-rating  { width: 64px; flex-shrink: 0; text-align: right; }
+.pq-col-week    { width: 64px; flex-shrink: 0; text-align: right; }
+.pq-col-winrate { width: 72px; flex-shrink: 0; text-align: right; }
+.pq-col-games   { width: 64px; flex-shrink: 0; text-align: right; }
+
+.pq-table__rank {
+    font-weight: 700;
+    color: var(--text-2);
+}
+.pq-table__player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.pq-table__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pq-table__rating { font-weight: 800; }
+.pq-table__week { font-weight: 600; }
+.pq-table__winrate { color: var(--text-2); }
+.pq-table__games { color: var(--text-dim); }
+
+/* варианты значений «7 days» */
+.pq-delta--up   { color: var(--success); }
+.pq-delta--down { color: var(--danger); }
+.pq-delta--zero, .pq-delta--none { color: var(--text-dim); }
+
+/* ---------- Строка «You» (под таблицей) ---------- */
+.pq-you {
+    margin-top: 12px;
+    height: 56px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    background: var(--accent-bg-2);
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
+    position: sticky;
+    bottom: 12px;
+    min-width: 0;
+}
+.pq-you__place { font-weight: 800; color: var(--accent); }
+.pq-you__player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+.pq-you__nick { font-weight: 700; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pq-you__week { font-weight: 600; color: var(--accent-text-2); }
+.pq-you__winrate { color: var(--accent-text-2); }
+.pq-you__games { color: var(--accent-text-dim); }
+
+/* ---------- Подиум ---------- */
+.pq-podium {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+.pq-podium__card {
+    box-sizing: border-box;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 12px;
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    min-height: 168px;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+.pq-podium__card--center {
+    min-height: 196px;
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+}
+/* порядок в DOM 1,2,3 — визуально 2-1-3 */
+.pq-podium__card[data-place="1"] { order: 2; }
+.pq-podium__card[data-place="2"] { order: 1; }
+.pq-podium__card[data-place="3"] { order: 3; }
+
+.pq-podium__name {
+    font-size: 16px;
+    font-weight: 700;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pq-podium__rating {
+    font-size: 20px;
+    font-weight: 800;
+}
+.pq-podium__games {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+.pq-podium__card--center .pq-podium__name   { font-size: 17px; }
+.pq-podium__card--center .pq-podium__rating { font-size: 24px; color: var(--accent); }
+.pq-podium__card--center .pq-podium__games  { color: var(--accent-text-dim); }

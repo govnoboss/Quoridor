@@ -1,159 +1,110 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Leaderboard — PlayQuor</title>
+    <title>Quoridor Leaderboard — Top Players | PlayQuor</title>
     <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="canonical" href="https://playquor.org/leaderboard" />
-    <link rel="stylesheet" href="/css/style.css?v=1.0.16" type="text/css" />
-    <link rel="stylesheet" href="/css/auth.css?v=1.0.4" type="text/css" />
-    <link rel="stylesheet" href="/css/profile.css?v=1.0.4" type="text/css" />
+    <link rel="stylesheet" href="/css/tokens.css?v=1.0.1" type="text/css" />
+    <link rel="stylesheet" href="/css/style.css?v=1.0.24" type="text/css" />
+    <link rel="stylesheet" href="/css/components.css?v=1.0.0" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
+        html, body {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Обёртка под фиксированной шапкой; масштаб (zoom) применяем к контейнеру,
+           не к шапке (ТЗ 5) */
         .lb-page {
-            min-height: calc(100vh - var(--header-h));
+            min-height: calc(100vh - var(--header-h) * var(--sp, 1));
+            margin-top: var(--header-h);
+            padding-bottom: 80px;
+        }
+
+        .lb-container {
+            width: 720px;
+            margin: 0 auto;
+            padding-top: 32px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: calc(var(--header-h) + 20px) 16px 80px;
         }
-        .lb-container {
-            width: 100%;
-            max-width: 520px;
-        }
-        .lb-header {
+
+        /* 2.1 Заголовок */
+        .lb-head {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 16px;
         }
-        .lb-header h1 {
-            font-size: 1.4rem;
-            margin: 0;
-            flex: 1;
-        }
-        .lb-back-btn {
+        .lb-back {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 36px;
-            height: 36px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.08);
+            background: var(--panel);
+            border: 1px solid var(--border-ctl);
             color: var(--text);
-            font-size: 1.2rem;
             text-decoration: none;
-            transition: background 0.2s;
             flex-shrink: 0;
+            transition: background .15s;
         }
-        .lb-back-btn:hover {
-            background: rgba(255,255,255,0.15);
+        .lb-back:hover { background: var(--hover-tint); }
+        .lb-back svg { width: 20px; height: 20px; display: block; }
+        .lb-title {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
         }
         .lb-subtitle {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 16px;
+            margin: 8px 0 20px 60px;
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+
+        /* 2.4 Состояния */
+        .lb-state {
             text-align: center;
+            font-size: 14px;
+            color: var(--text-dim);
+            padding: 40px 0;
         }
-        .lb-loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-        .lb-empty {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-        .lb-table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 12px;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.03);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
-        }
-        .lb-table th,
-        .lb-table td {
-            padding: 10px 14px;
-            text-align: left;
-        }
-        .lb-table thead th {
-            color: #888;
-            font-size: 0.7rem;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.02);
-            white-space: nowrap;
-        }
-        .lb-table th.col-rank {
-            width: 62px;
-        }
-        .lb-table th.col-rating {
-            text-align: right;
-        }
-        .lb-table th.col-games {
-            text-align: right;
-        }
-        .lb-table tbody tr {
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-            transition: background 0.15s;
-        }
-        .lb-table tbody tr:last-child {
-            border-bottom: none;
-        }
-        .lb-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.08);
-        }
-        .lb-table td {
-            color: var(--text);
-        }
-        .lb-table td.col-rank {
-            font-weight: 700;
-            color: #aaa;
-        }
-        .lb-table td.col-rank.top1 {
-            color: #e09f3e;
-        }
-        .lb-table td.col-rank.top2 {
-            color: #c8c8c8;
-        }
-        .lb-table td.col-rank.top3 {
-            color: #cd7f32;
-        }
-        .lb-table td.col-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .lb-table td.col-rating {
-            text-align: right;
-            font-weight: 700;
-            color: #aaa;
-            white-space: nowrap;
-        }
-        .lb-table td.col-games {
-            text-align: right;
-            color: #888;
-            font-size: 0.85rem;
-            white-space: nowrap;
-        }
+        .lb-state .pq-btn  { margin-top: 16px; }
+        .lb-podium-skel { display: none; }
+
+        /* 2.9 Узкие экраны (производное) */
         @media (max-width: 768px) {
-            .lb-page {
-                padding: 16px 12px 80px;
+            .lb-container {
+                width: 100%;
+                padding: 24px 16px 0;
             }
+            .lb-subtitle {
+                margin-left: 0;
+                text-align: center;
+            }
+            .pq-seg { width: 100%; }
+            .pq-podium { gap: 8px; }
+            .pq-podium__card { padding: 12px 8px; min-height: 140px; }
+            .pq-podium__card--center { min-height: 160px; }
+            .pq-podium__name { font-size: 13px; }
+            .pq-podium__rating { font-size: 16px; }
+            .pq-podium__card--center .pq-podium__rating { font-size: 18px; }
+        }
+        @media (max-width: 560px) {
+            .pq-col-week, .pq-col-games { display: none; }
+            .pq-col-rank { width: 32px; }
+            .pq-col-rating { width: 56px; }
+            .pq-col-winrate { width: 64px; }
         }
     </style>
-    <style>
-        html, body {
-            overflow-y: auto;
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header class="main-header">
@@ -161,7 +112,7 @@
             <a href="/" class="header-logo">PlayQuor</a>
         </div>
         <div class="header-right">
-            <select id="headerLang" class="header-lang" onchange="setLanguage(this.value)">
+            <select id="headerLang" class="header-lang" onchange="PQSite.setLanguage(this.value)">
                 <option value="ru">RU</option>
                 <option value="en">EN</option>
             </select>
@@ -169,129 +120,328 @@
     </header>
 
     <div class="lb-page">
-        <div class="lb-container">
-            <div class="lb-header">
-                <a href="/" class="lb-back-btn" id="backBtn" aria-label="Back">&larr;</a>
-                <h1 id="pageTitle">Leaderboard</h1>
+        <div class="lb-container" data-pq-content>
+            <div class="lb-head">
+                <a href="/" class="lb-back" aria-label="Back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                </a>
+                <h1 class="lb-title" id="pageTitle">Leaderboard</h1>
             </div>
             <p class="lb-subtitle" id="pageSubtitle">Top 100 players by rating</p>
-            <div class="leaderboard" id="leaderboardList">
-                <div class="lb-loading" id="loadingText">Loading...</div>
+
+            <div class="pq-seg" role="tablist" id="lbTabs" aria-label="Leaderboard sorting">
+                <button class="pq-seg__item" role="tab" data-sort="rating" aria-selected="true" id="tab-rating">Rating</button>
+                <button class="pq-seg__item" role="tab" data-sort="winrate" aria-selected="false" id="tab-winrate">Win rate</button>
+                <button class="pq-seg__item" role="tab" data-sort="week" aria-selected="false" id="tab-week">This week</button>
             </div>
+
+            <div class="pq-podium" id="lbPodium" hidden></div>
+            <div class="pq-table" id="lbTable" role="table" aria-label="Leaderboard"></div>
+            <div class="lb-state" id="lbState" hidden></div>
+            <div id="lbYouSlot"></div>
         </div>
     </div>
 
+    <script src="/js/site-shell.js?v=1.0.0"></script>
     <script>
-        var dict = {
-            ru: {
-                title: 'Лидеры',
-                subtitle: 'Топ-100 игроков по рейтингу',
-                loading: 'Загрузка...',
-                empty: 'Пока нет игроков',
-                error: 'Ошибка загрузки',
-                col_rank: 'Ранг',
-                col_name: 'Имя',
-                col_rating: 'Рейтинг',
-                col_games: 'Кол-во игр',
-                games1: 'матч',
-                games2: 'матча',
-                games5: 'матчей'
-            },
-            en: {
-                title: 'Leaderboard',
-                subtitle: 'Top 100 players by rating',
-                loading: 'Loading...',
-                empty: 'No players yet',
-                error: 'Failed to load',
-                col_rank: 'Rank',
-                col_name: 'Name',
-                col_rating: 'Rating',
-                col_games: 'Games',
-                games1: 'game',
-                games2: 'games',
-                games5: 'games'
-            }
+    (function () {
+        'use strict';
+        var PQ = window.PQSite;
+
+        var state = {
+            sort: 'rating',
+            rows: [],
+            me: null,
+            loading: false
         };
 
-        function getLang() {
-            return localStorage.getItem('quoridor-lang') || 'en';
+        /* ---------- сортировка из адреса ---------- */
+        function readSortFromUrl() {
+            var m = /[?&]sort=(rating|winrate|week)/.exec(location.search);
+            return m ? m[1] : 'rating';
+        }
+        function writeSortToUrl(sort) {
+            var url = location.pathname + (sort === 'rating' ? '' : '?sort=' + sort);
+            history.replaceState(null, '', url);
         }
 
-        function setLanguage(lang) {
-            localStorage.setItem('quoridor-lang', lang);
-            var d = dict[lang];
-            document.title = d.title + ' — PlayQuor';
-            document.documentElement.lang = lang;
-            document.getElementById('headerLang').value = lang;
-            document.getElementById('pageTitle').textContent = d.title;
-            document.getElementById('pageSubtitle').textContent = d.subtitle;
-            var lt = document.getElementById('loadingText');
-            if (lt) lt.textContent = d.loading;
-            if (typeof loadLeaderboard === 'function') loadLeaderboard();
+        /* ---------- i18n ---------- */
+        PQ.onLanguageChange = function (lang, d) {
+            document.title = d.lb_page_title + ' — PlayQuor';
+            document.getElementById('pageTitle').textContent = d.lb_page_title;
+            renderTabs();
+            renderSubtitle();
+            if (state.rows.length || state.me) renderData();
+            if (state.loading) renderSkeletons();
+        };
+
+        function subtitleKey(sort) {
+            return sort === 'winrate' ? 'lb_sub_winrate' : sort === 'week' ? 'lb_sub_week' : 'lb_sub_rating';
+        }
+        function renderSubtitle() {
+            var sub = document.getElementById('pageSubtitle');
+            sub.textContent = PQ.t(subtitleKey(state.sort));
+        }
+        function renderTabs() {
+            var lang = PQ.getLang();
+            ['rating', 'winrate', 'week'].forEach(function (sort) {
+                var btn = document.getElementById('tab-' + sort);
+                btn.textContent = PQ.t('lb_tab_' + sort);
+                btn.setAttribute('aria-selected', String(state.sort === sort));
+            });
         }
 
-        function applyLang() {
-            setLanguage(getLang());
-        }
+        /* ---------- запуск ---------- */
+        state.sort = readSortFromUrl();
+        PQ.applyScale();
+        window.addEventListener('resize', PQ.applyScale);
+        PQ.applyLang(PQ.getLang());
+        load();
+        ['rating', 'winrate', 'week'].forEach(function (sort) {
+            document.getElementById('tab-' + sort).addEventListener('click', function () {
+                if (state.sort === sort || state.loading) return;
+                state.sort = sort;
+                writeSortToUrl(sort);
+                renderTabs();
+                renderSubtitle();
+                load();
+            });
+        });
 
-        function escapeHtml(str) {
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
-
-        function pluralGames(n, d) {
-            var n10 = n % 10,
-                n100 = n % 100;
-            if (n100 >= 11 && n100 <= 14) return d.games5;
-            if (n10 === 1) return d.games1;
-            if (n10 >= 2 && n10 <= 4) return d.games2;
-            return d.games5;
-        }
-
-        function loadLeaderboard() {
-            var container = document.getElementById('leaderboardList');
-            var lang = getLang();
-            var d = dict[lang];
-
-            fetch('/api/leaderboard?limit=100')
-                .then(function(r) { return r.json(); })
-                .then(function(players) {
-                    if (!players || players.length === 0) {
-                        container.innerHTML = '<div class="lb-empty">' + d.empty + '</div>';
-                        return;
-                    }
-
-                    container.innerHTML = '<table class="lb-table">'
-                            + '<thead><tr>'
-                            + '<th class="col-rank">' + d.col_rank + '</th>'
-                            + '<th class="col-name">' + d.col_name + '</th>'
-                            + '<th class="col-rating">' + d.col_rating + '</th>'
-                            + '<th class="col-games">' + d.col_games + '</th>'
-                            + '</tr></thead><tbody>'
-                            + players.map(function(p, i) {
-                                var rankClass = '';
-                                if (i === 0) rankClass = ' top1';
-                                else if (i === 1) rankClass = ' top2';
-                                else if (i === 2) rankClass = ' top3';
-
-                                return '<tr onclick="window.location.href=\'/profiles/' + encodeURIComponent(p.username) + '\'">'
-                                    + '<td class="col-rank' + rankClass + '">' + (i + 1) + '</td>'
-                                    + '<td class="col-name">' + escapeHtml(p.username) + '</td>'
-                                    + '<td class="col-rating">' + p.rating + '</td>'
-                                    + '<td class="col-games">' + (p.stats ? (p.stats.totalGames || 0) : 0) + ' ' + pluralGames(p.stats ? (p.stats.totalGames || 0) : 0, d) + '</td>'
-                                    + '</tr>';
-                            }).join('')
-                            + '</tbody></table>';
+        /* ---------- данные ---------- */
+        function load() {
+            state.loading = true;
+            state.rows = [];
+            document.getElementById('lbYouSlot').innerHTML = '';
+            renderSkeletons();
+            fetch('/api/leaderboard?limit=100&sort=' + encodeURIComponent(state.sort))
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
                 })
-                .catch(function() {
-                    container.innerHTML = '<div class="lb-empty">' + d.error + '</div>';
+                .then(function (players) {
+                    if (!Array.isArray(players)) throw new Error('bad payload');
+                    state.rows = players;
+                    state.loading = false;
+                    hideState();
+                    renderData();
+                    return loadMe();
+                })
+                .catch(function () {
+                    state.loading = false;
+                    state.rows = [];
+                    hideTableAndPodium();
+                    showError();
                 });
         }
 
-        applyLang();
+        function loadMe() {
+            state.me = null;
+            return fetch('/api/leaderboard/me?sort=' + encodeURIComponent(state.sort), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (me) {
+                    if (me && typeof me.rank !== 'undefined') state.me = me;
+                    renderData();
+                    renderYouRow();
+                })
+                .catch(function () { /* гость — без строки «You» */ });
+        }
+
+        /* ---------- форматирование значений ---------- */
+        function fmtWinrate(p) {
+            var total = p.stats && p.stats.totalGames || 0;
+            if (!total) return '—';
+            var wins = p.stats && p.stats.wins || 0;
+            return Math.round(wins / total * 100) + '%';
+        }
+        function fmtWeek(delta) {
+            if (delta === null || typeof delta === 'undefined') return { html: '<span class="pq-delta--none">—</span>' };
+            if (delta > 0) return { html: '<span class="pq-delta--up">▲ ' + delta + '</span>' };
+            if (delta < 0) return { html: '<span class="pq-delta--down">▼ ' + (-delta) + '</span>' };
+            return { html: '<span class="pq-delta--zero">0</span>' };
+        }
+        function gamesLabel(n) { return PQ.formatGames(n, PQ.getLang()); }
+
+        /* ---------- аватар: одна буква или фото (раздел 2.5) ---------- */
+        function avatarLetter(name) {
+            var ch = String(name || '?').trim().charAt(0).toUpperCase();
+            return /[A-Z0-9]/.test(ch) ? ch : '#';
+        }
+        function avatarHtml(p, size) {
+            var url = p.avatarUrl;
+            var isPhoto = url && typeof url === 'string' && url.indexOf('/avatars/') !== -1;
+            if (isPhoto) {
+                return '<span class="pq-avatar pq-avatar--' + size + '" data-avatar>'
+                    + '<img src="' + PQ.escapeHtml(url) + '" alt="" loading="lazy">'
+                    + '</span>';
+            }
+            var accent = size === '56' ? ' pq-avatar--accent' : '';
+            return '<span class="pq-avatar pq-avatar--' + size + accent + '">' + PQ.escapeHtml(avatarLetter(p.username)) + '</span>';
+        }
+        document.addEventListener('error', function (e) {
+            // сломанное фото аватара -> заглушка с буквой
+            if (e.target && e.target.tagName === 'IMG' && e.target.parentElement) {
+                var wrap = e.target.parentElement;
+                var size = /pq-avatar--(\d+)/.exec(wrap.className);
+                if (size && wrap.className.indexOf('pq-avatar') !== -1) {
+                    var name = wrap.closest('[data-username]');
+                    var user = name ? name.getAttribute('data-username') : '?';
+                    wrap.className = 'pq-avatar pq-avatar--' + size[1];
+                    wrap.innerHTML = avatarLetter(user);
+                }
+            }
+        }, true);
+
+        /* ---------- состояния (2.7) ---------- */
+        function renderSkeletons() {
+            var podium = document.getElementById('lbPodium');
+            podium.hidden = false;
+            document.getElementById('lbYouSlot').innerHTML = '';
+            podium.innerHTML =
+                '<div class="pq-podium__card" data-place="2"><div class="pq-skeleton" style="width:80%;height:168px;"></div></div>' +
+                '<div class="pq-podium__card pq-podium__card--center" data-place="1"><div class="pq-skeleton" style="width:80%;height:196px;"></div></div>' +
+                '<div class="pq-podium__card" data-place="3"><div class="pq-skeleton" style="width:80%;height:168px;"></div></div>';
+            var table = document.getElementById('lbTable');
+            table.hidden = false;
+            var rowCount = 8;
+            var head = '<div class="pq-table__head">'
+                + '<span class="pq-col-rank">' + PQ.t('lb_col_rank') + '</span>'
+                + '<span class="pq-col-player">' + PQ.t('lb_col_player') + '</span>'
+                + '<span class="pq-col-rating">' + PQ.t('lb_col_rating') + '</span>'
+                + '<span class="pq-col-week">' + PQ.t('lb_col_week') + '</span>'
+                + '<span class="pq-col-winrate">' + PQ.t('lb_col_winrate') + '</span>'
+                + '<span class="pq-col-games">' + PQ.t('lb_col_games') + '</span>'
+                + '</div>';
+            var rows = '';
+            for (var i = 0; i < rowCount; i++) {
+                rows += '<div class="pq-table__row pq-you__skel"><div class="pq-skeleton" style="width:100%;height:52px;"></div></div>';
+            }
+            table.innerHTML = head + rows;
+        }
+
+        function hideTableAndPodium() {
+            document.getElementById('lbPodium').hidden = true;
+            document.getElementById('lbTable').hidden = true;
+        }
+        function hideState() { document.getElementById('lbState').hidden = true; }
+
+        function showError() {
+            var st = document.getElementById('lbState');
+            st.hidden = false;
+            st.innerHTML = PQ.getLang() === 'ru'
+                ? 'Не удалось загрузить рейтинг'
+                : 'Couldn\'t load the leaderboard';
+            var btn = document.createElement('button');
+            btn.className = 'pq-btn pq-btn--outline';
+            btn.textContent = PQ.t('lb_retry');
+            btn.addEventListener('click', load);
+            st.appendChild(btn);
+        }
+        function showEmpty() {
+            hideTableAndPodium();
+            var st = document.getElementById('lbState');
+            st.hidden = false;
+            st.textContent = PQ.getLang() === 'ru' ? 'Пока нет игроков' : 'No players yet';
+        }
+
+        /* ---------- отрисовка (2.3–2.4) ---------- */
+        function headHtml() {
+            return '<div class="pq-table__head" role="row">'
+                + '<span class="pq-col-rank" role="columnheader">' + PQ.t('lb_col_rank') + '</span>'
+                + '<span class="pq-col-player" role="columnheader">' + PQ.t('lb_col_player') + '</span>'
+                + '<span class="pq-col-rating" role="columnheader">' + PQ.t('lb_col_rating') + '</span>'
+                + '<span class="pq-col-week" role="columnheader">' + PQ.t('lb_col_week') + '</span>'
+                + '<span class="pq-col-winrate" role="columnheader">' + PQ.t('lb_col_winrate') + '</span>'
+                + '<span class="pq-col-games" role="columnheader">' + PQ.t('lb_col_games') + '</span>'
+                + '</div>';
+        }
+        function rowHtml(p, isMe) {
+            var week = fmtWeek(p.delta7);
+            var profile = '/profiles/' + encodeURIComponent(p.username);
+            return '<a class="pq-table__row' + (isMe ? ' pq-table__row--me' : '') + '" role="row" href="' + profile + '" data-username="' + PQ.escapeHtml(p.username) + '">'
+                + '<span class="pq-col-rank pq-table__rank' + (isMe ? ' pq-me-rank' : '') + '" role="cell">' + p.rank + '</span>'
+                + '<span class="pq-col-player pq-table__player" role="cell">' + avatarHtml(p, 28)
+                + '<span class="pq-table__name' + (isMe ? ' pq-me-name' : '') + '">' + PQ.escapeHtml(p.displayName) + '</span></span>'
+                + '<span class="pq-col-rating pq-table__rating' + (isMe ? ' pq-me-rating' : '') + '" role="cell">' + p.rating + '</span>'
+                + '<span class="pq-col-week pq-table__week" role="cell">' + week.html + '</span>'
+                + '<span class="pq-col-winrate pq-table__winrate" role="cell">' + fmtWinrate(p) + '</span>'
+                + '<span class="pq-col-games pq-table__games" role="cell">' + gamesLabel(p.stats.totalGames || 0) + '</span>'
+                + '</a>';
+        }
+
+        function podiumHtml(p) {
+            var place = p.rank;
+            var podiumProfile = '/profiles/' + encodeURIComponent(p.username);
+            var medalClass = place === 1 ? 'pq-medal--lg' : 'pq-medal pq-medal--lg';
+            if (place === 2) medalClass += ' pq-medal--silver';
+            if (place === 3) medalClass += ' pq-medal--bronze';
+            var avSize = place === 1 ? 56 : 48;
+            return '<a class="pq-podium__card' + (place === 1 ? ' pq-podium__card--center' : '') + '" data-place="' + place + '" href="' + podiumProfile + '" data-username="' + PQ.escapeHtml(p.username) + '">'
+                + '<span class="' + medalClass + '">' + place + '</span>'
+                + avatarHtml(p, String(avSize))
+                + '<span class="pq-podium__name">' + PQ.escapeHtml(p.displayName) + '</span>'
+                + '<span class="pq-podium__rating">' + p.rating + '</span>'
+                + '<span class="pq-podium__games">' + gamesLabel(p.stats.totalGames || 0) + '</span>'
+                + '</a>';
+        }
+
+        function renderData() {
+            var podium = document.getElementById('lbPodium');
+            var table = document.getElementById('lbTable');
+
+            if (!state.rows.length) {
+                hideTableAndPodium();
+                if (!state.loading) showEmpty();
+                return;
+            }
+
+            /* подиум: показываем до трёх существующих игроков (раздел 2.3) */
+            var top = state.rows.slice(0, 3);
+            podium.hidden = top.length === 0;
+            podium.innerHTML = top.map(podiumHtml).join('');
+
+            /* таблица */
+            table.hidden = false;
+            var myName = state.me && state.me.username;
+            table.innerHTML = headHtml()
+                + state.rows.map(function (p) { return rowHtml(p, myName && p.username === myName); }).join('');
+        }
+
+        /* ---------- строка «You» (2.8) ---------- */
+        function renderYouRow() {
+            var slot = document.getElementById('lbYouSlot');
+            var me = state.me;
+            if (!me || me.rank == null) { slot.innerHTML = ''; return; }
+
+            var inList = state.rows.some(function (p) { return p.username === me.username; });
+            if (inList) { /* строка уже подсвечена в таблице */ slot.innerHTML = ''; return; }
+
+            var week = fmtWeek(me.delta7);
+            var rating = me.rating != null ? me.rating : '';
+            var games = me.stats ? (me.stats.totalGames || 0) : 0;
+            var winrate = me.stats && me.stats.totalGames ? Math.round((me.stats.wins || 0) / me.stats.totalGames * 100) + '%' : '—';
+            var letter = avatarLetter(me.username || PQ.t('lb_you'));
+            var name = (PQ.getLang() === 'ru' ? 'Вы' : 'You') + ' · ' + me.username;
+            slot.innerHTML = '<div class="pq-you" role="row">'
+                + '<span class="pq-col-rank pq-you__place" role="cell">#' + me.rank + '</span>'
+                + '<span class="pq-col-player pq-you__player" role="cell" data-username="' + PQ.escapeHtml(me.username) + '">'
+                + '<span class="pq-avatar pq-avatar--28 pq-avatar--me">' + letter + '</span>'
+                + '<span class="pq-you__nick">' + PQ.escapeHtml(name) + '</span></span>'
+                + '<span class="pq-col-rating pq-you__place" role="cell">' + rating + '</span>'
+                + '<span class="pq-col-week pq-you__week" role="cell">' + week.html + '</span>'
+                + '<span class="pq-col-winrate pq-you__winrate" role="cell">' + winrate + '</span>'
+                + '<span class="pq-col-games pq-you__games" role="cell">' + gamesLabel(games) + '</span>'
+                + '</div>';
+        }
+
+        /* подсветка своей строки (2.8, вариант «игрок в списке») */
+        var style = document.createElement('style');
+        style.textContent = '.pq-table__row--me{background:var(--accent-bg-2)!important}' +
+            '.pq-me-name{color:var(--accent);font-weight:700}' +
+            '.pq-me-rating{color:var(--accent)}' +
+            '.pq-me-rank{color:var(--accent);font-weight:800}';
+        document.head.appendChild(style);
+    })();
     </script>
 </body>
 </html>

@@ -57,4 +57,7 @@ const gameResultSchema = new mongoose.Schema({
     }
 });
 
+// Для delta7 в лидерборде (tz-03 раздел 4.2): ранговые партии за окно = 7 суток
+gameResultSchema.index({ date: 1, isRanked: 1 });
+
 module.exports = mongoose.model('GameResult', gameResultSchema);

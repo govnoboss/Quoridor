@@ -1,13 +1,16 @@
-jest.mock('redis');
+﻿jest.mock('redis');
 jest.mock('../src/storage/db', () => jest.fn().mockResolvedValue());
 
 const bcrypt = require('bcryptjs');
 const request = require('supertest');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+// sharp С‚СЂРµР±СѓРµС‚ Node >=20.9, Р° Р»РѕРєР°Р»СЊРЅС‹Р№ Node РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃС‚Р°СЂС€Рµ вЂ” РјР°Р»РµРЅСЊРєР°СЏ
+// СѓС‚РёР»РёС‚Р° РІС‹С€Рµ Р»РёС€СЊ РЅСѓР¶РЅР° РґР»СЏ С‚РµСЃС‚РѕРІ Р°РІР°С‚Р°СЂРѕРІ; Р±РµР· sharp СЌС‚Рё С‚РµСЃС‚С‹ СЃРєРёРїР°СЋС‚СЃСЏ.
+let sharp = null;
+try { sharp = require('sharp'); } catch { sharp = null; }
 
-// Mock User model — factory must be self-contained (no external var references)
+// Mock User model вЂ” factory must be self-contained (no external var references)
 jest.mock('../src/models/User', () => {
     const store = new Map();
     let nextId = 1;
@@ -77,6 +80,9 @@ jest.mock('../src/models/User', () => {
                 filtered = filtered.slice(0, n);
                 return Promise.resolve(filtered);
             },
+            exec() {
+                return Promise.resolve(filtered.map((u) => u));
+            },
             then(resolve, reject) {
                 return Promise.resolve(filtered).then(resolve, reject);
             },
@@ -96,11 +102,36 @@ jest.mock('../src/models/User', () => {
 });
 
 jest.mock('../src/models/GameResult', () => {
+    let gamesStore = [];
+
     const MockGameResult = jest.fn().mockImplementation((data) => {
         return { ...data, save: jest.fn().mockResolvedValue(true) };
     });
     MockGameResult.find = jest.fn().mockResolvedValue([]);
     MockGameResult.findById = jest.fn().mockResolvedValue(null);
+    // Р›РѕРєР°Р»СЊРЅР°СЏ РёРЅС‚РµСЂРїСЂРµС‚Р°С†РёСЏ Р°РіРіСЂРµРіР°С†РёРё delta7 (tz-03 4.2) РґР»СЏ С‚РµСЃС‚РѕРІ:
+    // РїРѕРґРґРµСЂР¶РёРІР°РµС‚ СЂРѕРІРЅРѕ С‚РѕС‚ pipeline, С‡С‚Рѕ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РІ utils/leaderboard.js
+    MockGameResult.aggregate = jest.fn((pipeline) => {
+        const match = pipeline.find((stage) => stage.$match) || {};
+        const since = match.$match && match.$match.date && match.$match.date.$gte;
+        const rows = new Map();
+        for (const game of gamesStore) {
+            if (match.$match && match.$match.isRanked !== undefined && game.isRanked !== match.$match.isRanked) continue;
+            if (since && (!game.date || new Date(game.date) < since)) continue;
+            const parts = [
+                { id: game.playerWhite && game.playerWhite.id, change: (game.playerWhite && game.playerWhite.ratingChange) || 0 },
+                { id: game.playerBlack && game.playerBlack.id, change: (game.playerBlack && game.playerBlack.ratingChange) || 0 }
+            ];
+            for (const part of parts) {
+                if (part.id == null) continue;
+                const key = String(part.id);
+                rows.set(key, (rows.get(key) || 0) + part.change);
+            }
+        }
+        return Promise.resolve(Array.from(rows.entries()).map(([id, delta]) => ({ _id: id, delta })));
+    });
+    MockGameResult.__setGames = (games) => { gamesStore = games; };
+    MockGameResult.__clearGames = () => { gamesStore = []; };
     return MockGameResult;
 });
 
@@ -171,6 +202,7 @@ const { setupTestEnvironment, teardownTestEnvironment, getApp } = require('./hel
 let app;
 let User;
 let BotSettings;
+let GameResult;
 
 beforeAll(async () => {
     jest.setTimeout(30000);
@@ -178,12 +210,16 @@ beforeAll(async () => {
     app = await getApp();
     User = require('../src/models/User');
     BotSettings = require('../src/models/BotSettings');
+    GameResult = require('../src/models/GameResult');
 }, 30000);
 
 beforeEach(() => {
     jest.clearAllMocks();
     User.__clearStore();
     BotSettings.__reset();
+    if (GameResult.__clearGames) GameResult.__clearGames();
+    const Leaderboard = require('../src/utils/leaderboard');
+    if (Leaderboard.__resetDelta7Cache) Leaderboard.__resetDelta7Cache();
 });
 
 afterAll(async () => {
@@ -368,7 +404,7 @@ describe('Admin Bots API', () => {
     });
 });
 
-describe('Avatar Upload API', () => {
+(sharp ? describe : describe.skip)('Avatar Upload API', () => {
     const passHash = bcrypt.hashSync('avatarpass123', 10);
     const AVATARS_DIR = path.join(__dirname, '..', 'avatars');
 
@@ -442,5 +478,129 @@ describe('Avatar Upload API', () => {
         expect(staticRes.type).toBe('image/webp');
 
         try { fs.unlinkSync(file); } catch { /* ignore */ }
+    });
+});
+
+describe('Leaderboard API (tz-03)', () => {
+    function seedPlayers() {
+        const pw = bcrypt.hashSync('pass123', 5);
+        // id СѓРїСЂР°РІР»СЏРµРј: РЅСѓР¶РµРЅ РїСЂРµРґСЃРєР°Р·СѓРµРјС‹Р№ РїРѕСЂСЏРґРѕРє Рё РїРѕР»Рµ _id РґР»СЏ displayName-РєРѕР»Р»РёР·РёР№
+        User.__seedUser({ _id: 'u001', username: 'frag_lord', passwordHash: pw, rating: 1669, stats: { totalGames: 170, wins: 158, losses: 12, playTimeSeconds: 0 } });
+        User.__seedUser({ _id: 'u002', username: 'rookie', passwordHash: pw, rating: 1200, stats: { totalGames: 3, wins: 1, losses: 2, playTimeSeconds: 0 } });
+        User.__seedUser({ _id: 'u003', username: 'grinder', passwordHash: pw, rating: 1300, stats: { totalGames: 25, wins: 15, losses: 10, playTimeSeconds: 0 } });
+        User.__seedUser({ _id: 'u004', username: 'admin_guy', passwordHash: pw, isAdmin: true, rating: 3000, stats: { totalGames: 50, wins: 50, losses: 0, playTimeSeconds: 0 } });
+        User.__seedUser({ _id: 'u005', username: 'emailplayer', passwordHash: pw, rating: 1400, stats: { totalGames: 12, wins: 7, losses: 5, playTimeSeconds: 0 }, email: 'secret.address@hostmail.com' });
+    }
+
+    function agentFor(username) {
+        const agent = request.agent(app);
+        return agent.post('/api/auth/login').send({ username, password: 'pass123' }).then(() => agent);
+    }
+
+    const now = Date.now();
+    const d = (daysAgo) => new Date(now - daysAgo * 24 * 3600 * 1000);
+
+    it('sort=rating (default) returns rank 1..N, stats.wins/losses, and excludes admins', async () => {
+        seedPlayers();
+        const res = await request(app).get('/api/leaderboard');
+        expect(res.status).toBe(200);
+        expect(res.body.map((p) => p.username)).toEqual(['frag_lord', 'emailplayer', 'grinder', 'rookie']);
+        expect(res.body[0].rank).toBe(1);
+        expect(res.body[3].rank).toBe(4);
+        expect(res.body.find((p) => p.username === 'frag_lord').stats).toEqual({ totalGames: 170, wins: 158, losses: 12 });
+    });
+
+    it('email never appears in any field; displayName derived for @-usernames', async () => {
+        User.__seedUser({ _id: 'mail01', username: 'mnikita868@gmail.com', email: 'secret.address@hostmail.com', rating: 1500, stats: { totalGames: 30, wins: 20, losses: 10, playTimeSeconds: 0 } });
+        User.__seedUser({ _id: 'mail02', username: 'mnikita868@gmail.com2', email: 'secret.address@hostmail.com', rating: 1501, stats: { totalGames: 30, wins: 20, losses: 10, playTimeSeconds: 0 } });
+        const res = await request(app).get('/api/leaderboard');
+        expect(res.status).toBe(200);
+        expect(JSON.stringify(res.body)).not.toContain('secret.address@hostmail.com');
+        const rows = res.body.filter((p) => p.username.startsWith('mnikita868'));
+        // коллизия производных имён: обе записи получают '…' + последние 2 символа id
+        expect(rows.every((p) => /^mnikita868…[a-z0-9]{2}$/.test(p.displayName))).toBe(true);
+        expect(new Set(rows.map((p) => p.displayName)).size).toBe(2);
+    });
+
+    it('sort=winrate excludes players with fewer than 10 games', async () => {
+        seedPlayers();
+        const res = await request(app).get('/api/leaderboard?sort=winrate');
+        expect(res.status).toBe(200);
+        const usernames = res.body.map((p) => p.username);
+        expect(usernames).not.toContain('rookie');
+        // РїСЂРёРѕСЂРёС‚РµС‚: winrate РїРѕ СѓР±С‹РІР°РЅРёСЋ, РїСЂРё СЂР°РІРµРЅСЃС‚РІРµ wins, Р·Р°С‚РµРј СЂРµР№С‚РёРЅРі
+        expect(usernames).toEqual(['frag_lord', 'grinder', 'emailplayer']);
+    });
+
+    it('sort=week: only players with ranked games in last 7 days, delta7 = sum of ratingChange', async () => {
+        seedPlayers();
+        GameResult.__setGames([
+            { isRanked: true, date: d(1), playerWhite: { id: 'u003', ratingChange: 12 }, playerBlack: { id: 'u002', ratingChange: -12 } },
+            { isRanked: true, date: d(3), playerWhite: { id: 'u003', ratingChange: 10 }, playerBlack: { id: null, ratingChange: 0 } },
+            { isRanked: false, date: d(1), playerWhite: { id: 'u003', ratingChange: 999 }, playerBlack: { id: 'u002', ratingChange: -999 } },
+            { isRanked: true, date: d(20), playerWhite: { id: 'u001', ratingChange: 500 }, playerBlack: { id: 'u002', ratingChange: -500 } }
+        ]);
+        const res = await request(app).get('/api/leaderboard?sort=week');
+        expect(res.status).toBe(200);
+        const grinder = res.body.find((p) => p.username === 'grinder');
+        expect(grinder.delta7).toBe(22);
+        expect(grinder.rank).toBe(1);
+        const rookie = res.body.find((p) => p.username === 'rookie');
+        expect(rookie.delta7).toBe(-12);
+        // frag_lord: СЂР°РЅРіРѕРІС‹Рµ РїР°СЂС‚РёРё С‚РѕР»СЊРєРѕ 20 РґРЅРµР№ РЅР°Р·Р°Рґ -> delta7 null, РЅРµ РІ РІС‹Р±РѕСЂРєРµ
+        expect(res.body.find((p) => p.username === 'frag_lord')).toBeUndefined();
+    });
+
+    it('limit is capped at 100', async () => {
+        for (let i = 0; i < 150; i++) {
+            User.__seedUser({ _id: 'bulk' + String(i).padStart(3, '0'), username: 'bulk' + i, rating: 2000 - i, stats: { totalGames: 10, wins: 5, losses: 5, playTimeSeconds: 0 } });
+        }
+        const res = await request(app).get('/api/leaderboard?limit=500');
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(100);
+        expect(res.body[0].rank).toBe(1);
+        expect(res.body[99].rank).toBe(100);
+    });
+
+    it('GET /api/leaderboard/me requires auth', async () => {
+        const res = await request(app).get('/api/leaderboard/me');
+        expect(res.status).toBe(401);
+    });
+
+    it('GET /api/leaderboard/me returns rank by rating, stats and delta7', async () => {
+        seedPlayers();
+        GameResult.__setGames([
+            { isRanked: true, date: d(2), playerWhite: { id: 'u003', ratingChange: -8 }, playerBlack: { id: 'u005', ratingChange: 8 } }
+        ]);
+        const agent = await agentFor('grinder');
+        const res = await agent.get('/api/leaderboard/me');
+        expect(res.status).toBe(200);
+        expect(res.body.total).toBe(4);
+        expect(res.body.username).toBe('grinder');
+        expect(res.body.rank).toBe(3);
+        expect(res.body.rating).toBe(1300);
+        expect(res.body.stats.totalGames).toBe(25);
+        expect(res.body.delta7).toBe(-8);
+    });
+
+    it('GET /api/leaderboard/me?sort=winrate: rank null below 10 games threshold', async () => {
+        seedPlayers();
+        const agent = await agentFor('rookie');
+        const res = await agent.get('/api/leaderboard/me?sort=winrate');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBeNull();
+        expect(res.body.total).toBe(4);
+    });
+
+    it('GET /api/leaderboard/me?sort=week: rank null without ranked games within 7 days', async () => {
+        seedPlayers();
+        GameResult.__setGames([
+            { isRanked: true, date: d(20), playerWhite: { id: 'u001', ratingChange: 500 }, playerBlack: { id: 'u002', ratingChange: -500 } }
+        ]);
+        const agent = await agentFor('frag_lord');
+        const res = await agent.get('/api/leaderboard/me?sort=week');
+        expect(res.status).toBe(200);
+        expect(res.body.rank).toBeNull();
+        expect(res.body.delta7).toBeNull();
     });
 });

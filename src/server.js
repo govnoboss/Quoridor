@@ -18,7 +18,19 @@ const { verifyGoogleIdToken, verifyFreshGoogleReauth } = require('./auth/google'
 const Report = require('./models/Report');
 const geoip = require('geoip-lite');
 const multer = require('multer');
-const sharp = require('sharp');
+// sharp требует Node >=20.9: подключаем лениво, чтобы сервер работал и на старых
+// Node (там аплоад аватаров вернёт понятную 503, всё остальное — работает).
+let sharp = null;
+let sharpLoadError = null;
+try {
+    sharp = require('sharp');
+} catch (err) {
+    sharpLoadError = err;
+}
+function getSharp() {
+    if (!sharp) throw sharpLoadError || new Error('sharp is not available');
+    return sharp;
+}
 const fs = require('fs');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -77,6 +89,10 @@ const sessionRedisClient = redisPkg.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
     socket: { connectTimeout: 5000 }
 });
+
+// Кэш delta7 лидерборда использует тот же Redis-клиент (tz-03 4.2)
+const Leaderboard = require('./utils/leaderboard');
+Leaderboard.setRedisClient(sessionRedisClient);
 
 const sessionMiddleware = session({
     store: new RedisStore({ client: sessionRedisClient }),
@@ -875,18 +891,28 @@ app.get('/api/profiles/:username/rating-history', async (req, res) => {
     }
 });
 
-// Leaderboard API - top players (humans + bots) by rating
+// Leaderboard API - top players (humans + bots) filtered/sorted per tz-03 4.1
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl stats.totalGames')
-            .sort({ rating: -1 })
-            .limit(limit);
-        res.json(topPlayers);
+        const rows = await Leaderboard.computeLeaderboard(req.query.sort, req.query.limit);
+        res.json(rows);
     } catch (err) {
         console.error('[LEADERBOARD] Error:', err);
         res.status(500).json([]);
+    }
+});
+
+// "You" block data for the logged-in player (tz-03 4.3)
+app.get('/api/leaderboard/me', async (req, res) => {
+    try {
+        if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+        const user = await User.findById(req.session.userId).select('-passwordHash');
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        const data = await Leaderboard.computeMyLeaderboard(user, req.query.sort);
+        res.json(data);
+    } catch (err) {
+        console.error('[LEADERBOARD][ME] Error:', err);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -1052,7 +1078,8 @@ app.post('/api/user/upload-avatar', uploadAvatarMiddleware, async (req, res) => 
         // Декодируем и пережимаем: отклоняет поддельные/SVG файлы и убирает метаданные
         let webp;
         try {
-            webp = await sharp(req.file.buffer, { limitInputPixels: 16 * 1000 * 1000 })
+            const sharpCtl = getSharp();
+            webp = await sharpCtl(req.file.buffer, { limitInputPixels: 16 * 1000 * 1000 })
                 .resize(AVATAR_OUTPUT, AVATAR_OUTPUT, { fit: 'cover' })
                 .webp({ quality: 80 })
                 .toBuffer();
