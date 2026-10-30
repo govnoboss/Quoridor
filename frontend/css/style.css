@@ -1,6 +1,10 @@
-/* Padding main content for fixed header */
+/* Padding main content for fixed header + footer clearance.
+   ТЗ 2a: подвал (social-bar 56px) лежит поверх absolutely-positioned нижней зоны,
+   поэтому #mainMenu резервирует под него 56px — центрирование композиции
+   идёт строго между шапкой и подвалом, воздух сверху/снизу равный. */
 #mainMenu {
     padding-top: var(--header-h);
+    padding-bottom: 56px;
 }
 
 *,
@@ -1051,16 +1055,36 @@ canvas {
     -webkit-overflow-scrolling: touch;
 }
 
-/* --- HOME LAYOUT: три колонки 340 / 554 / 320, gap 48 --- */
+/* --- HOME LAYOUT: три колонки 340 / 554 / 320, gap 48 ---
+   ТЗ 2a: контейнер занимает ровно область между шапкой (56) и подвалом (56),
+   без растягивания на зону подвала — тогда воздух сверху и снизу равен. */
 .home-layout {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 48px;
     width: 100%;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: calc(100vh - var(--header-h) - 56px);
     padding: 24px 16px;
+}
+
+/* --- ТЗ 2a: единый масштаб композиции главной ---
+   Внутри .home размеры остаются макетными (340/554/320, 528, 584) — их не менять.
+   zoom на контейнере масштабирует всё одним числом: s читается из --s (ставится
+   скриптом в head index.html). Модалки и оверлеи находятся вне .home и не масштабируются. */
+.home {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    zoom: var(--s, 1);
+}
+
+/* Старые браузеры без zoom: масштаба нет, но и ничего не ломается. */
+@supports not (zoom: 1) {
+    .home {
+        zoom: 1;
+    }
 }
 
 .home-left {
@@ -1686,8 +1710,14 @@ canvas {
     letter-spacing: 0.2em;
 }
 
-/* --- Узкие экраны < 1320 px: одна колонка --- */
+/* --- Узкие экраны < 1320 px: одна колонка ---
+   ТЗ 2a: zoom не применяется (скрипт держит --s: 1), .home растворяется
+   в колонку .home-layout, чтобы три блока шли друг за другом. */
 @media (max-width: 1319px) {
+    .home {
+        display: contents;
+    }
+
     .home-layout {
         flex-direction: column;
         max-width: 560px;

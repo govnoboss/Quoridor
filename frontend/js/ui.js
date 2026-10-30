@@ -783,6 +783,9 @@ const UI = {
     this.updateHeaderVisibility();
     const playActive = (id === 'mainMenu' || id === 'modeScreen' || id === 'roomScreen');
     document.querySelectorAll('.header-nav-link[data-nav="play"]').forEach(a => playActive ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+    // ТЗ 2a: вернувшись на главную после игры, пересчитываем масштаб --s:
+    // пока был gameScreen, окно могли ресайзить. rAF-троттлинг внутри скрипта.
+    if (id === 'mainMenu' && typeof window.__updateHomeScale === 'function') window.__updateHomeScale();
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {

@@ -2867,11 +2867,37 @@ const DemoBoard = {
   init() {
     this.canvas = document.getElementById('demoBoard');
     if (!this.canvas) return;
+    // ТЗ 2a: при смене --s (zoom композиции главной) буфер доски пересчитывается,
+    // иначе при s > 1 картинка рисуется из старого буфера и выглядит мыльной.
+    this.onHomeScale = () => this.resizeBacking();
+    document.addEventListener('home-scale-change', this.onHomeScale);
     this.ctx = this.canvas.getContext('2d');
     this.applyDemoTheme();
+    this.resizeBacking();
     this.reset();
     this.draw();
     this.scheduleNext();
+  },
+
+  // ТЗ 2a: буфер демо-доски = CSS-размер (528) × dpr × s. Макет рисовался в 2×
+  // (канвас 1056 при CSS 528), поэтому dpr ограничен снизу двойкой — при s = 1
+  // буфер остаётся прежними 1056 и приёмка «не мыльные стены» не деградирает;
+  // сверху тройкой — иначе буфер на 4K-экранах непомерно велик.
+  resizeBacking() {
+    if (!this.canvas || !this.ctx) return;
+    var s = parseFloat(document.documentElement.style.getPropertyValue('--s'));
+    if (!isFinite(s) || s < 1) s = 1;
+    var dpr = window.devicePixelRatio || 1;
+    if (dpr < 2) dpr = 2;
+    if (dpr > 3) dpr = 3;
+    var px = Math.round(528 * dpr * Math.min(s, 2));
+    if (px !== this.canvas.width) {
+      this.canvas.width = px;
+      this.canvas.height = px;
+      // applyDemoTheme пересчитает k = canvas.width / 528 под новый буфер.
+      this.applyDemoTheme();
+    }
+    this.draw();
   },
 
   // Тема §4.1: k = canvas.width / 528, шаг сетки 59·k, клетка 56·k, стены/координаты — по таблице.

@@ -45,9 +45,47 @@
   <link rel="stylesheet" href="/css/tokens.css?v=2.0.1" type="text/css" />
   <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
   <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
-  <link rel="stylesheet" href="/css/style.css?v=1.0.30" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.31" type="text/css">
   <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.8" type="text/css" />
+  <!-- ТЗ 2a: единый масштаб главной. Формула: s = clamp(0.7, min(W/1440, (H-112)/664), 2.0);
+       112 = шапка 56 + подвал 56, 664 = колонка 584 + 40+40 воздуха. W < 1320 — одноколоночный
+       макет, zoom не применяется. Считается в head, чтобы не было вспышки при загрузке. -->
+  <script>
+  (function () {
+    'use strict';
+    function computeScale() {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      if (w < 1320) return 1;
+      var s = Math.min(w / 1440, (h - 112) / 664);
+      if (s < 0.7) s = 0.7;
+      if (s > 2) s = 2;
+      return s;
+    }
+    var raf = 0;
+    function apply() {
+      raf = 0;
+      var s = computeScale();
+      var str = s.toFixed(3);
+      var prev = document.documentElement.style.getPropertyValue('--s').trim();
+      document.documentElement.style.setProperty('--s', str);
+      if (prev !== str) {
+        // Подписчик: DemoBoard (game.js) — переразмер буфера демо-доски.
+        document.dispatchEvent(new CustomEvent('home-scale-change', { detail: { scale: s } }));
+      }
+    }
+    // rAF-троттлинг пересчёта на resize / orientationchange.
+    function schedule() {
+      if (!raf) raf = requestAnimationFrame(apply);
+    }
+    window.__updateHomeScale = schedule;
+    window.addEventListener('resize', schedule);
+    window.addEventListener('orientationchange', schedule);
+    // Первый расчёт — синхронно, до отрисовки body.
+    document.documentElement.style.setProperty('--s', computeScale().toFixed(3));
+  })();
+  </script>
   <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
   <script src="/js/analytics.js?v=1.1.0"></script>
 </head>
@@ -125,6 +163,10 @@
 
   <div id="mainMenu" class="screen">
     <div class="home-layout">
+
+     <!-- ТЗ 2a: единый масштаб композиции. zoom: var(--s) на этом контейнере;
+          модалки/оверлеи сюда НЕ входить — они начинают после .home-layout. -->
+     <div class="home">
 
       <!-- Левая колонка: лозунг, меню-кнопки, Rules/Settings, карточка -->
       <div class="home-left">
@@ -249,6 +291,7 @@
           <a class="pq-btn pq-btn--primary" href="https://discord.gg/fbDtxcyg6B" target="_blank" rel="noopener" data-i18n="discord_join">Join</a>
         </div>
       </div>
+     </div> <!-- home -->
     </div> <!-- home-layout -->
 
     <!-- Окно поверх страницы (вместо боковой панели) -->
@@ -1008,7 +1051,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.27"></script>
+  <script src="/js/ui.js?v=1.0.28"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>
@@ -1018,7 +1061,7 @@
        global Shared for the rules. Replaces the old /js/ai-core.js. -->
   <script src="/js/ai-v1.js?v=1.3.2"></script>
   <script src="/js/board-renderer.js?v=1.0.6"></script>
-  <script src="/js/game.js?v=1.0.18"></script>
+  <script src="/js/game.js?v=1.0.19"></script>
 </body>
 
 </html>
