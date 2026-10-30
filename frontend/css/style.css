@@ -217,6 +217,19 @@ body {
     touch-action: manipulation;
 }
 
+/* Контентные страницы с единой шапкой (site-shell ставит .pq-scroll на <html>):
+   обычная прокрутка и выделение текста. Игровой SPA (index.html) класс не
+   получает и остаётся «native app» со скольжением экранов. */
+html.pq-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+html.pq-scroll body {
+    overflow-y: visible;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
 /* Allow selection in chat */
 #chatbox,
 #chatbox * {

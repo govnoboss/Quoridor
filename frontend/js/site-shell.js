@@ -448,6 +448,9 @@
 
     function initHeader() {
         if (!document.querySelector(PQ_HEADER_SELECTOR)) return;
+        /* контентные страницы скроллятся обычною прокруткой (style.css для игры ставит
+           html,body overflow:hidden «native app» — здесь это не нужно) */
+        document.documentElement.classList.add('pq-scroll');
         renderHeaderStatic();
         refreshHeaderText(); // перевод с учётом уже сохранённого языка
         document.addEventListener('pq:language', refreshHeaderText);

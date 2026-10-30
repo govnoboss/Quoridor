@@ -1,0 +1,10 @@
+﻿{
+  "v1-d2": { "engine": "v1", "difficulty": "hard", "maxDepth": 2 },
+  "v1-d3": { "engine": "v1", "difficulty": "hard", "maxDepth": 3 },
+  "v1-d4": { "engine": "v1", "difficulty": "hard", "maxDepth": 4 },
+  "v1-d5": { "engine": "v1", "difficulty": "hard", "maxDepth": 5 },
+  "v2-d2": { "engine": "v2", "difficulty": "hard", "maxDepth": 2 },
+  "v2-d3": { "engine": "v2", "difficulty": "hard", "maxDepth": 3 },
+  "v2-d4": { "engine": "v2", "difficulty": "hard", "maxDepth": 4 },
+  "v2-d5": { "engine": "v2", "difficulty": "hard", "maxDepth": 5 }
+}
