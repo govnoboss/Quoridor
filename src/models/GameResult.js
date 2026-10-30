@@ -57,4 +57,7 @@ const gameResultSchema = new mongoose.Schema({
     }
 });
 
+// ТЗ этапа 3 §4.2: выборка delta7 идёт по isRanked + date >= now-7d.
+gameResultSchema.index({ date: 1, isRanked: 1 });
+
 module.exports = mongoose.model('GameResult', gameResultSchema);

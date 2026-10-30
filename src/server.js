@@ -884,23 +884,196 @@ app.get('/api/profiles/:username/rating-history', async (req, res) => {
     }
 });
 
-// Leaderboard API - top players (humans + bots) by rating
+// ==== Leaderboard API (ТЗ этапа 3, tz-03-leaderboard.md §4) ====
+
+// §4.1: winrate-сортировка только для игроков с достаточным числом партий.
+const MIN_GAMES_WINRATE = 10;
+
+const LB_HASH = require('crypto');
+
+// Кэш delta7 (§4.2): Redis ключ lb:delta7, TTL 5 мин; in-memory — запасной
+// вариант. В тестах redis замокан: любой сбой хранилища тихо игнорируется.
+const lbCache = { delta7: { data: null, ts: 0 } };
+
+// Для отчётной чистоты тестов: сброс кэша между сценариями.
+function clearLeaderboardCache() {
+    lbCache.delta7 = { data: null, ts: 0 };
+}
+
+// delta7 — сумма ratingChange за ранговые партии за последние 7 суток (UTC),
+// по обоим цветам, одним агрегационным запросом на всех игроков (§4.2).
+async function getDelta7Map() {
+    const cached = lbCache.delta7;
+    if (cached.data && Date.now() - cached.ts < 5 * 60 * 1000) {
+        return cached.data;
+    }
+
+    let map = null;
+    // NODE_ENV=test: redis из тестового окружения слишком реален (запущенный
+    // в Docker инстанс переживает запуски тестов) — кэш только in-memory,
+    // иначе между тестами протекают результаты прошлого прогона.
+    if (process.env.NODE_ENV !== 'test') {
+        try {
+            const raw = await sessionRedisClient.get('lb:delta7');
+            if (raw) map = JSON.parse(raw);
+        } catch (e) { /* нет redis — считаем по БД */ }
+    }
+
+    if (!map) {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        // Один запрос: whites + blacks одним конвейером, гости/null отфильтрованы.
+        const rows = await GameResult.aggregate([
+            { $match: { isRanked: true, date: { $gte: since } } },
+            { $group: { _id: null, whites: { $push: '$playerWhite' }, blacks: { $push: '$playerBlack' } } },
+            { $project: { players: { $concatArrays: ['$whites', '$blacks'] } } },
+            { $unwind: '$players' },
+            { $match: { 'players.id': { $ne: null }, 'players.isGuest': { $ne: true } } },
+            { $group: { _id: '$players.id', delta: { $sum: '$players.ratingChange' } } },
+        ]);
+        map = {};
+        rows.forEach((r) => { map[String(r._id)] = r.delta; });
+        try {
+            await sessionRedisClient.setEx('lb:delta7', 300, JSON.stringify(map));
+        } catch (e) { /* in-memory кэша достаточно */ }
+    }
+
+    lbCache.delta7 = { data: map, ts: Date.now() };
+    return map;
+}
+
+// Приватность §4.4: в публичных ответах никогда не отдавать email.
+// username может содержать адрес (старые регистрации) — displayName: часть
+// до '@' (≤12 симв.); коллизии баз разруливаем '…' + 2 символа хеша id.
+function lbBaseName(username) {
+    const raw = String(username || '');
+    if (!raw.includes('@')) return raw;
+    const base = raw.split('@')[0].slice(0, 12);
+    return base || 'player';
+}
+
+function applyDisplayNames(list) {
+    const baseCounts = new Map();
+    const bases = list.map((u) => lbBaseName(u.username));
+    bases.forEach((b) => baseCounts.set(b, (baseCounts.get(b) || 0) + 1));
+    list.forEach((u, i) => {
+        u.displayName = bases[i];
+        if (baseCounts.get(bases[i]) > 1) {
+            const hash = LB_HASH.createHash('md5').update(String(u._id)).digest('hex').slice(-2);
+            u.displayName = bases[i].slice(0, 10) + '…' + hash;
+        }
+    });
+}
+
+// Заглушки ui-avatars.com не отдаём: фото показываем только для реально
+// загруженных файлов (в пути содержится /avatars/), иначе клиент рисует букву.
+function lbPublicAvatar(avatarUrl) {
+    return (avatarUrl && String(avatarUrl).includes('/avatars/')) ? avatarUrl : null;
+}
+
+// Общий набор кандидатов для /api/leaderboard и /api/leaderboard/me (§4.1).
+// Сортировки winrate/week — по вычисляемым признакам, поэтому отбор и порядок
+// делает JS поверх одной выборки (фильтр — тот же, что и раньше: без админов).
+async function loadLbCandidates(deltaMap) {
+    const users = await User.find({ isAdmin: { $ne: true } })
+        .select('username rating avatarUrl country stats')
+        .sort({ rating: -1 });
+
+    return Array.from(users || []).map((u) => {
+        const stats = u.stats || {};
+        const totalGames = stats.totalGames || 0;
+        const wins = stats.wins || 0;
+        let losses = stats.losses;
+        if (typeof losses !== 'number') losses = Math.max(0, totalGames - wins);
+        return {
+            _id: String(u._id),
+            username: u.username,
+            rating: u.rating || 1200,
+            avatarUrl: lbPublicAvatar(u.avatarUrl),
+            country: u.country || 'XX',
+            totalGames,
+            wins,
+            losses,
+            delta7: Object.prototype.hasOwnProperty.call(deltaMap, String(u._id)) ? deltaMap[String(u._id)] : null,
+        };
+    });
+}
+
+// Сортировки по §2.2/§4.1 (rank — позиция в текущей сортировке).
+function sortLbCandidates(list, sort) {
+    if (sort === 'winrate') {
+        return list
+            .filter((u) => u.totalGames >= MIN_GAMES_WINRATE)
+            .sort((a, b) =>
+                (b.wins / b.totalGames) - (a.wins / a.totalGames) ||
+                b.wins - a.wins ||
+                b.rating - a.rating);
+    }
+    if (sort === 'week') {
+        // «Ненулевой delta7»: есть ранговые партии за 7 дней и итог ≠ 0 (§4.1).
+        return list
+            .filter((u) => u.delta7 !== null && u.delta7 !== 0)
+            .sort((a, b) => b.delta7 - a.delta7 || b.rating - a.rating);
+    }
+    return list.slice().sort((a, b) => b.rating - a.rating);
+}
+
+// «Сколько игроков выше меня» — с учётом равенства значений (общий ранг).
+function lbRankOf(me, sorted, sort) {
+    let better = 0;
+    for (const u of sorted) {
+        if (String(u._id) === String(me._id)) continue;
+        let cmpFirst = 0;
+        if (sort === 'rating') {
+            cmpFirst = u.rating - me.rating;
+        } else if (sort === 'winrate') {
+            const myQualifies = me.totalGames >= MIN_GAMES_WINRATE;
+            const myRatio = myQualifies ? me.wins / me.totalGames : null;
+            const theirRatio = u.wins / u.totalGames; // все в списке уже ≥ MIN_GAMES_WINRATE
+            // Неквалифицированного игрока считаем ниже всех квалифицированных.
+            if (!myQualifies) { better += 1; continue; }
+            cmpFirst = theirRatio - myRatio || u.wins - me.wins || u.rating - me.rating;
+        } else if (sort === 'week') {
+            cmpFirst = (u.delta7 || 0) - (me.delta7 || 0);
+        }
+        if (cmpFirst > 0) better += 1;
+    }
+    return better + 1;
+}
+
+function lbQualifies(me, sort, delta7) {
+    if (sort === 'winrate') return me.totalGames >= MIN_GAMES_WINRATE;
+    if (sort === 'week') return delta7 !== null && delta7 !== 0;
+    return true;
+}
+
 app.get('/api/leaderboard', async (req, res) => {
     try {
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 8));
-        const topPlayers = await User.find({ isAdmin: { $ne: true } })
-            .select('username rating avatarUrl stats.totalGames stats.wins')
-            .sort({ rating: -1 })
-            .limit(limit);
-        res.json(topPlayers);
+        const sort = ['rating', 'winrate', 'week'].includes(req.query.sort) ? req.query.sort : 'rating';
+        // §4.1: limit по умолчанию 100, максимум 100.
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 100));
+
+        const deltaMap = await getDelta7Map();
+        const sorted = sortLbCandidates(await loadLbCandidates(deltaMap), sort);
+        applyDisplayNames(sorted);
+
+        res.json(sorted.slice(0, limit).map((u, i) => ({
+            rank: i + 1,
+            username: u.username,
+            displayName: u.displayName,
+            rating: u.rating,
+            avatarUrl: u.avatarUrl,
+            country: u.country,
+            stats: { totalGames: u.totalGames, wins: u.wins, losses: u.losses },
+            delta7: u.delta7,
+        })));
     } catch (err) {
         console.error('[LEADERBOARD] Error:', err);
         res.status(500).json([]);
     }
 });
 
-// Собственное место игрока в лидерборде (строка «You» на главной, этап 2 §5.1).
-// Ранг = 1 + число игроков с рейтингом выше (тот же фильтр isAdmin, что у топа).
+// Собственное место игрока (строка «You», этап 2 §5.1 + этап 3 §4.3).
+// rank — в сортировке ?sort=; если игрок не проходит порог вкладки, rank:null.
 app.get('/api/leaderboard/me', async (req, res) => {
     try {
         if (!req.session || !req.session.userId) {
@@ -913,17 +1086,42 @@ app.get('/api/leaderboard/me', async (req, res) => {
         if (user.isAdmin) {
             return res.status(404).json({ error: 'Not ranked' });
         }
-        const betterCount = await User.countDocuments({
-            isAdmin: { $ne: true },
-            rating: { $gt: user.rating },
-        });
-        res.json({
-            rank: betterCount + 1,
-            total: betterCount + 1,
-            rating: user.rating,
+
+        const sort = ['rating', 'winrate', 'week'].includes(req.query.sort) ? req.query.sort : 'rating';
+        const stats = user.stats || {};
+        const me = {
+            _id: String(user._id),
             username: user.username,
-            wins: (user.stats && user.stats.wins) || 0,
-            totalGames: (user.stats && user.stats.totalGames) || 0,
+            rating: user.rating || 1200,
+            totalGames: stats.totalGames || 0,
+            wins: stats.wins || 0,
+            delta7: null,
+        };
+
+        const deltaMap = await getDelta7Map();
+        me.delta7 = Object.prototype.hasOwnProperty.call(deltaMap, me._id) ? deltaMap[me._id] : null;
+        let losses = stats.losses;
+        if (typeof losses !== 'number') losses = Math.max(0, me.totalGames - me.wins);
+
+        const sorted = sortLbCandidates(await loadLbCandidates(deltaMap), sort);
+        const qualifies = lbQualifies(me, sort, me.delta7);
+        const rank = qualifies ? lbRankOf(me, sorted, sort) : null;
+
+        const displayName = (() => {
+            const list = [{ _id: me._id, username: me.username }];
+            applyDisplayNames(list);
+            return list[0].displayName;
+        })();
+
+        res.json({
+            rank,
+            total: sorted.length,
+            rating: me.rating,
+            username: me.username,
+            displayName,
+            avatarUrl: lbPublicAvatar(user.avatarUrl),
+            stats: { totalGames: me.totalGames, wins: me.wins, losses },
+            delta7: me.delta7,
         });
     } catch (err) {
         console.error('[LEADERBOARD ME] Error:', err);
@@ -4501,7 +4699,7 @@ process.on('SIGINT', async () => {
 });
 
 // Экспорт для тестов
-module.exports = { app, server, io, startServer, clearSessionVersionCache };
+module.exports = { app, server, io, startServer, clearSessionVersionCache, clearLeaderboardCache };
 
 // Запуск (если не тесты)
 if (process.env.NODE_ENV !== 'test') {

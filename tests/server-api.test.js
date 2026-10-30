@@ -40,7 +40,7 @@ jest.mock('../src/models/User', () => {
             achievements: [],
             preferences: { boardTheme: 'default', pieceSet: 'default' },
             save: jest.fn().mockResolvedValue(true),
-        };
+        });
         store.set(user.username, user);
         return user;
     });
@@ -84,6 +84,12 @@ jest.mock('../src/models/User', () => {
                 if (user._id === id) {
                     const result = { ...user };
                     if (fields === '-passwordHash') delete result.passwordHash;
+                    // own toObject из замыкания на store-документ приложил бы
+                    // passwordHash обратно (шаг /api/auth/me) — навешиваем на клон.
+                    result.toObject = function () {
+                        const { save, toObject: _ignored, ...rest } = result;
+                        return rest;
+                    };
                     return Promise.resolve(result);
                 }
             }
@@ -147,11 +153,74 @@ jest.mock('../src/models/User', () => {
 });
 
 jest.mock('../src/models/GameResult', () => {
+    const gameStore = [];
+
     const MockGameResult = jest.fn().mockImplementation((data) => {
         return { ...data, save: jest.fn().mockResolvedValue(true) };
     });
     MockGameResult.find = jest.fn().mockResolvedValue([]);
     MockGameResult.findById = jest.fn().mockResolvedValue(null);
+
+    // Путь вида 'players.ratingChange' / '$players.ratingChange'.
+    function getPath(obj, path, stripDollar = false) {
+        let p = String(path);
+        if (stripDollar && p.startsWith('$')) p = p.slice(1);
+        return p.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+    }
+
+    // Достаточный интерпретатор конвейера computeDelta7 (этап 3 §4.2):
+    // [$match корня, $group {_id:null, $push...}, $project $concatArrays,
+    //  $unwind, $match вложенного пути с $ne, $group {_id:путь, $sum}].
+    MockGameResult.aggregate = jest.fn(async (pipeline) => {
+        let docs = gameStore.slice();
+        let rows = null; // null → корневые документы; после $group — свёрнутые строки
+        for (const stage of pipeline) {
+            const [op, spec] = Object.entries(stage)[0];
+            if (op === '$match') {
+                const filter = (row) => Object.entries(spec).every(([field, cond]) => {
+                    const value = getPath(row, field);
+                    if (cond && typeof cond === 'object' && !Array.isArray(cond)) {
+                        if ('$gte' in cond && !(new Date(value) >= new Date(cond.$gte))) return false;
+                        if ('$ne' in cond && !(value !== cond.$ne)) return false;
+                        return true;
+                    }
+                    return value === cond;
+                });
+                if (rows === null) docs = docs.filter(filter);
+                else rows = rows.filter(filter);
+            } else if (op === '$group' && spec._id === null) {
+                const g = { _id: null };
+                Object.entries(spec).forEach(([outKey, s]) => {
+                    if (outKey === '_id') return;
+                    if (s.$push !== undefined) g[outKey] = docs.map((d) => getPath(d, s.$push, true));
+                });
+                rows = [g];
+            } else if (op === '$project') {
+                const cs = spec.players && spec.players.$concatArrays;
+                if (cs) rows[0].players = cs.flatMap((ref) => getPath(rows[0], ref, true) || []);
+            } else if (op === '$unwind') {
+                const path = String(spec).replace(/^\$/, '');
+                rows = rows[0][path].map((entry) => ({ [path]: entry }));
+            } else if (op === '$group') {
+                const groups = new Map();
+                for (const row of rows) {
+                    const gk = getPath(row, spec._id, true);
+                    const key = String(gk);
+                    if (!groups.has(key)) groups.set(key, { _id: gk, delta: 0 });
+                    Object.entries(spec).forEach(([outKey, s]) => {
+                        if (outKey === '_id') return;
+                        if (s.$sum !== undefined) groups.get(key)[outKey] += getPath(row, s.$sum, true) || 0;
+                    });
+                }
+                rows = Array.from(groups.values());
+            }
+        }
+        return rows === null ? [] : rows;
+    });
+
+    // Хелперы тестов: seed / clear для delta7-сценариев.
+    MockGameResult.__seedGames = (arr) => { gameStore.push(...arr); };
+    MockGameResult.__clearGames = () => { gameStore.length = 0; };
     return MockGameResult;
 });
 
@@ -405,6 +474,138 @@ describe('Leaderboard Me API', () => {
         const res = await agent.get('/api/leaderboard/me');
         expect(res.status).toBe(404);
         expect(res.body.error).toBe('Not ranked');
+    });
+});
+
+// ==== Leaderboard API (ТЗ этапа 3 §4.5) ====
+describe('Leaderboard API', () => {
+    const hash = bcrypt.hashSync('testpass123', 10);
+    let clearLeaderboardCache;
+
+    beforeAll(() => {
+        ({ clearLeaderboardCache } = require('../src/server'));
+    });
+
+    beforeEach(() => {
+        // delta7 кэшируется между запросами (§4.2) — в тестах сбрасываем.
+        clearLeaderboardCache();
+        User.__clearStore();
+    });
+
+    afterAll(() => {
+        const GameResult = require('../src/models/GameResult');
+        GameResult.__clearGames();
+    });
+
+    it('sort=rating возвращает rank 1…N по убыванию рейтинга и stats.wins', async () => {
+        User.__seedUser({ username: 'alpha', passwordHash: hash, rating: 1500, stats: { totalGames: 50, wins: 30, losses: 20 } });
+        User.__seedUser({ username: 'beta', passwordHash: hash, rating: 1700, stats: { totalGames: 80, wins: 60, losses: 20 } });
+        User.__seedUser({ username: 'gamma', passwordHash: hash, rating: 1300, stats: { totalGames: 10, wins: 3, losses: 7 } });
+
+        const res = await request(app).get('/api/leaderboard');
+        expect(res.status).toBe(200);
+        expect(res.body.map((p) => p.username)).toEqual(['beta', 'alpha', 'gamma']);
+        res.body.forEach((p, i) => expect(p.rank).toBe(i + 1));
+        expect(res.body.find((p) => p.username === 'alpha').stats).toEqual(
+            expect.objectContaining({ totalGames: 50, wins: 30, losses: 20 }),
+        );
+    });
+
+    it('sort=winrate исключает игроков с менее чем 10 партиями', async () => {
+        User.__seedUser({ username: 'veteran', passwordHash: hash, rating: 1400, stats: { totalGames: 20, wins: 18, losses: 2 } });
+        User.__seedUser({ username: 'rookie', passwordHash: hash, rating: 1900, stats: { totalGames: 9, wins: 2, losses: 7 } });
+        User.__seedUser({ username: 'perfect', passwordHash: hash, rating: 1000, stats: { totalGames: 10, wins: 10, losses: 0 } });
+
+        const res = await request(app).get('/api/leaderboard?sort=winrate');
+        expect(res.status).toBe(200);
+        const names = res.body.map((p) => p.username);
+        expect(names).not.toContain('rookie'); // 9 партий < порога
+        expect(names).toEqual(['perfect', 'veteran']); // 100% > 90%
+    });
+
+    it('sort=week возвращает только игроков с ранговыми партиями за 7 дней, delta7 = сумме ratingChange', async () => {
+        const GameResult = require('../src/models/GameResult');
+        const u1 = User.__seedUser({ username: 'riser', passwordHash: hash, rating: 1300 });
+        const u2 = User.__seedUser({ username: 'faller', passwordHash: hash, rating: 1200 });
+        User.__seedUser({ username: 'idle', passwordHash: hash, rating: 1400 });
+
+        const now = Date.now();
+        GameResult.__seedGames([
+            { gameType: 'blitz', playerWhite: { id: u1._id, isGuest: false, ratingChange: 12 }, playerBlack: { id: u2._id, isGuest: false, ratingChange: -12 }, isRanked: true, winner: 0, date: new Date(now - 2 * 24 * 60 * 60 * 1000) },
+            { gameType: 'blitz', playerWhite: { id: u2._id, isGuest: false, ratingChange: 4 }, playerBlack: { id: u1._id, isGuest: false, ratingChange: -4 }, isRanked: true, winner: 0, date: new Date(now - 24 * 60 * 60 * 1000) },
+            // не ранговая и старая — не учитываются
+            { gameType: 'friend', playerWhite: { id: u1._id, isGuest: false, ratingChange: 50 }, playerBlack: { id: u2._id, isGuest: false, ratingChange: -50 }, isRanked: false, winner: 0, date: new Date(now - 8 * 24 * 60 * 60 * 1000) },
+        ]);
+
+        const res = await request(app).get('/api/leaderboard?sort=week');
+        expect(res.status).toBe(200);
+        const byName = Object.fromEntries(res.body.map((p) => [p.username, p]));
+        expect(byName.riser.delta7).toBe(12 - 4);   // только ранговые за окно
+        expect(byName.faller.delta7).toBe(-12 + 4);
+        expect(byName.idle).toBeUndefined();          // партий за 7 дней нет
+        expect(res.body[0].username).toBe('riser');   // delta7 = 8 > -8
+    });
+
+    it('sort=week при нулевом и отрицательном delta7: порядок по значению', async () => {
+        const GameResult = require('../src/models/GameResult');
+        const a = User.__seedUser({ username: 'plus', passwordHash: hash, rating: 1000 });
+        const b = User.__seedUser({ username: 'minus', passwordHash: hash, rating: 1000 });
+        User.__seedUser({ username: 'zero', passwordHash: hash, rating: 1000 });
+        const now = Date.now();
+
+        GameResult.__seedGames([
+            { gameType: 'rapid', playerWhite: { id: a._id, isGuest: false, ratingChange: 7 }, playerBlack: { id: b._id, isGuest: false, ratingChange: -7 }, isRanked: true, winner: 0, date: new Date(now - 3 * 24 * 60 * 60 * 1000) },
+        ]);
+
+        const res = await request(app).get('/api/leaderboard?sort=week');
+        const names = res.body.map((p) => p.username);
+        expect(names[0]).toBe('plus');      // delta7 = 7
+        expect(names).toContain('minus');   // delta7 = -7 (включён, ненулевой)
+        expect(names).not.toContain('zero'); // delta7 = null (нет партий за окно)
+    });
+
+    it('email никогда не появляется в ответе при username-подобном-email', async () => {
+        User.__seedUser({ username: 'mnikita868@gmail.com', passwordHash: hash, rating: 1250, stats: { totalGames: 12, wins: 5, losses: 7 } });
+        User.__seedUser({ username: 'cleanuser', passwordHash: hash, rating: 1300 });
+
+        const res = await request(app).get('/api/leaderboard');
+        expect(res.status).toBe(200);
+        const withEmail = res.body.find((p) => p.username === 'mnikita868@gmail.com');
+        expect(withEmail).toBeDefined();
+        // displayName: часть до '@' (≤12 симв.), без домена и '@' вообще
+        expect(withEmail.displayName).toBe('mnikita868');
+        res.body.forEach((p) => {
+            expect(String(p.displayName)).not.toMatch(/@/);
+        });
+        // Единственное поле, где email допустим как username, — ссылочное username;
+        // в JSON в целом адрес доменной части не должен просачиваться в другие поля.
+        res.body.forEach((p) => {
+            const json = JSON.stringify(p);
+            const clean = { ...p };
+            delete clean.username;
+            expect(JSON.stringify(clean)).not.toContain('@gmail.com');
+        });
+    });
+
+    it('limit=500 обрезается до 100', async () => {
+        for (let i = 0; i < 3; i++) {
+            User.__seedUser({ username: `p${i}`, passwordHash: hash, rating: 1200 + i });
+        }
+        const res = await request(app).get('/api/leaderboard?limit=500');
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(3); // в базе всего 3 игрока, лимит не больше 100
+        // Проверка потолка: 150 сеяных игроков → вернётся ровно 100.
+    });
+
+    it('limit: при переполнении отдаётся максимум 100', async () => {
+        for (let i = 0; i < 150; i++) {
+            User.__seedUser({ username: `many${i}`, passwordHash: hash, rating: 800 + i });
+        }
+        const res = await request(app).get('/api/leaderboard?limit=500');
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(100);
+        expect(res.body[0].rank).toBe(1);
+        expect(res.body[99].rank).toBe(100);
     });
 });
 
