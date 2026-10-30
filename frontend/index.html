@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="htmlTag">
 
 <head>
 
@@ -68,6 +68,11 @@
     <div class="header-left">
       <span class="header-logo" onclick="UI.backToMenu()">PlayQuor</span>
       <span class="header-version">v1.04</span>
+      <nav class="header-nav" aria-label="Main">
+        <a href="/" class="active" onclick="UI.backToMenu(); return false;">Play</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="/rules">Rules</a>
+      </nav>
       <select id="headerLang" class="header-lang" onchange="UI.changeLanguage(this.value)">
         <option value="ru" data-i18n="lang_ru">RU</option>
         <option value="en" data-i18n="lang_en">EN</option>

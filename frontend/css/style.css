@@ -66,6 +66,35 @@
     border-color: var(--accent);
 }
 
+/* === HEADER NAV (единая шапка, этап 1) === */
+.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 16px;
+}
+.header-nav a {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color .15s, background .15s;
+}
+.header-nav a:hover {
+    color: var(--text);
+    background: var(--hover-tint);
+}
+.header-nav a.active {
+    color: var(--on-accent);
+    background: var(--accent);
+    font-weight: 700;
+}
+
 .h-btn {
     padding: 7px 16px;
     border-radius: 8px;
@@ -151,6 +180,7 @@
     }
     .header-version { display: none; }
     .header-lang { font-size: 11px; padding: 3px 20px 3px 6px; background-size: 12px; }
+    .header-nav { display: none; }
     .header-left, .header-right { gap: 8px; }
     .h-btn { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
     .header-logo { font-size: 1rem; letter-spacing: 2px; }

@@ -186,7 +186,8 @@
         <meta name="robots" content="noindex,follow">
     </head>
 <body>
-<div class="container">
+<header class="main-header" data-pq-header></header>
+<div class="container" style="padding-top: calc(var(--header-h) + 24px);">
     <div id="listView" class="list-view">
         <a href="/" class="back-link">← Home</a>
         <h1 id="pageTitle">My Reports</h1>
@@ -361,5 +362,6 @@ function esc(s) {
 
 loadReports();
 </script>
+    <script defer src="/js/site-shell.js?v=1.0.2"></script>
 </body>
 </html>
