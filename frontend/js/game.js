@@ -2875,6 +2875,8 @@ const DemoBoard = {
     this.applyDemoTheme();
     this.resizeBacking();
     this.reset();
+    // После reset() состояние доски заполнено — можно рисовать из resizeBacking.
+    this.ready = true;
     this.draw();
     this.scheduleNext();
   },
@@ -2897,7 +2899,9 @@ const DemoBoard = {
       // applyDemoTheme пересчитает k = canvas.width / 528 под новый буфер.
       this.applyDemoTheme();
     }
-    this.draw();
+    // До первого reset() рисовать нельзя: state.hWalls/vWalls ещё пустые массивы
+    // и drawPlacedWalls падает — исключение обрывало init(), демо-партия не стартовала.
+    if (this.ready) this.draw();
   },
 
   // Тема §4.1: k = canvas.width / 528, шаг сетки 59·k, клетка 56·k, стены/координаты — по таблице.
