@@ -1,0 +1,491 @@
+/* Rules page (mock: design-reference/html/Rules.html) v1.0.0 */
+html { scroll-behavior: smooth; }
+
+.rulp-page [id] { scroll-margin-top: 72px; }
+
+/* Lang blocks: switch displays entire layout (toc + content) */
+.rulp-page .lang-block { display: none; }
+
+.rulp-page .lang-block.active { display: contents; }
+
+.rulp-page {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    gap: 56px;
+    padding-top: 48px;
+    box-sizing: border-box;
+}
+
+/* --- TOC sidebar --- */
+.rulp-toc {
+    width: 220px;
+    align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: none;
+}
+
+.rulp-toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    padding: 0 12px 8px;
+}
+
+.rulp-toc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rulp-toc-link {
+    height: 44px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--r-8);
+    color: var(--text-3);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s, color .15s;
+}
+
+.rulp-toc-link:hover {
+    color: var(--text-strong);
+    background: var(--hover-tint);
+}
+
+.rulp-toc-link.is-active {
+    background: var(--accent-bg-2);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.rulp-try-card {
+    box-sizing: border-box;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--r-12);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rulp-try-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.rulp-try-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--accent-text-dim);
+}
+
+.rulp-try-btn {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    border: 0;
+    border-radius: var(--r-8);
+    color: var(--on-accent);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.rulp-try-btn:hover {
+    background: var(--accent-light);
+}
+
+/* --- Content column --- */
+.rulp-content {
+    width: 760px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.rulp-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+}
+
+.rulp-content h1 {
+    margin: 8px 0 16px;
+    font-size: 44px;
+    line-height: 1.1;
+    font-weight: 800;
+    color: var(--text-strong);
+}
+
+.rulp-lead {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--text-2);
+}
+
+.rulp-meta {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+
+/* --- Sections: text + illustration card side by side --- */
+.rulp-section {
+    margin-top: 56px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.rulp-section:first-of-type { margin-top: 48px; }
+
+.rulp-section-body { flex: 1; }
+
+.rulp-section-body h2 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-strong);
+}
+
+.rulp-section-body p {
+    margin: 0 0 12px;
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--text-body);
+}
+
+.rulp-section-body b, .rulp-section-body strong {
+    color: var(--text-strong);
+}
+
+.rulp-section-body ul {
+    margin: 0 0 12px;
+    padding-left: 24px;
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--text-body);
+}
+
+.rulp-section-body ul li {
+    margin-bottom: 4px;
+}
+
+/* Illustration card (300px) */
+.rulp-figure {
+    width: 300px;
+    flex: none;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--r-12);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.rulp-figure-start { align-items: stretch; }
+
+.rulp-caption {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-dim);
+    text-align: center;
+}
+
+/* Objective: mini board 9x9, goals highlighted */
+.rulp-board-wrap {
+    position: relative;
+    width: 196px;
+    height: 196px;
+}
+
+.rulp-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 20px);
+    grid-auto-rows: 20px;
+    gap: 2px;
+}
+
+.rulp-grid span {
+    background: var(--cell-2);
+    border-radius: var(--r-3);
+    position: relative;
+}
+
+.rulp-grid span:nth-child(-n+9)::after,
+.rulp-grid span:nth-child(n+73)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--r-3);
+    background: rgba(240, 168, 42, 0.35);
+}
+
+.rulp-board-pawn {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    box-sizing: border-box;
+    border-radius: 50%;
+}
+
+.rulp-board-pawn--top {
+    left: 88px;
+    top: 2px;
+    background: var(--pawn-black);
+    border: 2px solid var(--pawn-marker-black-border);
+}
+
+.rulp-board-pawn--bottom {
+    left: 88px;
+    top: 178px;
+    background: var(--pawn-white);
+    border: 2px solid var(--pawn-white-border);
+}
+
+/* Setup: walls stock rows */
+.rulp-setup-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rulp-setup-pawn {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    box-sizing: border-box;
+    border-radius: 50%;
+}
+
+.rulp-setup-pawn--white {
+    background: var(--pawn-white);
+    border: 2px solid var(--pawn-white-border);
+}
+
+.rulp-setup-pawn--black {
+    background: var(--pawn-black);
+    border: 2px solid var(--pawn-marker-black-border);
+}
+
+.rulp-setup-label {
+    font-size: 13px;
+    font-weight: 600;
+    width: 44px;
+    color: var(--text);
+}
+
+.rulp-setup-walls {
+    display: flex;
+    gap: 3px;
+}
+
+.rulp-setup-walls span {
+    width: 12px;
+    height: 5px;
+    border-radius: var(--r-2);
+    background: var(--accent);
+}
+
+/* Moving: 3x3 legal moves */
+.rulp-moves-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 56px);
+    grid-auto-rows: 56px;
+    gap: 3px;
+}
+
+.rulp-move-cell {
+    background: var(--cell-2);
+    border-radius: var(--r-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rulp-move-no {
+    color: var(--text-disabled);
+    font-size: 18px;
+    line-height: 1;
+}
+
+.rulp-move-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.rulp-move-pawn {
+    width: 34px;
+    height: 34px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--pawn-white);
+    border: 2px solid var(--pawn-white-border);
+}
+
+/* --- Tip card --- */
+.rulp-tip {
+    margin-top: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--r-12);
+}
+
+.rulp-tip-icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: var(--r-8);
+    background: var(--accent-chip);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rulp-tip-body {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--accent-text-3);
+}
+
+.rulp-tip-body b, .rulp-tip-body strong {
+    color: var(--accent);
+}
+
+/* --- Bottom CTA and internal links --- */
+.rulp-cta {
+    margin-top: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 0 8px;
+    border-top: 1px solid var(--border);
+}
+
+.rulp-cta p {
+    margin: 0;
+    color: var(--text-3);
+    font-size: 14px;
+}
+
+.rulp-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    padding: 0 28px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: var(--r-8);
+    text-decoration: none;
+    transition: background .2s;
+}
+
+.rulp-cta-btn:hover {
+    background: var(--accent-light);
+}
+
+.rulp-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 24px 0 8px;
+}
+
+.rulp-links a {
+    color: var(--accent);
+    font-size: 14px;
+    text-decoration: none;
+    padding: 8px 16px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--r-8);
+    transition: background 0.2s;
+}
+
+.rulp-links a:hover {
+    background: var(--accent-bg);
+}
+
+/* --- Responsive --- */
+@media (max-width: 1025px) {
+    .rulp-page {
+        gap: 32px;
+        padding: 32px 32px 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .rulp-page {
+        flex-direction: column;
+        gap: 32px;
+        padding: 24px 16px 0;
+    }
+
+    .rulp-toc {
+        order: 2;
+        width: 100%;
+    }
+
+    .rulp-content { width: 100%; order: 1; }
+
+    .rulp-content h1 { font-size: 34px; }
+
+    .rulp-section {
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 40px;
+    }
+
+    .rulp-section:first-of-type { margin-top: 36px; }
+
+    .rulp-figure {
+        width: 100%;
+        max-width: 340px;
+        align-self: center;
+    }
+
+    .rulp-toc-nav { display: none; }
+    .rulp-toc-title { display: none; }
+    .rulp-try-card { max-width: 420px; }
+}
+
+@media (max-width: 480px) {
+    .rulp-content h1 { font-size: 28px; }
+
+    .rulp-lead { font-size: 16px; }
+
+    .rulp-section-body h2 { font-size: 22px; }
+
+    .rulp-section-body p, .rulp-section-body ul { font-size: 15px; }
+
+    .rulp-figure { padding: 12px; }
+}

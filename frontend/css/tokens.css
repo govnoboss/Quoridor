@@ -120,3 +120,21 @@ html {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-btn); }
+
+/* --- Правила (rules.css, из redesign/full tokens v2.0.1) --- */
+html {
+  --cell-2: #222327;
+--text-strong: #ffffff;
+--text-body: #c4c7ce;
+--text-disabled: #5d6068;
+--accent-text-3: #d4c9b0;
+--pawn-white: #f3f3f3;
+--pawn-white-border: #ffffff;
+--pawn-black: #0f0f11;
+--pawn-black-border: #4a4c52;
+--pawn-marker-black-border: #6a6d75;
+--pawn-marker-white-border: #8b8f98;
+--text-faint: #6c6f76;
+--r-2: 2px; --r-3: 3px; --r-4: 4px; --r-6: 6px; --r-8: 8px;
+--r-10: 10px; --r-12: 12px; --r-14: 14px; --r-chip: 16px; --r-pill: 22px;
+}
