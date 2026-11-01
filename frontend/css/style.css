@@ -95,6 +95,52 @@
     font-weight: 700;
 }
 
+/* === Mobile burger (ported from redesign/full abcca81) === */
+/* авторизация — span-обёртка: убираем её из flex-раскладки,
+   чтобы колокольчик/чип/админ ложились в одну строку шапки */
+[data-pq-auth] { display: contents; }
+.header-menu-btn {
+    display: none;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    color: var(--text-2);
+    cursor: pointer;
+    flex: none;
+}
+.header-menu-btn:hover {
+    color: var(--text);
+}
+
+.header-nav-mobile {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    display: none;
+    flex-direction: column;
+    padding: 8px 16px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-2);
+    z-index: var(--z-header);
+}
+.header-nav-mobile.open { display: flex; }
+.header-nav-mobile .header-nav-link {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-decoration: none;
+}
+.header-nav-mobile .header-nav-link:hover { color: var(--text); }
+.header-nav-mobile .header-nav-link.active { color: var(--accent); }
+
 .h-btn {
     padding: 7px 16px;
     border-radius: 8px;
@@ -180,7 +226,10 @@
     }
     .header-version { display: none; }
     .header-lang { font-size: 11px; padding: 3px 20px 3px 6px; background-size: 12px; }
+    .main-header { justify-content: flex-start; }
     .header-nav { display: none; }
+    .header-menu-btn { display: flex; }
+    .header-right { margin-left: auto; gap: 8px; }
     .header-left, .header-right { gap: 8px; }
     .h-btn { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
     .header-logo { font-size: 1rem; letter-spacing: 2px; }

@@ -259,11 +259,70 @@
             + '<div class="header-right">'
             + headerLangHtml()
             + '<span data-pq-auth></span>'
-            + '</div>';
+            + '</div>'
+            + '<button id="headerMenuBtn" class="header-menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="headerNavMobile">'
+            + '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+            + '</button>';
+        // мобильное меню — сиблинг шапки (fixed под ней)
+        header.insertAdjacentHTML('afterend', renderHeaderNavMobile(true));
         var sel = header.querySelector('#headerLang');
         sel.value = getLang();
         sel.addEventListener('change', function () { changeLanguageShim(sel.value); });
+        wireMobileNav();
         return header;
+    }
+
+    function renderHeaderNavMobile(showLogin) {
+        return '<nav id="headerNavMobile" class="header-nav-mobile hidden" aria-label="Mobile">'
+            + NAV_LINKS.map(function (l) {
+                var dn = l.href === '/' ? 'play' : (l.href.indexOf('leaderboard') !== -1 ? 'leaderboard' : 'rules');
+                return '<a href="' + l.href + '" class="header-nav-link' + (activeNav(l.href) ? ' active' : '') + '" data-nav="' + dn + '">'
+                    + PQ.escapeHtml(t(l.key)) + '</a>';
+            }).join('')
+            + (showLogin ? '<a href="/login" class="header-nav-link" id="headerLoginBtnMobile">' + PQ.escapeHtml(t('header_sign_in')) + '</a>' : '')
+            + '</nav>';
+    }
+
+    /* Мобильный бургер: открытие/закрытие, клик мимо, Escape, ресайз */
+    function wireMobileNav() {
+        var btn = document.getElementById('headerMenuBtn');
+        var nav = document.getElementById('headerNavMobile');
+        if (!btn || !nav) return;
+        function close() {
+            nav.classList.remove('open');
+            nav.classList.add('hidden');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var willOpen = nav.classList.contains('hidden');
+            if (!willOpen) { close(); return; }
+            nav.classList.remove('hidden');
+            nav.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+        });
+        document.addEventListener('click', function (e) {
+            if (!nav.classList.contains('open')) return;
+            if (e.target.closest('#headerNavMobile') || e.target.closest('.header-menu-btn')) return;
+            close();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 768) close();
+        });
+        nav.addEventListener('click', function (e) {
+            if (e.target.closest('a')) close();
+        });
+    }
+
+    /* Sign In в мобильном меню — только для гостей */
+    function syncMobileAuth() {
+        var m = document.getElementById('headerLoginBtnMobile');
+        if (!m) return;
+        var auth = document.querySelector(PQ_HEADER_SELECTOR + ' [data-pq-auth]');
+        m.classList.toggle('hidden', !!(auth && auth.dataset.mode === 'user'));
     }
 
     function refreshHeaderText() {
@@ -271,6 +330,16 @@
         if (!header) return;
         var nav = header.querySelector('.header-nav');
         if (nav) nav.innerHTML = renderHeaderNav();
+        // мобильное меню — те же пункты тем же языком
+        var mnav = document.getElementById('headerNavMobile');
+        if (mnav) {
+            mnav.querySelectorAll('a[data-nav]').forEach(function (a) {
+                var l = NAV_LINKS.filter(function (x) { return x.href === a.getAttribute('href'); })[0];
+                if (l) a.textContent = PQ.escapeHtml(t(l.key));
+            });
+            var log = mnav.querySelector('#headerLoginBtnMobile');
+            if (log) log.textContent = PQ.escapeHtml(t('header_sign_in'));
+        }
         var auth = header.querySelector('[data-pq-auth]');
         if (auth && auth.dataset.i18nApplied) renderAuthAreaText(auth);
     }
@@ -284,6 +353,7 @@
         auth.innerHTML =
             '<a href="/login" class="h-btn h-btn-ghost">' + PQ.escapeHtml(t('header_sign_in')) + '</a>'
             + '<a href="/register" class="h-btn h-btn-primary">' + PQ.escapeHtml(t('header_sign_up')) + '</a>';
+        syncMobileAuth();
     }
 
     function renderAuthAreaText(auth) {
@@ -323,6 +393,7 @@
             + '</a>'
             + (user.isAdmin ? '<a href="/admin" class="h-btn h-btn-ghost">' + PQ.escapeHtml(t('header_admin')) + '</a>' : '');
         wireBell(auth);
+        syncMobileAuth();
     }
 
     function avatarLetter(name) {
@@ -441,9 +512,10 @@
                 } else {
                     renderGuestAuth(auth);
                 }
+                syncMobileAuth();
                 return me;
             })
-            .catch(function () { renderGuestAuth(auth); return null; });
+            .catch(function () { renderGuestAuth(auth); syncMobileAuth(); return null; });
     }
 
     function initHeader() {
