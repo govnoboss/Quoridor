@@ -1,4 +1,4 @@
-/* Rules page (mock: design-reference/html/Rules.html) v1.0.0 */
+/* Rules page (mock: design-reference/html/Rules.html) v1.0.1 */
 html { scroll-behavior: smooth; }
 
 .rulp-page [id] { scroll-margin-top: 72px; }
@@ -245,17 +245,17 @@ html { scroll-behavior: smooth; }
     height: 16px;
     box-sizing: border-box;
     border-radius: 50%;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .rulp-board-pawn--top {
-    left: 88px;
     top: 2px;
     background: var(--pawn-black);
     border: 2px solid var(--pawn-marker-black-border);
 }
 
 .rulp-board-pawn--bottom {
-    left: 88px;
     top: 178px;
     background: var(--pawn-white);
     border: 2px solid var(--pawn-white-border);
