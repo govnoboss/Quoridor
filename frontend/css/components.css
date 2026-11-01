@@ -1,7 +1,146 @@
-/* PlayQuor components — переиспользуемые элементы редизайна. v1.0.0
-   Значения — по ТЗ (tz-03 разделы 2.2–2.4, 2.7). */
+/* PlayQuor components v1.0.0 тАФ ╨╕╤Б╤В╨╛╤З╨╜╨╕╨║: design-reference */
+.pq-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;
+  border:0;border-radius:8px;background:transparent;color:var(--text-2);
+  font:600 13px/1 var(--font-sans);text-decoration:none;white-space:nowrap;cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.pq-btn:focus-visible,.pq-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pq-btn[disabled],.pq-btn.is-disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.pq-btn--primary{background:var(--accent);color:var(--on-accent);font-weight:700}
+.pq-btn--primary:hover{background:var(--accent-light)}
+.pq-btn--primary:active{background:var(--accent-dark)}
+.pq-btn--outline{border:1px solid var(--accent);color:var(--accent)}
+.pq-btn--outline:hover{background:var(--accent-bg-2)}
+.pq-btn--neutral{border:1px solid var(--border-ctl);color:var(--text-2)}
+.pq-btn--neutral:hover{background:var(--surface);color:var(--text)}
+.pq-btn--r10{border-radius:10px}
+.pq-btn--solid{background:var(--panel-light);border:1px solid var(--border-strong);color:var(--text);font-size:14px;font-weight:400;padding:0 18px}
+.pq-btn--solid:hover{background:var(--raised)}
+.pq-btn--game{background:var(--btn-neutral);border:1px solid var(--border-btn);color:#eee;font-size:14px;font-weight:400}
+.pq-btn--game:hover{background:#34363c}
+.pq-btn--icon{width:44px;padding:0}
+.pq-btn--block{display:flex;width:100%}
+.pq-btn--more{height:48px;border:1px solid var(--accent-border);border-radius:10px;color:var(--accent);font-size:14px;font-weight:700}
+.pq-btn--danger{color:var(--danger)}
 
-/* ---------- Общие ---------- */
+/* ╨╝╨╡╨╜╤О-╨║╨╜╨╛╨┐╨║╨░ ╨│╨╗╨░╨▓╨╜╨╛╨╣ */
+.pq-menu-btn{display:flex;align-items:center;gap:14px;height:64px;box-sizing:border-box;padding:0 16px;width:100%;
+  background:var(--panel);border:1px solid var(--border-ctl);border-radius:12px;color:var(--text);text-align:left;cursor:pointer;font-family:var(--font-sans)}
+.pq-menu-btn:hover{border-color:var(--border-btn)}
+.pq-menu-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pq-menu-btn__icon{width:36px;height:36px;border-radius:8px;background:var(--panel-light);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
+.pq-menu-btn__text{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pq-menu-btn__title{font-size:15px;font-weight:600}
+.pq-menu-btn__sub{font-size:12px;color:var(--text-dim)}
+.pq-menu-btn__chev{flex:none;color:var(--chevron)}
+.pq-menu-btn--primary{background:var(--accent);border:0;color:var(--on-accent)}
+.pq-menu-btn--primary .pq-menu-btn__icon{background:rgba(0,0,0,.12);color:var(--on-accent)}
+.pq-menu-btn--primary .pq-menu-btn__title{font-size:16px;font-weight:700}
+.pq-menu-btn--primary .pq-menu-btn__sub{color:#3d2a06}
+.pq-menu-btn--primary .pq-menu-btn__chev{color:var(--on-accent)}
+.pq-menu-btn--primary:hover{background:var(--accent-light)}
+
+/* ╨║╨░╤А╤В╨╛╤З╨║╨╕ */
+.pq-card{box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+.pq-card--accent{background:var(--accent-bg);border-color:var(--accent-border)}
+.pq-card--discord{background:var(--discord-bg);border-color:var(--discord-border);padding:14px 16px}
+
+/* ╤Б╨╡╨│╨╝╨╡╨╜╤В-╨║╨╛╨╜╤В╤А╨╛╨╗ */
+.pq-seg{display:flex;gap:3px;padding:3px;background:var(--panel);border:1px solid var(--border);border-radius:10px}
+.pq-seg__item{flex:1;height:38px;border:0;border-radius:8px;background:transparent;color:var(--text-2);font:400 13px/1 var(--font-sans);cursor:pointer}
+.pq-seg__item.is-active,.pq-seg__item[aria-pressed="true"],.pq-seg__item[aria-checked="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.pq-seg--sm{background:var(--raised);border:0;border-radius:8px}
+.pq-seg--sm .pq-seg__item{flex:none;height:32px;padding:0 12px;border-radius:6px;font-size:12px}
+.pq-seg--game{background:var(--raised);border:0;border-radius:8px}
+.pq-seg--game .pq-seg__item{border-radius:6px}
+.pq-seg--game .pq-seg__item.is-active,.pq-seg--game .pq-seg__item[aria-checked="true"]{font-weight:600}
+
+/* ╨▓╨║╨╗╨░╨┤╨║╨╕ */
+.pq-tabs{display:flex;gap:8px;border-bottom:1px solid var(--border)}
+.pq-tab{height:48px;padding:0 16px;background:transparent;border:0;color:var(--text-3);font:600 14px/1 var(--font-sans);cursor:pointer}
+.pq-tab.is-active,.pq-tab[aria-selected="true"]{color:var(--accent);font-weight:700;box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* ╤З╨╕╨┐╤Л-╤Д╨╕╨╗╤М╤В╤А╤Л: ╨▓╨╜╨╡╤И╨╜╤П╤П ╨║╨╜╨╛╨┐╨║╨░ 44 px (╨╖╨╛╨╜╨░ ╨╜╨░╨╢╨░╤В╨╕╤П), ╨▓╨╜╤Г╤В╤А╨╕ ╨▓╨╕╨┤╨╕╨╝╨░╤П ╨┐╨╕╨╗╤О╨╗╤П */
+.pq-chip{height:44px;padding:0 4px;background:transparent;border:0;cursor:pointer;font-family:var(--font-sans)}
+.pq-chip__pill{display:block;padding:6px 12px;border-radius:var(--r-chip);color:var(--text-3);font-size:13px}
+.pq-chip.is-active .pq-chip__pill,.pq-chip[aria-pressed="true"] .pq-chip__pill{background:var(--border-ctl);color:var(--text);font-weight:600}
+
+/* ╤В╨╡╨│╨╕ */
+.pq-tag{display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.04em}
+.pq-tag--lost{color:var(--danger);background:var(--danger-bg)}
+.pq-tag--won{color:var(--success);background:rgba(62,207,142,.12)} /* ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨┤╨╜╨╛╨╡ */
+.pq-tag--outline{padding:1px 6px;color:var(--text-dim);border:1px solid var(--border-strong);font-weight:400;letter-spacing:0}
+.pq-role{display:inline-block;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;color:var(--text-2);background:var(--panel-light)}
+.pq-role--admin{color:var(--accent);background:var(--accent-chip)}
+
+/* ╨░╨▓╨░╤В╨░╤А╤Л (╤А╨░╨╖╨╝╨╡╤А ╨╖╨░╨┤╨░╤С╤В╤Б╤П ╨╝╨╛╨┤╨╕╤Д╨╕╨║╨░╤В╨╛╤А╨╛╨╝) */
+.pq-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:50%;background:var(--border-ctl);color:var(--text);font-weight:700;overflow:hidden}
+.pq-avatar img{width:100%;height:100%;object-fit:cover}
+.pq-avatar--28{width:28px;height:28px;font-size:12px}
+.pq-avatar--32{width:32px;height:32px;font-size:14px;font-weight:800}
+.pq-avatar--48{width:48px;height:48px;font-size:18px}
+.pq-avatar--56{width:56px;height:56px;font-size:22px}
+.pq-avatar--88{width:88px;height:88px;font-size:40px;font-weight:800}
+.pq-avatar--me{background:var(--accent);color:var(--on-accent);font-weight:800}
+
+/* ╨╝╨╡╨┤╨░╨╗╨╕ ╤А╨░╨╜╨│╨╛╨▓ */
+.pq-medal{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:12px;font-weight:800;color:var(--on-accent)}
+.pq-medal--1{background:var(--accent)}
+.pq-medal--2{background:var(--silver);color:var(--medal-on-silver)}
+.pq-medal--3{background:var(--bronze)}
+
+/* ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М */
+.pq-switch{width:56px;height:44px;padding:0;background:transparent;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pq-switch__track{position:relative;display:block;width:44px;height:24px;border-radius:12px;background:var(--border-btn)}
+.pq-switch__knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--text)}
+.pq-switch[aria-checked="true"] .pq-switch__track{background:var(--accent)}
+.pq-switch[aria-checked="true"] .pq-switch__knob{left:auto;right:3px;background:var(--on-accent)}
+.pq-switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ╨┐╨╛╨┐╨╛╨▓╨╡╤А-╨╝╨╡╨╜╤О */
+.pq-menu{box-sizing:border-box;padding:6px;background:var(--raised);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.5);display:flex;flex-direction:column}
+.pq-menu__item{height:44px;padding:0 12px;display:flex;align-items:center;background:transparent;border:0;border-radius:6px;color:var(--text);font:400 14px/1 var(--font-sans);text-align:left;text-decoration:none;cursor:pointer}
+.pq-menu__item:hover{background:var(--border-strong)}
+.pq-menu__item--danger{color:var(--danger)}
+.pq-menu__sep{height:1px;margin:4px 0;background:var(--border-strong)}
+
+/* ╤В╨░╨▒╨╗╨╕╤Ж╤Л-╤Б╨┐╨╕╤Б╨║╨╕ ╨╜╨░ div-╨░╤Е */
+.pq-table{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pq-table__head{display:flex;align-items:center;gap:12px;box-sizing:border-box;height:40px;padding:0 16px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-dim)}
+.pq-table__row{display:flex;align-items:center;gap:12px;box-sizing:border-box;height:52px;padding:0 16px;font-size:14px;border-bottom:1px solid var(--divider)}
+.pq-table__row:last-child{border-bottom:0}
+.pq-table__row:hover{background:var(--row-hover)}
+
+/* ╤Б╨║╨╡╨╗╨╡╤В╨╛╨╜ */
+.pq-skeleton{display:block;border-radius:8px;background:linear-gradient(90deg,var(--panel) 0%,var(--panel-light) 50%,var(--panel) 100%);background-size:200% 100%;animation:pq-shimmer 1.4s linear infinite}
+@keyframes pq-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.pq-skeleton{animation:none}}
+
+/* --- 7.2 ╨Ь╨╛╨┤╨░╨╗╤М╨╜╤Л╨╡ ╨╛╨║╨╜╨░, ╨┐╨╛╨╗╤П ╨▓╨▓╨╛╨┤╨░, ╤Б╨┐╨╕╨╜╨╜╨╡╤А --- */
+.pq-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
+.pq-modal{position:relative;box-sizing:border-box;width:460px;max-width:100%;max-height:calc(100vh - 32px);overflow:auto;padding:24px;display:flex;flex-direction:column;gap:16px;background:var(--raised);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.5);color:var(--text)}
+.pq-modal__head{display:flex;align-items:center;gap:14px}
+.pq-modal__icon{width:44px;height:44px;flex:none;border-radius:50%;background:var(--btn-neutral);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.pq-modal__title{margin:0;font:600 20px/1.2 var(--font-sans)}
+.pq-modal__text{margin:0;font-size:14px;line-height:1.5;color:var(--text-2)}
+.pq-modal__hint{margin:0;font-size:13px;line-height:1.5;color:var(--text-dim)}
+.pq-modal__actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
+.pq-modal__close{position:absolute;top:12px;right:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:8px;color:var(--text-dim);font-size:22px;cursor:pointer}
+.pq-modal__close:hover{color:var(--text);background:var(--hover-tint,rgba(255,255,255,.06))}
+.pq-modal__list{display:flex;flex-direction:column;gap:10px}
+
+.pq-input,.pq-select{box-sizing:border-box;width:100%;height:44px;padding:0 14px;background:var(--surface);color:var(--text);border:1px solid var(--border-ctl);border-radius:8px;font:400 14px/1 var(--font-sans)}
+.pq-input::placeholder{color:var(--text-dim)}
+.pq-input:focus,.pq-select:focus{outline:none;border-color:var(--accent)}
+.pq-input.is-error{border-color:var(--danger)}
+.pq-select{appearance:none;padding-right:36px;color-scheme:dark;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23b9bcc4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.pq-select option{background:var(--raised);color:var(--text)}
+
+.pq-spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--btn-neutral);border-top-color:var(--accent);animation:pq-spin .9s linear infinite}
+@keyframes pq-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.pq-spinner{animation-duration:2.4s}}
+
+/* === components from tz-03 line (leaderboard podium etc) === */
+
 .pq-btn {
     height: 40px;
     padding: 0 20px;
@@ -21,18 +160,10 @@
     background: var(--hover-tint);
     border-color: var(--border-strong);
 }
-
-/* ---------- Скелетоны ---------- */
-@keyframes pq-skeleton-pulse {
-    0%, 100% { opacity: .55; }
-    50% { opacity: 1; }
-}
 .pq-skeleton {
     background: var(--row-hover);
     animation: pq-skeleton-pulse 1.4s ease-in-out infinite;
 }
-
-/* ---------- Аватары ---------- */
 .pq-avatar {
     border-radius: 50%;
     background: var(--border-ctl);
@@ -51,23 +182,14 @@
     object-fit: cover;
     display: block;
 }
-.pq-avatar--28 { width: 28px; height: 28px; font-size: 13px; }
-.pq-avatar--40 { width: 40px; height: 40px; font-size: 16px; }
-.pq-avatar--48 { width: 48px; height: 48px; font-size: 18px; }
-.pq-avatar--56 { width: 56px; height: 56px; font-size: 22px; }
-.pq-avatar--64 { width: 64px; height: 64px; font-size: 24px; }
-/* центральная карточка подиума: акцентный фон и цвет буквы */
 .pq-avatar--accent {
     background: var(--accent-chip);
     color: var(--accent);
 }
-/* вариант «это я» */
 .pq-avatar--me {
     background: var(--accent-chip);
     color: var(--accent);
 }
-
-/* ---------- Медали ---------- */
 .pq-medal {
     width: 24px;
     height: 24px;
@@ -82,11 +204,6 @@
     color: var(--on-accent);
     user-select: none;
 }
-.pq-medal--silver { background: var(--silver); color: var(--medal-on-silver); }
-.pq-medal--bronze { background: var(--bronze); color: var(--on-accent); }
-.pq-medal--lg { width: 28px; height: 28px; font-size: 13px; }
-
-/* ---------- Вкладки (segmented) ---------- */
 .pq-seg {
     width: 360px;
     max-width: 100%;
@@ -115,8 +232,6 @@
     padding: 0 10px;
     transition: background .15s, color .15s;
 }
-.pq-seg__item:hover { color: var(--text); }
-.pq-seg__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .pq-seg__item[aria-selected="true"] {
     background: var(--accent);
     color: var(--on-accent);
@@ -127,9 +242,6 @@
     cursor: not-allowed;
     color: var(--text-dim) !important;
 }
-
-/* ---------- Таблица ---------- */
-.pq-table { display: flex; flex-direction: column; }
 .pq-table__head {
     display: flex;
     align-items: center;
@@ -157,18 +269,6 @@
     cursor: pointer;
     min-width: 0;
 }
-.pq-table__row:last-child { border-bottom: none; }
-.pq-table__row:hover { background: var(--row-hover); }
-.pq-table__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-/* колонки (одинаковые в шапке и строках) */
-.pq-col-rank    { width: 40px; flex-shrink: 0; text-align: left; }
-.pq-col-player  { flex: 1; min-width: 0; text-align: left; }
-.pq-col-rating  { width: 64px; flex-shrink: 0; text-align: right; }
-.pq-col-week    { width: 64px; flex-shrink: 0; text-align: right; }
-.pq-col-winrate { width: 72px; flex-shrink: 0; text-align: right; }
-.pq-col-games   { width: 64px; flex-shrink: 0; text-align: right; }
-
 .pq-table__rank {
     font-weight: 700;
     color: var(--text-2);
@@ -184,17 +284,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.pq-table__rating { font-weight: 800; }
-.pq-table__week { font-weight: 600; }
-.pq-table__winrate { color: var(--text-2); }
-.pq-table__games { color: var(--text-dim); }
-
-/* варианты значений «7 days» */
-.pq-delta--up   { color: var(--success); }
-.pq-delta--down { color: var(--danger); }
-.pq-delta--zero, .pq-delta--none { color: var(--text-dim); }
-
-/* ---------- Строка «You» (под таблицей) ---------- */
 .pq-you {
     margin-top: 12px;
     height: 56px;
@@ -211,7 +300,6 @@
     bottom: 12px;
     min-width: 0;
 }
-.pq-you__place { font-weight: 800; color: var(--accent); }
 .pq-you__player {
     display: flex;
     align-items: center;
@@ -219,13 +307,6 @@
     min-width: 0;
     flex: 1;
 }
-.pq-you__nick { font-weight: 700; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pq-you__week { font-weight: 600; color: var(--accent-text-2); }
-.pq-you__winrate { color: var(--accent-text-2); }
-.pq-you__games { color: var(--accent-text-dim); }
-
-/* ---------- Подиум (ТЗ 3a, вариант A «свет и корона») ---------- */
-/* Зазор вкладки → подиум 24px, отступ сверху сетки при короне +16px */
 .pq-podium {
     margin-top: 40px;
     display: grid;
@@ -233,8 +314,6 @@
     gap: 12px;
     align-items: end;
 }
-/* Высоты строго 176/216 (ТЗ 3a): медаль вынесена из потока (absolute),
-   текст сжат line-height — иначе контент не влезает в фикс. высоту */
 .pq-podium__card {
     box-sizing: border-box;
     padding: 16px;
@@ -259,7 +338,6 @@
     border: 1px solid #5a4417;
     box-shadow: 0 0 0 1px rgba(240, 168, 42, .15), 0 10px 40px rgba(240, 168, 42, .14);
 }
-/* золотая линия сверху центральной карточки */
 .pq-podium__card--center::before {
     content: "";
     position: absolute;
@@ -269,7 +347,6 @@
     height: 2px;
     background: linear-gradient(90deg, transparent, #f0a82a, transparent);
 }
-/* корона над центром (место 1) */
 .pq-podium__crown {
     position: absolute;
     top: -16px;
@@ -278,20 +355,12 @@
     filter: drop-shadow(0 2px 6px rgba(240, 168, 42, .5));
     line-height: 0;
 }
-/* медаль — у верхней кромки карточки, по центру.
-   top:10px: при фикс. высотах 176/216 контент прижат к низу,
-   иначе медаль касается кольца аватара у боковых карточек */
 .pq-podium__card .pq-medal {
     position: absolute;
     top: 8px;
     left: 50%;
     transform: translateX(-50%);
 }
-/* порядок в DOM 1,2,3 — визуально 2-1-3 */
-.pq-podium__card[data-place="1"] { order: 2; }
-.pq-podium__card[data-place="2"] { order: 1; }
-.pq-podium__card[data-place="3"] { order: 3; }
-
 .pq-podium__name {
     font-size: 16px;
     font-weight: 700;
@@ -311,7 +380,6 @@
     line-height: 1.1;
     color: #8b8f98;
 }
-/* аватары с кольцом цвета медали (ТЗ 3a) */
 .pq-podium__card[data-place="1"] .pq-avatar {
     width: 64px;
     height: 64px;
@@ -336,18 +404,4 @@
     font-weight: 700;
     background: #23252a;
     box-shadow: 0 0 0 2px #131417, 0 0 0 4px #c98a52;
-}
-.pq-podium__card--center .pq-podium__name   { font-size: 18px; }
-.pq-podium__card--center .pq-podium__rating { font-size: 28px; color: #f0a82a; }
-.pq-podium__card--center .pq-podium__games  { color: #a39a86; }
-/* появление: места 3 / 2 / 1 → задержки 0 / 80 / 160 мс */
-@media (prefers-reduced-motion: no-preference) {
-    .pq-podium__card { animation: pq-podium-in 400ms ease both; }
-    .pq-podium__card[data-place="3"] { animation-delay: 0ms; }
-    .pq-podium__card[data-place="2"] { animation-delay: 80ms; }
-    .pq-podium__card[data-place="1"] { animation-delay: 160ms; }
-}
-@keyframes pq-podium-in {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
 }

@@ -138,3 +138,81 @@ html {
 --r-2: 2px; --r-3: 3px; --r-4: 4px; --r-6: 6px; --r-8: 8px;
 --r-10: 10px; --r-12: 12px; --r-14: 14px; --r-chip: 16px; --r-pill: 22px;
 }
+
+/* --- tokens from tz-03 line (leaderboard/auth/pages) --- */
+html {
+  --text-on-accent: #17120A;               /* ╤Г╤В╨╛╤З╨╜╨╡╨╜╨╛ ╨┐╨╛ ╤А╨░╨╖╨▓╨╡╨┤╨║╨╡ */
+  --accent-soft: rgba(233, 162, 44, .16);  /* ╨╖╨░╨╗╨╕╨▓╨║╨░ ╨░╨║╤В╨╕╨▓╨╜╤Л╤Е ╤З╨╕╨┐╨╛╨▓, ╨┐╨╛╨┤╤Б╨▓╨╡╤В╨║╨╕ */
+  --accent-line: rgba(233, 162, 44, .40);  /* ╤А╨░╨╝╨║╨░ ╨░╨║╤В╨╕╨▓╨╜╤Л╤Е ╤З╨╕╨┐╨╛╨▓ */
+  --accent-ring: rgba(233, 162, 44, .25);  /* focus-╨║╨╛╨╗╤М╤Ж╨╛ ╨╕╨╜╨┐╤Г╤В╨╛╨▓ */
+  --warning: #D6B23C;
+  --danger-soft: rgba(214, 70, 70, .16);
+  --danger-line: rgba(214, 70, 70, .50);
+  --overlay: rgba(0, 0, 0, .60);
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-4xl: 40px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+  --lh-tight: 1.2;
+  --lh-base: 1.5;
+
+  /* --- ╨╜╨╛╨▓╤Л╨╡: ╨╛╤В╤Б╤В╤Г╨┐╤Л (╤И╨░╨│ 4px) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* --- ╨╜╨╛╨▓╤Л╨╡: ╤А╨░╨┤╨╕╤Г╤Б╤Л --- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* --- ╨╜╨╛╨▓╤Л╨╡: ╤В╨╡╨╜╨╕ (╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╤Г╨╢╨╡ ╨╡╤Б╤В╤М ╨▓ style.css, ╤Б╨▓╨╡╨┤╨╡╨╜╤Л ╨▓ ╤И╨║╨░╨╗╤Г) --- */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, .3);
+  --shadow-2: 0 8px 20px rgba(0, 0, 0, .4);
+  --shadow-3: 0 16px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .06);
+  --shadow-accent: 0 4px 15px rgba(233, 162, 44, .5);
+
+  /* --- ╨╜╨╛╨▓╤Л╨╡: z-index (╨╖╨╜╨░╤З╨╡╨╜╨╕╤П ╤В╨╡ ╨╢╨╡, ╤З╤В╨╛ ╤Г╨╢╨╡ ╨▓ style.css) --- */
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-overlay: 10001;
+  --z-modal: 10002;
+  --z-toast: 10020;
+}
+
+/* --- ╤Н╤В╨░╨┐ 3 (╨в╨Ч tz-03): ╨┐╤А╨╛╨╕╨╖╨▓╨╛╨┤╨╜╤Л╨╡ ╨╖╨╜╨░╤З╨╡╨╜╨╕╤П (╤Н╤В╨░╨╗╨╛╨╜ ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛, ╨┐╨╛╨╝╨╡╤З╨╡╨╜╨╛) --- */
+:root {
+  --sp: 1;                                  /* ╨╝╨░╤Б╤И╤В╨░╨▒ ╨║╨╛╨╜╤В╨╡╨╜╤В╨╜╤Л╤Е ╤Б╤В╤А╨░╨╜╨╕╤Ж (╨в╨Ч 5) */
+}
+
+/* --- ╤В╤С╨╝╨╜╨░╤П ╨┐╨╛╨╗╨╛╤Б╨░ ╨┐╤А╨╛╨║╤А╤Г╤В╨║╨╕ (╨в╨Ч 7) тАФ ╨│╨╗╨╛╨▒╨░╨╗╤М╨╜╨╛, ╨│╨┤╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╤С╨╜ tokens.css --- */
+html {
+  scrollbar-color: var(--border-strong) var(--bg);
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-btn); }
+
+/* --- ╨Я╤А╨░╨▓╨╕╨╗╨░ (rules.css, ╨╕╨╖ redesign/full tokens v2.0.1) --- */
+html {
+}
