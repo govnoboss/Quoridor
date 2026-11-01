@@ -129,4 +129,7 @@ const userSchema = new mongoose.Schema({
     }
 });
 
+// Индексы: сортировка лидерборда и подсчёт ранга игрока (GET /api/leaderboard)
+userSchema.index({ rating: -1 });
+
 module.exports = mongoose.model('User', userSchema);

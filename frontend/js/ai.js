@@ -6,12 +6,15 @@ const AI = {
     // Per-game bot identity: the worker derives a personality (weight shift) and a fresh random seed
     // from it so consecutive games do not open identically.
     botId: null,
+    // Generation token: every search carries the token it was started with. cancelSearch() bumps it so
+    // a move/error from a search the user has since undone/restarted is discarded instead of applied.
+    searchToken: 0,
 
     init() {
         if (this.worker) return;
         // ?v= must match the ai-worker.js script itself: a worker cached from before the engine
         // switch would import the unversioned bundle URL and stay on the old engine for 4h.
-        this.worker = new Worker('/js/ai-worker.js?v=1.2.1');
+        this.worker = new Worker('/js/ai-worker.js?v=1.2.2');
         this.worker.onmessage = (e) => {
             const data = e.data;
             if (!data) return;
@@ -27,6 +30,9 @@ const AI = {
             }
 
             if (data.type !== 'move') return;
+
+            // Drop results from a cancelled search (Undo, Restart, new game).
+            if (data.token !== undefined && data.token !== this.searchToken) return;
 
             if (data.move) {
                 console.log(`[LOCAL-AI] ${data.move.type} d=${data.depth} n=${data.nodes} ${data.ms}ms`);
@@ -49,12 +55,25 @@ const AI = {
     /**
      * Start a new game. Must be called before the first makeMove of a game: it makes the worker throw
      * away the engine it used for the previous game so its transposition table cannot leak across games.
+     * When keepId is true the bot keeps its per-game personality (used by Restart/Undo, which must not
+     * change who the player is facing).
      */
-    newGame(difficulty = 'medium') {
+    newGame(difficulty = 'medium', keepId = false) {
         this.init();
         this.difficulty = difficulty;
-        this.botId = 'local-' + Math.random().toString(36).slice(2, 10);
+        this.cancelSearch();
+        if (!keepId || !this.botId) {
+            this.botId = 'local-' + Math.random().toString(36).slice(2, 10);
+        }
         this.worker.postMessage({ type: 'newGame', difficulty, botId: this.botId });
+    },
+
+    /**
+     * Invalidate any in-flight search. The engine itself keeps running until its think() returns, but
+     * its result is ignored (token mismatch), so the UI can safely rebuild the position meanwhile.
+     */
+    cancelSearch() {
+        this.searchToken++;
     },
 
     endGame() {
@@ -66,6 +85,7 @@ const AI = {
         this.difficulty = difficulty;
 
         const botIdx = this.getBotIndex();
+        const token = ++this.searchToken;
 
         // Ввод блокируется в Game.nextTurn, но подтверждаем ещё раз.
         Game.isInputBlocked = true;
@@ -76,7 +96,8 @@ const AI = {
             state: Game.state,
             botIdx: botIdx,
             difficulty: difficulty,
-            botId: this.botId
+            botId: this.botId,
+            token: token
         });
     }
 };

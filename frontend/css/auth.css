@@ -1,4 +1,6 @@
 /* Auth form shared styles */
+body { font-family: var(--font-sans); }
+
 .auth-title {
     text-align: center;
     color: var(--wall, #e09f3e);

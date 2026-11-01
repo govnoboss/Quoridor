@@ -1977,6 +1977,12 @@ canvas {
     border-bottom: 1px solid rgba(224, 159, 62, 0.28);
 }
 
+/* --- DISCORD ANNOUNCEMENT BANNER (из origin/main) --- */
+.discord-banner {
+    background: linear-gradient(90deg, rgba(88, 101, 242, 0.16), rgba(88, 101, 242, 0.05) 45%, rgba(88, 101, 242, 0.16));
+    border-bottom: 1px solid rgba(88, 101, 242, 0.32);
+}
+
 .play-banner-link {
     display: inline-flex;
     align-items: center;

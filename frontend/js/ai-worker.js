@@ -66,7 +66,7 @@ onmessage = function (e) {
     }
 
     try {
-        const { state, botIdx, difficulty } = msg;
+        const { state, botIdx, difficulty, token } = msg;
 
         // Lazily built so a think() that arrives without a newGame (older tab, restored game) still
         // works instead of throwing.
@@ -86,9 +86,10 @@ onmessage = function (e) {
             depth: result.depth,
             nodes: result.nodes,
             ms: Date.now() - startedAt,
+            token: token,
         });
     } catch (err) {
         console.error('[AI-WORKER] think failed:', err);
-        postMessage({ type: 'error', message: String((err && err.message) || err) });
+        postMessage({ type: 'error', message: String((err && err.message) || err), token: msg.token });
     }
 };

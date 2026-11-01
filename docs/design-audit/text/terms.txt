@@ -1,0 +1,201 @@
+PlayQuor
+RU
+EN
+←
+Back to Home
+
+# Условия использования
+
+Последнее обновление: 2 июня 2026 г.
+
+Используя Quoridor («Сервис»), вы соглашаетесь соблюдать настоящие Условия использования. Если вы не согласны с какой-либо их частью, пожалуйста, прекратите использование Сервиса.
+
+## 1. Честная игра и соревновательная целостность
+
+Quoridor построен на принципах честной конкуренции. Игроки обязаны использовать только собственные навыки и суждения.
+
+Строго запрещается:
+
+Использование AI-инструментов, ботов, движков, скриптов, компьютерного анализа или любого другого программного обеспечения, предоставляющего игровые подсказки во время активных матчей.
+
+Получение советов, подсказок ходов или стратегической помощи от другого человека или программы во время игры.
+
+Преднамеренное проигрывание матчей или манипулирование результатами игр.
+
+Сговор с другими игроками с целью влияния на рейтинг, ранги или позиции в таблице лидеров.
+
+Преднамеренное затягивание времени, сброс таймера, многократные уходы от клавиатуры (AFK) или иное нарушение нормального хода матча.
+
+Использование багов, ошибок или не предусмотренного игрового поведения для получения преимущества.
+
+Любая попытка получения нечестного преимущества может повлечь санкции — от корректировки рейтинга до бессрочной блокировки аккаунта.
+
+## 2. Аккаунты и идентификация
+
+Для доступа к некоторым функциям вам может потребоваться создать аккаунт, указав действующий адрес электронной почты и уникальное имя пользователя.
+
+Вы несёте ответственность за сохранность своего аккаунта и за все действия, совершаемые под ним. Аутентификация может осуществляться через доверенного стороннего провайдера, однако ответственность за аккаунт остаётся на вас.
+
+Мы оставляем за собой право ограничивать, переименовывать, приостанавливать или удалять аккаунты, которые:
+
+используют оскорбительные, вводящие в заблуждение или неуместные имена пользователей;
+
+предоставляют ложные или вводящие в заблуждение регистрационные данные;
+
+нарушают настоящие Условия или препятствуют нормальной работе Сервиса.
+
+## 3. Несколько аккаунтов
+
+Создание более одного аккаунта не запрещается автоматически, но аккаунты никогда не должны использоваться для получения нечестного преимущества.
+
+Примеры запрещённых действий включают:
+
+обход блокировок или ограничений;
+
+смурфинг (использование низкорейтинговых аккаунтов);
+
+занятие нескольких позиций в таблице лидеров;
+
+игру против собственных аккаунтов;
+
+искусственное завышение или занижение рейтинга;
+
+координацию действий между аккаунтами для влияния на ранги или статистику.
+
+При обнаружении злоупотреблений мы можем принять меры в отношении одного или нескольких связанных аккаунтов.
+
+## 4. Допустимое использование
+
+Используя Сервис, вы соглашаетесь не:
+
+нарушать действующее законодательство;
+
+нарушать интеллектуальные права Quoridor или третьих лиц;
+
+преследовать, угрожать, оскорблять, запугивать или дискриминировать других пользователей;
+
+пытаться вмешиваться в работу, безопасность или стабильность Сервиса;
+
+использовать автоматизированные средства для сбора, копирования, парсинга или извлечения данных из Сервиса без разрешения.
+
+Мы можем расследовать и принимать меры в отношении действий, наносящих вред сообществу, даже если они прямо не перечислены в настоящих Условиях.
+
+## 5. Приостановка и прекращение доступа
+
+Доступ к Сервису может быть ограничен, приостановлен или навсегда отозван по нашему усмотрению, если мы считаем, что пользователь нарушил настоящие Условия или совершил действия, негативно влияющие на платформу, сообщество или соревновательную среду.
+
+В серьёзных случаях меры могут быть приняты немедленно и без предварительного уведомления.
+
+## 6. Ограничение ответственности
+
+Сервис предоставляется на условиях «как есть» и «по мере доступности».
+
+В максимальной степени, допускаемой законом, Quoridor и его поставщики не несут ответственности за любые косвенные, случайные, особые, последующие или финансовые убытки, возникшие в результате использования или невозможности использования Сервиса, включая потерю данных, прибыли, рейтинга, аккаунтов или деловых возможностей.
+
+## 7. Изменение настоящих Условий
+
+Мы можем время от времени обновлять настоящие Условия по мере развития Сервиса. Существенные изменения будут отражаться обновлением даты в верхней части страницы. Продолжение использования Сервиса после вступления изменений в силу означает принятие пересмотренных Условий.
+
+## 8. Контакты
+
+Вопросы, замечания или сообщения относительно настоящих Условий можно направлять по адресу:
+
+support@playquor.org
+
+# Terms of Service
+
+Last updated: June 2, 2026
+
+By accessing or using Quoridor (the "Service"), you agree to follow these Terms of Service. If you do not agree with any part of these terms, please stop using the Service.
+
+## 1. Fair Play and Competitive Integrity
+
+Quoridor is built around fair competition. Players are expected to compete using only their own skill and judgment.
+
+The following actions are strictly prohibited:
+
+Using AI tools, bots, engines, scripts, computer analysis, or any other software that provides gameplay assistance during active matches.
+
+Receiving advice, move suggestions, or strategic assistance from another person or program while a game is in progress.
+
+Intentionally losing games or manipulating match outcomes.
+
+Collaborating with other players to influence ratings, rankings, or leaderboard positions.
+
+Deliberately wasting time, running down the clock, repeatedly going AFK, or otherwise disrupting the normal flow of a match.
+
+Exploiting bugs, loopholes, or unintended game behavior for an advantage.
+
+Any attempt to gain an unfair advantage may result in penalties ranging from rating adjustments to permanent account suspension.
+
+## 2. Accounts and Identity
+
+To access certain features, you may need to create an account using a valid email address and a unique username.
+
+You are responsible for maintaining the security of your account and for all activity that occurs under it. Authentication may be handled through a trusted third-party provider, but account responsibility remains with you.
+
+We reserve the right to restrict, rename, suspend, or terminate accounts that:
+
+Use offensive, misleading, or inappropriate usernames;
+
+Provide false or misleading registration information;
+
+Violate these Terms or interfere with the normal operation of the Service.
+
+## 3. Multiple Accounts
+
+Creating more than one account is not automatically prohibited, but accounts must never be used to gain an unfair advantage.
+
+Examples of prohibited behavior include:
+
+Circumventing bans or restrictions;
+
+Smurfing;
+
+Occupying multiple leaderboard positions;
+
+Playing against your own accounts;
+
+Artificially inflating or lowering ratings;
+
+Coordinating activity between accounts to influence rankings or statistics.
+
+Where abuse is detected, we may take action against some or all related accounts.
+
+## 4. Acceptable Use
+
+By using the Service, you agree not to:
+
+Break any applicable laws or regulations;
+
+Violate the intellectual property rights of Quoridor or others;
+
+Harass, threaten, abuse, intimidate, or discriminate against other users;
+
+Attempt to interfere with the operation, security, or stability of the Service;
+
+Use automated tools to collect, copy, scrape, or extract data from the Service without permission.
+
+We may investigate and act against behavior that harms the community, even if it is not specifically listed here.
+
+## 5. Suspension and Termination
+
+Access to the Service may be limited, suspended, or permanently revoked at our discretion if we believe a user has violated these Terms or engaged in conduct that negatively affects the platform, community, or competitive environment.
+
+In serious cases, action may be taken immediately and without prior notice.
+
+## 6. Limitation of Liability
+
+The Service is provided on an "as is" and "as available" basis.
+
+To the fullest extent permitted by law, Quoridor and its suppliers shall not be liable for any indirect, incidental, special, consequential, or financial damages arising from the use of, or inability to use, the Service, including loss of data, profits, rankings, accounts, or business opportunities.
+
+## 7. Changes to These Terms
+
+We may update these Terms from time to time as the Service evolves. Significant changes will be reflected by updating the date at the top of this page. Continued use of the Service after changes become effective constitutes acceptance of the revised Terms.
+
+## 8. Contact
+
+Questions, concerns, or reports regarding these Terms may be sent to:
+
+support@playquor.org

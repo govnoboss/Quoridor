@@ -113,6 +113,93 @@ let passed = 0; const ok = (name) => { passed++; console.log('  ok  ' + name); }
   ok(`zobrist incremental == recomputed, make/unmake restores state (${checks} checks)`);
 }
 
+// ---- 2b. pathIsLocked == brute-force DAG scan ----
+{
+  const eng = createEngineV3({ seed: 9, goalRows: [8, 0] }); eng.newGame(9);
+  const rnd = rngOf(31);
+  function bfsDist(s, starts) {   // distances ignoring pawns (walls only); distance to the whole goal row
+    const d = new Array(81).fill(255); const q = [];
+    for (const st of starts) { d[st] = 0; q.push(st); }
+    for (let h = 0; h < q.length; h++) {
+      const u = q[h], ur = (u / 9) | 0, uc = u % 9;
+      for (const [dr, dc] of [[-1, 0], [0, 1], [1, 0], [0, -1]]) {
+        const r = ur + dr, cc = uc + dc;
+        if (r < 0 || r > 8 || cc < 0 || cc > 8 || blocked(s, ur, uc, r, cc)) continue;
+        const v = r * 9 + cc; if (d[v] === 255) { d[v] = d[u] + 1; q.push(v); }
+      }
+    }
+    return d;
+  }
+  const goalRowSeed = (p) => [0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) => GOAL[p] * 9 + c);
+  function dagEdges(s, p) {      // edges on some shortest path of p (ignoring pawns)
+    const dg = bfsDist(s, goalRowSeed(p)), start = s.players[p].pos.r * 9 + s.players[p].pos.c;
+    const D = dg[start]; if (D === 255) return [];
+    const ds = bfsDist(s, [start]);
+    const out = [];
+    for (let u = 0; u < 81; u++) {
+      const ur = (u / 9) | 0, uc = u % 9;
+      for (const [dr, dc] of [[1, 0], [0, 1]]) {
+        const r = ur + dr, cc = uc + dc; if (r > 8 || cc > 8 || blocked(s, ur, uc, r, cc)) continue;
+        const v = r * 9 + cc;
+        if (ds[u] + 1 + dg[v] === D || ds[v] + 1 + dg[u] === D) out.push([u, v, ur, uc, r, cc]);
+      }
+    }
+    return out;
+  }
+  // occupancy-legal wall placements (free cell + no overlap with neighbour), ignoring paths
+  function wallPlacements(s) {
+    const out = [];
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) for (const v of [false, true]) {
+      if (s.hWalls[r][c] || s.vWalls[r][c]) continue;
+      if (!v && ((c > 0 && s.hWalls[r][c - 1]) || (c < 7 && s.hWalls[r][c + 1]))) continue;
+      if (v && ((r > 0 && s.vWalls[r - 1][c]) || (r < 7 && s.vWalls[r + 1][c]))) continue;
+      out.push({ r, c, isVertical: v });
+    }
+    return out;
+  }
+  function cutsDag(s, t, w, de) {
+    (w.isVertical ? t.vWalls : t.hWalls)[w.r][w.c] = true;
+    for (const [, , ar, ac, br, bc] of de) if (!blocked(s, ar, ac, br, bc) && blocked(t, ar, ac, br, bc)) return true;
+    return false;
+  }
+  // exact: any LEGAL opponent wall (both players keep a path) cuts a DAG edge of p
+  function refLocked(s, p) {
+    if (s.players[1 - p].wallsLeft === 0) return true;
+    const de = dagEdges(s, p);
+    const t0 = clone(s); t0.currentPlayer = 1 - p;
+    for (const ws of refWalls(t0)) {
+      const w = parse(ws), t = clone(s);
+      if (cutsDag(s, t, w, de)) return false;
+    }
+    return true;
+  }
+  // strengthened: any FREE wall that keeps p a path cuts a DAG edge of p (opponent path ignored)
+  function refLockedStrong(s, p) {
+    if (s.players[1 - p].wallsLeft === 0) return true;
+    const de = dagEdges(s, p);
+    for (const w of wallPlacements(s)) {
+      const t = clone(s); (w.isVertical ? t.vWalls : t.hWalls)[w.r][w.c] = true;
+      if (!hasPath(t, p)) continue;                 // leader must keep a path
+      if (cutsDag(s, t, w, de)) return false;
+    }
+    return true;
+  }
+  let positions = 0;
+  for (let g = 0; g < (LONG ? 200 : 80); g++) {
+    let s = initial();
+    for (let ply = 0; ply < 90 && won(s) === null; ply++) {
+      eng._debug.load(s);
+      for (const p of [0, 1]) {
+        assert.strictEqual(eng._debug.pathIsLocked(p), refLocked(s, p), `pathIsLocked(${p}) mismatch game ${g} ply ${ply}`);
+        assert.strictEqual(eng._debug.pathIsLocked(p, true), refLockedStrong(s, p), `pathIsLocked(${p},strong) mismatch game ${g} ply ${ply}`);
+      }
+      positions++;
+      const l = refLegal(s); s = apply(s, parse(l[Math.floor(rnd() * l.length)]));
+    }
+  }
+  ok(`pathIsLocked (+strong) == brute-force DAG scan on ${positions} positions`);
+}
+
 // ---- 3. contract: no mutation, determinism, node limit, throws ----
 {
   const s = initial(); s.hWalls[3][3] = true; s.players[0].pos = { r: 2, c: 4 };

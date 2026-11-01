@@ -50,6 +50,28 @@ const UI = {
       btn_play_white: "⚪ Играть за Белых",
       btn_play_black: "⚫ Играть за Чёрных",
       btn_surrender: "Сдаться",
+      btn_start: "Старт",
+      btn_undo: "Отменить ход",
+      btn_restart: "Начать заново",
+      btn_menu: "Меню",
+      btn_moves: "Ходы",
+      btn_cancel: "Отмена",
+      eval_title: "Оценка",
+      eval_depth_group: "Глубина расчёта",
+      eval_depth_fast: "Быстро",
+      eval_depth_normal: "Обычно",
+      eval_depth_deep: "Глубоко",
+      eval_label_prefix: "Оценка: ",
+      eval_analyzing: "Анализ…",
+      eval_off_short: "Оценка: выкл",
+      eval_even: "позиция равная",
+      eval_white_mate: "белые ставят мат в {n}",
+      eval_black_mate: "чёрные ставят мат в {n}",
+      eval_white_better: "белые впереди на {n}",
+      eval_black_better: "чёрные впереди на {n}",
+      restart_title: "Начать заново?",
+      restart_body: "Текущая партия будет сброшена и не сохранится. Цвет фигур, сложность бота и контроль времени останутся прежними.",
+      restart_hint: "Esc — отмена, Enter — начать заново",
       screen_settings_title: "Настройки",
       label_theme: "Тема:",
       theme_dark: "Тёмная",
@@ -73,6 +95,8 @@ const UI = {
       discord_cta: "Больше тактик в Discord",
       play_banner_text: "Playquor теперь в Google Play",
       play_banner_cta: "Установить",
+      discord_banner_text: "Playquor теперь в Discord",
+      discord_banner_cta: "Присоединиться",
       btn_to_menu: "В меню",
       btn_rematch: "Реванш",
       btn_rematch_waiting: "Ждем ответа соперника...",
@@ -99,6 +123,9 @@ const UI = {
       screen_room_title: "Игра с другом",
       header_sign_in: "Войти",
       header_sign_up: "Регистрация",
+      nav_play: "Играть",
+      nav_leaderboard: "Рейтинг",
+      nav_rules: "Правила",
       btn_create_room: "Создать комнату",
       btn_join_room: "Войти",
       room_created_msg: "Код комнаты создан! Отправьте его другу:",
@@ -336,6 +363,28 @@ const UI = {
       btn_play_white: "⚪ Play as White",
       btn_play_black: "⚫ Play as Black",
       btn_surrender: "Surrender",
+      btn_start: "Start",
+      btn_undo: "Undo move",
+      btn_restart: "Restart",
+      btn_menu: "Main menu",
+      btn_moves: "Moves",
+      btn_cancel: "Cancel",
+      eval_title: "Evaluation",
+      eval_depth_group: "Search depth",
+      eval_depth_fast: "Fast",
+      eval_depth_normal: "Normal",
+      eval_depth_deep: "Deep",
+      eval_label_prefix: "Eval: ",
+      eval_analyzing: "Analyzing…",
+      eval_off_short: "Eval: Off",
+      eval_even: "about equal",
+      eval_white_mate: "White wins in {n} moves",
+      eval_black_mate: "Black wins in {n} moves",
+      eval_white_better: "White ahead by {n}",
+      eval_black_better: "Black ahead by {n}",
+      restart_title: "Restart game?",
+      restart_body: "The current game will be discarded and won't be saved. Your colour, bot difficulty and time control stay the same.",
+      restart_hint: "Esc to cancel, Enter to restart",
       screen_settings_title: "Settings",
       label_theme: "Theme:",
       theme_dark: "Dark",
@@ -359,6 +408,8 @@ const UI = {
       discord_cta: "More tactics on Discord",
       play_banner_text: "Playquor is now on Google Play",
       play_banner_cta: "Get it on",
+      discord_banner_text: "Playquor is now on Discord",
+      discord_banner_cta: "Join",
       btn_to_menu: "Exit",
       btn_rematch: "Rematch",
       btn_rematch_waiting: "Waiting for opponent...",
@@ -385,6 +436,9 @@ const UI = {
       screen_room_title: "Play with Friend",
       header_sign_in: "Sign In",
       header_sign_up: "Sign Up",
+      nav_play: "Play",
+      nav_leaderboard: "Leaderboard",
+      nav_rules: "Rules",
       btn_create_room: "Create Room",
       btn_join_room: "Join",
       room_created_msg: "Room code created! Send it to your friend:",
@@ -648,7 +702,56 @@ const UI = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    this.setActiveNav(['mainMenu', 'modeScreen', 'roomScreen'].includes(id) ? 'play' : null);
+    this.closeMobileNav();
     this.updateHeaderVisibility();
+  },
+
+  setActiveNav(key) {
+    document.querySelectorAll('.header-nav-link[data-nav]').forEach(a => {
+      const on = a.dataset.nav === key;
+      a.classList.toggle('active', on);
+      if (on) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+  },
+
+  closeMobileNav() {
+    const nav = document.getElementById('headerNavMobile');
+    const btn = document.getElementById('headerMenuBtn');
+    if (nav) {
+      nav.classList.add('hidden');
+      nav.classList.remove('open');
+    }
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', UI._onDocClickNav);
+    document.removeEventListener('keydown', UI._onKeydownNav);
+  },
+
+  toggleMobileNav(e) {
+    if (e) e.stopPropagation();
+    const nav = document.getElementById('headerNavMobile');
+    const btn = document.getElementById('headerMenuBtn');
+    if (!nav) return;
+    const willOpen = nav.classList.contains('hidden');
+    if (!willOpen) {
+      this.closeMobileNav();
+      return;
+    }
+    nav.classList.remove('hidden');
+    nav.classList.add('open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    UI._onDocClickNav = function (ev) {
+      if (btn && btn.contains(ev.target)) return;
+      UI.closeMobileNav();
+    };
+    UI._onKeydownNav = function (ev) {
+      if (ev.key === 'Escape') UI.closeMobileNav();
+    };
+    setTimeout(() => {
+      document.addEventListener('click', UI._onDocClickNav);
+      document.addEventListener('keydown', UI._onKeydownNav);
+    }, 0);
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
@@ -812,6 +915,11 @@ const UI = {
     // Sync header language selector
     const headerLang = document.getElementById('headerLang');
     if (headerLang) headerLang.value = lang;
+
+    // Dynamic (JS-rendered) labels are not covered by [data-i18n]; refresh them.
+    if (typeof Game !== 'undefined' && Game.refreshBotControls) {
+      try { Game.refreshBotControls(); } catch (e) { /* ignore */ }
+    }
   },
 
   changeLanguage(lang) {
@@ -2325,8 +2433,10 @@ UI.updateAuthUI = function () {
   const avatarImg = document.getElementById('headerAvatarImg');
   const notifBell = document.getElementById('notificationBell');
   const adminLink = document.getElementById('headerAdminLink');
+  const loginBtnMobile = document.getElementById('headerLoginBtnMobile');
 
   if (this.currentUser) {
+    if (loginBtnMobile) loginBtnMobile.classList.add('hidden');
     if (headerAuth) headerAuth.classList.add('hidden');
     if (headerProfile) headerProfile.classList.remove('hidden');
     if (usernameEl) usernameEl.textContent = this.currentUser.username;
@@ -2344,6 +2454,7 @@ UI.updateAuthUI = function () {
     if (headerProfile) headerProfile.classList.add('hidden');
     if (notifBell) notifBell.classList.add('hidden');
     if (adminLink) adminLink.classList.add('hidden');
+    if (loginBtnMobile) loginBtnMobile.classList.remove('hidden');
     this.notifications = [];
     this.updateNotifBadge();
   }
@@ -3449,6 +3560,20 @@ document.addEventListener('DOMContentLoaded', () => {
       playBannerClose.addEventListener('click', () => {
         playBanner.classList.add('hidden');
         localStorage.setItem('quoridor-play-banner-dismissed', '1');
+      });
+    }
+  }
+
+  const discordBanner = document.getElementById('discordBanner');
+  if (discordBanner) {
+    const discordBannerClose = document.getElementById('discordBannerClose');
+    if (localStorage.getItem('quoridor-discord-banner-dismissed') === '1') {
+      discordBanner.classList.add('hidden');
+    }
+    if (discordBannerClose) {
+      discordBannerClose.addEventListener('click', () => {
+        discordBanner.classList.add('hidden');
+        localStorage.setItem('quoridor-discord-banner-dismissed', '1');
       });
     }
   }

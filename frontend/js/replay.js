@@ -13,6 +13,21 @@ let perspective = 0;
 let cachedBlob = null;
 let cachedURL = null;
 
+// Engine evaluation (eval bar + move annotations)
+var ENGINE_VERSION = '1.3.2';
+var DEFAULT_NODES = 250000;
+var EVAL_DEPTH_DEFAULT = 6;
+var EVAL_K = 1000;                 // winProb = 1/(1+exp(-s/K)), s in raw engine units
+var ANNOT_INACCURACY = 15;         // win-probability percentage points
+var ANNOT_MISTAKE = 25;
+var ANNOT_BLUNDER = 40;
+var evals = null;                  // per-snapshot {s,mate,draw,depth,truncated,term}
+var evalWorker = null;
+var evalToken = 0;
+var evalDepth = EVAL_DEPTH_DEFAULT;
+var evalWatchdog = null;
+var evalAnalyzing = false;
+
 // Animation state (matching game.js architecture)
 let activeAnimations = {};   // { [playerIdx]: { start: {r,c}, end: {r,c}, startTime, duration } }
 let activeWallAnimations = {}; // { [key]: { startTime, duration } } where key = r-c-v/h
@@ -46,6 +61,7 @@ function loadGame(gameId) {
         updatePlayerBars();
         draw();
         updateResult();
+        startAnalysis();
       } else {
         info.textContent = 'No replay data for this game.';
       }
@@ -89,6 +105,7 @@ function loadLocalGame(gameId) {
       updatePlayerBars();
       draw();
       updateResult();
+      startAnalysis();
     } else {
       info.textContent = 'No replay data for this game.';
     }
@@ -341,7 +358,7 @@ function renderMoveHistory() {
 
     var startRow = document.createElement('div');
     startRow.className = 'history-row start-row';
-    startRow.innerHTML = '<span class="move' + (currentMove === 0 ? ' active' : '') + '" onclick="goToMove(0)">Start</span>';
+    startRow.innerHTML = '<span class="move' + (currentMove === 0 ? ' active' : '') + '" data-move="0" onclick="goToMove(0)">Start</span>';
     list.appendChild(startRow);
 
     for (var i = 0; i < history.length; i += 2) {
@@ -357,8 +374,8 @@ function renderMoveHistory() {
       var active1 = currentMove === i + 1 ? ' active' : '';
       var active2 = currentMove === i + 2 ? ' active' : '';
 
-      row.innerHTML = '<span class="move' + active1 + '" onclick="goToMove(' + (i + 1) + ')">' + n1 + '</span>' +
-                      '<span class="move' + active2 + '" onclick="goToMove(' + (i + 2) + ')">' + n2 + '</span>';
+      row.innerHTML = '<span class="move' + active1 + '" data-move="' + (i + 1) + '" onclick="goToMove(' + (i + 1) + ')">' + n1 + '</span>' +
+                      '<span class="move' + active2 + '" data-move="' + (i + 2) + '" onclick="goToMove(' + (i + 2) + ')">' + n2 + '</span>';
       list.appendChild(row);
     }
   } else {
@@ -369,6 +386,8 @@ function renderMoveHistory() {
       span.classList.toggle('active', idx === currentMove);
     }
   }
+
+  applyAnnotations();
 
   if (!isPlaying) {
     var active = list.querySelector('.move.active');
@@ -384,6 +403,193 @@ function updateResult() {
   if (winner === 0) label = (gameData.playerWhite?.username || 'White') + ' won';
   else if (winner === 1) label = (gameData.playerBlack?.username || 'Black') + ' won';
   el.textContent = label + ' \u00B7 ' + (gameData.reason || 'goal') + ' \u00B7 ' + (gameData.turns || snapshots.length - 1) + ' moves';
+}
+
+// ---------------------------------------------------------------------------
+// Engine evaluation (eval bar + move annotations)
+// ---------------------------------------------------------------------------
+
+function evalGameId() {
+  return window.location.pathname.split('/').pop();
+}
+
+function winProb(s) {
+  return 1 / (1 + Math.exp(-s / EVAL_K));
+}
+
+function evalStorageKey(gameId, depth) {
+  return 'quoridor_evals_' + gameId + '_v' + ENGINE_VERSION + '_d' + depth;
+}
+
+function slimSnapshot(s) {
+  return {
+    hWalls: s.hWalls,
+    vWalls: s.vWalls,
+    players: [
+      { color: s.players[0].color, pos: { r: s.players[0].pos.r, c: s.players[0].pos.c }, wallsLeft: s.players[0].wallsLeft },
+      { color: s.players[1].color, pos: { r: s.players[1].pos.r, c: s.players[1].pos.c }, wallsLeft: s.players[1].wallsLeft }
+    ],
+    currentPlayer: s.currentPlayer
+  };
+}
+
+function setEvalStatus(text) {
+  var el = document.getElementById('evalStatus');
+  if (el) el.textContent = text || '';
+}
+
+function stopAnalysis() {
+  if (evalWorker) { evalWorker.terminate(); evalWorker = null; }
+  if (evalWatchdog) { clearTimeout(evalWatchdog); evalWatchdog = null; }
+  evalAnalyzing = false;
+  evalToken++;
+}
+
+function startAnalysis() {
+  if (!gameData || !snapshots || snapshots.length < 2) return;
+  stopAnalysis();
+  var token = evalToken;
+
+  var cached = null;
+  try {
+    var raw = localStorage.getItem(evalStorageKey(evalGameId(), evalDepth));
+    if (raw) cached = JSON.parse(raw);
+  } catch { cached = null; }
+
+  if (cached && cached.length === snapshots.length) {
+    evals = cached;
+    evalAnalyzing = false;
+    setEvalStatus('');
+    renderEval();
+    applyAnnotations();
+    return;
+  }
+
+  evals = new Array(snapshots.length).fill(null);
+  evalAnalyzing = true;
+  renderEval();
+  setEvalStatus('Analyzing\u2026');
+
+  try {
+    evalWorker = new Worker('/js/replay-eval-worker.js?v=' + ENGINE_VERSION);
+  } catch {
+    evalAnalyzing = false;
+    setEvalStatus('Eval unavailable');
+    return;
+  }
+
+  evalWorker.onmessage = function (e) { onEvalMessage(e, token); };
+  evalWorker.onerror = function () {
+    evalAnalyzing = false;
+    setEvalStatus('Eval error');
+  };
+
+  evalWorker.postMessage({
+    type: 'analyze',
+    token: token,
+    depth: evalDepth,
+    nodes: DEFAULT_NODES,
+    winner: gameData.winner,
+    snapshots: snapshots.map(slimSnapshot)
+  });
+
+  evalWatchdog = setTimeout(function () {
+    if (!evalAnalyzing) return;
+    stopAnalysis();
+    setEvalStatus('Eval timed out');
+    renderEval();
+  }, 20000);
+}
+
+function onEvalMessage(e, token) {
+  var msg = e.data || {};
+  if (msg.token !== token) return;
+
+  if (msg.type === 'progress') {
+    evals[msg.i] = msg.eval;
+    var done = 0;
+    for (var i = 0; i < evals.length; i++) { if (evals[i]) done++; }
+    if (evalAnalyzing) setEvalStatus('Analyzing ' + done + '/' + evals.length + '\u2026');
+    if (msg.i === currentMove) renderEval();
+    annotateMove(msg.i);
+    return;
+  }
+
+  if (msg.type === 'done') {
+    evals = msg.evals;
+    evalAnalyzing = false;
+    if (evalWatchdog) { clearTimeout(evalWatchdog); evalWatchdog = null; }
+    setEvalStatus('');
+    renderEval();
+    applyAnnotations();
+    try { localStorage.setItem(evalStorageKey(evalGameId(), evalDepth), JSON.stringify(evals)); } catch { /* quota */ }
+    return;
+  }
+
+  if (msg.type === 'error') {
+    evalAnalyzing = false;
+    setEvalStatus('Eval error');
+  }
+}
+
+function formatEval(ev) {
+  if (!ev) return '\u2013';
+  if (ev.term && ev.draw) return '=';
+  var s = ev.s;
+  if (Math.abs(s) > 100000 - 64) {
+    var n = Math.ceil((100000 - Math.abs(s)) / 2);
+    return (s > 0 ? '+' : '-') + 'M' + n;
+  }
+  var v = s / 100;
+  if (v >= 20) return '+20+';
+  if (v <= -20) return '-20+';
+  return (v > 0 ? '+' : '') + v.toFixed(1);
+}
+
+function renderEval() {
+  var p0El = document.getElementById('evalFillP0');
+  var p1El = document.getElementById('evalFillP1');
+  var numEl = document.getElementById('evalNum');
+  if (!p0El || !p1El) return;
+  var ev = evals ? evals[currentMove] : null;
+  var p0 = ev ? winProb(ev.s) : 0.5;
+  p0El.style.flexGrow = String(p0);
+  p1El.style.flexGrow = String(1 - p0);
+  if (numEl) numEl.textContent = formatEval(ev);
+}
+
+function annotateMove(k) {
+  if (!evals || k < 1 || !gameData || !gameData.history) return;
+  var el = document.querySelector('#historyList .move[data-move="' + k + '"]');
+  if (!el) return;
+  var before = evals[k - 1];
+  var after = evals[k];
+  if (!before || !after) return;
+
+  el.classList.remove('inaccuracy', 'mistake', 'blunder');
+  if (before.draw || after.draw) return;
+
+  var rec = gameData.history[k - 1];
+  var px = rec ? (typeof rec.move.playerIdx === 'number' ? rec.move.playerIdx : rec.playerIdx) : undefined;
+  if (typeof px !== 'number') return;
+
+  var pBefore = px === 0 ? winProb(before.s) : 1 - winProb(before.s);
+  var pAfter = px === 0 ? winProb(after.s) : 1 - winProb(after.s);
+  var loss = (pBefore - pAfter) * 100;
+
+  if (loss >= ANNOT_BLUNDER) el.classList.add('blunder');
+  else if (loss >= ANNOT_MISTAKE) el.classList.add('mistake');
+  else if (loss >= ANNOT_INACCURACY) el.classList.add('inaccuracy');
+}
+
+function applyAnnotations() {
+  if (!evals || !gameData || !gameData.history) return;
+  for (var k = 1; k < evals.length && k <= gameData.history.length; k++) annotateMove(k);
+}
+
+function setEvalDepth(d) {
+  evalDepth = d;
+  startAnalysis();
 }
 
 function goToMove(idx, animate) {
@@ -429,6 +635,7 @@ function goToMove(idx, animate) {
   draw();
   renderMoveHistory();
   updatePlayerBars();
+  renderEval();
 }
 
 function prevMove() { goToMove(currentMove - 1); }
@@ -802,3 +1009,11 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Home') { e.preventDefault(); goToStart(); }
   if (e.key === 'End') { e.preventDefault(); goToEnd(); }
 });
+
+var depthSelect = document.getElementById('evalDepth');
+if (depthSelect) {
+  depthSelect.addEventListener('change', function () { setEvalDepth(Number(this.value)); });
+}
+
+window.addEventListener('pagehide', stopAnalysis);
+window.addEventListener('beforeunload', stopAnalysis);

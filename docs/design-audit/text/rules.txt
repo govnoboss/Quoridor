@@ -1,0 +1,193 @@
+PlayQuor
+RU
+EN
+←
+Back to Home
+ENGLISH
+
+# Quoridor Rules — How to Play
+
+Last updated: June 14, 2026
+
+Quoridor is a strategic board game for 2 players. The rules are simple to learn but the game offers deep tactical play. Here is everything you need to know to start playing.
+
+## Objective
+
+Be the first player to reach any square on the opposite side of the board from where you started.
+
+## Board Setup
+
+The game is played on a
+9x9 grid
+. Each player has one
+pawn
+and a set of
+walls
+:
+
+Each player has
+10 walls
+and one pawn. Players start on opposite sides of the board. Each player's goal is the row directly opposite their starting position.
+
+## Moving Your Pawn
+
+On your turn, you can move your pawn
+one square orthogonally
+(up, down, left, or right). You cannot move diagonally. You cannot move through walls or exit the board.
+
+If there is no wall blocking you, you simply advance one square in any direction.
+
+Tip:
+Moving forward is usually best, but sometimes you need to go sideways or even backward to outmaneuver your opponent.
+
+## Placing Walls
+
+Instead of moving your pawn, you may
+place a wall
+. Walls block two adjacent squares along their edge. Key rules:
+
+Walls are placed between squares, not on top of them
+
+A wall blocks movement through that passage for both players
+
+You
+cannot
+place a wall that completely blocks a player from reaching their goal — at least one path must always remain
+
+Walls can touch each other, forming longer barriers
+
+Once placed, a wall cannot be moved or removed
+
+Walls are your main tactical tool. Use them to block your opponent while keeping your own path open.
+
+Tip:
+In the opening, focus on advancing your pawn rather than placing walls. Save walls for mid-game when you know which direction your opponent wants to go.
+
+## Jumping Over Opponents
+
+If your pawn is
+directly adjacent
+(orthogonally) to an opponent's pawn, you can
+jump over them
+on your turn instead of a normal move. The rules depend on what is behind the opponent:
+
+Clear space behind:
+Jump to the square immediately behind the opponent
+
+Wall behind the opponent:
+If the square behind is blocked by a wall, you may land diagonally instead
+
+Another pawn behind:
+If another pawn is directly behind, you may land diagonally
+
+Jumping is optional — you can always make a normal move instead.
+
+## Winning the Game
+
+The
+first player
+to reach any square on the opposite edge of the board
+wins
+. You do not need to land exactly on the edge — reaching any square on the final row is enough.
+
+If you run out of walls, you can only move your pawn for the rest of the game.
+
+Summary:
+Move forward, use walls to block your opponent, jump over them when adjacent, and reach the opposite side first. That is all you need to know to start playing!
+
+Ready to play?
+
+Play Quoridor Online Now
+FAQ — Common Questions
+Strategy Guide
+Multiplayer Mode
+RUSSIAN
+
+# Правила игры Коридор — как играть
+
+Последнее обновление: 14 июня 2026 г.
+
+Коридор (Quoridor) — стратегическая настольная игра для 2 игроков. Правила просты, но игра предлагает глубокую тактику. Вот всё, что нужно знать для начала.
+
+## Цель игры
+
+Первым достичь любого поля на противоположной стороне доски от своей стартовой позиции.
+
+## Подготовка к игре
+
+Игра проходит на
+доске 9x9
+. У каждого игрока есть одна
+пешка
+и набор
+стен
+:
+
+У каждого игрока
+10 стен
+и одна пешка. Игроки начинают на противоположных сторонах доски. Цель каждого — ряд напротив своей стартовой позиции.
+
+## Перемещение пешки
+
+В свой ход вы можете переместить пешку
+на одно поле ортогонально
+(вверх, вниз, влево или вправо). Нельзя ходить по диагонали, через стены или за пределы доски.
+
+Совет:
+Обычно лучше двигаться вперёд, но иногда нужно отступить или пойти в сторону, чтобы перехитрить соперника.
+
+## Размещение стен
+
+Вместо хода пешкой вы можете
+поставить стену
+. Стена блокирует проход между двумя полями. Основные правила:
+
+Стены ставятся между полями, а не на сами поля
+
+Стена блокирует проход для обоих игроков
+
+Нельзя
+ставить стену так, чтобы полностью перекрыть путь к цели для любого игрока — хотя бы один путь должен оставаться
+
+Стены могут соприкасаться друг с другом
+
+Поставленную стену нельзя переместить или убрать
+
+Совет:
+В начале игры сосредоточьтесь на продвижении пешки, а не на установке стен. Приберегите стены для середины игры, когда станет ясно, куда направляется соперник.
+
+## Прыжок через соперника
+
+Если ваша пешка
+находится рядом
+с пешкой соперника, вы можете
+перепрыгнуть
+через неё. Правила зависят от того, что находится за соперником:
+
+Свободное поле:
+прыгайте на поле сразу за соперником
+
+Стена за соперником:
+если поле за ним занято стеной, можно приземлиться по диагонали
+
+Ещё одна пешка:
+если за соперником стоит другая пешка, можно приземлиться по диагонали
+
+Прыжок не обязателен — вы всегда можете сделать обычный ход.
+
+## Конец игры
+
+Первый игрок
+, достигший любого поля на противоположном краю доски,
+побеждает
+. Если у вас закончились стены, вы можете только ходить пешкой.
+
+Кратко:
+Двигайтесь вперёд, используйте стены для блокировки соперника, перепрыгивайте через него при возможности и первым достигните противоположной стороны.
+
+Готовы играть?
+
+Играть в Коридор онлайн
+Часто задаваемые вопросы
+Стратегия игры
+Мультиплеер
