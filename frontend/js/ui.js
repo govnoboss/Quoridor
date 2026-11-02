@@ -747,6 +747,9 @@ const UI = {
   // Динамические подписи главной — подставляем свежую статистику в словарные строки с {n}.
   refreshDynamicTexts() {
     const stats = this.lastOnlineStats || { online: 0, playing: 0 };
+    const countEl = document.getElementById('statsOnlineCount');
+    if (countEl) countEl.textContent = String(stats.online);
+
     const labelEl = document.getElementById('onlineStatsLabel');
     if (labelEl) labelEl.textContent = this.translate('online_label').replace('{n}', stats.playing);
     const subEl = document.getElementById('menuOnlineSub');
