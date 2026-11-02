@@ -370,7 +370,7 @@ const UI = {
       howto_wall_title: "Walls",
       howto_wall_text: "Each player has 10 walls. Walls block passage, but you cannot completely block the opponent's only path to their goal. Walls are placed between squares.",
       howto_tip_title: "Tip",
-      howto_tip_text: "Use walls not only for defense, but also to force your opponent into a long detour while you advance toward your goal.",
+      howto_tip_text: "Walls are an offensive tool too: use them to force your opponent into a long detour while you advance toward the goal.",
       menu_play_online: "Play Online",
       panel_play_online_title: "Play Online",
       panel_play_ranked: "Ranked",
