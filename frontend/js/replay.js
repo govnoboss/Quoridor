@@ -1,7 +1,31 @@
 const CELL = 120;
 const BOARD = 1080;
-const WALL_THICK = 20;
-const GAP = 8;
+// Тема нового игрового экрана (как в game.js: canvas1-Main). Стены/пешки/клетки — из CSS-переменных.
+const WALL_THICK = 10;   // 6px на базовой клетке 72 → 6/72*120 = 10
+const GAP = 2.4;         // зазор стены = полширины тонкой линии (3/75 клетки)
+// Геометрия клеток/подписей — та же, что в drawGrid/drawCoordinates игрового экрана.
+var boardThemeCache = null;
+function boardTheme() {
+  if (boardThemeCache) return boardThemeCache;
+  var style = getComputedStyle(document.documentElement);
+  var cssVar = function (name, fallback) {
+    var v = style.getPropertyValue(name);
+    v = v ? v.trim() : '';
+    return v || fallback;
+  };
+  boardThemeCache = {
+    cellFill: cssVar('--cell-2', '#222327'),
+    coordColor: cssVar('--text-faint', '#6c6f76'),
+    fontFamily: cssVar('--font-sans', 'Manrope, sans-serif'),
+    pawnWhite: cssVar('--pawn-white', '#f3f3f3'),
+    pawnWhiteBorder: cssVar('--pawn-white-border', '#ffffff'),
+    pawnBlack: cssVar('--pawn-black', '#0f0f11'),
+    pawnBlackBorder: cssVar('--pawn-black-border', '#4a4c52'),
+    wall: cssVar('--wall', '#e8a02f'),
+    panel: cssVar('--panel', '#131417'),
+  };
+  return boardThemeCache;
+}
 
 let gameData = null;
 let snapshots = [];
@@ -186,13 +210,29 @@ function draw() {
 }
 
 function drawGrid(state) {
-  BoardRenderer.drawGrid(ctx, { cellSize: CELL });
+  BoardRenderer.drawGrid(ctx, {
+    cellSize: CELL,
+    // canvas1-Main: зазор 3px на клетке 72 → pad 2.4 (visual 115.2/120);
+    // радиус 4 на клетке 72 → 4*(115.2/72) = 6.4.
+    padding: 2.4,
+    cellRadius: 6.4,
+    cellFill: boardTheme().cellFill,
+  });
 }
 
 function drawCoords() {
   BoardRenderer.drawCoordinates(ctx, {
     cellSize: CELL,
-    fontFamily: 'Inter, sans-serif',
+    coordColor: boardTheme().coordColor,
+    fontFamily: boardTheme().fontFamily,
+    // canvas1-Main: 12px на клетке 72 → 12/72*120 = 20.
+    fontSize: CELL * (12 / 72),
+    padding: 2.4,
+    // отступы 6/4/7/4 на клетке 72, плюс pad 2.4 на каждый сдвиг.
+    coordInsetLeft: 2.4 + 6 * (120 / 72),
+    coordInsetTop: 2.4 + 4 * (120 / 72),
+    coordInsetRight: 2.4 + 7 * (120 / 72),
+    coordInsetBottom: 2.4 + 4 * (120 / 72),
   });
 }
 
@@ -218,6 +258,9 @@ function drawWalls(state) {
     cellSize: CELL,
     gap: GAP,
     wallThick: WALL_THICK,
+    // canvas1-Main: скругление стены = половина толщины (3/6).
+    wallRadius: WALL_THICK / 2,
+    wallColor: boardTheme().wall,
     transformWallRow: function(r) { return perspective === 1 ? 7 - r : r; },
     wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
   });
@@ -254,10 +297,16 @@ function drawPawns(state) {
     }
   }
 
+  var theme = boardTheme();
   BoardRenderer.drawPawns(ctx, state, {
     cellSize: CELL,
     transformRow: function(r) { return tr(r); },
     pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
+    pawnFillColors: state.players.map(function(p) { return p.color === 'white' ? theme.pawnWhite : theme.pawnBlack; }),
+    pawnStrokeColors: state.players.map(function(p) { return p.color === 'white' ? theme.pawnWhiteBorder : theme.pawnBlackBorder; }),
+    pawnStrokeWidth: 3.3,
+    // canvas1-Main: пешки 52px на клетке 72 → радиус 26/72 клетки.
+    pawnRadius: CELL * (26 / 72),
   });
 
   if (needsRedraw) {
@@ -889,8 +938,9 @@ function exportFallback() {
 }
 
 function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
+  var theme = boardTheme();
   var panelH = 42;
-  ectx.fillStyle = '#333';
+  ectx.fillStyle = theme.panel;
   ectx.fillRect(x, y, w, panelH);
 
   var pieceW = 34;
@@ -902,7 +952,7 @@ function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
 
   for (var i = 0; i < 10; i++) {
     if (i >= wallsLeft) ectx.globalAlpha = 0.15;
-    ectx.fillStyle = '#e09f3e';
+    ectx.fillStyle = theme.wall;
     ectx.fillRect(startX + i * (pieceW + gap), pieceY, pieceW, pieceH);
     ectx.globalAlpha = 1;
   }
@@ -941,12 +991,30 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
     }
   }
 
-  BoardRenderer.drawGrid(ectx, { cellSize: cellSize });
-  BoardRenderer.drawCoordinates(ectx, { cellSize: cellSize });
+  var exportTheme = boardTheme();
+  BoardRenderer.drawGrid(ectx, {
+    cellSize: cellSize,
+    padding: 2.4,
+    cellRadius: 6.4,
+    cellFill: exportTheme.cellFill,
+  });
+  BoardRenderer.drawCoordinates(ectx, {
+    cellSize: cellSize,
+    coordColor: exportTheme.coordColor,
+    fontFamily: exportTheme.fontFamily,
+    fontSize: cellSize * (12 / 72),
+    padding: 2.4,
+    coordInsetLeft: 2.4 + 6 * (120 / 72),
+    coordInsetTop: 2.4 + 4 * (120 / 72),
+    coordInsetRight: 2.4 + 7 * (120 / 72),
+    coordInsetBottom: 2.4 + 4 * (120 / 72),
+  });
   BoardRenderer.drawPlacedWalls(ectx, state, {
     cellSize: cellSize,
-    gap: 8,
-    wallThick: 20,
+    gap: GAP,
+    wallThick: WALL_THICK,
+    wallRadius: WALL_THICK / 2,
+    wallColor: exportTheme.wall,
     transformWallRow: function(r) { return perspective === 1 ? 7 - r : r; },
     wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
   });
@@ -968,6 +1036,10 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
     cellSize: cellSize,
     transformRow: function(r) { return perspective === 1 ? 8 - r : r; },
     pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
+    pawnFillColors: state.players.map(function(p) { return p.color === 'white' ? exportTheme.pawnWhite : exportTheme.pawnBlack; }),
+    pawnStrokeColors: state.players.map(function(p) { return p.color === 'white' ? exportTheme.pawnWhiteBorder : exportTheme.pawnBlackBorder; }),
+    pawnStrokeWidth: 3.3,
+    pawnRadius: cellSize * (26 / 72),
   });
 
   ectx.restore();

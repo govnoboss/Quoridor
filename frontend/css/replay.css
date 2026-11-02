@@ -1,11 +1,8 @@
 :root {
-    --bg: #0f0f0f;
-    --panel: #1a1a2e;
-    --text: #eee;
-    --wall: #e09f3e;
-    --border: #333;
-    --muted: #888;
     color-scheme: dark;
+    /* Палитра страницы — глобальные токены (tokens.css): --bg/--panel/--text/--wall/--border.
+       Локально оставляем только алиас отсутствующего в tokens.css имени. */
+    --muted: var(--text-faint);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
