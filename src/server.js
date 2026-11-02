@@ -156,6 +156,8 @@ const authLimiter = rateLimit({
     message: { error: 'Too many requests. Try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
+    // В тестах jest гонит десятки логинов с одного IP — лимитер не тестируем.
+    skip: () => process.env.NODE_ENV === 'test',
 });
 
 // Apply to auth routes
@@ -168,6 +170,7 @@ const globalLimiter = rateLimit({
     message: { error: 'Too many requests. Try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
 });
 app.use(globalLimiter);
 
