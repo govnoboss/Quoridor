@@ -2,530 +2,933 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-  <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
-    <title>Quoridor Leaderboard — Top Players | PlayQuor</title>
+    <title>Quoridor Leaderboard тАФ Top Players | PlayQuor</title>
     <meta name="description" content="Top Quoridor players ranked by rating. See the best players, their ratings and stats on the official leaderboard." />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="canonical" href="https://playquor.org/leaderboard" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/css/tokens.css?v=2.0.0" type="text/css" />
-    <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1" type="text/css" />
     <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.32" type="text/css" />
+    <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
     <script defer src="https://analytics.playquor.org/script.js" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
     <script src="/js/analytics.js?v=1.1.0"></script>
     <style>
-        html, body { overflow-y: auto; }
-
-        /* --- Leaderboard page (mockup Leaderboard.html) --- */
-        .lbp-page {
-            min-height: calc(100vh - var(--header-h));
-            display: flex;
-            justify-content: center;
-            padding: calc(var(--header-h) + 32px) 16px 80px;
-            box-sizing: border-box;
+        html, body {
+            overflow-y: auto;
+            overflow-x: hidden;
         }
-        .lbp-main {
-            width: 100%;
-            max-width: 720px;
+
+        /* ╨Ю╨▒╤С╤А╤В╨║╨░ ╨┐╨╛╨┤ ╤Д╨╕╨║╤Б╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╣ ╤И╨░╨┐╨║╨╛╨╣; ╨╝╨░╤Б╤И╤В╨░╨▒ (zoom) ╨┐╤А╨╕╨╝╨╡╨╜╤П╨╡╨╝ ╨║ ╨║╨╛╨╜╤В╨╡╨╣╨╜╨╡╤А╤Г,
+           ╨╜╨╡ ╨║ ╤И╨░╨┐╨║╨╡ (╨в╨Ч 5) */
+        .lb-page {
+            min-height: calc(100vh - var(--header-h) * var(--sp, 1));
+            margin-top: var(--header-h);
+            padding-bottom: 80px;
+        }
+
+        .lb-container {
+            width: 720px;
+            margin: 0 auto;
+            padding-top: 32px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
         }
-        .lbp-headrow {
+
+        /* 2.1 ╨Ч╨░╨│╨╛╨╗╨╛╨▓╨╛╨║ */
+        .lb-head {
             display: flex;
             align-items: center;
             gap: 16px;
         }
-        .lbp-back {
+        .lb-back {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             width: 44px;
             height: 44px;
             border-radius: 50%;
             background: var(--panel);
             border: 1px solid var(--border-ctl);
-            display: flex;
-            align-items: center;
-            justify-content: center;
             color: var(--text);
-            flex: none;
+            text-decoration: none;
+            flex-shrink: 0;
+            transition: background .15s;
         }
-        .lbp-back svg { display: block; }
-        .lbp-headrow h1 {
+        .lb-back:hover { background: var(--hover-tint); }
+        .lb-back svg { width: 20px; height: 20px; display: block; }
+        .lb-title {
             margin: 0;
             font-size: 28px;
             font-weight: 800;
         }
-        .lbp-sub {
+        .lb-subtitle {
             margin: 8px 0 20px 60px;
             font-size: 14px;
-            color: #8b8f98;
+            color: var(--text-dim);
         }
 
-        /* Tabs (Rating / Win rate / This week) */
-        .lbp-tabs {
-            display: flex;
-            gap: 3px;
-            width: 360px;
-            max-width: 100%;
-            box-sizing: border-box;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 3px;
-        }
-        .lbp-tab {
-            flex: 1;
-            height: 38px;
-            background: transparent;
-            border: 0;
-            border-radius: 8px;
-            color: var(--text-3);
-            font-size: 13px;
-            font-weight: 400;
-            cursor: pointer;
-        }
-        .lbp-tab.is-active {
-            background: var(--accent);
-            color: var(--on-accent);
-            font-weight: 700;
-        }
-        .lbp-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        .lbp-tab.is-soon {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        /* Podium */
-        .lbp-podium {
-            margin-top: 24px;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-            align-items: end;
-        }
-        .lbp-card {
-            box-sizing: border-box;
-            height: 168px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            cursor: pointer;
-        }
-        .lbp-card:hover { border-color: var(--border-strong); }
-        .lbp-card--gold {
-            height: 196px;
-            background: var(--accent-bg);
-            border-color: var(--accent-border);
-        }
-        .lbp-medal {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--accent);
-            color: var(--on-accent);
-            font-size: 13px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .lbp-medal--2 { background: var(--silver); color: var(--medal-on-silver); }
-        .lbp-medal--3 { background: var(--bronze); color: var(--on-accent); }
-        .lbp-avatar {
-            border-radius: 50%;
-            background: var(--btn-neutral);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            flex: none;
-            overflow: hidden;
-        }
-        .lbp-card:not(.lbp-card--gold) .lbp-avatar {
-            width: 48px;
-            height: 48px;
-            font-size: 18px;
-        }
-        .lbp-card--gold .lbp-avatar {
-            width: 56px;
-            height: 56px;
-            background: var(--accent-chip);
-            font-size: 22px;
-            color: var(--accent);
-        }
-        .lbp-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        .lbp-name { font-size: 16px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .lbp-card--gold .lbp-name { font-size: 17px; }
-        .lbp-score { font-size: 20px; font-weight: 800; }
-        .lbp-card--gold .lbp-score { font-size: 24px; color: var(--accent); }
-        .lbp-games { font-size: 12px; color: #8b8f98; }
-        .lbp-card--gold .lbp-games { color: #a39a86; }
-
-        /* Table */
-        .lbp-table {
-            margin-top: 24px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .lbp-thead,
-        .lbp-row,
-        .lbp-you {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-sizing: border-box;
-            padding: 0 16px;
-        }
-        .lbp-thead {
-            height: 40px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            color: #8b8f98;
-            border-bottom: 1px solid var(--border);
-        }
-        .lbp-col-rank, .lbp-col-days, .lbp-col-rating, .lbp-col-rate, .lbp-col-games { flex: none; }
-        .lbp-col-rank { width: 40px; }
-        .lbp-player { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .lbp-thead .lbp-col-rating, .lbp-thead .lbp-col-days, .lbp-thead .lbp-col-rate, .lbp-thead .lbp-col-games { text-align: right; }
-        .lbp-col-rating { width: 64px; }
-        .lbp-col-days { width: 64px; }
-        .lbp-col-rate { width: 72px; }
-        .lbp-col-games { width: 64px; }
-
-        .lbp-row {
-            height: 52px;
-            font-size: 14px;
-            border-bottom: 1px solid var(--divider);
-            cursor: pointer;
-        }
-        .lbp-row:last-child { border-bottom: 0; }
-        .lbp-row:hover { background: var(--row-hover); }
-        .lbp-rank { font-weight: 700; color: var(--text-3); }
-        .lbp-row .lbp-avatar {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
-        }
-        .lbp-uname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .lbp-row .lbp-col-rating { font-weight: 800; }
-        .lbp-row .lbp-col-rate { color: var(--text-3); }
-        .lbp-row .lbp-col-days, .lbp-row .lbp-col-games { color: #8b8f98; }
-        .lbp-delta-up { font-weight: 600; color: var(--online-green); }
-        .lbp-delta-down { font-weight: 600; color: var(--danger); }
-        .lbp-delta-na { color: #8b8f98; }
-
-        /* You row */
-        .lbp-you {
-            margin-top: 12px;
-            height: 56px;
-            font-size: 14px;
-            background: var(--accent-bg-2);
-            border: 1px solid var(--accent-border);
-            border-radius: 12px;
-            cursor: pointer;
-        }
-        .lbp-you .lbp-rank { font-weight: 800; color: var(--accent); }
-        .lbp-you .lbp-avatar {
-            width: 28px;
-            height: 28px;
-            font-size: 12px;
-            font-weight: 800;
-            background: var(--accent);
-            color: var(--on-accent);
-        }
-        .lbp-you .lbp-uname { font-weight: 700; color: var(--accent); }
-        .lbp-you .lbp-col-rating { font-weight: 800; color: var(--accent); }
-        .lbp-you .lbp-col-rate { color: #c9bfa6; }
-        .lbp-you .lbp-col-days, .lbp-you .lbp-col-games { color: #a39a86; }
-
-        .lbp-empty {
-            padding: 40px 16px;
+        /* 2.4 ╨б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П */
+        .lb-state {
             text-align: center;
-            color: #8b8f98;
             font-size: 14px;
+            color: var(--text-dim);
+            padding: 40px 0;
+        }
+        .lb-state .pq-btn  { margin-top: 16px; }
+        .lb-podium-skel { display: none; }
+
+        /* 2.9 ╨г╨╖╨║╨╕╨╡ ╤Н╨║╤А╨░╨╜╤Л (╨┐╤А╨╛╨╕╨╖╨▓╨╛╨┤╨╜╨╛╨╡) */
+        @media (max-width: 768px) {
+            .lb-container {
+                width: 100%;
+                padding: 24px 16px 0;
+            }
+            .lb-subtitle {
+                margin-left: 0;
+                text-align: center;
+            }
+            .pq-seg { width: 100%; }
+            .pq-podium { gap: 8px; }
+            /* ╨в╨Ч 3a: ╨▒╨╡╨╖ ╤Б╨▓╨╡╤З╨╡╨╜╨╕╤П ╨╕ ╨║╨╛╤А╨╛╨╜╤Л; ╨▓╤Л╤Б╨╛╤В╤Л ╨░╨▓╤В╨╛, ╨░╨▓╨░╤В╨░╤А╤Л 40/48 */
+            .pq-podium__card,
+            .pq-podium__card--center { height: auto; min-height: 150px; box-shadow: none; }
+            .pq-podium__card--center { min-height: 180px; }
+            .pq-podium__crown { display: none; }
+            .pq-podium__card .pq-avatar,
+            .pq-podium__card[data-place="1"] .pq-avatar {
+                width: 40px; height: 40px; font-size: 16px; box-shadow: none;
+            }
+            .pq-podium__card--center .pq-avatar {
+                width: 48px; height: 48px; font-size: 18px;
+            }
+            .pq-podium__name { font-size: 13px; }
+            .pq-podium__rating { font-size: 16px; }
+            .pq-podium__card--center .pq-podium__rating { font-size: 18px; }
+        }
+        @media (max-width: 560px) {
+            .pq-col-week, .pq-col-games { display: none; }
+            .pq-col-rank { width: 32px; }
+            .pq-col-rating { width: 56px; }
+            .pq-col-winrate { width: 64px; }
         }
 
-        @media (max-width: 560px) {
-            .lbp-col-days, .lbp-thead .lbp-col-days,
-            .lbp-col-games, .lbp-thead .lbp-col-games { display: none; }
-            .lbp-sub { margin-left: 0; }
+        /* ╨Ъ╨╛╨╝╨┐╨░╨║╤В╨╜╤Л╨╣ ╤А╨╡╨╢╨╕╨╝ ╨┐╨╛ ╨Т╨л╨б╨Ю╨в╨Х: ╨▒╨╛╨╗╤М╤И╨╡ ╤Б╤В╤А╨╛╨║ ╤В╨░╨▒╨╗╨╕╤Ж╤Л ╨▓ ╨┐╨╡╤А╨▓╨╛╨╝ ╤Н╨║╤А╨░╨╜╨╡.
+           ╨в╨╕╤А 2 (╨╗╨░╨┐╤В╨╛╨┐╤Л ~1366├Ч768, 1440├Ч820, zoom-╤Б╨║╨╡╨╣╨╗ 1) */
+        @media (min-width: 769px) and (max-height: 960px) {
+            .lb-container { padding-top: 24px; }
+            .lb-subtitle { margin: 6px 0 16px 60px; }
+            /* 32px: ╨║╨╛╤А╨╛╨╜╨░ ╨╖╨░╨╜╨╕╨╝╨░╨╡╤В 16px ╨╜╨░╨┤ ╤Б╨╡╤В╨║╨╛╨╣ тЖТ ╨╖╨░╨╖╨╛╤А ╨▓╨║╨╗╨░╨┤╨║╨╕тЖТ╨║╨╛╤А╨╛╨╜╨░ тЙе16 */
+            .pq-podium { margin-top: 32px; }
+            .pq-podium__card { height: 176px; }
+            .pq-podium__card--center { height: 216px; }
+            .pq-table { margin-top: 18px; }
         }
-        @media (max-width: 480px) {
-            .lbp-podium { gap: 8px; }
-            .lbp-card { padding: 10px 6px; }
-            .lbp-name { font-size: 13px; }
-            .lbp-score { font-size: 16px; }
-            .lbp-card--gold .lbp-name { font-size: 14px; }
-            .lbp-card--gold .lbp-score { font-size: 19px; }
+        /* ╨в╨╕╤А 3 (╨╛╤З╨╡╨╜╤М ╨╜╨╕╨╖╨║╨╕╨╡ ╨╛╨║╨╜╨░) */
+        @media (min-width: 769px) and (max-height: 820px) {
+            .lb-container { padding-top: 16px; }
+            .lb-subtitle { margin: 4px 0 12px 60px; }
+            .lb-back { width: 36px; height: 36px; }
+            .lb-subtitle { margin-left: 52px; }
+            .pq-seg { height: 42px; padding: 2px; }
+            .pq-seg__item { height: 36px; }
+            .pq-podium { margin-top: 32px; gap: 10px; }
+            .pq-podium__card { height: auto; min-height: 124px; padding: 10px 12px; gap: 4px; }
+            .pq-podium__card--center { height: auto; min-height: 144px; }
+            .pq-podium__rating { font-size: 17px; }
+            .pq-podium__card--center .pq-podium__rating { font-size: 20px; }
+            .pq-table { margin-top: 14px; }
         }
+        background: var(--row-hover);
+    animation: pq-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---------- ╨Р╨▓╨░╤В╨░╤А╤Л ---------- */
+.pq-avatar {
+    border-radius: 50%;
+    background: var(--border-ctl);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-weight: 700;
+    user-select: none;
+}
+.pq-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.pq-avatar--28 { width: 28px; height: 28px; font-size: 13px; }
+.pq-avatar--40 { width: 40px; height: 40px; font-size: 16px; }
+.pq-avatar--48 { width: 48px; height: 48px; font-size: 18px; }
+.pq-avatar--56 { width: 56px; height: 56px; font-size: 22px; }
+.pq-avatar--64 { width: 64px; height: 64px; font-size: 24px; }
+/* ╤Ж╨╡╨╜╤В╤А╨░╨╗╤М╨╜╨░╤П ╨║╨░╤А╤В╨╛╤З╨║╨░ ╨┐╨╛╨┤╨╕╤Г╨╝╨░: ╨░╨║╤Ж╨╡╨╜╤В╨╜╤Л╨╣ ╤Д╨╛╨╜ ╨╕ ╤Ж╨▓╨╡╤В ╨▒╤Г╨║╨▓╤Л */
+.pq-avatar--accent {
+    background: var(--accent-chip);
+    color: var(--accent);
+}
+/* ╨▓╨░╤А╨╕╨░╨╜╤В ┬л╤Н╤В╨╛ ╤П┬╗ */
+.pq-avatar--me {
+    background: var(--accent-chip);
+    color: var(--accent);
+}
+
+/* ---------- ╨Ь╨╡╨┤╨░╨╗╨╕ ---------- */
+.pq-medal {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--accent);
+    color: var(--on-accent);
+    user-select: none;
+}
+.pq-medal--silver { background: var(--silver); color: var(--medal-on-silver); }
+.pq-medal--bronze { background: var(--bronze); color: var(--on-accent); }
+.pq-medal--lg { width: 28px; height: 28px; font-size: 13px; }
+
+/* ---------- ╨Т╨║╨╗╨░╨┤╨║╨╕ (segmented) ---------- */
+.pq-seg {
+    width: 360px;
+    max-width: 100%;
+    height: 46px;
+    box-sizing: border-box;
+    padding: 3px;
+    display: flex;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--border-ctl);
+    border-radius: 10px;
+}
+.pq-seg__item {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 0 10px;
+    transition: background .15s, color .15s;
+}
+.pq-seg__item:hover { color: var(--text); }
+.pq-seg__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pq-seg__item[aria-selected="true"] {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 700;
+}
+.pq-seg__item:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    color: var(--text-dim) !important;
+}
+
+/* ---------- ╨в╨░╨▒╨╗╨╕╤Ж╨░ ---------- */
+.pq-table { display: flex; flex-direction: column; }
+.pq-table__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+}
+.pq-table__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 14px;
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    min-width: 0;
+}
+.pq-table__row:last-child { border-bottom: none; }
+.pq-table__row:hover { background: var(--row-hover); }
+.pq-table__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ╨║╨╛╨╗╨╛╨╜╨║╨╕ (╨╛╨┤╨╕╨╜╨░╨║╨╛╨▓╤Л╨╡ ╨▓ ╤И╨░╨┐╨║╨╡ ╨╕ ╤Б╤В╤А╨╛╨║╨░╤Е) */
+.pq-col-rank    { width: 40px; flex-shrink: 0; text-align: left; }
+.pq-col-player  { flex: 1; min-width: 0; text-align: left; }
+.pq-col-rating  { width: 64px; flex-shrink: 0; text-align: right; }
+.pq-col-week    { width: 64px; flex-shrink: 0; text-align: right; }
+.pq-col-winrate { width: 72px; flex-shrink: 0; text-align: right; }
+.pq-col-games   { width: 64px; flex-shrink: 0; text-align: right; }
+
+.pq-table__rank {
+    font-weight: 700;
+    color: var(--text-2);
+}
+.pq-table__player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.pq-table__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pq-table__rating { font-weight: 800; }
+.pq-table__week { font-weight: 600; }
+.pq-table__winrate { color: var(--text-2); }
+.pq-table__games { color: var(--text-dim); }
+
+/* ╨▓╨░╤А╨╕╨░╨╜╤В╤Л ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ┬л7 days┬╗ */
+.pq-delta--up   { color: var(--success); }
+.pq-delta--down { color: var(--danger); }
+.pq-delta--zero, .pq-delta--none { color: var(--text-dim); }
+
+/* ---------- ╨б╤В╤А╨╛╨║╨░ ┬лYou┬╗ (╨┐╨╛╨┤ ╤В╨░╨▒╨╗╨╕╤Ж╨╡╨╣) ---------- */
+.pq-you {
+    margin-top: 12px;
+    height: 56px;
+    box-sizing: border-box;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    background: var(--accent-bg-2);
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
+    position: sticky;
+    bottom: 12px;
+    min-width: 0;
+}
+.pq-you__place { font-weight: 800; color: var(--accent); }
+.pq-you__player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+.pq-you__nick { font-weight: 700; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pq-you__week { font-weight: 600; color: var(--accent-text-2); }
+.pq-you__winrate { color: var(--accent-text-2); }
+.pq-you__games { color: var(--accent-text-dim); }
+
+/* ---------- ╨Я╨╛╨┤╨╕╤Г╨╝ (╨в╨Ч 3a, ╨▓╨░╤А╨╕╨░╨╜╤В A ┬л╤Б╨▓╨╡╤В ╨╕ ╨║╨╛╤А╨╛╨╜╨░┬╗) ---------- */
+/* ╨Ч╨░╨╖╨╛╤А ╨▓╨║╨╗╨░╨┤╨║╨╕ тЖТ ╨┐╨╛╨┤╨╕╤Г╨╝ 24px, ╨╛╤В╤Б╤В╤Г╨┐ ╤Б╨▓╨╡╤А╤Е╤Г ╤Б╨╡╤В╨║╨╕ ╨┐╤А╨╕ ╨║╨╛╤А╨╛╨╜╨╡ +16px */
+.pq-podium {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+/* ╨Т╤Л╤Б╨╛╤В╤Л ╤Б╤В╤А╨╛╨│╨╛ 176/216 (╨в╨Ч 3a): ╨╝╨╡╨┤╨░╨╗╤М ╨▓╤Л╨╜╨╡╤Б╨╡╨╜╨░ ╨╕╨╖ ╨┐╨╛╤В╨╛╨║╨░ (absolute),
+   ╤В╨╡╨║╤Б╤В ╤Б╨╢╨░╤В line-height тАФ ╨╕╨╜╨░╤З╨╡ ╨║╨╛╨╜╤В╨╡╨╜╤В ╨╜╨╡ ╨▓╨╗╨╡╨╖╨░╨╡╤В ╨▓ ╤Д╨╕╨║╤Б. ╨▓╤Л╤Б╨╛╤В╤Г */
+.pq-podium__card {
+    box-sizing: border-box;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    border-radius: 12px;
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    height: 176px;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+.pq-podium__card--center {
+    position: relative;
+    height: 216px;
+    background: radial-gradient(120% 70% at 50% 0, #3a2c10 0, #17130b 55%, #131109 100%);
+    border: 1px solid #5a4417;
+    box-shadow: 0 0 0 1px rgba(240, 168, 42, .15), 0 10px 40px rgba(240, 168, 42, .14);
+}
+/* ╨╖╨╛╨╗╨╛╤В╨░╤П ╨╗╨╕╨╜╨╕╤П ╤Б╨▓╨╡╤А╤Е╤Г ╤Ж╨╡╨╜╤В╤А╨░╨╗╤М╨╜╨╛╨╣ ╨║╨░╤А╤В╨╛╤З╨║╨╕ */
+.pq-podium__card--center::before {
+    content: "";
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    top: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f0a82a, transparent);
+}
+/* ╨║╨╛╤А╨╛╨╜╨░ ╨╜╨░╨┤ ╤Ж╨╡╨╜╤В╤А╨╛╨╝ (╨╝╨╡╤Б╤В╨╛ 1) */
+.pq-podium__crown {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 2px 6px rgba(240, 168, 42, .5));
+    line-height: 0;
+}
+/* ╨╝╨╡╨┤╨░╨╗╤М тАФ ╤Г ╨▓╨╡╤А╤Е╨╜╨╡╨╣ ╨║╤А╨╛╨╝╨║╨╕ ╨║╨░╤А╤В╨╛╤З╨║╨╕, ╨┐╨╛ ╤Ж╨╡╨╜╤В╤А╤Г.
+   top:10px: ╨┐╤А╨╕ ╤Д╨╕╨║╤Б. ╨▓╤Л╤Б╨╛╤В╨░╤Е 176/216 ╨║╨╛╨╜╤В╨╡╨╜╤В ╨┐╤А╨╕╨╢╨░╤В ╨║ ╨╜╨╕╨╖╤Г,
+   ╨╕╨╜╨░╤З╨╡ ╨╝╨╡╨┤╨░╨╗╤М ╨║╨░╤Б╨░╨╡╤В╤Б╤П ╨║╨╛╨╗╤М╤Ж╨░ ╨░╨▓╨░╤В╨░╤А╨░ ╤Г ╨▒╨╛╨║╨╛╨▓╤Л╤Е ╨║╨░╤А╤В╨╛╤З╨╡╨║ */
+.pq-podium__card .pq-medal {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+/* ╨┐╨╛╤А╤П╨┤╨╛╨║ ╨▓ DOM 1,2,3 тАФ ╨▓╨╕╨╖╤Г╨░╨╗╤М╨╜╨╛ 2-1-3 */
+.pq-podium__card[data-place="1"] { order: 2; }
+.pq-podium__card[data-place="2"] { order: 1; }
+.pq-podium__card[data-place="3"] { order: 3; }
+
+.pq-podium__name {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pq-podium__rating {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.pq-podium__games {
+    font-size: 12px;
+    line-height: 1.1;
+    color: #8b8f98;
+}
+/* ╨░╨▓╨░╤В╨░╤А╤Л ╤Б ╨║╨╛╨╗╤М╤Ж╨╛╨╝ ╤Ж╨▓╨╡╤В╨░ ╨╝╨╡╨┤╨░╨╗╨╕ (╨в╨Ч 3a) */
+.pq-podium__card[data-place="1"] .pq-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+    font-weight: 700;
+    background: #2a2210;
+    color: #f0a82a;
+    box-shadow: 0 0 0 3px #17130b, 0 0 0 5px #f0a82a;
+}
+.pq-podium__card[data-place="2"] .pq-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #23252a;
+    box-shadow: 0 0 0 2px #131417, 0 0 0 4px #c0c4cc;
+}
+.pq-podium__card[data-place="3"] .pq-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #23252a;
+    box-shadow: 0 0 0 2px #131417, 0 0 0 4px #c98a52;
+}
+.pq-podium__card--center .pq-podium__name   { font-size: 18px; }
+.pq-podium__card--center .pq-podium__rating { font-size: 28px; color: #f0a82a; }
+.pq-podium__card--center .pq-podium__games  { color: #a39a86; }
+/* ╨┐╨╛╤П╨▓╨╗╨╡╨╜╨╕╨╡: ╨╝╨╡╤Б╤В╨░ 3 / 2 / 1 тЖТ ╨╖╨░╨┤╨╡╤А╨╢╨║╨╕ 0 / 80 / 160 ╨╝╤Б */
+@media (prefers-reduced-motion: no-preference) {
+    .pq-podium__card { animation: pq-podium-in 400ms ease both; }
+    .pq-podium__card[data-place="3"] { animation-delay: 0ms; }
+    .pq-podium__card[data-place="2"] { animation-delay: 80ms; }
+    .pq-podium__card[data-place="1"] { animation-delay: 160ms; }
+}
+@keyframes pq-podium-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="siteHeader"></div>
-    <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
-    <script src="/js/site-shell.js?v=1.0.0"></script>
 
-    <div class="lbp-page">
-        <div class="lbp-main">
-            <div class="lbp-headrow">
-                <a href="/" class="lbp-back" id="backBtn" aria-label="Back">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+    <div class="lb-page">
+        <div class="lb-container" data-pq-content>
+            <div class="lb-head">
+                <a href="/" class="lb-back" aria-label="Back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
                 </a>
-                <h1 id="pageTitle">Leaderboard</h1>
+                <h1 class="lb-title" id="pageTitle">Leaderboard</h1>
             </div>
-            <p class="lbp-sub" id="pageSubtitle">Top 100 players by rating</p>
+            <p class="lb-subtitle" id="pageSubtitle">Top 100 players by rating</p>
 
-            <div class="lbp-tabs" role="tablist" aria-label="Leaderboard sorting">
-                <button class="lbp-tab is-active" data-sort="rating" role="tab" aria-selected="true" data-i18n="lb_tab_rating">Rating</button>
-                <button class="lbp-tab" data-sort="winrate" role="tab" aria-selected="false" data-i18n="lb_tab_winrate">Win rate</button>
-                <button class="lbp-tab is-soon" data-sort="week" role="tab" aria-selected="false" aria-disabled="true" title="Not available yet" data-i18n="lb_tab_week">This week</button>
+            <div class="pq-seg" role="tablist" id="lbTabs" aria-label="Leaderboard sorting">
+                <button class="pq-seg__item" role="tab" data-sort="rating" aria-selected="true" id="tab-rating">Rating</button>
+                <button class="pq-seg__item" role="tab" data-sort="winrate" aria-selected="false" id="tab-winrate">Win rate</button>
+                <button class="pq-seg__item" role="tab" data-sort="week" aria-selected="false" id="tab-week">This week</button>
             </div>
 
-            <div class="lbp-podium" id="lbPodium" hidden></div>
-            <div class="lbp-table" id="lbTable">
-                <div class="lbp-thead">
-                    <span class="lbp-col-rank" data-i18n="lb_col_rank">RANK</span>
-                    <span class="lbp-player" data-i18n="lb_col_player">PLAYER</span>
-                    <span class="lbp-col-rating" data-i18n="lb_col_rating">RATING</span>
-                    <span class="lbp-col-days" data-i18n="lb_col_days">7 DAYS</span>
-                    <span class="lbp-col-rate" data-i18n="lb_col_rate">WIN RATE</span>
-                    <span class="lbp-col-games" data-i18n="lb_col_games">GAMES</span>
-                </div>
-                <div id="lbRows">
-                    <div class="lbp-empty" id="lbEmpty">Loading…</div>
-                </div>
-            </div>
-            <div class="lbp-you" id="lbYouRow" hidden onclick="window.location.href='/profile'"></div>
+            <div class="pq-podium" id="lbPodium" hidden></div>
+            <div class="pq-table" id="lbTable" role="table" aria-label="Leaderboard"></div>
+            <div class="lb-state" id="lbState" hidden></div>
+            <div id="lbYouSlot"></div>
         </div>
     </div>
 
-    <script>
-        var dict = {
-            ru: {
-                title: 'Рейтинг',
-                subtitle: 'Топ-100 игроков по рейтингу',
-                loading: 'Загрузка…',
-                empty: 'Пока нет игроков',
-                error: 'Ошибка загрузки',
-                lb_tab_rating: 'Рейтинг',
-                lb_tab_winrate: 'Процент побед',
-                lb_tab_week: 'За неделю',
-                lb_col_rank: 'МЕСТО',
-                lb_col_player: 'ИГРОК',
-                lb_col_rating: 'РЕЙТИНГ',
-                lb_col_days: '7 ДНЕЙ',
-                lb_col_rate: '% ПОБЕД',
-                lb_col_games: 'ИГРЫ',
-                badge_won: 'ПОБЕДА',
-                you_label: 'Вы'
-            },
-            en: {
-                title: 'Leaderboard',
-                subtitle: 'Top 100 players by rating',
-                loading: 'Loading…',
-                empty: 'No players yet',
-                error: 'Failed to load',
-                lb_tab_rating: 'Rating',
-                lb_tab_winrate: 'Win rate',
-                lb_tab_week: 'This week',
-                lb_col_rank: 'RANK',
-                lb_col_player: 'PLAYER',
-                lb_col_rating: 'RATING',
-                lb_col_days: '7 DAYS',
-                lb_col_rate: 'WIN RATE',
-                lb_col_games: 'GAMES',
-                badge_won: 'WON',
-                you_label: 'You'
-            }
+    <script src="/js/site-shell.js?v=1.1.0"></script>
+        <script>
+  // Шим совместимости: страница рассчитана на старый API PQSite
+  // (новый site-shell.js его не экспортирует).
+  (function () {
+    var DICT = {
+        en: {
+            lb_page_title: 'Leaderboard',
+            lb_sub_rating: 'Top 100 players by rating',
+            lb_sub_winrate: 'Players with at least 10 games',
+            lb_sub_week: 'Biggest rating gains in the last 7 days',
+            lb_tab_rating: 'Rating',
+            lb_tab_winrate: 'Win rate',
+            lb_tab_week: 'This week',
+            lb_col_rank: 'RANK',
+            lb_col_player: 'PLAYER',
+            lb_col_rating: 'RATING',
+            lb_col_week: '7 DAYS',
+            lb_col_winrate: 'WIN RATE',
+            lb_col_games: 'GAMES',
+            lb_retry: 'Retry',
+            lb_soon: 'Coming soon',
+            lb_loading: 'Loading…',
+            lb_you: 'You'
+        },
+        ru: {
+            lb_page_title: 'Рейтинг',
+            lb_sub_rating: 'Топ-100 игроков по рейтингу',
+            lb_sub_winrate: 'Игроки не менее чем с 10 партиями',
+            lb_sub_week: 'Больший прирост рейтинга за 7 дней',
+            lb_tab_rating: 'Рейтинг',
+            lb_tab_winrate: 'Победы',
+            lb_tab_week: 'За неделю',
+            lb_col_rank: 'МЕСТО',
+            lb_col_player: 'ИГРОК',
+            lb_col_rating: 'РЕЙТИНГ',
+            lb_col_week: '7 ДНЕЙ',
+            lb_col_winrate: 'ПОБЕД',
+            lb_col_games: 'ИГР',
+            lb_retry: 'Повторить',
+            lb_soon: 'Скоро',
+            lb_loading: 'Загрузка…',
+            lb_you: 'Вы'
+        }
+    };
+
+    function normalizeLang(lang) {
+        lang = String(lang || '').toLowerCase();
+        if (lang.indexOf('ru') === 0) return 'ru';
+        return 'en';
+    }
+
+    function getLang() {
+        return localStorage.getItem('quoridor-lang') || 'en';
+    }
+
+    function t(key, lang) {
+        var l = normalizeLang(lang || getLang());
+        var pack = DICT[l] || DICT.en;
+        return (pack && pack[key]) || (DICT.en && DICT.en[key]) || key;
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatGames(n, lang) {
+        n = Number(n) || 0;
+        if (normalizeLang(lang) === 'ru') {
+            var n10 = n % 10, n100 = n % 100;
+            var word;
+            if (n100 >= 11 && n100 <= 14) word = 'игр';
+            else if (n10 === 1) word = 'игра';
+            else if (n10 >= 2 && n10 <= 4) word = 'игры';
+            else word = 'игр';
+            return n + ' ' + word;
+        }
+        return n === 1 ? n + ' game' : n + ' games';
+    }
+
+    function currentScale() {
+        var w = window.innerWidth || document.documentElement.clientWidth;
+        var h = window.innerHeight || document.documentElement.clientHeight;
+        var sp = Math.min(w / 1440, h / 960);
+        if (sp < 1) sp = 1;
+        if (sp > 1.5) sp = 1.5;
+        return sp;
+    }
+
+    function applyScale() {
+        var sp = currentScale();
+        document.documentElement.style.setProperty('--sp', sp);
+        var target = document.querySelector('[data-pq-content]');
+        if (target) target.style.zoom = sp;
+    }
+
+    function applyLang(lang) {
+        lang = normalizeLang(lang);
+        localStorage.setItem('quoridor-lang', lang);
+        document.documentElement.lang = lang;
+        var sel = document.getElementById('headerLang');
+        if (sel) sel.value = lang;
+        if (typeof PQSite.onLanguageChange === 'function') {
+            try { PQSite.onLanguageChange(lang, DICT[lang]); } catch (e) { /* не мешаем языку */ }
+        }
+    }
+
+    window.PQSite = {
+        dict: DICT,
+        getLang: getLang,
+        setLanguage: applyLang,
+        applyLang: applyLang,
+        t: t,
+        formatGames: formatGames,
+        applyScale: applyScale,
+        currentScale: currentScale,
+        escapeHtml: escapeHtml
+    };
+    // Новый site-shell дергает window.setLanguage при смене языка своей селектой.
+    window.setLanguage = applyLang;
+  })();
+  </script>
+<script>
+    (function () {
+        'use strict';
+        var PQ = window.PQSite;
+
+        var state = {
+            sort: 'rating',
+            rows: [],
+            me: null,
+            loading: false
         };
 
-        function getLang() {
-            return localStorage.getItem('quoridor-lang') || 'en';
+        /* ---------- ╤Б╨╛╤А╤В╨╕╤А╨╛╨▓╨║╨░ ╨╕╨╖ ╨░╨┤╤А╨╡╤Б╨░ ---------- */
+        function readSortFromUrl() {
+            var m = /[?&]sort=(rating|winrate|week)/.exec(location.search);
+            return m ? m[1] : 'rating';
+        }
+        function writeSortToUrl(sort) {
+            var url = location.pathname + (sort === 'rating' ? '' : '?sort=' + sort);
+            history.replaceState(null, '', url);
         }
 
-        function t(key) {
-            var d = dict[getLang()] || dict.en;
-            return d[key] || dict.en[key] || key;
-        }
+        /* ---------- i18n ---------- */
+        PQ.onLanguageChange = function (lang, d) {
+            document.title = d.lb_page_title + ' тАФ PlayQuor';
+            document.getElementById('pageTitle').textContent = d.lb_page_title;
+            renderTabs();
+            renderSubtitle();
+            if (state.rows.length || state.me) renderData();
+            if (state.loading) renderSkeletons();
+        };
 
-        function setLanguage(lang) {
-            localStorage.setItem('quoridor-lang', lang);
-            document.title = (lang === 'ru')
-                ? 'Коридор — таблица лидеров | PlayQuor'
-                : 'Quoridor Leaderboard — Top Players | PlayQuor';
-            document.documentElement.lang = lang;
-            var hl = document.getElementById('headerLang');
-            if (hl) hl.value = lang;
-            document.querySelectorAll('[data-i18n]').forEach(function (el) {
-                el.textContent = t(el.getAttribute('data-i18n'));
+        function subtitleKey(sort) {
+            return sort === 'winrate' ? 'lb_sub_winrate' : sort === 'week' ? 'lb_sub_week' : 'lb_sub_rating';
+        }
+        function renderSubtitle() {
+            var sub = document.getElementById('pageSubtitle');
+            sub.textContent = PQ.t(subtitleKey(state.sort));
+        }
+        function renderTabs() {
+            var lang = PQ.getLang();
+            ['rating', 'winrate', 'week'].forEach(function (sort) {
+                var btn = document.getElementById('tab-' + sort);
+                btn.textContent = PQ.t('lb_tab_' + sort);
+                btn.setAttribute('aria-selected', String(state.sort === sort));
             });
-            document.getElementById('pageTitle').textContent = t('title');
-            document.getElementById('pageSubtitle').textContent = t('subtitle');
-            renderAll();
         }
 
-        function escapeHtml(str) {
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
-        function escapeJsString(value) {
-            return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        }
-
-        var players = [];
-        var you = null;
-        var activeSort = 'rating';
-
-        function winRate(p) {
-            var total = p.stats && p.stats.totalGames ? p.stats.totalGames : 0;
-            var wins = p.stats && p.stats.wins ? p.stats.wins : 0;
-            if (!total) return 0;
-            return Math.round((wins / total) * 100);
-        }
-
-        function sortedPlayers() {
-            var list = players.slice();
-            if (activeSort === 'winrate') {
-                list.sort(function (a, b) {
-                    var d = winRate(b) - winRate(a);
-                    if (d !== 0) return d;
-                    return (b.rating || 0) - (a.rating || 0);
-                });
-            }
-            return list;
-        }
-
-        function avatarHtml(p, classes) {
-            var initial = String(p.username || '?').charAt(0).toUpperCase();
-            if (p.avatarUrl) {
-                return '<span class="' + classes + '"><img src="' + escapeHtml(p.avatarUrl) + '" alt=""></span>';
-            }
-            return '<span class="' + classes + '">' + escapeHtml(initial) + '</span>';
-        }
-
-        function podiumCard(p, place) {
-            var gold = place === 1;
-            return '<div class="lbp-card' + (gold ? ' lbp-card--gold' : '') + '"' +
-                ' onclick="window.location.href=\'/profiles/' + escapeJsString(p.username) + '\'">' +
-                '<span class="lbp-medal lbp-medal--' + place + '">' + place + '</span>' +
-                avatarHtml(p, 'lbp-avatar') +
-                '<span class="lbp-name">' + escapeHtml(p.username) + '</span>' +
-                '<span class="lbp-score">' + (p.rating || 0) + '</span>' +
-                '<span class="lbp-games">' + ((p.stats && p.stats.totalGames) || 0) + '</span>' +
-                '</div>';
-        }
-
-        function tableRow(p, place) {
-            // 7-days delta: нет данных на сервере — прочерк (см. отчёт этапа 3).
-            return '<div class="lbp-row"' +
-                ' onclick="window.location.href=\'/profiles/' + escapeJsString(p.username) + '\'">' +
-                '<span class="lbp-rank lbp-col-rank">' + place + '</span>' +
-                '<span class="lbp-player">' + avatarHtml(p, 'lbp-avatar') +
-                '<span class="lbp-uname">' + escapeHtml(p.username) + '</span></span>' +
-                '<span class="lbp-col-rating">' + (p.rating || 0) + '</span>' +
-                '<span class="lbp-col-days lbp-delta-na">—</span>' +
-                '<span class="lbp-col-rate">' + winRate(p) + '%</span>' +
-                '<span class="lbp-col-games">' + ((p.stats && p.stats.totalGames) || 0) + '</span>' +
-                '</div>';
-        }
-
-        function renderAll() {
-            var podiumEl = document.getElementById('lbPodium');
-            var rowsEl = document.getElementById('lbRows');
-            var youEl = document.getElementById('lbYouRow');
-
-            if (!players.length) {
-                podiumEl.hidden = true;
-                rowsEl.innerHTML = '<div class="lbp-empty" id="lbEmpty">' + escapeHtml(t('empty')) + '</div>';
-                youEl.hidden = true;
-                return;
-            }
-
-            var list = sortedPlayers();
-            var top3 = list.slice(0, 3);
-            podiumEl.hidden = false;
-            podiumEl.innerHTML = top3
-                .map(function (p, i) { return podiumCard(p, i + 1); })
-                .join('');
-
-            rowsEl.innerHTML = list.slice(3).length
-                ? list.slice(3).map(function (p, i) { return tableRow(p, i + 4); }).join('')
-                : '<div class="lbp-empty">' + escapeHtml(t('empty')) + '</div>';
-
-            // Row «You» (только для авторизованного; 401/404 — скрыто).
-            if (you) {
-                youEl.hidden = false;
-                var wr = (you.totalGames ? Math.round((you.wins / you.totalGames) * 100) : 0);
-                youEl.innerHTML =
-                    '<span class="lbp-rank lbp-col-rank">#' + you.rank + '</span>' +
-                    '<span class="lbp-player">' +
-                    '<span class="lbp-avatar">' + escapeHtml(String(you.username || '?').charAt(0).toUpperCase()) + '</span>' +
-                    '<span class="lbp-uname">' + escapeHtml(t('you_label')) + ' · ' + escapeHtml(you.username) + '</span></span>' +
-                    '<span class="lbp-col-rating">' + (you.rating || 0) + '</span>' +
-                    '<span class="lbp-col-days lbp-delta-na">—</span>' +
-                    '<span class="lbp-col-rate">' + wr + '%</span>' +
-                    '<span class="lbp-col-games">' + (you.totalGames || 0) + '</span>';
-            } else {
-                youEl.hidden = true;
-            }
-        }
-
-        function loadPlayers() {
-            fetch('/api/leaderboard?limit=100')
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    players = Array.isArray(data) ? data : [];
-                    document.getElementById('lbEmpty').textContent = '';
-                    renderAll();
-                    // Строка «You» — после загрузки топа.
-                    fetch('/api/leaderboard/me')
-                        .then(function (r) { return r.ok ? r.json() : null; })
-                        .then(function (me) { you = me; renderAll(); })
-                        .catch(function () { you = null; renderAll(); });
-                })
-                .catch(function () {
-                    document.getElementById('lbRows').innerHTML =
-                        '<div class="lbp-empty">' + escapeHtml(t('error')) + '</div>';
-                });
-        }
-
-        document.querySelectorAll('.lbp-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                if (tab.classList.contains('is-soon')) return;
-                activeSort = tab.getAttribute('data-sort');
-                document.querySelectorAll('.lbp-tab').forEach(function (x) {
-                    var on = x === tab;
-                    x.classList.toggle('is-active', on);
-                    x.setAttribute('aria-selected', on ? 'true' : 'false');
-                });
-                renderAll();
+        /* ---------- ╨╖╨░╨┐╤Г╤Б╨║ ---------- */
+        state.sort = readSortFromUrl();
+        PQ.applyScale();
+        window.addEventListener('resize', PQ.applyScale);
+        PQ.applyLang(PQ.getLang());
+        load();
+        ['rating', 'winrate', 'week'].forEach(function (sort) {
+            document.getElementById('tab-' + sort).addEventListener('click', function () {
+                if (state.sort === sort || state.loading) return;
+                state.sort = sort;
+                writeSortToUrl(sort);
+                renderTabs();
+                renderSubtitle();
+                load();
             });
         });
 
-        setLanguage(getLang());
-        loadPlayers();
+        /* ---------- ╨┤╨░╨╜╨╜╤Л╨╡ ---------- */
+        function load() {
+            state.loading = true;
+            state.rows = [];
+            document.getElementById('lbYouSlot').innerHTML = '';
+            renderSkeletons();
+            fetch('/api/leaderboard?limit=100&sort=' + encodeURIComponent(state.sort))
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function (players) {
+                    if (!Array.isArray(players)) throw new Error('bad payload');
+                    state.rows = players;
+                    state.loading = false;
+                    hideState();
+                    renderData();
+                    return loadMe();
+                })
+                .catch(function () {
+                    state.loading = false;
+                    state.rows = [];
+                    hideTableAndPodium();
+                    showError();
+                });
+        }
+
+        function loadMe() {
+            state.me = null;
+            return fetch('/api/leaderboard/me?sort=' + encodeURIComponent(state.sort), { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (me) {
+                    if (me && typeof me.rank !== 'undefined') state.me = me;
+                    renderData();
+                    renderYouRow();
+                })
+                .catch(function () { /* ╨│╨╛╤Б╤В╤М тАФ ╨▒╨╡╨╖ ╤Б╤В╤А╨╛╨║╨╕ ┬лYou┬╗ */ });
+        }
+
+        /* ---------- ╤Д╨╛╤А╨╝╨░╤В╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╣ ---------- */
+        function fmtWinrate(p) {
+            var total = p.stats && p.stats.totalGames || 0;
+            if (!total) return 'тАФ';
+            var wins = p.stats && p.stats.wins || 0;
+            return Math.round(wins / total * 100) + '%';
+        }
+        function fmtWeek(delta) {
+            if (delta === null || typeof delta === 'undefined') return { html: '<span class="pq-delta--none">тАФ</span>' };
+            if (delta > 0) return { html: '<span class="pq-delta--up">тЦ▓ ' + delta + '</span>' };
+            if (delta < 0) return { html: '<span class="pq-delta--down">тЦ╝ ' + (-delta) + '</span>' };
+            return { html: '<span class="pq-delta--zero">0</span>' };
+        }
+        function gamesLabel(n) { return PQ.formatGames(n, PQ.getLang()); }
+        // ╨▓ ╤В╨░╨▒╨╗╨╕╤Ж╨╡ ╨╕ ╤Б╤В╤А╨╛╨║╨╡ ┬лYou┬╗ тАФ ╨┐╤А╨╛╤Б╤В╨╛ ╤З╨╕╤Б╨╗╨╛ (╨║╨╛╨╗╨╛╨╜╨║╨░ 64px, ╨в╨Ч 2.4),
+        // ╨┐╨╛╨┤╨┐╨╕╤Б╤М ┬лN games / N ╨╕╨│╤А┬╗ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ ╨┐╨╛╨┤╨╕╤Г╨╝╨╡ (╨┤╨╡╤Д╨╡╨║╤В 3)
+        function gamesCell(n) { return String(n || 0); }
+
+        /* ---------- ╨░╨▓╨░╤В╨░╤А: ╨╛╨┤╨╜╨░ ╨▒╤Г╨║╨▓╨░ ╨╕╨╗╨╕ ╤Д╨╛╤В╨╛ (╤А╨░╨╖╨┤╨╡╨╗ 2.5) ---------- */
+        function avatarLetter(name) {
+            var ch = String(name || '?').trim().charAt(0).toUpperCase();
+            return /[A-Z0-9]/.test(ch) ? ch : '#';
+        }
+        function avatarHtml(p, size) {
+            var url = p.avatarUrl;
+            var isPhoto = url && typeof url === 'string' && url.indexOf('/avatars/') !== -1;
+            if (isPhoto) {
+                return '<span class="pq-avatar pq-avatar--' + size + '" data-avatar>'
+                    + '<img src="' + PQ.escapeHtml(url) + '" alt="" loading="lazy">'
+                    + '</span>';
+            }
+            var accent = size === '56' ? ' pq-avatar--accent' : '';
+            return '<span class="pq-avatar pq-avatar--' + size + accent + '">' + PQ.escapeHtml(avatarLetter(p.username)) + '</span>';
+        }
+        document.addEventListener('error', function (e) {
+            // ╤Б╨╗╨╛╨╝╨░╨╜╨╜╨╛╨╡ ╤Д╨╛╤В╨╛ ╨░╨▓╨░╤В╨░╤А╨░ -> ╨╖╨░╨│╨╗╤Г╤И╨║╨░ ╤Б ╨▒╤Г╨║╨▓╨╛╨╣
+            if (e.target && e.target.tagName === 'IMG' && e.target.parentElement) {
+                var wrap = e.target.parentElement;
+                var size = /pq-avatar--(\d+)/.exec(wrap.className);
+                if (size && wrap.className.indexOf('pq-avatar') !== -1) {
+                    var name = wrap.closest('[data-username]');
+                    var user = name ? name.getAttribute('data-username') : '?';
+                    wrap.className = 'pq-avatar pq-avatar--' + size[1];
+                    wrap.innerHTML = avatarLetter(user);
+                }
+            }
+        }, true);
+
+        /* ---------- ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П (2.7) ---------- */
+        function renderSkeletons() {
+            var podium = document.getElementById('lbPodium');
+            podium.hidden = false;
+            document.getElementById('lbYouSlot').innerHTML = '';
+            podium.innerHTML =
+                '<div class="pq-podium__card pq-podium__card--center" data-place="1"><div class="pq-skeleton" style="width:80%;height:216px;"></div></div>' +
+                '<div class="pq-podium__card" data-place="2"><div class="pq-skeleton" style="width:80%;height:176px;"></div></div>' +
+                '<div class="pq-podium__card" data-place="3"><div class="pq-skeleton" style="width:80%;height:176px;"></div></div>';
+            var table = document.getElementById('lbTable');
+            table.hidden = false;
+            var rowCount = 8;
+            var head = '<div class="pq-table__head">'
+                + '<span class="pq-col-rank">' + PQ.t('lb_col_rank') + '</span>'
+                + '<span class="pq-col-player">' + PQ.t('lb_col_player') + '</span>'
+                + '<span class="pq-col-rating">' + PQ.t('lb_col_rating') + '</span>'
+                + '<span class="pq-col-week">' + PQ.t('lb_col_week') + '</span>'
+                + '<span class="pq-col-winrate">' + PQ.t('lb_col_winrate') + '</span>'
+                + '<span class="pq-col-games">' + PQ.t('lb_col_games') + '</span>'
+                + '</div>';
+            var rows = '';
+            for (var i = 0; i < rowCount; i++) {
+                rows += '<div class="pq-table__row pq-you__skel"><div class="pq-skeleton" style="width:100%;height:52px;"></div></div>';
+            }
+            table.innerHTML = head + rows;
+        }
+
+        function hideTableAndPodium() {
+            document.getElementById('lbPodium').hidden = true;
+            document.getElementById('lbTable').hidden = true;
+        }
+        function hideState() { document.getElementById('lbState').hidden = true; }
+
+        function showError() {
+            var st = document.getElementById('lbState');
+            st.hidden = false;
+            st.innerHTML = PQ.getLang() === 'ru'
+                ? '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╖╨░╨│╤А╤Г╨╖╨╕╤В╤М ╤А╨╡╨╣╤В╨╕╨╜╨│'
+                : 'Couldn\'t load the leaderboard';
+            var btn = document.createElement('button');
+            btn.className = 'pq-btn pq-btn--outline';
+            btn.textContent = PQ.t('lb_retry');
+            btn.addEventListener('click', load);
+            st.appendChild(btn);
+        }
+        function showEmpty() {
+            hideTableAndPodium();
+            var st = document.getElementById('lbState');
+            st.hidden = false;
+            st.textContent = PQ.getLang() === 'ru' ? '╨Я╨╛╨║╨░ ╨╜╨╡╤В ╨╕╨│╤А╨╛╨║╨╛╨▓' : 'No players yet';
+        }
+
+        /* ---------- ╨╛╤В╤А╨╕╤Б╨╛╨▓╨║╨░ (2.3тАУ2.4) ---------- */
+        function headHtml() {
+            return '<div class="pq-table__head" role="row">'
+                + '<span class="pq-col-rank" role="columnheader">' + PQ.t('lb_col_rank') + '</span>'
+                + '<span class="pq-col-player" role="columnheader">' + PQ.t('lb_col_player') + '</span>'
+                + '<span class="pq-col-rating" role="columnheader">' + PQ.t('lb_col_rating') + '</span>'
+                + '<span class="pq-col-week" role="columnheader">' + PQ.t('lb_col_week') + '</span>'
+                + '<span class="pq-col-winrate" role="columnheader">' + PQ.t('lb_col_winrate') + '</span>'
+                + '<span class="pq-col-games" role="columnheader">' + PQ.t('lb_col_games') + '</span>'
+                + '</div>';
+        }
+        function rowHtml(p, isMe) {
+            var week = fmtWeek(p.delta7);
+            var profile = '/profiles/' + encodeURIComponent(p.username);
+            return '<a class="pq-table__row' + (isMe ? ' pq-table__row--me' : '') + '" role="row" href="' + profile + '" data-username="' + PQ.escapeHtml(p.username) + '">'
+                + '<span class="pq-col-rank pq-table__rank' + (isMe ? ' pq-me-rank' : '') + '" role="cell">' + p.rank + '</span>'
+                + '<span class="pq-col-player pq-table__player" role="cell">' + avatarHtml(p, 28)
+                + '<span class="pq-table__name' + (isMe ? ' pq-me-name' : '') + '">' + PQ.escapeHtml(p.displayName) + '</span></span>'
+                + '<span class="pq-col-rating pq-table__rating' + (isMe ? ' pq-me-rating' : '') + '" role="cell">' + p.rating + '</span>'
+                + '<span class="pq-col-week pq-table__week" role="cell">' + week.html + '</span>'
+                + '<span class="pq-col-winrate pq-table__winrate" role="cell">' + fmtWinrate(p) + '</span>'
+                + '<span class="pq-col-games pq-table__games" role="cell">' + gamesCell(p.stats.totalGames || 0) + '</span>'
+                + '</a>';
+        }
+
+        function podiumHtml(p) {
+            var place = p.rank;
+            var podiumProfile = '/profiles/' + encodeURIComponent(p.username);
+            var medalClass = 'pq-medal pq-medal--lg';
+            if (place === 2) medalClass += ' pq-medal--silver';
+            if (place === 3) medalClass += ' pq-medal--bronze';
+            var avSize = place === 1 ? '64' : '48';
+            /* ╨║╨╛╤А╨╛╨╜╨░ ╨╜╨░╨┤ ╤Ж╨╡╨╜╤В╤А╨╛╨╝ тАФ ╤В╨╛╨╗╤М╨║╨╛ ╤Г ╨╝╨╡╤Б╤В╨░ 1 (╨в╨Ч 3a) */
+            var crown = place === 1
+                ? '<span class="pq-podium__crown" aria-hidden="true">'
+                  + '<svg width="34" height="24" viewBox="0 0 32 22" fill="none">'
+                  + '<path d="M2 6l7 6 7-10 7 10 7-6-3 15H5z" fill="#f0a82a" stroke="#1a1204" stroke-width="1.5" stroke-linejoin="round"/>'
+                  + '</svg></span>'
+                : '';
+            return '<a class="pq-podium__card' + (place === 1 ? ' pq-podium__card--center' : '') + '" data-place="' + place + '" href="' + podiumProfile + '" data-username="' + PQ.escapeHtml(p.username) + '">'
+                + crown
+                + '<span class="' + medalClass + '">' + place + '</span>'
+                + avatarHtml(p, avSize)
+                + '<span class="pq-podium__name">' + PQ.escapeHtml(p.displayName) + '</span>'
+                + '<span class="pq-podium__rating">' + p.rating + '</span>'
+                + '<span class="pq-podium__games">' + gamesLabel(p.stats.totalGames || 0) + '</span>'
+                + '</a>';
+        }
+
+        function renderData() {
+            var podium = document.getElementById('lbPodium');
+            var table = document.getElementById('lbTable');
+
+            if (!state.rows.length) {
+                hideTableAndPodium();
+                if (!state.loading) showEmpty();
+                return;
+            }
+
+            /* ╨┐╨╛╨┤╨╕╤Г╨╝: ╨┐╨╛╨║╨░╨╖╤Л╨▓╨░╨╡╨╝ ╨┤╨╛ ╤В╤А╤С╤Е ╤Б╤Г╤Й╨╡╤Б╤В╨▓╤Г╤О╤Й╨╕╤Е ╨╕╨│╤А╨╛╨║╨╛╨▓ (╤А╨░╨╖╨┤╨╡╨╗ 2.3) */
+            var top = state.rows.slice(0, 3);
+            podium.hidden = top.length === 0;
+            podium.innerHTML = top.map(podiumHtml).join('');
+
+            /* ╤В╨░╨▒╨╗╨╕╤Ж╨░ */
+            table.hidden = false;
+            var myName = state.me && state.me.username;
+            table.innerHTML = headHtml()
+                + state.rows.map(function (p) { return rowHtml(p, myName && p.username === myName); }).join('');
+        }
+
+        /* ---------- ╤Б╤В╤А╨╛╨║╨░ ┬лYou┬╗ (2.8) ---------- */
+        function renderYouRow() {
+            var slot = document.getElementById('lbYouSlot');
+            var me = state.me;
+            if (!me || me.rank == null) { slot.innerHTML = ''; return; }
+
+            var inList = state.rows.some(function (p) { return p.username === me.username; });
+            if (inList) { /* ╤Б╤В╤А╨╛╨║╨░ ╤Г╨╢╨╡ ╨┐╨╛╨┤╤Б╨▓╨╡╤З╨╡╨╜╨░ ╨▓ ╤В╨░╨▒╨╗╨╕╤Ж╨╡ */ slot.innerHTML = ''; return; }
+
+            var week = fmtWeek(me.delta7);
+            var rating = me.rating != null ? me.rating : '';
+            var games = me.stats ? (me.stats.totalGames || 0) : 0;
+            var winrate = me.stats && me.stats.totalGames ? Math.round((me.stats.wins || 0) / me.stats.totalGames * 100) + '%' : 'тАФ';
+            var letter = avatarLetter(me.username || PQ.t('lb_you'));
+            var name = (PQ.getLang() === 'ru' ? '╨Т╤Л' : 'You') + ' ┬╖ ' + me.username;
+            slot.innerHTML = '<div class="pq-you" role="row">'
+                + '<span class="pq-col-rank pq-you__place" role="cell">#' + me.rank + '</span>'
+                + '<span class="pq-col-player pq-you__player" role="cell" data-username="' + PQ.escapeHtml(me.username) + '">'
+                + '<span class="pq-avatar pq-avatar--28 pq-avatar--me">' + letter + '</span>'
+                + '<span class="pq-you__nick">' + PQ.escapeHtml(name) + '</span></span>'
+                + '<span class="pq-col-rating pq-you__place" role="cell">' + rating + '</span>'
+                + '<span class="pq-col-week pq-you__week" role="cell">' + week.html + '</span>'
+                + '<span class="pq-col-winrate pq-you__winrate" role="cell">' + winrate + '</span>'
+                + '<span class="pq-col-games pq-you__games" role="cell">' + gamesCell(games) + '</span>'
+                + '</div>';
+        }
+
+        /* ╨┐╨╛╨┤╤Б╨▓╨╡╤В╨║╨░ ╤Б╨▓╨╛╨╡╨╣ ╤Б╤В╤А╨╛╨║╨╕ (2.8, ╨▓╨░╤А╨╕╨░╨╜╤В ┬л╨╕╨│╤А╨╛╨║ ╨▓ ╤Б╨┐╨╕╤Б╨║╨╡┬╗) */
+        var style = document.createElement('style');
+        style.textContent = '.pq-table__row--me{background:var(--accent-bg-2)!important}' +
+            '.pq-me-name{color:var(--accent);font-weight:700}' +
+            '.pq-me-rating{color:var(--accent)}' +
+            '.pq-me-rank{color:var(--accent);font-weight:800}';
+        document.head.appendChild(style);
+    })();
     </script>
-  <div id="siteFooter"></div>
 </body>
 </html>
