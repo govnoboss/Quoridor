@@ -75,7 +75,7 @@
 
 <div id="siteHeader"></div>
 <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
-<script src="/js/site-shell.js?v=1.0.0"></script>
+<script src="/js/site-shell.js?v=1.1.1"></script>
 
 <div class="auth-page-container">
     <div class="auth-form-wrapper">
@@ -236,7 +236,7 @@ function checkSession() {
             document.getElementById('reportForm').style.display = 'block';
             document.getElementById('notLoggedIn').style.display = 'none';
             document.getElementById('reportUsername').textContent = u.username;
-            document.getElementById('reportProfileLink').href = '/profile/' + u.username;
+            document.getElementById('reportProfileLink').href = '/profiles/' + u.username;
             document.getElementById('reportProfileLink').textContent = dict[getLang()].view_profile;
         })
         .catch(function() {

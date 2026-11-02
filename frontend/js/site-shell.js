@@ -197,7 +197,7 @@
           var u = data.user;
           var name = u.username || 'User';
           var html = '<a class="header-profile" id="headerProfile" href="/profiles/' + encodeURIComponent(name) + '">' +
-            avatarHtml(name, u.avatarUrl, '') +
+            avatarHtml(name, u.avatarUrl, 'pq-avatar--32') +
             '<span id="headerUsername"></span>' +
             '</a>';
           slot.innerHTML = html;
