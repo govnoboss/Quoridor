@@ -2554,6 +2554,24 @@ app.get('/admin', requireAdmin, (req, res) => res.sendFile(path.join(__dirname, 
 // /play no longer exists (app back at /); keep old links working, preserving query params
 app.get('/play', (req, res) => res.redirect(301, '/' + (req.url.length > 5 ? req.url.slice(5) : '')));
 
+// Legacy /profile → /profiles/<username>: редирект в наше SPA-профильное окружение
+app.get('/profile', async (req, res) => {
+    try {
+        if (req.session && req.session.userId) {
+            const user = await User.findById(req.session.userId).select('username');
+            if (user) return res.redirect(301, '/profiles/' + encodeURIComponent(user.username));
+        }
+    } catch (err) {
+        console.error('[PROFILE REDIRECT] Error:', err);
+    }
+    res.redirect(301, '/');
+});
+
+// Legacy /profile/<something> → /profiles/<something> (старые ссылки/закладки)
+app.get('/profile/:legacyUser', (req, res) => {
+    res.redirect(301, '/profiles/' + encodeURIComponent(req.params.legacyUser));
+});
+
 // SPA fallback — serve index.html for any unrecognized GET route
 app.get('/{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
