@@ -51,7 +51,7 @@
   <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
   <link rel="stylesheet" href="/css/style.css?v=1.0.32" type="text/css">
   <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
-  <link rel="stylesheet" href="/css/profile.css?v=1.0.9" type="text/css" />
+  <link rel="stylesheet" href="/css/profile.css?v=1.0.10" type="text/css" />
   <!-- ТЗ 2a: единый масштаб главной. Формула: s = clamp(0.7, min(W/1440, (H-112)/664), 2.0);
        112 = шапка 56 + подвал 56, 664 = колонка 584 + 40+40 воздуха. W < 1320 — одноколоночный
        макет, zoom не применяется. Считается в head, чтобы не было вспышки при загрузке. -->
@@ -555,9 +555,8 @@
       <div id="ppContent" class="pp-content">
         <!-- Header -->
         <div class="profile-page-header">
-            <div class="pp-avatar-section" id="ppAvatarSection" role="button" title="Загрузить аватар">
-              <img class="pp-avatar" id="ppAvatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar">
-              <div class="pp-avatar-edit-hint">📸</div>
+            <div class="pp-avatar-section" id="ppAvatarSection">
+              <img class="pp-avatar" id="ppAvatar" src="https://ui-avatars.com/api/?name=User" alt="User Avatar" title="Загрузить аватар">
               <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp" class="hidden" aria-hidden="true">
             </div>
           <div class="pp-info-section">
@@ -1055,7 +1054,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.30"></script>
+  <script src="/js/ui.js?v=1.0.31"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>

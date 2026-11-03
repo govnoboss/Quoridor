@@ -2871,15 +2871,16 @@ UI.showProfilePage = async function (username, pushState = true) {
     const adminChip = document.getElementById('ppAdminChip');
     if (adminChip) adminChip.classList.toggle('hidden', !(isOwnProfile && this.currentUser && this.currentUser.isAdmin));
 
-    // Allow avatar upload only on the user's own profile page
+    // Allow avatar upload only on the user's own profile page (клик по самой аватарке)
     const avatarSection = document.getElementById('ppAvatarSection');
+    const avatarImg = document.getElementById('ppAvatar');
     if (avatarSection) {
       if (isOwnProfile) {
         avatarSection.classList.add('own');
-        avatarSection.onclick = UI.openAvatarPicker;
+        if (avatarImg) avatarImg.onclick = UI.openAvatarPicker;
       } else {
         avatarSection.classList.remove('own');
-        avatarSection.onclick = null;
+        if (avatarImg) avatarImg.onclick = null;
       }
     }
 

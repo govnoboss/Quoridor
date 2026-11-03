@@ -175,7 +175,6 @@ body {
     width: 88px;
     height: 88px;
     flex: none;
-    cursor: pointer;
 }
 
 .pp-avatar {
@@ -190,19 +189,9 @@ body {
     font-weight: 800;
 }
 
-.pp-avatar-edit-hint {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--panel-light);
-    border: 1px solid var(--border-strong);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
+/* Курсор-палец на аватарке только на своём профиле (клик = замена аватара) */
+.pp-avatar-section.own .pp-avatar {
+    cursor: pointer;
 }
 
 .pp-info-section {
