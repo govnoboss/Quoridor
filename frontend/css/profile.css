@@ -16,6 +16,12 @@ body {
     box-sizing: border-box;
 }
 
+/* Дочерние блоки не сжимаются флексом — иначе длинная история матчей
+   ужималась до пары строк и обрезалась, не давая прокрутить страницу */
+.profile-page-container > * {
+    flex-shrink: 0;
+}
+
 /* Headrow: back + заголовок */
 .pp-headrow {
     display: flex;
@@ -169,6 +175,11 @@ body {
     cursor: pointer;
 }
 
+/* На чужом профиле клик по аватарке ничего не делает — курсор обычный */
+.pp-avatar-section:not(.own) {
+    cursor: default;
+}
+
 .pp-avatar {
     width: 88px;
     height: 88px;
@@ -179,21 +190,6 @@ body {
     color: var(--on-accent);
     font-size: 40px;
     font-weight: 800;
-}
-
-.pp-avatar-edit-hint {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--panel-light);
-    border: 1px solid var(--border-strong);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
 }
 
 .pp-info-section {
