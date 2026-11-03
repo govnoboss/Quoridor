@@ -16,6 +16,15 @@ body {
     box-sizing: border-box;
 }
 
+/* fix(scroll): дети скролл-контейнера не сжимаются.
+   Без этого flex-элементы с min-height:0 (pp-content > pp-tab-content) коллапсировали
+   при длинной истории игр (load more): вкладка сжималась до 0px, список невозможно
+   было скроллить. flex-shrink: 0 позволяет контенту переполнить контейнер,
+   а сам контейнер скроллит страницу целиком. */
+.profile-page-container > * {
+    flex-shrink: 0;
+}
+
 /* Headrow: back + заголовок */
 .pp-headrow {
     display: flex;
