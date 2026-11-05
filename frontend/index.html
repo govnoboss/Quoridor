@@ -304,8 +304,8 @@
      </div> <!-- home -->
     </div> <!-- home-layout -->
 
-    <!-- Мобильный лидерборд: свайп вправо из меню открывает, свайп влево возвращает.
-         Данные синхронизируются из уже загруженного топ-5 правой колонки (см. UI.syncMobileLeaderboard). -->
+    <!-- Мобильный лидерборд: свайп влево из меню открывает, свайп вправо возвращает.
+         Данные — полный топ-100 из /api/leaderboard (кэш 60с, см. UI.loadMobileLeaderboardFull). -->
     <div class="mobile-leaderboard-backdrop" id="mobileLeaderboardBackdrop" aria-hidden="true"></div>
     <div class="mobile-leaderboard" id="mobileLeaderboard" role="dialog" aria-label="Leaderboard">
       <div class="mobile-leaderboard__head">
@@ -1079,7 +1079,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.32"></script>
+  <script src="/js/ui.js?v=1.0.33"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>

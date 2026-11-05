@@ -1949,7 +1949,7 @@ UI.openMobileLeaderboard = async function () {
   const panel = document.getElementById('mobileLeaderboard');
   if (!panel) return;
   try {
-    await UI.syncMobileLeaderboard();
+    await UI.loadMobileLeaderboardFull();
   } catch (_) { /* панель откроется со скелетонами */ }
   panel.classList.add('open');
   const backdrop = document.getElementById('mobileLeaderboardBackdrop');
@@ -1966,21 +1966,73 @@ UI.closeMobileLeaderboard = function () {
 // Копирует загруженный топ-5 из правой колонки (и строку «You») в мобильную панель.
 // Если десктопный контейнер ещё на скелетонах — дотягивает данные тем же лоадером.
 UI.syncMobileLeaderboard = async function () {
-  const src = document.getElementById('leaderboard');
+  return UI.loadMobileLeaderboardFull();
+};
+
+// Полный лидерборд в мобильной панели: топ-100 (как на странице /leaderboard,
+// без подиума/вкладок), кэш 60 с. Строка «You» — из /api/leaderboard/me.
+UI.mobileLbCache = { data: null, fetchedAt: 0 };
+UI.loadMobileLeaderboardFull = async function () {
   const dst = document.getElementById('mobileLeaderboardRows');
   if (!dst) return;
-  if (src) {
-    if (src.querySelector('.home-lb-skeleton')) {
-      await UI.loadLeaderboard();
+
+  const cache = this.mobileLbCache;
+  const isFresh = cache.data && (Date.now() - cache.fetchedAt < 60000);
+  if (!isFresh) {
+    dst.innerHTML = '<div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>'.repeat(5);
+    try {
+      const res = await fetch('/api/leaderboard?limit=100');
+      const players = await res.json();
+      if (!Array.isArray(players) || players.length === 0) {
+        dst.innerHTML = `<div class="home-lb-empty">${this.escapeHtml(this.translate('lb_empty'))}</div>`;
+        return;
+      }
+      cache.data = players;
+      cache.fetchedAt = Date.now();
+    } catch (err) {
+      console.error('[LEADERBOARD][mobile] Failed to load:', err);
+      dst.innerHTML = `<div class="home-lb-empty">${this.escapeHtml(this.translate('lb_error'))}</div>`;
+      return;
     }
-    dst.innerHTML = src.innerHTML;
   }
-  const srcYou = document.getElementById('leaderboardYou');
-  const dstYou = document.getElementById('mobileLeaderboardYou');
-  if (srcYou && dstYou) {
-    dstYou.classList.toggle('hidden', srcYou.classList.contains('hidden'));
-    dstYou.innerHTML = srcYou.innerHTML;
+  const players = cache.data;
+  dst.innerHTML = players.map((p, i) => {
+    const place = (typeof p.rank === 'number' ? p.rank : i + 1);
+    const rank = place <= 3
+      ? `<span class="pq-medal pq-medal--${place}">${place}</span>`
+      : `<span class="home-lb-place">${place}</span>`;
+    return `<div class="home-lb-row" onclick="UI.showProfilePage('${this.escapeJsString(p.username)}')">${rank}` +
+      `<span class="home-lb-name">${this.escapeHtml(p.username)}</span>` +
+      `<span class="home-lb-score">${this.escapeHtml(String(p.rating))}</span></div>`;
+  }).join('');
+
+  const meEl = document.getElementById('mobileLeaderboardYou');
+  if (!meEl) return;
+  if (!this.currentUser) {
+    meEl.classList.add('hidden');
+    return;
   }
+  const meCache = this.leaderboardYouCache;
+  const meFresh = meCache.data && (Date.now() - meCache.fetchedAt < 60000);
+  if (!meFresh) {
+    try {
+      const res = await fetch('/api/leaderboard/me');
+      if (!res.ok) throw new Error('not ranked');
+      meCache.data = await res.json();
+    } catch (err) {
+      meCache.data = null;
+    }
+    meCache.fetchedAt = Date.now();
+  }
+  const me = meCache.data;
+  if (!me || typeof me.rank !== 'number' || me.rank <= players.length) {
+    meEl.classList.add('hidden');
+    return;
+  }
+  meEl.classList.remove('hidden');
+  meEl.innerHTML = `<span class="home-lb-you-rank">#${me.rank}</span>` +
+    `<span class="home-lb-you-name">${this.escapeHtml(this.translate('lb_you'))}</span>` +
+    `<span class="home-lb-you-score">${this.escapeHtml(String(me.rating))}</span>`;
 };
 
 UI.initMobileSwipeNav = function () {
@@ -3723,9 +3775,11 @@ UI.loadLeaderboardYou = async function () {
     `<span class="home-lb-you-score">${UI.escapeHtml(String(me.rating))}</span>`;
 };
 
-// Сброс кэша «You» (после входа и после каждой завершённой рейтингово-подобной партии).
+// Сброс кэша «You» и полного списка мобильной панели (после входа и после
+// каждой завершённой рейтингово-подобной партии).
 UI.refreshLeaderboardYou = function () {
   this.leaderboardYouCache = { data: null, fetchedAt: 0 };
+  this.mobileLbCache = { data: null, fetchedAt: 0 };
   if (document.getElementById('leaderboardYou')) this.loadLeaderboardYou();
 };
 
