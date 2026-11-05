@@ -1940,6 +1940,14 @@ canvas {
             display: none;
         }
 
+        /* На мобилке следующие блоки прячем: демо-доска, online-карта,
+           приглашение в Discord (экран и без того перегружен) */
+        .home-board-row,
+        .home-online-card,
+        .home-discord-card {
+            display: none;
+        }
+
         .mobile-leaderboard,
         .mobile-leaderboard-backdrop,
         .menu-swipe-hint {
