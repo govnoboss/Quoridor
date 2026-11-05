@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quoridor — обновление интерфейса</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, #1f2a44 0%, #0b0f1a 60%);
+      color: #e8ecf4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      max-width: 460px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 40px 28px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+    .emoji { font-size: 56px; line-height: 1; margin-bottom: 12px; }
+    h1 { font-size: 22px; margin: 0 0 12px; font-weight: 700; }
+    p { font-size: 15px; line-height: 1.6; margin: 0 0 8px; color: #b7c0d6; }
+    .small { font-size: 13px; color: #7e8aa8; margin-top: 16px; }
+    .brand { font-size: 12px; letter-spacing: 2px; color: #5a6a90; margin-bottom: 20px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Quoridor</div>
+    <div class="emoji">🛠️</div>
+    <h1>Сайт обновляет интерфейс</h1>
+    <p>Сегодня мы обновляем интерфейс игры — сайт временно недоступен.</p>
+    <p>Возвращайтесь завтра, всё заработает в полном объёме.</p>
+    <p class="small">Спасибо за понимание.</p>
+  </div>
+</body>
+</html>
