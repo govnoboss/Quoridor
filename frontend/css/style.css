@@ -1935,9 +1935,6 @@ canvas {
     /* --- SMARTPHONE & TABLET (Portrait) --- */
     @media (max-width: 900px),
     (max-height: 800px) {
-        /* и скрываем неготовые элементы */
-        .mobile-leaderboard, .mobile-leaderboard-backdrop, .menu-swipe-hint { display: none !important; }
-        .home-lb-card { display: none; }
         /* Лидерборд уезжает с главного экрана — доступен свайпом вправо */
         .home-lb-card {
             display: none;
