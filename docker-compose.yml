@@ -57,6 +57,7 @@ services:
       - EMAIL_FROM=${EMAIL_FROM:-onboarding@resend.dev}
       - SITE_URL=${SITE_URL:-https://playquor.org}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - MAINTENANCE_MODE=${MAINTENANCE_MODE:-0}
 
 volumes:
   redis_data:
