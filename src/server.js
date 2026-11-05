@@ -24,6 +24,14 @@ const fs = require('fs');
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const app = express();
+// --- MAINTENANCE MODE (временная заглушка на 1 день) ---
+// Включается env MAINTENANCE_MODE=1. Регистрируется ДО /health и всех маршрутов.
+if (process.env.MAINTENANCE_MODE === '1') {
+  app.use((req, res) => {
+    if (req.path === '/health') return res.status(200).json({ status: 'maintenance' });
+    return res.status(503).sendFile(path.join(__dirname, '../frontend/maintenance.html'));
+  });
+}
 app.set('trust proxy', 1);
 
 app.get('/health', (req, res) => {
@@ -70,15 +78,6 @@ const redisPkg = require('redis');
 const session = require('express-session');
 const { RedisStore } = require('connect-redis');
 const path = require('path');
-// --- MAINTENANCE MODE (временная заглушка на 1 день) ---
-// Включается env MAINTENANCE_MODE=1; /health остаётся 200 для мониторинга/Caddy.
-// Регистрируется до express.json/sessionMiddleware, чтобы перехватить все запросы.
-if (process.env.MAINTENANCE_MODE === '1') {
-  app.use((req, res) => {
-    if (req.path === '/health') return res.status(200).json({ status: 'maintenance' });
-    return res.status(503).sendFile(path.join(__dirname, '../frontend/maintenance.html'));
-  });
-}
 const Friendship = require('./models/Friendship');
 const Notification = require('./models/Notification');
 
