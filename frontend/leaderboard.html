@@ -84,6 +84,9 @@
                 width: 100%;
                 padding: 24px 16px 0;
             }
+            /* На мобилке назад — свайпом вправо (см. JS внизу), стрелка не нужна */
+            .lb-back { display: none; }
+            .lb-head { justify-content: center; }
             .lb-subtitle {
                 margin-left: 0;
                 text-align: center;
@@ -927,6 +930,30 @@
             '.pq-me-rating{color:var(--accent)}' +
             '.pq-me-rank{color:var(--accent);font-weight:800}';
         document.head.appendChild(style);
+
+        /* ---------- мобильный свайп-возврат: свайп вправо -> меню ---------- */
+        /* Стрелка назад на мобилке скрыта (CSS 768px), здесь зеркальный жест
+           к кал línea на главной (UI.initMobileSwipeNav): стабильный dx > 60px,
+           вертикальный дрифт не более 1.5 к dx, свайпом не переводить вкладки. */
+        (function () {
+            var gesture = { x: null, y: null };
+            var swipeMode = function () {
+                return window.matchMedia('(max-width: 900px), (max-height: 800px)').matches;
+            };
+            document.addEventListener('touchstart', function (e) {
+                if (!swipeMode()) { gesture.x = gesture.y = null; return; }
+                gesture.x = e.changedTouches[0].clientX;
+                gesture.y = e.changedTouches[0].clientY;
+            }, { passive: true });
+            document.addEventListener('touchend', function (e) {
+                if (!swipeMode() || gesture.x === null) { gesture.x = gesture.y = null; return; }
+                var dx = e.changedTouches[0].clientX - gesture.x;
+                var dy = e.changedTouches[0].clientY - gesture.y;
+                gesture.x = gesture.y = null;
+                if (dx < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+                window.location.assign('/');
+            }, { passive: true });
+        })();
     })();
     </script>
 </body>
