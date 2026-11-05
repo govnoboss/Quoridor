@@ -347,7 +347,7 @@ function showDetail(id) {
     document.getElementById('detailDesc').textContent = r.description;
 
     var playerName = r.userId ? (r.userId.username || 'Unknown') : 'Guest';
-    var playerLink = r.userId ? '/profile/' + esc(r.userId.username) : '#';
+    var playerLink = r.userId ? '/profiles/' + esc(r.userId.username) : '#';
     document.getElementById('detailPlayer').textContent = playerName;
     document.getElementById('detailPlayer').href = playerLink;
 
