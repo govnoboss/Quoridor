@@ -224,6 +224,8 @@
           </button>
         </div>
 
+        <div class="menu-swipe-hint" data-i18n="lb_swipe_right">Swipe right for leaderboard</div>
+
         <div class="home-small-row">
           <a class="pq-btn pq-btn--neutral pq-btn--r10" href="/rules">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>
@@ -297,6 +299,25 @@
       </div>
      </div> <!-- home -->
     </div> <!-- home-layout -->
+
+    <!-- Мобильный лидерборд: свайп вправо из меню открывает, свайп влево возвращает.
+         Данные синхронизируются из уже загруженного топ-5 правой колонки (см. UI.syncMobileLeaderboard). -->
+    <div class="mobile-leaderboard-backdrop" id="mobileLeaderboardBackdrop" aria-hidden="true"></div>
+    <div class="mobile-leaderboard" id="mobileLeaderboard" role="dialog" aria-label="Leaderboard">
+      <div class="mobile-leaderboard__head">
+        <span class="mobile-leaderboard__title" data-i18n="lb_title">Leaderboard</span>
+        <a class="mobile-leaderboard__viewall" href="/leaderboard" data-i18n="lb_view_all">View all</a>
+      </div>
+      <div class="mobile-leaderboard__rows" id="mobileLeaderboardRows">
+        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
+        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
+        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
+        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
+        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
+      </div>
+      <div class="home-lb-you hidden" id="mobileLeaderboardYou" onclick="UI.showMyProfile()"></div>
+      <div class="mobile-leaderboard__hint" data-i18n="lb_swipe_back">Swipe left to go back</div>
+    </div>
 
     <!-- Окно поверх страницы (вместо боковой панели) -->
     <div class="dynamic-panel pq-overlay empty" id="dynamicPanel">
