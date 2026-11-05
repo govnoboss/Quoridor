@@ -1400,12 +1400,6 @@ canvas {
     color: var(--accent);
 }
 
-/* --- Временная заглушка мобильной версии (на доработке) ---
-   По умолчанию скрыта; включается в swipe-моде (max-width:900px / max-height:800px).
-   Удалим, когда мобильная версия будет готова. */
-.mobile-maintenance-overlay {
-    display: none;
-}
 
 /* --- мобильный лидерборд (свайп-панель) --- */
 /* По умолчанию скрыта — живёт только в swipe-моде (media max-width:900px /
@@ -1941,8 +1935,6 @@ canvas {
     /* --- SMARTPHONE & TABLET (Portrait) --- */
     @media (max-width: 900px),
     (max-height: 800px) {
-        /* Временная заглушка мобильной версии на доработке */
-        .mobile-maintenance-overlay { display: flex; }
         /* и скрываем неготовые элементы */
         .mobile-leaderboard, .mobile-leaderboard-backdrop, .menu-swipe-hint { display: none !important; }
         .home-lb-card { display: none; }
@@ -3614,27 +3606,4 @@ canvas {
     }
 }
 
-/* --- Стили заглушки мобильной версии --- */
-.mobile-maintenance-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: linear-gradient(180deg, #0f0f14 0%, #1a1a24 100%);
-    color: var(--text, #e8e8e8);
-    text-align: center;
-}
-.mobile-maintenance-card {
-    max-width: 360px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-}
-.mobile-maintenance-icon { font-size: 48px; line-height: 1; }
-.mobile-maintenance-title { font-size: 20px; font-weight: 700; margin: 0; }
-.mobile-maintenance-msg { font-size: 14px; line-height: 1.5; color: var(--text-muted, #aaa); margin: 0; }
-.mobile-maintenance-btn { margin-top: 8px; }
+
