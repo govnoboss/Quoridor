@@ -49,7 +49,7 @@
   <link rel="stylesheet" href="/css/tokens.css?v=2.0.1" type="text/css" />
   <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
   <link rel="stylesheet" href="/css/header.css?v=1.1.1" type="text/css" />
-  <link rel="stylesheet" href="/css/style.css?v=1.0.37" type="text/css">
+  <link rel="stylesheet" href="/css/style.css?v=1.0.38" type="text/css">
   <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.11" type="text/css" />
 
@@ -304,24 +304,7 @@
      </div> <!-- home -->
     </div> <!-- home-layout -->
 
-    <!-- Мобильный лидерборд: свайп влево из меню открывает, свайп вправо возвращает.
-         Данные — полный топ-100 из /api/leaderboard (кэш 60с, см. UI.loadMobileLeaderboardFull). -->
-    <div class="mobile-leaderboard-backdrop" id="mobileLeaderboardBackdrop" aria-hidden="true"></div>
-    <div class="mobile-leaderboard" id="mobileLeaderboard" role="dialog" aria-label="Leaderboard">
-      <div class="mobile-leaderboard__head">
-        <span class="mobile-leaderboard__title" data-i18n="lb_title">Leaderboard</span>
-        <a class="mobile-leaderboard__viewall" href="/leaderboard" data-i18n="lb_view_all">View all</a>
-      </div>
-      <div class="mobile-leaderboard__rows" id="mobileLeaderboardRows">
-        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
-        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
-        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
-        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
-        <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
-      </div>
-      <div class="home-lb-you hidden" id="mobileLeaderboardYou" onclick="UI.showMyProfile()"></div>
-      <div class="mobile-leaderboard__hint" data-i18n="lb_swipe_back">Swipe right to go back</div>
-    </div>
+    <!-- Свайп влево из меню открывает полноценную страницу /leaderboard (UI.initMobileSwipeNav). -->
 
     <!-- Окно поверх страницы (вместо боковой панели) -->
     <div class="dynamic-panel pq-overlay empty" id="dynamicPanel">
@@ -1079,7 +1062,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.33"></script>
+  <script src="/js/ui.js?v=1.0.34"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>

@@ -349,7 +349,6 @@ const UI = {
       lb_title: "Рейтинг",
       lb_view_all: "Весь рейтинг",
       lb_swipe_left: "Свайп влево — рейтинг",
-      lb_swipe_back: "Свайп вправо — назад в меню",
       lb_you: "Вы",
       lb_empty: "Пока нет игроков",
       lb_error: "Не удалось загрузить рейтинг",
@@ -704,7 +703,6 @@ const UI = {
       lb_title: "Leaderboard",
       lb_view_all: "View all",
       lb_swipe_left: "Swipe left for leaderboard",
-      lb_swipe_back: "Swipe right to go back",
       lb_you: "You",
       lb_empty: "No players yet",
       lb_error: "Couldn't load the leaderboard",
@@ -1941,104 +1939,13 @@ UI.selectBotDifficulty = function (diff) {
   UI.showDynamicPanel('panelColorSelect');
 };
 
-// --- MOBILE SWIPE NAVIGATION: меню <-> лидерборд ---
-// Стр. 1 — меню, стр. 2 — лидерборд (панель справа). Свайп вправо из меню
-// открывает лидерборд, свайп влево из лидерборда возвращает назад. Жест
-// перехватывается только в swipe-моде и только без открытых оверлеев.
-UI.openMobileLeaderboard = async function () {
-  const panel = document.getElementById('mobileLeaderboard');
-  if (!panel) return;
-  try {
-    await UI.loadMobileLeaderboardFull();
-  } catch (_) { /* панель откроется со скелетонами */ }
-  panel.classList.add('open');
-  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
-  if (backdrop) backdrop.classList.add('open');
-};
-
-UI.closeMobileLeaderboard = function () {
-  const panel = document.getElementById('mobileLeaderboard');
-  if (panel) panel.classList.remove('open');
-  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
-  if (backdrop) backdrop.classList.remove('open');
-};
-
-// Копирует загруженный топ-5 из правой колонки (и строку «You») в мобильную панель.
-// Если десктопный контейнер ещё на скелетонах — дотягивает данные тем же лоадером.
-UI.syncMobileLeaderboard = async function () {
-  return UI.loadMobileLeaderboardFull();
-};
-
-// Полный лидерборд в мобильной панели: топ-100 (как на странице /leaderboard,
-// без подиума/вкладок), кэш 60 с. Строка «You» — из /api/leaderboard/me.
-UI.mobileLbCache = { data: null, fetchedAt: 0 };
-UI.loadMobileLeaderboardFull = async function () {
-  const dst = document.getElementById('mobileLeaderboardRows');
-  if (!dst) return;
-
-  const cache = this.mobileLbCache;
-  const isFresh = cache.data && (Date.now() - cache.fetchedAt < 60000);
-  if (!isFresh) {
-    dst.innerHTML = '<div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>'.repeat(5);
-    try {
-      const res = await fetch('/api/leaderboard?limit=100');
-      const players = await res.json();
-      if (!Array.isArray(players) || players.length === 0) {
-        dst.innerHTML = `<div class="home-lb-empty">${this.escapeHtml(this.translate('lb_empty'))}</div>`;
-        return;
-      }
-      cache.data = players;
-      cache.fetchedAt = Date.now();
-    } catch (err) {
-      console.error('[LEADERBOARD][mobile] Failed to load:', err);
-      dst.innerHTML = `<div class="home-lb-empty">${this.escapeHtml(this.translate('lb_error'))}</div>`;
-      return;
-    }
-  }
-  const players = cache.data;
-  dst.innerHTML = players.map((p, i) => {
-    const place = (typeof p.rank === 'number' ? p.rank : i + 1);
-    const rank = place <= 3
-      ? `<span class="pq-medal pq-medal--${place}">${place}</span>`
-      : `<span class="home-lb-place">${place}</span>`;
-    return `<div class="home-lb-row" onclick="UI.showProfilePage('${this.escapeJsString(p.username)}')">${rank}` +
-      `<span class="home-lb-name">${this.escapeHtml(p.username)}</span>` +
-      `<span class="home-lb-score">${this.escapeHtml(String(p.rating))}</span></div>`;
-  }).join('');
-
-  const meEl = document.getElementById('mobileLeaderboardYou');
-  if (!meEl) return;
-  if (!this.currentUser) {
-    meEl.classList.add('hidden');
-    return;
-  }
-  const meCache = this.leaderboardYouCache;
-  const meFresh = meCache.data && (Date.now() - meCache.fetchedAt < 60000);
-  if (!meFresh) {
-    try {
-      const res = await fetch('/api/leaderboard/me');
-      if (!res.ok) throw new Error('not ranked');
-      meCache.data = await res.json();
-    } catch (err) {
-      meCache.data = null;
-    }
-    meCache.fetchedAt = Date.now();
-  }
-  const me = meCache.data;
-  if (!me || typeof me.rank !== 'number' || me.rank <= players.length) {
-    meEl.classList.add('hidden');
-    return;
-  }
-  meEl.classList.remove('hidden');
-  meEl.innerHTML = `<span class="home-lb-you-rank">#${me.rank}</span>` +
-    `<span class="home-lb-you-name">${this.escapeHtml(this.translate('lb_you'))}</span>` +
-    `<span class="home-lb-you-score">${this.escapeHtml(String(me.rating))}</span>`;
-};
-
+// --- MOBILE SWIPE NAVIGATION: свайп влево из меню -> страница /leaderboard ---
+// Полноценная страница лидерборда (она адаптирована под узкие экраны),
+// возврат — «Play» в шапке или жест «назад» браузера. Жест срабатывает
+// только в swipe-моде и только без открытых оверлеев.
 UI.initMobileSwipeNav = function () {
   const menu = document.getElementById('mainMenu');
-  const panel = document.getElementById('mobileLeaderboard');
-  if (!menu || !panel) return;
+  if (!menu) return;
   const swipeMode = () => window.matchMedia('(max-width: 900px), (max-height: 800px)').matches;
   const gesture = { x: null, y: null };
 
@@ -2055,7 +1962,6 @@ UI.initMobileSwipeNav = function () {
     gesture.y = t.clientY;
   };
 
-  // Меню: свайп влево -> лидерборд
   menu.addEventListener('touchstart', track, { passive: true });
   menu.addEventListener('touchend', (e) => {
     if (!swipeMode() || overlaysOpen() || gesture.x === null) { gesture.x = null; return; }
@@ -2065,25 +1971,8 @@ UI.initMobileSwipeNav = function () {
     gesture.x = null;
     gesture.y = null;
     if (dx > -60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
-    UI.openMobileLeaderboard();
+    window.location.assign('/leaderboard');
   }, { passive: true });
-
-  // Лидерборд: свайп вправо -> меню; тап по подложке тоже закрывает
-  panel.addEventListener('touchstart', track, { passive: true });
-  panel.addEventListener('touchend', (e) => {
-    if (!swipeMode() || gesture.x === null) { gesture.x = null; return; }
-    const t = e.changedTouches[0];
-    const dx = t.clientX - gesture.x;
-    const dy = t.clientY - gesture.y;
-    gesture.x = null;
-    gesture.y = null;
-    if (dx < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
-    UI.closeMobileLeaderboard();
-  }, { passive: true });
-  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
-  if (backdrop) {
-    backdrop.addEventListener('click', () => UI.closeMobileLeaderboard());
-  }
 };
 
 UI.initHeaderNav = function () {
@@ -3775,11 +3664,9 @@ UI.loadLeaderboardYou = async function () {
     `<span class="home-lb-you-score">${UI.escapeHtml(String(me.rating))}</span>`;
 };
 
-// Сброс кэша «You» и полного списка мобильной панели (после входа и после
-// каждой завершённой рейтингово-подобной партии).
+// Сброс кэша «You» (после входа и после каждой завершённой рейтингово-подобной партии).
 UI.refreshLeaderboardYou = function () {
   this.leaderboardYouCache = { data: null, fetchedAt: 0 };
-  this.mobileLbCache = { data: null, fetchedAt: 0 };
   if (document.getElementById('leaderboardYou')) this.loadLeaderboardYou();
 };
 
