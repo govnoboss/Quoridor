@@ -1414,16 +1414,16 @@ canvas {
 .mobile-leaderboard {
     position: fixed;
     top: 0;
-    left: 0;
+    right: 0;
     bottom: 0;
     width: min(100%, 400px);
     box-sizing: border-box;
     flex-direction: column;
     padding: 18px 16px 14px;
     background: var(--panel);
-    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.45);
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
     z-index: 1100; /* выше main-header (fixed, z 1000), иначе шапка перекрывает панель */
-    transform: translateX(-105%);
+    transform: translateX(105%);
     transition: transform 0.25s ease;
     overflow-y: auto;
 }
