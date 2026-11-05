@@ -48,8 +48,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/tokens.css?v=2.0.1" type="text/css" />
   <link rel="stylesheet" href="/css/components.css?v=1.2.0" type="text/css" />
-  <link rel="stylesheet" href="/css/header.css?v=1.1.0" type="text/css" />
-  <link rel="stylesheet" href="/css/style.css?v=1.0.33" type="text/css">
+  <link rel="stylesheet" href="/css/header.css?v=1.1.1" type="text/css" />
+  <link rel="stylesheet" href="/css/style.css?v=1.0.35" type="text/css">
   <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
   <link rel="stylesheet" href="/css/profile.css?v=1.0.11" type="text/css" />
 
@@ -163,6 +163,9 @@
       <a class="header-nav-link" href="/" onclick="UI.backToMenu(); return false;" data-i18n="nav_play">Play</a>
       <a class="header-nav-link" href="/leaderboard" data-i18n="nav_leaderboard">Leaderboard</a>
       <a class="header-nav-link" href="/rules" data-i18n="nav_rules">Rules</a>
+      <!-- На самых узких экранах кнопка Sign In не влезает в шапку — дубль здесь,
+           показывается только для неавторизованных (см. UI.updateAuthUI) -->
+      <a id="navAuthMobile" class="header-nav-link hidden" href="/login" data-i18n="header_sign_in">Sign In</a>
     </div>
   </header>
 
@@ -225,7 +228,7 @@
           </button>
         </div>
 
-        <div class="menu-swipe-hint" data-i18n="lb_swipe_right">Swipe right for leaderboard</div>
+        <div class="menu-swipe-hint" data-i18n="lb_swipe_left">Swipe left for leaderboard</div>
 
         <div class="home-small-row">
           <a class="pq-btn pq-btn--neutral pq-btn--r10" href="/rules">
@@ -317,7 +320,7 @@
         <div class="home-lb-skeleton pq-skeleton" style="height:36px"></div>
       </div>
       <div class="home-lb-you hidden" id="mobileLeaderboardYou" onclick="UI.showMyProfile()"></div>
-      <div class="mobile-leaderboard__hint" data-i18n="lb_swipe_back">Swipe left to go back</div>
+      <div class="mobile-leaderboard__hint" data-i18n="lb_swipe_back">Swipe right to go back</div>
     </div>
 
     <!-- Окно поверх страницы (вместо боковой панели) -->
@@ -1076,7 +1079,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  <script src="/js/ui.js?v=1.0.31"></script>
+  <script src="/js/ui.js?v=1.0.32"></script>
   <script src="/js/net.js?v=1.0.8"></script>
   <script src="/shared.js?v=1.0.4"></script>
   <script src="/js/eval-shared.js?v=1.0.0"></script>

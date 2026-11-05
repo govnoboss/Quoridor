@@ -1414,16 +1414,16 @@ canvas {
 .mobile-leaderboard {
     position: fixed;
     top: 0;
-    right: 0;
+    left: 0;
     bottom: 0;
     width: min(100%, 400px);
     box-sizing: border-box;
     flex-direction: column;
     padding: 18px 16px 14px;
     background: var(--panel);
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.45);
     z-index: 1100; /* выше main-header (fixed, z 1000), иначе шапка перекрывает панель */
-    transform: translateX(105%);
+    transform: translateX(-105%);
     transition: transform 0.25s ease;
     overflow-y: auto;
 }
@@ -1953,7 +1953,28 @@ canvas {
             font-size: 0.78rem;
         }
 
+        /* Safe-center: при контенте выше вьюпорта центрирование через
+           justify-content:center уводит верхнюю часть в недостижимую зону
+           (overflow вверх flex-контейнером не скроллится). margin:auto
+           центрирует, когда контент влезает, и даёт нулевые отступы, когда нет. */
+        #mainMenu {
+            justify-content: flex-start;
+            /* подвал больше не absolute — резервы под него не нужны */
+            padding-bottom: 0;
+        }
+
+        .home-layout {
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+
+        /* Подвал — в потоке: absolute здесь перекрывал прокручиваемый
+           контент (карта «online» уезжала под панель соцсетей) */
         .social-bar {
+            position: static;
+            margin-top: auto;
+            height: auto;
+            min-height: 56px;
             flex-wrap: wrap;
             gap: 8px 12px;
             padding: 8px 10px 14px;

@@ -348,8 +348,8 @@ const UI = {
       card_new_btn: "Начать",
       lb_title: "Рейтинг",
       lb_view_all: "Весь рейтинг",
-      lb_swipe_right: "Свайп вправо — рейтинг",
-      lb_swipe_back: "Свайп влево — назад в меню",
+      lb_swipe_left: "Свайп влево — рейтинг",
+      lb_swipe_back: "Свайп вправо — назад в меню",
       lb_you: "Вы",
       lb_empty: "Пока нет игроков",
       lb_error: "Не удалось загрузить рейтинг",
@@ -703,8 +703,8 @@ const UI = {
       card_new_btn: "Start",
       lb_title: "Leaderboard",
       lb_view_all: "View all",
-      lb_swipe_right: "Swipe right for leaderboard",
-      lb_swipe_back: "Swipe left to go back",
+      lb_swipe_left: "Swipe left for leaderboard",
+      lb_swipe_back: "Swipe right to go back",
       lb_you: "You",
       lb_empty: "No players yet",
       lb_error: "Couldn't load the leaderboard",
@@ -2003,7 +2003,7 @@ UI.initMobileSwipeNav = function () {
     gesture.y = t.clientY;
   };
 
-  // Меню: свайп вправо -> лидерборд
+  // Меню: свайп влево -> лидерборд
   menu.addEventListener('touchstart', track, { passive: true });
   menu.addEventListener('touchend', (e) => {
     if (!swipeMode() || overlaysOpen() || gesture.x === null) { gesture.x = null; return; }
@@ -2012,11 +2012,11 @@ UI.initMobileSwipeNav = function () {
     const dy = t.clientY - gesture.y;
     gesture.x = null;
     gesture.y = null;
-    if (dx < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    if (dx > -60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
     UI.openMobileLeaderboard();
   }, { passive: true });
 
-  // Лидерборд: свайп влево -> меню; тап по подложке тоже закрывает
+  // Лидерборд: свайп вправо -> меню; тап по подложке тоже закрывает
   panel.addEventListener('touchstart', track, { passive: true });
   panel.addEventListener('touchend', (e) => {
     if (!swipeMode() || gesture.x === null) { gesture.x = null; return; }
@@ -2025,7 +2025,7 @@ UI.initMobileSwipeNav = function () {
     const dy = t.clientY - gesture.y;
     gesture.x = null;
     gesture.y = null;
-    if (dx > -60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    if (dx < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
     UI.closeMobileLeaderboard();
   }, { passive: true });
   const backdrop = document.getElementById('mobileLeaderboardBackdrop');
@@ -2563,6 +2563,7 @@ UI.updateAuthUI = function () {
   const avatarImg = document.getElementById('headerAvatarImg');
   const notifBell = document.getElementById('notificationBell');
   const adminLink = document.getElementById('headerAdminLink');
+  const navAuthMobile = document.getElementById('navAuthMobile');
 
   if (this.currentUser) {
     if (headerAuth) headerAuth.classList.add('hidden');
@@ -2576,12 +2577,14 @@ UI.updateAuthUI = function () {
       if (this.currentUser.isAdmin) adminLink.classList.remove('hidden');
       else adminLink.classList.add('hidden');
     }
+    if (navAuthMobile) navAuthMobile.classList.add('hidden');
     this.loadNotificationsFromServer();
   } else {
     if (headerAuth) headerAuth.classList.remove('hidden');
     if (headerProfile) headerProfile.classList.add('hidden');
     if (notifBell) notifBell.classList.add('hidden');
     if (adminLink) adminLink.classList.add('hidden');
+    if (navAuthMobile) navAuthMobile.classList.remove('hidden');
     this.notifications = [];
     this.updateNotifBadge();
   }
