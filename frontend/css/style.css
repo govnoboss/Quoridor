@@ -1400,6 +1400,83 @@ canvas {
     color: var(--accent);
 }
 
+/* --- мобильный лидерборд (свайп-панель) --- */
+/* По умолчанию скрыта — живёт только в swipe-моде (media max-width:900px /
+   max-height:800px ниже); на десктопе лидерборд остаётся карточкой в правой колонке. */
+.mobile-leaderboard,
+.mobile-leaderboard-backdrop,
+.menu-swipe-hint {
+    display: none;
+}
+
+.mobile-leaderboard {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(100%, 400px);
+    box-sizing: border-box;
+    flex-direction: column;
+    padding: 18px 16px 14px;
+    background: var(--panel);
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+    z-index: 1100; /* выше main-header (fixed, z 1000), иначе шапка перекрывает панель */
+    transform: translateX(105%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+}
+
+.mobile-leaderboard.open {
+    transform: translateX(0);
+}
+
+.mobile-leaderboard__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.mobile-leaderboard__title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.mobile-leaderboard__viewall {
+    color: var(--accent);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.mobile-leaderboard__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mobile-leaderboard__hint {
+    margin-top: 16px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.mobile-leaderboard-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.mobile-leaderboard-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* online card */
 .home-online-card {
     display: flex;
@@ -1856,6 +1933,24 @@ canvas {
     /* --- SMARTPHONE & TABLET (Portrait) --- */
     @media (max-width: 900px),
     (max-height: 800px) {
+        /* Лидерборд уезжает с главного экрана — доступен свайпом вправо */
+        .home-lb-card {
+            display: none;
+        }
+
+        .mobile-leaderboard,
+        .mobile-leaderboard-backdrop,
+        .menu-swipe-hint {
+            display: flex;
+        }
+
+        .menu-swipe-hint {
+            justify-content: center;
+            margin-top: 10px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+
         .social-bar {
             flex-wrap: wrap;
             gap: 8px 12px;

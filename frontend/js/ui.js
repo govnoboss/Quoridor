@@ -348,6 +348,8 @@ const UI = {
       card_new_btn: "Начать",
       lb_title: "Рейтинг",
       lb_view_all: "Весь рейтинг",
+      lb_swipe_right: "Свайп вправо — рейтинг",
+      lb_swipe_back: "Свайп влево — назад в меню",
       lb_you: "Вы",
       lb_empty: "Пока нет игроков",
       lb_error: "Не удалось загрузить рейтинг",
@@ -701,6 +703,8 @@ const UI = {
       card_new_btn: "Start",
       lb_title: "Leaderboard",
       lb_view_all: "View all",
+      lb_swipe_right: "Swipe right for leaderboard",
+      lb_swipe_back: "Swipe left to go back",
       lb_you: "You",
       lb_empty: "No players yet",
       lb_error: "Couldn't load the leaderboard",
@@ -1937,40 +1941,97 @@ UI.selectBotDifficulty = function (diff) {
   UI.showDynamicPanel('panelColorSelect');
 };
 
-// --- MOBILE SWIPE NAVIGATION (menu <-> leaderboard/online) ---
-UI.openMobileInfoPanel = function () {
-  const panel = document.getElementById('infoPanel');
-  if (panel) panel.classList.add('info-panel-open');
+// --- MOBILE SWIPE NAVIGATION: меню <-> лидерборд ---
+// Стр. 1 — меню, стр. 2 — лидерборд (панель справа). Свайп вправо из меню
+// открывает лидерборд, свайп влево из лидерборда возвращает назад. Жест
+// перехватывается только в swipe-моде и только без открытых оверлеев.
+UI.openMobileLeaderboard = async function () {
+  const panel = document.getElementById('mobileLeaderboard');
+  if (!panel) return;
+  try {
+    await UI.syncMobileLeaderboard();
+  } catch (_) { /* панель откроется со скелетонами */ }
+  panel.classList.add('open');
+  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
+  if (backdrop) backdrop.classList.add('open');
 };
 
-UI.closeMobileInfoPanel = function () {
-  const panel = document.getElementById('infoPanel');
-  if (panel) panel.classList.remove('info-panel-open');
+UI.closeMobileLeaderboard = function () {
+  const panel = document.getElementById('mobileLeaderboard');
+  if (panel) panel.classList.remove('open');
+  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
+  if (backdrop) backdrop.classList.remove('open');
+};
+
+// Копирует загруженный топ-5 из правой колонки (и строку «You») в мобильную панель.
+// Если десктопный контейнер ещё на скелетонах — дотягивает данные тем же лоадером.
+UI.syncMobileLeaderboard = async function () {
+  const src = document.getElementById('leaderboard');
+  const dst = document.getElementById('mobileLeaderboardRows');
+  if (!dst) return;
+  if (src) {
+    if (src.querySelector('.home-lb-skeleton')) {
+      await UI.loadLeaderboard();
+    }
+    dst.innerHTML = src.innerHTML;
+  }
+  const srcYou = document.getElementById('leaderboardYou');
+  const dstYou = document.getElementById('mobileLeaderboardYou');
+  if (srcYou && dstYou) {
+    dstYou.classList.toggle('hidden', srcYou.classList.contains('hidden'));
+    dstYou.innerHTML = srcYou.innerHTML;
+  }
 };
 
 UI.initMobileSwipeNav = function () {
   const menu = document.getElementById('mainMenu');
-  const panel = document.getElementById('infoPanel');
+  const panel = document.getElementById('mobileLeaderboard');
   if (!menu || !panel) return;
   const swipeMode = () => window.matchMedia('(max-width: 900px), (max-height: 800px)').matches;
-  let startX = null;
-  let startY = null;
-  menu.addEventListener('touchstart', (e) => {
+  const gesture = { x: null, y: null };
+
+  // Жест не должен навигировать, пока открыта модалка/оверлей/идёт поиск игры
+  const overlaysOpen = () => {
+    const overlay = document.getElementById('dynamicPanel');
+    return Boolean(overlay && !overlay.classList.contains('empty'));
+  };
+
+  const track = (e) => {
+    if (!swipeMode()) { gesture.x = null; gesture.y = null; return; }
     const t = e.changedTouches[0];
-    startX = t.clientX;
-    startY = t.clientY;
-  }, { passive: true });
+    gesture.x = t.clientX;
+    gesture.y = t.clientY;
+  };
+
+  // Меню: свайп вправо -> лидерборд
+  menu.addEventListener('touchstart', track, { passive: true });
   menu.addEventListener('touchend', (e) => {
-    if (!swipeMode() || startX === null) return;
+    if (!swipeMode() || overlaysOpen() || gesture.x === null) { gesture.x = null; return; }
     const t = e.changedTouches[0];
-    const dx = t.clientX - startX;
-    const dy = t.clientY - startY;
-    startX = null;
-    startY = null;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
-    if (dx < 0) UI.openMobileInfoPanel();
-    else UI.closeMobileInfoPanel();
+    const dx = t.clientX - gesture.x;
+    const dy = t.clientY - gesture.y;
+    gesture.x = null;
+    gesture.y = null;
+    if (dx < 60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    UI.openMobileLeaderboard();
   }, { passive: true });
+
+  // Лидерборд: свайп влево -> меню; тап по подложке тоже закрывает
+  panel.addEventListener('touchstart', track, { passive: true });
+  panel.addEventListener('touchend', (e) => {
+    if (!swipeMode() || gesture.x === null) { gesture.x = null; return; }
+    const t = e.changedTouches[0];
+    const dx = t.clientX - gesture.x;
+    const dy = t.clientY - gesture.y;
+    gesture.x = null;
+    gesture.y = null;
+    if (dx > -60 || Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    UI.closeMobileLeaderboard();
+  }, { passive: true });
+  const backdrop = document.getElementById('mobileLeaderboardBackdrop');
+  if (backdrop) {
+    backdrop.addEventListener('click', () => UI.closeMobileLeaderboard());
+  }
 };
 
 UI.initHeaderNav = function () {
