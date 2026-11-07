@@ -3010,7 +3010,10 @@ canvas {
     display: block;
 }
 
-.eval-bar {
+/* Все классы .eval-bar* и .eval-fill* НЕ ограничивать без #gameScreen: та же
+   разметка используется replay.html, для которого реплейский replay.css задаёт
+   собственную геометрию (высота по stretch во .board-row, flex-заполнение). */
+#gameScreen.bot-mode .eval-bar {
     position: absolute;
     left: 0;
     top: 0;
@@ -3021,10 +3024,10 @@ canvas {
     overflow: hidden;
 }
 
-.eval-bar.top-white { background: #ececec; }
-.eval-bar.top-black { background: #2b2d33; }
+#gameScreen.bot-mode .eval-bar.top-white { background: #ececec; }
+#gameScreen.bot-mode .eval-bar.top-black { background: #2b2d33; }
 
-.eval-fill {
+#gameScreen.bot-mode .eval-fill {
     position: absolute;
     left: 0;
     right: 0;
@@ -3033,10 +3036,10 @@ canvas {
     transition: height .25s ease;
 }
 
-.eval-fill.fill-white { background: #ececec; }
-.eval-fill.fill-black { background: #2b2d33; }
+#gameScreen.bot-mode .eval-fill.fill-white { background: #ececec; }
+#gameScreen.bot-mode .eval-fill.fill-black { background: #2b2d33; }
 
-.eval-mid {
+#gameScreen.bot-mode .eval-mid {
     position: absolute;
     left: 0;
     right: 0;
@@ -3046,7 +3049,7 @@ canvas {
     background: var(--accent);
 }
 
-.eval-num {
+#gameScreen.bot-mode .eval-num {
     position: absolute;
     left: 0;
     right: 0;
@@ -3056,8 +3059,8 @@ canvas {
 }
 
 /* Макет canvas1-Main: знак инвертирования сидит внутри шкалы с отступом 8px. */
-.eval-num.at-bottom { bottom: 8px; color: #111; }
-.eval-num.at-top { top: 8px; color: #ececec; }
+#gameScreen.bot-mode .eval-num.at-bottom { bottom: 8px; color: #111; }
+#gameScreen.bot-mode .eval-num.at-top { top: 8px; color: #ececec; }
 
 /* Pawn side markers on the vertical eval bar были убраны: канон полного десктопного
    экрана — canvas1-Main (rail без маркеров). GamePanel.html оставлен для eval-карточки. */
