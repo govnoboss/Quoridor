@@ -1772,6 +1772,38 @@ canvas {
     .home-settings {
         grid-template-columns: 1fr;
     }
+
+    /* Safe-center (как в мобильной ветке ниже): контент одной колонки выше
+       вьюпорта, а центрирование через justify-content:center уводит верхнюю
+       часть (заголовок и ВСЕ кнопки Play) в недостижимую зону overflow —
+       вверх скролл-контейнер не тянет. Репорт 09.11.2026: "No button to play
+       this game" (Win/Chrome, 1280x800). margin:auto центрует, когда контент
+       влезает, и даёт нулевые поля, когда нет. */
+    #mainMenu {
+        justify-content: flex-start;
+    }
+
+    .home-layout {
+        margin-top: auto;
+        margin-bottom: auto;
+    }
+
+    /* Подвал — в потоке: absolute здесь перекрывал прокручиваемый контент */
+    .social-bar {
+        position: static;
+        margin-top: auto;
+        height: auto;
+        min-height: 56px;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 8px 10px 14px;
+    }
+
+    .social-group {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px 12px;
+    }
 }
 
 /* Мобильные (≤ 768 px) */
