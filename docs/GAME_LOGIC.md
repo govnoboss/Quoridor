@@ -30,12 +30,16 @@ Runtime fields added by `createInitialState` in `quoridor-engine/rules/quoridor-
   playerSockets: [socketId, socketId], // server-side (not mirrored to clients)
   playerTokens:  [token, token],       // server-side
   playerProfiles: [{ name, username, ... }, { ... }],
-  timeControl: { base: 600, inc: 0 },  // per-second increment supported
   isRanked: false,
-  increment: 0,                        // seconds added per move
-  lastMoveTimestamp: 0,
+  timers: [600, 600],                  // initial clock per side = timeControl.base
+  increment: 0,                        // seconds added per move (from timeControl.inc)
+  lastMoveTimestamp: <Date.now()>,
   disconnectTimer: null
 }
+```
+**Note:** the state itself carries **no `timeControl` field** — the original base/increment live only
+in the arguments to `createInitialState` (and in rematch context / archive fallbacks in
+`src/server.js`). Read the clock from `timers`/`increment`, never from `state.timeControl`.
 ```
 Timers count down on the server; the browser renders `timerUpdate` events. Timeout handling
 lives in `src/server.js` (`handleTurnTimeout` → loser is the player who ran out).

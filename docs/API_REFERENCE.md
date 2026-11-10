@@ -13,10 +13,14 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/shared.js` | mirrored game engine (`src/core/shared.js`) |
 | GET | `/js/ai-v1.js` | production engine (v3) for the browser, generated from `quoridor-engine/engines/v3` + `personality.js` by `src/core/ai-v1-bundle.js` (historical URL) |
 | GET | `/js/ai-core.js` | legacy v0 AI engine, kept for reference only — nothing loads it |
+| GET | `/js/mp4-muxer.js` | `node_modules/mp4-muxer` served for replay video export |
 | GET | `/login` `/register` `/forgot-password` `/reset-password` | auth pages |
 | GET | `/rules` `/how-to-play` (301 → `/rules`) `/faq` | info pages |
 | GET | `/terms` `/privacy` `/report` `/profile/reports` | user pages |
 | GET | `/leaderboard` `/replay/:id` `/lobby/:lobbyCode` `/profiles/:username` | content pages |
+| GET | `/play` | legacy alias, 301 → `/` (preserves the rest of the URL) |
+| GET | `/profile`, `/profile/:legacyUser` | legacy redirect, 301 → `/profiles/<username>` |
+| GET | `/{*path}` | SPA fallback — serves `index.html` for any unrecognized GET route |
 | GET | `/avatars/*` | avatar files (`avatars/<userId>.webp`, immutable); missing file → 301 to placeholder |
 | GET | `/admin` `/admin/users` `/admin/user-reports` `/admin/reports` `/admin/logs` `/admin/bots` `/admin/metrics` | admin pages (`requireAdmin`) |
 
@@ -26,6 +30,9 @@ Redis store); protected routes return `401` when there is no session.
 | --- | --- | --- |
 | POST | `/api/auth/register` | `{ username, name?, password }` → creates user, starts session |
 | POST | `/api/auth/login` | `{ username, password }` → session + `playerToken` |
+| GET | `/api/auth/config` | `{ googleClientId }` for Google Identity Services (null when unconfigured) |
+| POST | `/api/auth/google` | `{ credential }` (Google ID token) → session; merges into an existing account with the same email; creates a Google-only account otherwise (no `passwordHash`) |
+| POST | `/api/auth/reauth-challenge` | issues a one-time reauth `nonce` in the session (used by Google-account users to set a password) |
 | POST | `/api/auth/logout` | destroys session |
 | GET | `/api/auth/me` | current user or `null` (also issues a fresh `playerToken`) |
 | POST | `/api/auth/forgot-password` | `{ email }` — rate-limited, sends reset email via Resend |
@@ -41,6 +48,7 @@ Redis store); protected routes return `401` when there is no session.
 | POST | `/api/user/update-status` | `{ status }` |
 | POST | `/api/user/update-avatar` | `{ avatarUrl }` — sets allowed image URL as avatar |
 | POST | `/api/user/upload-avatar` | `multipart/form-data`, field `avatar` (JPEG/PNG/WebP, ≤ 5 MB) → resized to 256×256 WebP at `avatars/<userId>.webp` |
+| POST | `/api/user/password` | `{ currentPassword, newPassword }` (`googleCredential` instead of `currentPassword` for Google accounts; bumps `sessionVersion`, keeps current session) |
 | GET | `/api/user/history` | paginated own game history |
 | DELETE | `/api/user/account` | delete own account and data |
 
@@ -52,6 +60,7 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/api/profiles/:username/games` | recent games of a user |
 | GET | `/api/profiles/:username/rating-history` | rating points over time (chart) |
 | GET | `/api/leaderboard` | ranked players (`stats.totalGames` included) |
+| GET | `/api/leaderboard/me` | leaderboard context for the current session user (rank around own position) |
 | GET | `/api/games/:id` | one archived game (result + history for replay) |
 
 ## Friends
@@ -124,6 +133,7 @@ Defaults are resolved from code (`src/`), then docker-compose may override them.
 | `SESSION_SECRET` | — | — | **required**; `openssl rand -hex 32` |
 | `ALLOWED_ORIGINS` | — | `https://playquor.org` | CORS origins, comma-separated |
 | `SENTRY_DSN` | — | — | Sentry error tracking (disabled without it) |
+| `GOOGLE_CLIENT_ID` | — | — | Google Identity Services client ID (web); feeds `GET /api/auth/config`, `POST /api/auth/google` and password-setting reauth for Google accounts |
 | `SOCKET_ADMIN_USERNAME` / `SOCKET_ADMIN_PASSWORD` | — | (not passed by compose) | enables Socket.IO Admin UI |
 | `BOTS_ENABLED` | `false` | `false` | enables server-side bot matchmaking fallback |
 | `BOT_RANKED_ENABLED` | `false` | `false` | bots allowed in ranked queues |
@@ -138,7 +148,7 @@ Defaults are resolved from code (`src/`), then docker-compose may override them.
 | `RESEND_API_KEY` | — | — | Resend key for password-reset mail |
 | `EMAIL_FROM` | `onboarding@resend.dev` | — | sender address |
 | `SITE_URL` | — | `https://playquor.org` | canonical site URL (used in emails) |
-| `AVATARS_DIR` | `<repo>/avatars` | `/app/avatars` (volume) | avatar storage directory |
+| `AVATARS_DIR` | *(ignored)* | *(ignored)* | **No effect in code** — the avatar directory is hardcoded in `src/server.js` to `<repo>/avatars`; Docker maps the `avatars_data` volume to `/app/avatars`, which coincides with it |
 | `REDIS_DISABLE_MEMORY_FALLBACK` | — | — | if set, fails instead of falling back to in-memory store |
 
 See [.env.example](../.env.example) for the full template.

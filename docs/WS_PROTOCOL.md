@@ -37,6 +37,8 @@ set from `req.session.playerToken` or from a fresh token via `assignToken`).
 | --- | --- |
 | `playerMove` | `{ lobbyId, move }` where `move` is `{ type: 'pawn', r, c }` or `{ type: 'wall', r, c, isVertical }` (`playerIdx` is added server-side). |
 | `surrender` | `{ lobbyId }` |
+| `requestTimerSync` | `{ lobbyId }` + acknowledgement callback — recovers the clock after reconnect/background (`net.js` emits it on every socket `connect` while in an online game): ack `{ timers, currentPlayer, serverNow }`, `{ finished: true }` after resending a missed `gameOver`, or `{}` for non-participants. |
+| `leaveGame` | `{ lobbyId }` — leave the game: it is finalized with the opponent as winner (reason `Surrender`). |
 | `sendReaction` | `{ lobbyId, emoji }` — emoji must be in the server allowlist (25 emoji). |
 | `requestRematch` | `{ lobbyId, token? }` |
 | `respondRematch` | `{ lobbyId, token?, accept }` |
@@ -52,6 +54,10 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 (turn clocks cleared), notifies the opponent, and clears queues when both are absent.
 
 ## Server → Client
+
+### On connect (any socket)
+- `assignToken` — `{ token }` sent when the handshake carried no valid player token; the client
+  stores it and returns it in the next handshake (`socket.handshake.auth.token`).
 
 ### On connect (authenticated sockets)
 - `onlineStats` — `{ online, playing, humans, bots, liveGames }` presence snapshot, then a
@@ -72,8 +78,9 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 
 ### Gameplay
 - `serverMove` — `{ playerIdx, move, nextPlayer, timers }` broadcast to the lobby.
-- `moveRejected` — `{ reason }` (`Too many moves`, `Invalid lobby format`, `Invalid move format`,
-  `Room busy`, `Game not found`, `Unauthorized`, or a `gameReducer` validation message).
+- `moveRejected` — `{ reason }` (`Too many moves`, `Invalid request`, `Invalid lobby format`, `Invalid move format`,
+  `Room busy`, `Game not found`, `Game already finished`, `Unauthorized`, `Server error`,
+  or a `gameReducer` validation message).
 - `timerUpdate` — `{ timers }`, broadcast every second by the server pulse.
 - `receiveReaction` — `{ emoji, playerIdx }` broadcast to the lobby.
 - `opponentDisconnected` — opponent left; the game is paused (30 s grace).
@@ -94,6 +101,10 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 - `rematchExpired` — the 30 s response window elapsed.
 
 ### Presence / moderation
+- `notification:new` — `{ notification }` pushed in real time when a notification is created for the logged-in user.
 - `forceDisconnect` — `{ reason }` (`You have been banned`, `Admin access removed`,
   `Account deleted`, `Logged in from another tab`) — disconnect the socket.
 - `error` — generic `{ message }` (e.g. rate-limited `createRoom`).
+
+### Friend invites
+- `inviteFailed` — `{ reason }` (`Friend is offline …`) when a friend game invite cannot be delivered.

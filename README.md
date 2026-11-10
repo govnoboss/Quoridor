@@ -93,14 +93,19 @@ npm run load-test         # manual load simulation (not jest)
 Suites live in `tests/` (see [docs/TOOLS.md](docs/TOOLS.md)). All suites run without external
 services (Redis mock + `mongodb-memory-server`).
 
+## AI Documentation
+
+For coding agents, start with [`docs/AI_CONTEXT.md`](docs/AI_CONTEXT.md), then open only the
+task-relevant references listed in [`docs/AI_DOCS_README.md`](docs/AI_DOCS_README.md). These files
+are a compact source-oriented map; verify implementation details in code before editing.
+
 ## Project Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — system design, components, data flow
-- [Folder Structure](docs/FOLDER_STRUCTURE.md) — full layout of the repo
 - [Game Logic](docs/GAME_LOGIC.md) — rules implementation and state shape
 - [WebSocket Protocol](docs/WS_PROTOCOL.md) — client/server Socket.IO events
 - [API Reference](docs/API_REFERENCE.md) — REST endpoints and environment variables
 - [Tools & Config](docs/TOOLS.md) — dev tools, Sentry, Socket.IO Admin UI, Jest, ESLint
+- [AI Architecture](docs/AI_ARCHITECTURE.md) — runtime topology, entrypoints, module map
 - [Deployment](DEPLOY.md) — production setup on a VPS (Docker Compose + Caddy)
 
 ## AI Engine & Arena
