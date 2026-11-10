@@ -102,7 +102,7 @@
         '<div class="footer-right">' +
           '<div class="footer-social">' +
             '<a class="social-link" href="https://www.tiktok.com/@playquor" target="_blank" rel="noopener" aria-label="TikTok">' + SOCIAL_SVGS.tiktok + '</a>' +
-            '<a class="social-link" href="https://www.youtube.com/@playquoridor" target="_blank" rel="noopener" aria-label="YouTube">' + SOCIAL_SVGS.youtube + '</a>' +
+            '<a class="social-link" href="https://www.youtube.com/@playquor1" target="_blank" rel="noopener" aria-label="YouTube">' + SOCIAL_SVGS.youtube + '</a>' +
             '<a class="social-link" href="https://discord.gg/fbDtxcyg6B" target="_blank" rel="noopener" aria-label="Discord">' + SOCIAL_SVGS.discord + '</a>' +
             '<a class="social-link" href="https://play.google.com/store/apps/details?id=org.playquor.app&amp;pcampaignid=web_share" target="_blank" rel="noopener" aria-label="Google Play">' + SOCIAL_SVGS.gplay + '</a>' +
           '</div>' +
