@@ -57,6 +57,7 @@ Production URL referenced by the repository: `https://playquor.org`.
 | Database / sessions / Redis | `docs/AI_DATA.md`, `src/models/`, `src/storage/` |
 | Bot accounts / bot matchmaking | `docs/AI_BOTS.md`, `src/bots/`, `src/simulation/` |
 | Deployment / environment | `DEPLOY.md`, `.env.example`, Docker files |
+| UTM links / marketing traffic | `docs/UTM_GUIDE.md`, `docs/AI_FRONTEND.md` §6 |
 | Tests / lint / tooling | `docs/TOOLS.md`, `package.json`, `jest.config.js` |
 
 ## 6. Development workflow for agents

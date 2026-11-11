@@ -142,13 +142,9 @@ Destination legend: **U** = Umami, **M** = Mongo. Allowlist for Umami lives in `
 ### UTM
 
 Umami parses `utm_source`, `utm_medium`, `utm_campaign` from landing URLs automatically. Server redirects
-preserve query strings (including `/how-to-play → /rules`). Recommended labeling:
-
-| utm_source | utm_medium | utm_campaign | Example |
-|---|---|---|---|
-| `telegram` | `post` / `story` | `launch-2026` | `https://playquor.org/?utm_source=telegram&utm_medium=post&utm_campaign=launch-2026` |
-| `reddit` | `post` | `r-boardgames` | `https://playquor.org/?utm_source=reddit&utm_medium=post&utm_campaign=r-boardgames` |
-| `play-store` | `app-listing` | `android` | `https://playquor.org/?utm_source=play-store&utm_medium=app-listing&utm_campaign=android` |
+preserve query strings (including `/how-to-play → /rules`). Full labeling guide (rules, channel → value
+table, example links, verification steps): **`docs/UTM_GUIDE.md`**. Quick rules: lowercase-hyphen values,
+labels on the root `https://playquor.org/` only, three params, never label internal links.
 
 SPA note: `/lobby/:code` history navigation (`pushState`/`replaceState`) drops the query string — put UTM
 links on `https://playquor.org/` (root) or other landing pages, not on `/lobby/…` deep links.
