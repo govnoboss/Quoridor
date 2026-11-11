@@ -47,6 +47,13 @@ const Net = {
             }
         });
 
+        // Обрыв соединения во время активной сетевой партии — партия брошена.
+        this.socket.on('disconnect', () => {
+            if (this.isOnline && typeof Game !== 'undefined' && Game.trackAbandonment) {
+                Game.trackAbandonment('disconnect');
+            }
+        });
+
 
 
         this.socket.on('connect', () => {
@@ -59,12 +66,19 @@ const Net = {
             console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             const lobbyCode = data.lobbyCode || data.lobbyId;
 
+            // wait_ms нужно посчитать до hideSearch — он обнуляет точку отсчёта.
+            const searchWaitMs = (UI._searchStartedAt != null) ? Math.max(0, Date.now() - UI._searchStartedAt) : null;
+
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = lobbyCode;
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
             const gameMode = !data.initialTime ? 'friend' : (this.lastIsRanked ? 'ranked' : 'normal');
             this.lastGameMode = gameMode;
+            if (searchWaitMs !== null) {
+                // Матч найден очередью поиска (а не входом в комнату по коду)
+                trackEvent('search-matched', { mode: gameMode, wait_ms: searchWaitMs });
+            }
             UI.hideSearch(false);
             UI.currentRoomCode = null; // Сбрасываем код, так как он использован
             UI.updateLobbyRoute(lobbyCode);
@@ -232,6 +246,11 @@ const Net = {
 
         this.socket.on('findGameFailed', (data) => {
             console.log('[NET] Find Game Failed:', data.reason);
+            // Поиск завершился без соперника (сервер не подобрал игру / уже в игре)
+            const searchWaitMs = (UI._searchStartedAt != null) ? Math.max(0, Date.now() - UI._searchStartedAt) : null;
+            trackEvent('search-timeout', Object.assign({ mode: this.lastIsRanked ? 'ranked' : 'online' }, searchWaitMs !== null ? { wait_ms: searchWaitMs } : {}));
+            // Метка для search-fallback-to-bot: игрок начал игру с ботом вскоре после неудачного поиска
+            UI.lastSearchFailedAt = Date.now();
             const reasonMsg = data.reason === 'Already in game' ? UI.translate('toast_already_in_game') : data.reason;
             UI.showToast(UI.translate('toast_search_error') + ': ' + reasonMsg, 'error');
             UI.hideSearch(false);

@@ -234,6 +234,29 @@ describe('Analytics Ingest API', () => {
         expect(res.status).toBe(204);
         expect(AnalyticsEvent.insertMany.mock.calls[0][0]).toHaveLength(1);
     });
+
+    it('accepts new funnel event names (stage 2)', async () => {
+        const ts = new Date().toISOString();
+        const res = await request(app)
+            .post('/api/analytics/events')
+            .send({ events: [
+                { name: 'game-abandoned', props: { mode: 'online', move_number: 12, reason: 'tab-close' }, ts },
+                { name: 'search-matched', props: { mode: 'ranked', wait_ms: 4300 }, ts },
+                { name: 'search-timeout', props: { mode: 'online', wait_ms: 65000 }, ts },
+                { name: 'search-fallback-to-bot', props: { difficulty: 'hard' }, ts },
+                { name: 'room-link-copied', props: {}, ts },
+                { name: 'room-opened-via-link', props: {}, ts },
+                { name: 'screen-view', props: { screen: 'game' }, ts },
+                { name: 'register-click', props: {}, ts }
+            ] });
+        expect(res.status).toBe(204);
+        const docs = AnalyticsEvent.insertMany.mock.calls[0][0];
+        expect(docs).toHaveLength(8);
+        const abandoned = docs.find((d) => d.name === 'game-abandoned');
+        expect(abandoned.props).toEqual({ mode: 'online', move_number: 12, reason: 'tab-close' });
+        expect(docs.find((d) => d.name === 'search-matched').props).toEqual({ mode: 'ranked', wait_ms: 4300 });
+        expect(docs.find((d) => d.name === 'screen-view').props).toEqual({ screen: 'game' });
+    });
 });
 
 describe('Admin Metrics API', () => {

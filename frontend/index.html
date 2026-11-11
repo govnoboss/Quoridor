@@ -991,7 +991,7 @@
         <button class="result-btn hidden" id="lobbyBtn" onclick="Game.goToMainMenu()" data-i18n="btn_lobby">Back to Lobby</button>
 
         <div class="result-signup hidden" id="resultSignup">
-          <button class="result-btn signup-btn" onclick="window.location.href='/register'" data-i18n="btn_sign_up">Sign Up</button>
+          <button class="result-btn signup-btn" onclick="if (window.trackEvent) trackEvent('register-click'); window.location.href='/register'" data-i18n="btn_sign_up">Sign Up</button>
           <p class="signup-subtitle" data-i18n="signup_benefits">Track your rating, match history and stats</p>
         </div>
       </div>

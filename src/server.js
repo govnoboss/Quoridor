@@ -2449,10 +2449,11 @@ const analyticsLimiter = rateLimit({
 });
 
 const ANALYTICS_EVENT_WHITELIST = new Set([
-    'register-complete', 'login-complete', 'search-started', 'play-online-click',
+    'register-click', 'register-complete', 'login-complete', 'search-started', 'play-online-click',
     'play-friend-click', 'play-local-click', 'surrender-click', 'room-created',
-    'room-joined', 'search-cancelled', 'rematch-click', 'game-started',
-    'game-finished', 'play-bot-click', 'app-loaded', 'session-start'
+    'room-joined', 'room-link-copied', 'room-opened-via-link', 'search-cancelled', 'search-matched',
+    'search-timeout', 'search-fallback-to-bot', 'screen-view', 'rematch-click', 'game-started',
+    'game-abandoned', 'game-finished', 'play-bot-click', 'app-loaded', 'session-start'
 ]);
 
 // POST /api/analytics/events — батч событий от клиента (до 20 за запрос)

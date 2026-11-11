@@ -783,6 +783,14 @@ const UI = {
   },
 
   showScreen(id) {
+    // SPA-экраны index.html не дают Umami отдельных pageview, поэтому каждое переключение
+    // экрана шлёт виртуальное событие screen-view (дубли подряд подавляются).
+    const SCREEN_NAMES = { mainMenu: 'menu', modeScreen: 'mode', gameScreen: 'game', profileScreen: 'profile', colorSelectScreen: 'color-select', roomScreen: 'room' };
+    const screenName = SCREEN_NAMES[id] || id;
+    if (this._lastScreenView !== screenName) {
+      this._lastScreenView = screenName;
+      trackEvent('screen-view', { screen: screenName });
+    }
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     this.updateHeaderVisibility();
@@ -1048,6 +1056,7 @@ const UI = {
 
     // 2. Запуск таймера
     this.searchTime = 0;
+    this._searchStartedAt = Date.now(); // точка отсчёта wait_ms для search-matched / search-timeout
     this.updateSearchTimer();
     if (this.searchTimerInterval) clearInterval(this.searchTimerInterval);
     this.searchTimerInterval = setInterval(() => this.updateSearchTimer(), 1000);
@@ -1059,6 +1068,9 @@ const UI = {
   },
 
   hideSearch(returnToTimeSelect = true) {
+    // Поиск завершён (найден, отменён или неудачен) — точка отсчёта больше не действительна
+    this._searchStartedAt = null;
+
     // Останавливаем таймер
     if (this.searchTimerInterval) {
       clearInterval(this.searchTimerInterval);
@@ -1786,6 +1798,7 @@ const UI = {
     const url = window.location.origin + window.location.pathname + '?room=' + code;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
+        trackEvent('room-link-copied');
         this.showToast(this.translate('toast_link_copied'), 'info');
       }).catch(err => {
         console.error('Clipboard error:', err);
@@ -3566,6 +3579,7 @@ UI.initRouting = function () {
       const username = path.split('/')[2];
       this.showProfilePage(username, false);
     } else if (path.startsWith('/lobby/')) {
+      trackEvent('room-opened-via-link');
       handleLobbyPath(this.getLobbyCodeFromPath(), isReplay);
     } else {
       if (typeof Game !== 'undefined' && Game.leaveActiveGame) Game.leaveActiveGame();
@@ -3580,6 +3594,7 @@ UI.initRouting = function () {
     const username = path.split('/')[2];
     this.showProfilePage(username, false);
   } else if (path.startsWith('/lobby/')) {
+    trackEvent('room-opened-via-link');
     handleLobbyPath(this.getLobbyCodeFromPath(), isReplay);
   } else {
     this.showScreen('mainMenu');
@@ -3785,6 +3800,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isReplay = UI.getReplayParam();
   const normalizedRoomCode = (roomCode || '').toUpperCase().trim();
   if (UI.isValidLobbyCode(normalizedRoomCode)) {
+    trackEvent('room-opened-via-link');
     UI.updateLobbyRoute(normalizedRoomCode, true);
     UI.showScreen('gameScreen');
     Net.rejoinLobbyByCode(normalizedRoomCode, isReplay);

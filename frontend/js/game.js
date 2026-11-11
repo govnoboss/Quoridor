@@ -401,6 +401,25 @@ const Game = {
   },
 
   /**
+   * Фиксирует брошенную партию: игра началась (isGameLive), но game-finished не пришёл.
+   * Причины: 'navigate' (ушёл в меню/назад), 'tab-close' (закрыл/покинул страницу),
+   * 'disconnect' (обрыв сокета в сетевой партии).
+   * Гард от дублей: одно событие на партию; не шлётся, если игра уже завершена
+   * (handleGameOver успевает выставить isGameLive=false / isGameOver=true).
+   * @param {'navigate'|'tab-close'|'disconnect'} reason
+   * @returns {boolean} true, если событие отправлено
+   */
+  trackAbandonment(reason) {
+    if (this._abandonSent) return false;
+    if (!this.isGameLive || this.isGameOver) return false;
+    this._abandonSent = true;
+    const mode = this.state.gameMode || 'local';
+    const moveNumber = (this.state.history || []).length;
+    trackEvent('game-abandoned', { mode, move_number: moveNumber, reason });
+    return true;
+  },
+
+  /**
    * Немедленно завершает активную партию при уходе с экрана игры (кнопка/жест «назад»,
    * клик по логотипу, смена маршрута). Без этого партия остаётся живой: локальные часы
    * продолжают идти, а серверный gameOver всплывает модалкой поверх главного меню.
@@ -409,6 +428,7 @@ const Game = {
   leaveActiveGame() {
     if (!this.isGameLive) return false;
 
+    this.trackAbandonment('navigate');
     if (typeof Net !== 'undefined' && Net.isOnline && typeof Net.leaveGame === 'function') {
       Net.leaveGame();
     }
@@ -790,6 +810,7 @@ const Game = {
     this.state.history = [];
     this.viewHistoryIndex = -1; // Сброс просмотра при ресете
     this.isGameOver = false; // Сброс флага окончания игры
+    this._abandonSent = false; // Новый старт партии — game-abandoned снова доступен
     this.state.playerProfiles = [null, null];
     if (this.state.gameId) {
       if (this.state.gameId.startsWith('local_')) {
@@ -839,6 +860,10 @@ const Game = {
   startVsBot(playerColor) {
     const diff = this.pendingBotDifficulty;
     trackEvent('play-bot-click', { difficulty: diff });
+    // search-fallback-to-bot: игрок начал игру с ботом вскоре (5 мин) после неудачного онлайн-поиска
+    if (typeof UI !== 'undefined' && UI.lastSearchFailedAt && (Date.now() - UI.lastSearchFailedAt) < 5 * 60 * 1000) {
+      trackEvent('search-fallback-to-bot', { difficulty: diff });
+    }
     this.state.botDifficulty = diff;
     this.state.gameMode = 'bot';
 
@@ -3115,6 +3140,19 @@ const DemoBoard = {
 };
 
 // Запуск инициализации после загрузки DOM
+// Брошенная партия при закрытии/покидании страницы: pagehide срабатывает и на закрытие
+// вкладки, и на уход навигацией. visibilitychange сознательно не используется —
+// на мобильных сворачивание приложения дало бы ложные срабатывания.
+// Событие уходит синхронным sendBeacon-флашем очереди (см. analytics.js).
+window.addEventListener('pagehide', function () {
+  if (typeof Game.trackAbandonment === 'function') {
+    Game.trackAbandonment('tab-close');
+  }
+  if (typeof Analytics !== 'undefined' && Analytics.flush) {
+    Analytics.flush();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   Game.setupCanvas();
   Game.updateTurnDisplay();
