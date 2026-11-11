@@ -4,6 +4,7 @@
   "description": "Quoridor online board game: real-time multiplayer (Node.js/Express/Socket.IO) with a versioned AI engine and an arena for engine testing.",
   "main": "src/server.js",
   "dependencies": {
+    "@sentry/browser": "^10.78.0",
     "@sentry/node": "^10.54.0",
     "@socket.io/admin-ui": "^0.5.1",
     "accepts": "^2.0.0",
