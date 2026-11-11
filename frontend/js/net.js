@@ -9,6 +9,10 @@ const Net = {
     lastTimeControl: null, // {base, inc} последнего поиска (для New Game)
     lastIsRanked: false,   // флаг ranked последнего поиска
 
+    // Ждём столько же, сколько сервер (src/server.js setDisconnectTimer lobbyId=30000):
+    // если игрок вернулся за это время, game-abandoned не шлём.
+    ABANDON_GRACE_MS: 30000,
+
     init() {
         // 1. Пытаемся получить сохраненный токен
         this.playerToken = localStorage.getItem('quoridor_token');
@@ -47,17 +51,26 @@ const Net = {
             }
         });
 
-        // Обрыв соединения во время активной сетевой партии — партия брошена.
+        // Обрыв соединения во время активной сетевой партии. Шлём game-abandoned только
+        // после grace-периода, равного серверному (setDisconnectTimer lobbyId=30000):
+        // кратковременный разрыв обычно реконнектится и партия продолжается — событие отменяется.
         this.socket.on('disconnect', () => {
-            if (this.isOnline && typeof Game !== 'undefined' && Game.trackAbandonment) {
-                Game.trackAbandonment('disconnect');
-            }
+            clearTimeout(this._abandonGraceTimer);
+            this._abandonGraceTimer = setTimeout(() => {
+                this._abandonGraceTimer = null;
+                if (this.isOnline && typeof Game !== 'undefined' && Game.trackAbandonment) {
+                    Game.trackAbandonment('disconnect');
+                }
+            }, this.ABANDON_GRACE_MS);
         });
 
 
 
         this.socket.on('connect', () => {
             console.log('[NET] Socket connected:', this.socket.id);
+            // Соединение восстановлено до истечения grace-периода — отменяем game-abandoned
+            clearTimeout(this._abandonGraceTimer);
+            this._abandonGraceTimer = null;
             // Пытаемся вернуться в игру при переподключении
             this.socket.emit('rejoinGame', { token: this.playerToken });
         });
@@ -89,6 +102,9 @@ const Net = {
         // Обработка восстановления игры
         this.socket.on('gameResumed', (data) => {
             console.log(`[NET] ИГРА ВОССТАНОВЛЕНА! Лобби: ${data.lobbyId}`);
+            // Партия продолжается — отменяем game-abandoned, если он ещё в grace-периоде
+            clearTimeout(this._abandonGraceTimer);
+            this._abandonGraceTimer = null;
             const lobbyCode = data.lobbyCode || data.lobbyId;
             this.isOnline = true;
             this.myColor = data.color;

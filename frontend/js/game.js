@@ -3144,7 +3144,10 @@ const DemoBoard = {
 // вкладки, и на уход навигацией. visibilitychange сознательно не используется —
 // на мобильных сворачивание приложения дало бы ложные срабатывания.
 // Событие уходит синхронным sendBeacon-флашем очереди (см. analytics.js).
-window.addEventListener('pagehide', function () {
+window.addEventListener('pagehide', function (e) {
+  // bfcache: persisted=true означает «страница может вернуться из кеша назад» —
+  // партия продолжится, считать её брошенной нельзя.
+  if (e && e.persisted) return;
   if (typeof Game.trackAbandonment === 'function') {
     Game.trackAbandonment('tab-close');
   }

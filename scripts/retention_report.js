@@ -105,8 +105,13 @@ async function main() {
     };
     const funnel = {
         'play-online-click': get('play-online-click'),
+        'search-matched': get('search-matched'),
         'game-started': get('game-started'),
-        'game-finished': get('game-finished')
+        'game-finished': get('game-finished'),
+        'game-abandoned': get('game-abandoned'),
+        'search-timeout': get('search-timeout'),
+        'search-fallback-to-bot': get('search-fallback-to-bot'),
+        'rematch-click': get('rematch-click')
     };
     console.log('\nFunnel (last %d days, counts / unique users):', days);
     for (const [step, v] of Object.entries(funnel)) {

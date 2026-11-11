@@ -66,7 +66,11 @@
         if (!UMAMI_IDENTIFY_ENABLED || umamiDisabled() || umamiIdentified) return;
         if (!umamiReady()) return;
         try {
-            window.umami.identify({ deviceId: DEVICE_ID });
+            // Строковая форма: script.js записывает id в сессию и шлёт его в payload.id всех
+            // последующих запросов — это склеивает визиты одного устройства между месяцами.
+            // Объектная форма (identify({...})) лишь добавляет свойство сессии и склейку не делает.
+            // DEVICE_ID — случайный id из localStorage, не связан с аккаунтом и не содержит PII.
+            window.umami.identify(DEVICE_ID);
             umamiIdentified = true;
         } catch (e) {}
     }

@@ -36,7 +36,7 @@ Check `frontend/index.html` for exact version strings and order before editing. 
 | `game-undo.js` | see file | Undo functionality |
 | `replay.js` | 960 lines | Replay loading, rendering, navigation, analysis, video export |
 | `replay-eval-worker.js` | 8 KB | Replay evaluation worker |
-| `analytics-boot.js` | 2 KB | Unified analytics bootstrap: injects the Umami script tag (with `data-domains`) and loads `analytics.js` in the same position |
+| `analytics-boot.js` | 2 KB | Unified analytics bootstrap: injects the Umami script tag (with `data-domains`); pages pair it with an explicit `analytics.js` tag |
 | `analytics.js` | 5 KB | Client analytics entrypoint: `trackEvent` → Mongo (`POST /api/analytics/events`) + Umami copy (see «External analytics (Umami)» below) |
 | `site-shell.js` | 12 KB | Shared shell behavior on standalone pages |
 
@@ -77,9 +77,12 @@ pages and funnels over key events. The internal analytics (`POST /api/analytics/
 
 ### Connection
 
-- Unified bootstrap script per public page: `<script src="/js/analytics-boot.js?v=1.2.0"></script>`.
-  It injects the Umami tag (`defer`, `data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"`,
-  `data-domains="playquor.org"`) and loads `/js/analytics.js?v=1.2.0` at the same script position.
+- Unified bootstrap script per public page (two tags, in `<head>` before the other scripts):
+  `<script src="/js/analytics-boot.js?v=1.2.0"></script>` injects the Umami tag
+  (`defer`, `data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"`, `data-domains="playquor.org"`),
+  and the explicit `<script src="/js/analytics.js?v=1.2.0"></script>` tag follows.
+  (Boot used to load `analytics.js` via `document.write`; removed — Chrome may block such
+  inserts on slow connections.)
 - `data-domains="playquor.org"` makes Umami ignore localhost, staging and any non-production host.
   The Android app loads `https://playquor.org` (see `capacitor.config.json`), so its traffic passes the filter.
 - Pages with Umami + `analytics.js`: `index`, `login`, `register`, `leaderboard`, `rules`, `faq`,
@@ -94,7 +97,9 @@ pages and funnels over key events. The internal analytics (`POST /api/analytics/
 
 - What never goes to Umami: account `userId`, e-mail, username, `sessionId`. The only identifier is an
   anonymous random `deviceId` from `localStorage` (`quoridor_device_id`, not linked to any account),
-  sent via `umami.identify({ deviceId })` once `window.umami` is ready. Controlled by the constant
+  sent via `umami.identify(DEVICE_ID)` (string form) once `window.umami` is ready: script.js records it
+  as the session `id` and stitches visits of the same device across months. The object form of `identify`
+  only adds session properties and does not stitch visits. Controlled by the constant
   `UMAMI_IDENTIFY_ENABLED` in `frontend/js/analytics.js` (default `true`); set it to `false` to disable.
 - `platform: 'android' | 'web'` is merged into every Umami event's props (web detection in `analytics.js`).
 - Opt out for your own browser: `localStorage.setItem('umami.disabled', 1)` — skips Umami script injection
@@ -128,12 +133,11 @@ Destination legend: **U** = Umami, **M** = Mongo. Allowlist for Umami lives in `
 | `room-opened-via-link` | — | `ui.js` `UI.initRouting` (`/lobby/:code` initial load, `?room=` legacy param) | ✓ | ✓ |
 | `game-started` | `mode`, `difficulty` (bot) | `game.js` `startOnline` / `startPvP` / `startVsBot` | ✓ | ✓ |
 | `game-finished` | `result: win\|loss`, `reason`, `mode` | `game.js` `handleGameOver` | ✓ | ✓ |
-| `game-abandoned` | `mode`, `move_number`, `reason: tab-close\|disconnect\|navigate` | `game.js` `trackAbandonment` (`pagehide`, `leaveActiveGame`), `net.js` socket `disconnect`; sent at most once per game, never after `game-finished` | ✓ | ✓ |
+| `game-abandoned` | `mode`, `move_number`, `reason: tab-close\|disconnect\|navigate` | `game.js` `trackAbandonment` (`pagehide` — skipped when `persisted` (bfcache), `leaveActiveGame`), `net.js` socket `disconnect` after a 30 s grace period (matches the server `setDisconnectTimer`, canceled by reconnect/`gameResumed`); sent at most once per game, never after `game-finished` | ✓ | ✓ |
 | `rematch-click` | — | `net.js` `requestRematch` | ✓ | ✓ |
 | `play-local-click` | — | `ui.js` `onPlayLocalClick` | — | ✓ |
 | `surrender-click` | — | `ui.js` (surrender button) | — | ✓ |
 | `admin-metrics-viewed` | `days` | `admin-metrics.html` | — | ✓ |
-| `app-loaded` | — | (whitelisted on server; no emitter in the frontend at the moment) | — | ✓ |
 
 ### UTM
 
@@ -151,7 +155,8 @@ links on `https://playquor.org/` (root) or other landing pages, not on `/lobby/�
 
 ### Recommended Umami funnels (configured in the Umami UI)
 
-1. Acquisition: `visit → play-*-click → game-started → game-finished → rematch-click`
+1. Acquisition: `visit → play-online-click / play-friend-click / play-bot-click → game-started → game-finished → rematch-click`
+   (`play-local-click` and `surrender-click` are Mongo-only — do not use them in Umami funnels)
 2. Registration: `register-click → register-complete` (add `login-complete` after)
 3. Search quality: `search-started → search-matched` vs `search-started → search-timeout` / `search-fallback-to-bot`
 4. Room sharing: `room-created → room-link-copied → room-opened-via-link → game-started`

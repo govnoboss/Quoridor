@@ -2453,7 +2453,7 @@ const ANALYTICS_EVENT_WHITELIST = new Set([
     'play-friend-click', 'play-local-click', 'surrender-click', 'room-created',
     'room-joined', 'room-link-copied', 'room-opened-via-link', 'search-cancelled', 'search-matched',
     'search-timeout', 'search-fallback-to-bot', 'screen-view', 'rematch-click', 'game-started',
-    'game-abandoned', 'game-finished', 'play-bot-click', 'app-loaded', 'session-start'
+    'game-abandoned', 'game-finished', 'play-bot-click', 'session-start'
 ]);
 
 // POST /api/analytics/events — батч событий от клиента (до 20 за запрос)

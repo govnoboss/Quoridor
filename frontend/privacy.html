@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="/css/style.css?v=1.0.40" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
     <script src="/js/analytics-boot.js?v=1.2.0"></script>
+    <script src="/js/analytics.js?v=1.2.0"></script>
 </head>
 <body class="auth-page-body">
     <div id="siteHeader"></div>
@@ -60,6 +61,7 @@
 
             <h3>2.4. Данные об использовании</h3>
             <p>Мы собираем анонимные или агрегированные аналитические данные, которые помогают нам понять, как используется Сервис. Это может включать игровые события, использование функций и общие паттерны взаимодействия.</p>
+            <p>Для веб-аналитики мы используем само-хостируемую систему Umami (analytics.playquor.org). Она собирает обезличенную статистику: страницы, страны, браузеры и ключевые игровые события. Umami не использует cookie для отслеживания и не получает ваш логин, e-mail или идентификатор аккаунта. Вместо этого в localStorage хранится случайный идентификатор устройства, не связанный с аккаунтом. Вы можете отключить веб-аналитику для своего браузера, выполнив в консоли: <code>localStorage.setItem('umami.disabled', 1)</code>.</p>
 
             <h3>2.5. Информация о безопасности и технические данные</h3>
             <p>Для обеспечения безопасности платформы и предотвращения злоупотреблений мы можем собирать ограниченные технические метаданные, такие как:</p>
@@ -174,6 +176,7 @@
 
             <h3>2.4. Usage Data</h3>
             <p>We collect anonymous or aggregated analytics data that helps us understand how the Service is used. This may include gameplay events, feature usage, and general interaction patterns.</p>
+            <p>For web analytics we use a self-hosted Umami instance (analytics.playquor.org). It collects de-identified statistics: pages, countries, browsers and key gameplay events. Umami does not use tracking cookies and never receives your username, e-mail or account identifier. Instead, a random device identifier, not linked to your account, is kept in localStorage. You can disable web analytics for your browser by running the following in the console: <code>localStorage.setItem('umami.disabled', 1)</code>.</p>
 
             <h3>2.5. Security and Technical Information</h3>
             <p>To help secure the platform and prevent abuse, we may collect limited technical metadata such as:</p>
