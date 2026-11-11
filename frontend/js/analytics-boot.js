@@ -41,5 +41,5 @@
 
     // analytics.js должен исполниться в той же позиции загрузки, что и раньше
     // (до ui.js/net.js/game.js на index.html) — поэтому document.write, а не defer.
-    document.write('<script src="' + ANALYTICS_JS + '"><\/script>');
+    document.write('<script src="' + ANALYTICS_JS + '">' + '<' + '/script>');
 })();

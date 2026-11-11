@@ -88,6 +88,7 @@ module.exports = [
                 slimEvalState: 'readonly',
                 BoardRenderer: 'writable',
                 trackEvent: 'writable',
+                Analytics: 'writable',
                 posthog: 'readonly',
                 location: 'readonly',
                 alert: 'readonly',
