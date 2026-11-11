@@ -171,7 +171,7 @@ describe('Analytics Ingest API', () => {
             .post('/api/analytics/events')
             .send([
                 { name: 'game-started', props: { mode: 'ranked' }, ts: new Date().toISOString() },
-                { name: 'game-finished', props: {}, ts: new Date().toISOString() }
+                { name: 'net-latency', props: { p50_ms: 120, p95_ms: 340, samples: 20 }, ts: new Date().toISOString() }
             ]);
         expect(res.status).toBe(204);
         expect(AnalyticsEvent.insertMany).toHaveBeenCalledTimes(1);
@@ -179,6 +179,8 @@ describe('Analytics Ingest API', () => {
         expect(docs).toHaveLength(2);
         expect(docs.every((d) => d.userId === null)).toBe(true);
         expect(docs[0].platform).toBe('web');
+        expect(docs[1].name).toBe('net-latency');
+        expect(docs[1].props).toEqual({ p50_ms: 120, p95_ms: 340, samples: 20 });
     });
 
     it('drops unknown event names and keeps events with oversized props (props cleared)', async () => {

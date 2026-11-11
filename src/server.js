@@ -1,12 +1,22 @@
 require('dotenv').config();
 
+// Sentry.init должен выполниться ДО require('@sentry/node')... нет, до require('express'):
+// в v10 auto-instrumentation цепляется при require модулей, и если express/createApp
+// случаются раньше init, HTTP-трейсинг не включается ([Sentry] express is not instrumented).
+const Sentry = require('@sentry/node');
+Sentry.init({
+    dsn: process.env.SENTRY_DSN || '',
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.5 : 0.0,
+    enabled: !!process.env.SENTRY_DSN,
+});
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
-const Sentry = require('@sentry/node');
 const Shared = require('./core/shared.js');
 const { RULES_FILE } = require('../quoridor-engine/rules/paths');
 const { buildAiV1Bundle } = require('./core/ai-v1-bundle');
@@ -36,13 +46,6 @@ app.set('trust proxy', 1);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
-});
-
-Sentry.init({
-    dsn: process.env.SENTRY_DSN || '',
-    environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.5 : 0.0,
-    enabled: !!process.env.SENTRY_DSN,
 });
 
 if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
@@ -1771,7 +1774,7 @@ app.use(helmet.contentSecurityPolicy({
     useDefaults: false,
     directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com", "https://cdn.jsdelivr.net", "https://accounts.google.com", "https://gsi.gstatic.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://analytics.playquor.org", "https://static.cloudflareinsights.com", "https://cdn.jsdelivr.net", "https://accounts.google.com", "https://gsi.gstatic.com", "https://browser.sentry-cdn.com"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com"],
@@ -1810,6 +1813,17 @@ app.use(cors({
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Конфиг телеметрии для фронтенда: DSN берётся из env и не коммитится в публичный репозиторий.
+// Отдельная переменная SENTRY_FRONTEND_DSN позволяет вести фронт и бэк в разных проектах Sentry;
+// по умолчанию фронт шлёт в тот же проект, что и бэкенд.
+app.get('/js/telemetry-config.js', (req, res) => {
+    res.type('application/javascript');
+    res.set('Cache-Control', 'no-store'); // конфиг может измениться без пересборки контейнера
+    const dsn = process.env.SENTRY_FRONTEND_DSN || process.env.SENTRY_DSN || '';
+    res.send('window.__TELEMETRY = ' + JSON.stringify({ sentryDsn: dsn }) + ';');
+});
+
 app.use('/shared.js', express.static(RULES_FILE));
 app.use('/js/ai-core.js', express.static(path.join(__dirname, 'core/ai-core.js')));
 app.use('/js/mp4-muxer.js', express.static(path.join(__dirname, '../node_modules/mp4-muxer/build/mp4-muxer.js')));
@@ -2453,7 +2467,7 @@ const ANALYTICS_EVENT_WHITELIST = new Set([
     'play-friend-click', 'play-local-click', 'surrender-click', 'room-created',
     'room-joined', 'room-link-copied', 'room-opened-via-link', 'search-cancelled', 'search-matched',
     'search-timeout', 'search-fallback-to-bot', 'screen-view', 'rematch-click', 'game-started',
-    'game-abandoned', 'game-finished', 'play-bot-click', 'session-start'
+    'game-abandoned', 'game-finished', 'play-bot-click', 'session-start', 'net-latency'
 ]);
 
 // POST /api/analytics/events — батч событий от клиента (до 20 за запрос)
