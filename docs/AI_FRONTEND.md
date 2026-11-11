@@ -69,22 +69,36 @@ Routes and access control are implemented in `src/server.js`; do not infer autho
 - If a script is loaded by multiple pages, consider side effects when changing its initialization.
 - Keep asset cache-busting query versions in HTML consistent with deployment expectations.
 
-## 6. External analytics (Umami)
+## 6. External analytics (Umami) and error telemetry (Sentry)
 
 **Role split.** Umami (`https://analytics.playquor.org`, self-hosted) covers traffic, sources, countries,
 pages and funnels over key events. The internal analytics (`POST /api/analytics/events` → Mongo
 `AnalyticsEvent`, dashboard `GET /admin/metrics`) covers product data: retention, users, game results.
+Sentry (`@sentry/node` on the backend, `@sentry/browser` on the frontend) covers crashes and errors.
 
 ### Connection
 
 - Unified bootstrap script per public page (two tags, in `<head>` before the other scripts):
-  `<script src="/js/analytics-boot.js?v=1.2.0"></script>` injects the Umami tag
-  (`defer`, `data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"`, `data-domains="playquor.org"`),
-  and the explicit `<script src="/js/analytics.js?v=1.2.0"></script>` tag follows.
+  `<script src="/js/analytics-boot.js?v=1.2.0"></script>` and the explicit
+  `<script src="/js/analytics.js?v=1.2.0"></script>` tag follows.
   (Boot used to load `analytics.js` via `document.write`; removed — Chrome may block such
   inserts on slow connections.)
+- `analytics-boot.js` injects, in order: `/js/telemetry-config.js` (`async=false`; server route in
+  `src/server.js` returning `window.__TELEMETRY = { sentryDsn }`, `Cache-Control: no-store`, so the
+  DSN never lands in the public repo), the Sentry CDN bundle (`browser.sentry-cdn.com/10.78.0`,
+  `init` on `onload`, release `web@<version>`, sampleRate 1.0, tracesSampleRate 0.2), and the Umami
+  tag (`defer`, `data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"`,
+  `data-domains="playquor.org"`, `data-performance="true"` → web vitals TTFB/FCP/LCP/CLS/INP
+  are sent to Umami automatically).
+- Opt-out switches (independent): `localStorage.setItem('sentry.disabled', 1)` and
+  `localStorage.setItem('umami.disabled', 1)`.
 - `data-domains="playquor.org"` makes Umami ignore localhost, staging and any non-production host.
   The Android app loads `https://playquor.org` (see `capacitor.config.json`), so its traffic passes the filter.
+- Backend Sentry: `Sentry.init` runs **before** `require('express')` in `src/server.js` (in v10 the
+  auto-instrumentation hooks at require time; otherwise the log shows
+  `[Sentry] express is not instrumented`). Socket.IO is not instrumented (no such export in v10).
+  Frontend DSN: `SENTRY_FRONTEND_DSN` if set, otherwise falls back to the backend `SENTRY_DSN`
+  (both frontend and backend events land in one Sentry project).
 - Pages with Umami + `analytics.js`: `index`, `login`, `register`, `leaderboard`, `rules`, `faq`,
   `terms`, `privacy`, `forgot-password`, `replay` (profile pages are `index.html` served at `/profiles/:username`).
 - Admin/service pages (`admin-*`, `maintenance`, `reset-password`, `report`, `reports`) have no Umami.
@@ -135,6 +149,7 @@ Destination legend: **U** = Umami, **M** = Mongo. Allowlist for Umami lives in `
 | `game-finished` | `result: win\|loss`, `reason`, `mode` | `game.js` `handleGameOver` | ✓ | ✓ |
 | `game-abandoned` | `mode`, `move_number`, `reason: tab-close\|disconnect\|navigate` | `game.js` `trackAbandonment` (`pagehide` — skipped when `persisted` (bfcache), `leaveActiveGame`), `net.js` socket `disconnect` after a 30 s grace period (matches the server `setDisconnectTimer`, canceled by reconnect/`gameResumed`); sent at most once per game, never after `game-finished` | ✓ | ✓ |
 | `rematch-click` | — | `net.js` `requestRematch` | ✓ | ✓ |
+| `net-latency` | `p50_ms`, `p95_ms`, `samples: 20` | `net.js` `recordLatency` — RTT measured on the `requestTimerSync` ack (in-game only), flushed every 20 samples | ✓ | ✓ |
 | `play-local-click` | — | `ui.js` `onPlayLocalClick` | — | ✓ |
 | `surrender-click` | — | `ui.js` (surrender button) | — | ✓ |
 | `admin-metrics-viewed` | `days` | `admin-metrics.html` | — | ✓ |

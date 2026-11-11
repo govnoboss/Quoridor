@@ -13,6 +13,26 @@ const Net = {
     // если игрок вернулся за это время, game-abandoned не шлём.
     ABANDON_GRACE_MS: 30000,
 
+    // Замер сетевой задержки: RTT собирается на колбэке requestTimerSync (только в партии),
+    // каждые LATENCY_SAMPLE_COUNT замеров уходит событие net-latency с p50/p95.
+    LATENCY_SAMPLE_COUNT: 20,
+
+    /**
+     * Записывает один замер RTT (мс). При накоплении буфера шлёт trackEvent('net-latency')
+     * с p50_ms / p95_ms / samples и очищает буфер. Выбросы (>60 c) игнорируются —
+     * это обычно подвисшая вкладка, а не сеть.
+     */
+    recordLatency(rttMs) {
+        if (!isFinite(rttMs) || rttMs < 0 || rttMs > 60000) return;
+        if (!this._latencySamples) this._latencySamples = [];
+        this._latencySamples.push(rttMs);
+        if (this._latencySamples.length < this.LATENCY_SAMPLE_COUNT) return;
+        const sorted = this._latencySamples.slice().sort((a, b) => a - b);
+        const p = (q) => Math.round(sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]);
+        trackEvent('net-latency', { p50_ms: p(0.5), p95_ms: p(0.95), samples: sorted.length });
+        this._latencySamples = [];
+    },
+
     init() {
         // 1. Пытаемся получить сохраненный токен
         this.playerToken = localStorage.getItem('quoridor_token');
@@ -238,7 +258,9 @@ const Net = {
 
         this.requestTimerSync = () => {
             if (!this.isOnline || !this.socket || !this.socket.connected) return;
+            const sentAt = Date.now();
             this.socket.emit('requestTimerSync', { lobbyId: this.lobbyId }, (res) => {
+                this.recordLatency(Date.now() - sentAt);
                 if (res && res.timers) {
                     Game.syncTimers(res.timers, true);
                 }

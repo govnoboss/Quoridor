@@ -25,7 +25,8 @@
         'game-started': 1,
         'game-finished': 1,
         'game-abandoned': 1,
-        'rematch-click': 1
+        'rematch-click': 1,
+        'net-latency': 1
     };
 
     // Отключение Umami для своего браузера: localStorage.setItem('umami.disabled', 1)
