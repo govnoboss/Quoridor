@@ -58,6 +58,7 @@ Production URL referenced by the repository: `https://playquor.org`.
 | Bot accounts / bot matchmaking | `docs/AI_BOTS.md`, `src/bots/`, `src/simulation/` |
 | Deployment / environment | `DEPLOY.md`, `.env.example`, Docker files |
 | UTM links / marketing traffic | `docs/UTM_GUIDE.md`, `docs/AI_FRONTEND.md` §6 |
+| SEO / sitemap / robots / 404 | `docs/SEO.md`, route implementations in `src/server.js` (SEO section near `/profiles`) |
 | Tests / lint / tooling | `docs/TOOLS.md`, `package.json`, `jest.config.js` |
 
 ## 6. Development workflow for agents

@@ -1158,9 +1158,143 @@ app.get('/api/games/:id', async (req, res) => {
     }
 });
 
-// SPA Fallback for Profiles
-app.get('/profiles/:username', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+// ==================== SEO: server-rendered meta for SPA routes ====================
+// Краулеры и мессенджеры (Telegram/WhatsApp/Discord) не выполняют JS, поэтому для
+// индексируемых SPA-маршрутов (/profiles/:username) и шареных ссылок (/lobby/:code)
+// мета-теги главной подменяются на сервере до отправки index.html.
+const FRONTEND_DIR = path.join(__dirname, '../frontend');
+const SEO_SITE_URL = 'https://playquor.org';
+
+let indexHtmlCache = null;
+function getIndexHtml() {
+    if (indexHtmlCache === null) {
+        indexHtmlCache = fs.readFileSync(path.join(FRONTEND_DIR, 'index.html'), 'utf8');
+    }
+    return indexHtmlCache;
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (ch) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+}
+
+// Подменяет title/description/og:*/canonical в закешированном index.html.
+// Регулярки привязаны к точным тегам <head> главной (frontend/index.html).
+function renderIndexWithMeta({ title, description, url, robots } = {}) {
+    let html = getIndexHtml();
+    if (title) {
+        html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`);
+        html = html.replace(/<meta property="og:title" content="[^"]*" \/>/, `<meta property="og:title" content="${escapeHtml(title)}" />`);
+    }
+    if (description) {
+        html = html.replace(/<meta name="description" content="[^"]*" \/>/, `<meta name="description" content="${escapeHtml(description)}" />`);
+        html = html.replace(/<meta property="og:description" content="[^"]*" \/>/, `<meta property="og:description" content="${escapeHtml(description)}" />`);
+    }
+    if (url) {
+        html = html.replace(/<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${escapeHtml(url)}" />`);
+        html = html.replace(/<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${escapeHtml(url)}" />`);
+    }
+    if (robots) {
+        html = html.replace(/<\/title>/, `</title>\n  <meta name="robots" content="${escapeHtml(robots)}" />`);
+    }
+    return html;
+}
+
+// Честный 404: раньше фолбэк отдавал index.html со статусом 200 (soft-404).
+function sendNotFound(res) {
+    res.status(404).type('html').sendFile(path.join(FRONTEND_DIR, '404.html'));
+}
+
+// Динамический sitemap.xml: статические страницы (lastmod = mtime файла) + топ-профили.
+// Статический frontend/sitemap.xml удалён — отвечает этот роут.
+const SITEMAP_TTL_MS = 60 * 60 * 1000;
+let sitemapCache = { at: 0, xml: null };
+
+function clearSitemapCache() {
+    sitemapCache = { at: 0, xml: null };
+}
+
+const SEO_STATIC_PAGES = [
+    ['/', 'index.html'],
+    ['/rules', 'rules.html'],
+    ['/faq', 'faq.html'],
+    ['/leaderboard', 'leaderboard.html'],
+    ['/terms', 'terms.html'],
+    ['/privacy', 'privacy.html'],
+];
+
+function w3cDate(d) {
+    return d.toISOString().slice(0, 10);
+}
+
+app.get('/sitemap.xml', async (req, res) => {
+    try {
+        const now = Date.now();
+        if (sitemapCache.xml && now - sitemapCache.at < SITEMAP_TTL_MS) {
+            return res.type('application/xml').send(sitemapCache.xml);
+        }
+        const urls = [];
+        for (const [route, file] of SEO_STATIC_PAGES) {
+            try {
+                const mtime = fs.statSync(path.join(FRONTEND_DIR, file)).mtime;
+                urls.push(`  <url><loc>${SEO_SITE_URL}${route}</loc><lastmod>${w3cDate(mtime)}</lastmod></url>`);
+            } catch { /* файл пропал — пропускаем страницу */ }
+        }
+        try {
+            // /login и /register в sitemap не входят: они noindex,follow.
+            const top = await User.find({ isAdmin: { $ne: true }, isBot: { $ne: true } })
+                .select('username')
+                .sort({ rating: -1 })
+                .limit(50);
+            for (const u of top) {
+                urls.push(`  <url><loc>${SEO_SITE_URL}/profiles/${encodeURIComponent(u.username)}</loc></url>`);
+            }
+        } catch (err) {
+            console.error('[SITEMAP] profiles query failed:', err.message);
+        }
+        const xml = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+            ...urls,
+            '</urlset>',
+            '',
+        ].join('\n');
+        sitemapCache = { at: now, xml };
+        res.type('application/xml').send(xml);
+    } catch (err) {
+        console.error('[SITEMAP] Error:', err);
+        res.status(500).send('Sitemap error');
+    }
+});
+
+// SPA-роут профилей — с серверным рендером мета-тегов: публичные профили индексируются
+// с собственными title/description/OG/canonical вместо метаданных главной.
+app.get('/profiles/:username', async (req, res) => {
+    try {
+        const username = req.params.username;
+        const user = await User.findOne({ username }).select('username rating stats');
+        if (!user) {
+            return sendNotFound(res);
+        }
+        const rating = typeof user.rating === 'number' ? user.rating : null;
+        const totalGames = user.stats && Number.isFinite(user.stats.totalGames) ? user.stats.totalGames : 0;
+        let description = `Quoridor profile of ${username} on PlayQuor.`;
+        const bits = [];
+        if (rating !== null) bits.push(`rating ${rating}`);
+        if (totalGames > 0) bits.push(`${totalGames} games played`);
+        if (bits.length) description = `Quoridor profile of ${username} — ${bits.join(', ')} on PlayQuor.`;
+        description += ' See stats, achievements and recent games.';
+        const url = `${SEO_SITE_URL}/profiles/${encodeURIComponent(username)}`;
+        res.status(200).type('html').send(renderIndexWithMeta({
+            title: `${username} — Quoridor Player Profile | PlayQuor`,
+            description,
+            url,
+        }));
+    } catch (err) {
+        console.error('[PROFILE PAGE] Error:', err);
+        res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+    }
 });
 
 app.get('/lobby/:lobbyCode', (req, res) => {
@@ -1168,7 +1302,14 @@ app.get('/lobby/:lobbyCode', (req, res) => {
     if (!Shared.isValidLobbyId((lobbyCode || '').toUpperCase())) {
         return res.redirect('/');
     }
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    // Лобби-ссылки одноразовые: noindex + приглашающий сниппет для мессенджеров.
+    const code = (lobbyCode || '').toUpperCase();
+    res.status(200).type('html').send(renderIndexWithMeta({
+        title: 'Join my Quoridor game | PlayQuor',
+        description: `A friend invited you to a Quoridor match. Open lobby ${code} and play together on PlayQuor.`,
+        url: `${SEO_SITE_URL}/lobby/${code}`,
+        robots: 'noindex, nofollow',
+    }));
 });
 
 // Deprecated or Redirected Enpoints
@@ -1811,8 +1952,19 @@ app.use(cors({
     credentials: true
 }));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Serve static files.
+// Кэш: HTML/robots — короткий (контент правится без пересборки), версионированные
+// ассеты (css/js/шрифты/картинки, раздаются с ?v=) — год + immutable.
+app.use(express.static(path.join(__dirname, '../frontend'), {
+    setHeaders(res, filePath) {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.html' || ext === '.txt' || ext === '.xml') {
+            res.setHeader('Cache-Control', 'public, max-age=300');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    }
+}));
 
 // Конфиг телеметрии для фронтенда: DSN берётся из env и не коммитится в публичный репозиторий.
 // Отдельная переменная SENTRY_FRONTEND_DSN позволяет вести фронт и бэк в разных проектах Sentry;
@@ -2595,9 +2747,13 @@ app.get('/profile/:legacyUser', (req, res) => {
     res.redirect(301, '/profiles/' + encodeURIComponent(req.params.legacyUser));
 });
 
-// SPA fallback — serve index.html for any unrecognized GET route
+// Unknown routes → честный 404 (frontend/404.html). Валидные SPA-маршруты
+// (/profiles/:username, /lobby/:code) обработаны выше по коду.
 app.get('/{*path}', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    if (req.originalUrl.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    sendNotFound(res);
 });
 
 // Sentry error handler (after all routes)
@@ -4743,7 +4899,7 @@ process.on('SIGINT', async () => {
 });
 
 // Экспорт для тестов
-module.exports = { app, server, io, startServer, clearSessionVersionCache, clearLeaderboardCache };
+module.exports = { app, server, io, startServer, clearSessionVersionCache, clearLeaderboardCache, clearSitemapCache };
 
 // Запуск (если не тесты)
 if (process.env.NODE_ENV !== 'test') {

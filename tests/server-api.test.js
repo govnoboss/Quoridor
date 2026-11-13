@@ -96,14 +96,23 @@ jest.mock('../src/models/User', () => {
             return Promise.resolve(null);
         }
     }));
+    // Условие запроса: точное значение или оператор ({ $ne: true }, { $gt: n }, ...).
+    function matchCond(value, cond) {
+        if (cond && typeof cond === 'object' && !Array.isArray(cond)) {
+            if ('$ne' in cond) return value !== cond.$ne;
+            if ('$gt' in cond) return value > cond.$gt;
+            if ('$gte' in cond) return value >= cond.$gte;
+            if ('$lt' in cond) return value < cond.$lt;
+            return value === cond;
+        }
+        return value === cond;
+    }
+
     MockUser.find = jest.fn((query = {}) => {
         const users = Array.from(store.values());
         let filtered = users;
         if (query && Object.keys(query).length > 0) {
-            filtered = users.filter((user) => Object.entries(query).every(([k, v]) => {
-                if (k === 'isAdmin' && v?.$ne === true) return user.isAdmin !== true;
-                return user[k] === v;
-            }));
+            filtered = users.filter((user) => Object.entries(query).every(([k, v]) => matchCond(user[k], v)));
         }
 
         const chain = {
@@ -127,16 +136,7 @@ jest.mock('../src/models/User', () => {
         const users = Array.from(store.values());
         return Promise.resolve(users.filter((user) => {
             if (query && Object.keys(query).length > 0) {
-                return Object.entries(query).every(([k, v]) => {
-                    if (k === 'isAdmin' && v?.$ne === true) return user.isAdmin !== true;
-                    if (k === 'rating' && v && typeof v === 'object' && !Array.isArray(v)) {
-                        if ('$gt' in v && !((user.rating || 0) > v.$gt)) return false;
-                        if ('$gte' in v && !((user.rating || 0) >= v.$gte)) return false;
-                        if ('$lt' in v && !((user.rating || 0) < v.$lt)) return false;
-                        return true;
-                    }
-                    return user[k] === v;
-                });
+                return Object.entries(query).every(([k, v]) => matchCond(user[k], v));
             }
             return true;
         }).length);
@@ -797,5 +797,92 @@ describe('Avatar Upload API', () => {
         expect(staticRes.type).toBe('image/webp');
 
         try { fs.unlinkSync(file); } catch { /* ignore */ }
+    });
+});
+
+// ==== SEO routes: 404, sitemap, server-rendered meta ====
+describe('SEO routes', () => {
+    const hash = bcrypt.hashSync('seopass123', 10);
+
+    beforeEach(() => {
+        User.__clearStore();
+        const { clearSitemapCache } = require('../src/server');
+        clearSitemapCache();
+    });
+
+    it('GET unknown page returns 404 with the 404 page (no soft-404)', async () => {
+        const res = await request(app).get('/definitely-not-a-page');
+        expect(res.status).toBe(404);
+        expect(res.text).toContain('Page not found');
+        expect(res.text).not.toContain('Play Online Strategy Board Game');
+    });
+
+    it('GET unknown /api path returns JSON 404', async () => {
+        const res = await request(app).get('/api/definitely-not-an-endpoint');
+        expect(res.status).toBe(404);
+        expect(res.body.error).toBe('Not found');
+    });
+
+    it('GET /profiles/:username injects profile title, description and canonical', async () => {
+        User.__seedUser({ username: 'viewme', passwordHash: hash, rating: 1740, stats: { totalGames: 42, wins: 20, losses: 22, playTimeSeconds: 0 } });
+        const res = await request(app).get('/profiles/viewme');
+        expect(res.status).toBe(200);
+        expect(res.text).toContain('<title>viewme — Quoridor Player Profile | PlayQuor</title>');
+        expect(res.text).toContain('rating 1740, 42 games played');
+        expect(res.text).toContain('<link rel="canonical" href="https://playquor.org/profiles/viewme" />');
+        expect(res.text).toContain('<meta property="og:url" content="https://playquor.org/profiles/viewme" />');
+        expect(res.text).toContain('<meta property="og:title" content="viewme — Quoridor Player Profile | PlayQuor" />');
+    });
+
+    it('GET /profiles/:username escapes HTML in username', async () => {
+        User.__seedUser({ username: 'a&b<c', passwordHash: hash, rating: 1500 });
+        const res = await request(app).get('/profiles/' + encodeURIComponent('a&b<c'));
+        expect(res.status).toBe(200);
+        expect(res.text).toContain('<title>a&amp;b&lt;c — Quoridor Player Profile | PlayQuor</title>');
+        expect(res.text).not.toContain('a&b<c — Quoridor');
+    });
+
+    it('GET /profiles/:username 404s for unknown user', async () => {
+        const res = await request(app).get('/profiles/ghost');
+        expect(res.status).toBe(404);
+        expect(res.text).toContain('Page not found');
+    });
+
+    it('GET /lobby/:code serves noindex invite snippet', async () => {
+        const res = await request(app).get('/lobby/AB2CD');
+        expect(res.status).toBe(200);
+        expect(res.text).toContain('<meta name="robots" content="noindex, nofollow" />');
+        expect(res.text).toContain('<title>Join my Quoridor game | PlayQuor</title>');
+        expect(res.text).toContain('Open lobby AB2CD');
+    });
+
+    it('GET /lobby/:code invalid code redirects home', async () => {
+        const res = await request(app).get('/lobby/xx');
+        expect(res.status).toBe(302);
+        expect(res.headers.location).toBe('/');
+    });
+
+    it('GET /sitemap.xml lists static pages and top profiles with lastmod', async () => {
+        User.__seedUser({ username: 'sitemaptop', passwordHash: hash, rating: 2100, stats: { totalGames: 30, wins: 15, losses: 15, playTimeSeconds: 0 } });
+        User.__seedUser({ username: 'botsilent', passwordHash: hash, rating: 2300, isBot: true, stats: { totalGames: 30, wins: 15, losses: 15, playTimeSeconds: 0 } });
+        User.__seedUser({ username: 'adminsilent', passwordHash: hash, rating: 2400, isAdmin: true, stats: { totalGames: 30, wins: 15, losses: 15, playTimeSeconds: 0 } });
+        const res = await request(app).get('/sitemap.xml');
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toContain('xml');
+        expect(res.text).toContain('<loc>https://playquor.org/</loc>');
+        expect(res.text).toContain('<loc>https://playquor.org/rules</loc>');
+        expect(res.text).toContain('<loc>https://playquor.org/leaderboard</loc>');
+        expect(res.text).toContain('<loc>https://playquor.org/profiles/sitemaptop</loc>');
+        expect(res.text).not.toContain('botsilent');
+        expect(res.text).not.toContain('adminsilent');
+        expect(res.text).not.toContain('/login');
+        expect(res.text).not.toContain('/register');
+        expect(res.text).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+    });
+
+    it('GET /sitemap.xml URL-encodes usernames', async () => {
+        User.__seedUser({ username: 'a&b<c', passwordHash: hash, rating: 1500 });
+        const res = await request(app).get('/sitemap.xml');
+        expect(res.text).toContain('/profiles/a%26b%3Cc');
     });
 });

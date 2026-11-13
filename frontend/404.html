@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Page not found | PlayQuor</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0a0b0d;
+            --surface: #131417;
+            --border: #1f2125;
+            --text: #ececee;
+            --text-body: #c4c7ce;
+            --text-dim: #8b8f98;
+            --accent: #f0a82a;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text-body);
+            font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .nf-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 48px 40px;
+            max-width: 460px;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .nf-code {
+            font-size: 64px;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1;
+            margin: 0 0 8px;
+        }
+
+        .nf-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0 0 12px;
+        }
+
+        .nf-text {
+            font-size: 15px;
+            line-height: 1.6;
+            margin: 0 0 28px;
+        }
+
+        .nf-btn {
+            display: inline-block;
+            background: var(--accent);
+            color: #0a0b0d;
+            font-weight: 700;
+            font-size: 15px;
+            text-decoration: none;
+            padding: 12px 28px;
+            border-radius: 10px;
+        }
+
+        .nf-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .nf-links {
+            margin-top: 24px;
+            font-size: 14px;
+        }
+
+        .nf-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        .nf-links a:hover {
+            color: var(--text);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="nf-card">
+        <div class="nf-code">404</div>
+        <h1 class="nf-title">Page not found</h1>
+        <p class="nf-text">The page you are looking for doesn't exist, was moved, or the link is outdated.</p>
+        <a class="nf-btn" href="/">Back to PlayQuor</a>
+        <div class="nf-links">
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="/rules">Rules</a>
+            <a href="/faq">FAQ</a>
+        </div>
+    </main>
+</body>
+
+</html>

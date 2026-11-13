@@ -14,13 +14,16 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/js/ai-v1.js` | production engine (v3) for the browser, generated from `quoridor-engine/engines/v3` + `personality.js` by `src/core/ai-v1-bundle.js` (historical URL) |
 | GET | `/js/ai-core.js` | legacy v0 AI engine, kept for reference only — nothing loads it |
 | GET | `/js/mp4-muxer.js` | `node_modules/mp4-muxer` served for replay video export |
-| GET | `/login` `/register` `/forgot-password` `/reset-password` | auth pages |
+| GET | `/login` `/register` `/forgot-password` `/reset-password` | auth pages (`/login`, `/register` are `noindex,follow`) |
 | GET | `/rules` `/how-to-play` (301 → `/rules`) `/faq` | info pages |
 | GET | `/terms` `/privacy` `/report` `/profile/reports` | user pages |
-| GET | `/leaderboard` `/replay/:id` `/lobby/:lobbyCode` `/profiles/:username` | content pages |
+| GET | `/leaderboard` `/replay/:id` | content pages |
+| GET | `/profiles/:username` | SPA with server-injected meta: `<title>`/description/OG/canonical built from the user (`unknown user → 404 page`); indexed |
+| GET | `/lobby/:lobbyCode` | SPA with `noindex, nofollow` + invite OG snippet (messenger previews); invalid code → redirect `/` |
+| GET | `/sitemap.xml` | generated dynamically: static pages with `lastmod` (file mtime) + top-50 non-bot/non-admin profiles; 1h in-memory cache |
 | GET | `/play` | legacy alias, 301 → `/` (preserves the rest of the URL) |
 | GET | `/profile`, `/profile/:legacyUser` | legacy redirect, 301 → `/profiles/<username>` |
-| GET | `/{*path}` | SPA fallback — serves `index.html` for any unrecognized GET route |
+| GET | `/{*path}` | unknown GET route → `frontend/404.html` with HTTP 404 (`/api/*` unknown → JSON 404). No SPA soft-404 fallback |
 | GET | `/avatars/*` | avatar files (`avatars/<userId>.webp`, immutable); missing file → 301 to placeholder |
 | GET | `/admin` `/admin/users` `/admin/user-reports` `/admin/reports` `/admin/logs` `/admin/bots` `/admin/metrics` | admin pages (`requireAdmin`) |
 
