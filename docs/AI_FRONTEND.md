@@ -42,6 +42,16 @@ Check `frontend/index.html` for exact version strings and order before editing. 
 
 Line counts/sizes are snapshot-specific and should not be treated as stable API.
 
+### 2.1 Bot-mode eval bar and mobile bottom sheets (game.js)
+
+- Desktop (≥769px, bot mode): eval bar renders in `.eval-bar-rail` beside the board; controls live in the sidebar (`#sidebarControls`: Undo / Restart + `#evalCard`). Wall drag templates are hidden (`display:none !important`, `style.css` `@media (min-width: 769px)`).
+- Mobile (≤768px, bot mode): the rail is replaced by the horizontal `#evalBarH`; controls live in `#mobileBotBar` (Undo / Restart / Eval / Moves / Menu). The Eval and Moves buttons open bottom sheets:
+  - Eval sheet = `#sidebarControls` re-shown as a fixed panel (`#gameScreen.bot-mode.eval-sheet-open`), sitting at `bottom: 82px` — above the button row, so the buttons stay tappable and a second tap on Eval/Moves closes its own sheet.
+  - Moves sheet = `#moveHistory` re-shown the same way (`moves-sheet-open`).
+  - `#sheetBackdrop` (`.sheet-backdrop`, z-index 650, below the bar at 660 and the sheets at 700) dims the board; tapping it closes both sheets. Escape also closes them (see `game.js` keydown handler).
+- `#gameScreen.bot-mode .history-container-wrapper { gap: 0 }` is scoped to ≥769px in `style.css`: the mobile block shows the wall templates in a row with `gap: 60px`, and the bot-mode rule must not override it there (it caused the templates to overlap on mobile).
+- Eval state: `Game.evalOn` / `Game.evalDepth` persisted in `localStorage` (`quoridor_eval_on`, `quoridor_eval_depth`); the worker is created only while eval is on.
+
 ## 3. HTML page inventory
 
 Main page: `index.html`.

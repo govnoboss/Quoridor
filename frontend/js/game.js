@@ -2466,6 +2466,12 @@ const Game = {
     // Мобильное: кнопка Eval открывает нижнюю панель.
     bind('mobileEvalBtn', () => this.toggleEvalSheet());
 
+    // Мобильное: тап по затемнению закрывает нижние панели (Eval/Moves).
+    bind('sheetBackdrop', () => {
+      this.toggleEvalSheet(false);
+      this.toggleMovesSheet(false);
+    });
+
     // Диалог Restart.
     const modal = document.getElementById('restartModal');
     if (modal && !modal._botBound) {

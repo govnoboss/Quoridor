@@ -3186,11 +3186,16 @@ canvas {
 }
 
 /* База .history-container-wrapper (для скрытых drag-шаблонов стен) центрирует
-   детей и сжимает #moveHistory до контента — в bot-режиме таблица на всю ширину. */
-#gameScreen.bot-mode .history-container-wrapper {
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 0;
+   детей и сжимает #moveHistory до контента — в bot-режиме таблица на всю ширину.
+   Только десктоп: на ≤768px шаблоны стен видимы (display:block !important), и
+   мобильный блок ниже задаёт row-раскладку с gap 60px — без этой обёртки
+   шаблоны наезжают друг на друга (gap: 0 перебивал мобильный gap по специфичности). */
+@media (min-width: 769px) {
+    #gameScreen.bot-mode .history-container-wrapper {
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 0;
+    }
 }
 
 #gameScreen.bot-mode .history-header,
@@ -3525,6 +3530,11 @@ canvas {
         gap: 8px;
         width: 100%;
         margin-top: auto;
+        /* Над затемнением (650), под панелями (700) и модалками (1000+):
+           при открытой панели кнопки остаются кликабельны — повторный
+           тап по Eval/Moves закрывает их панель. */
+        position: relative;
+        z-index: 660;
     }
 
     .mb-btn {
@@ -3565,7 +3575,7 @@ canvas {
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 0;
+        bottom: 82px;
         top: auto;
         max-height: 60vh;
         z-index: 700;
@@ -3575,13 +3585,15 @@ canvas {
         box-shadow: 0 -8px 30px rgba(0, 0, 0, .5);
     }
 
-    /* Eval bottom sheet: reuse the evaluation card. */
+    /* Eval bottom sheet: reuse the evaluation card.
+       bottom: 82px — панель сидит НАД нижним рядом кнопок (высота 64px
+       + отступ 10px снизу + зазор 8px), поэтому кнопки не перекрываются. */
     #gameScreen.bot-mode.eval-sheet-open #sidebarControls {
         display: block;
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 0;
+        bottom: 82px;
         z-index: 700;
         padding: 16px;
         background: #1c1d20;
@@ -3591,6 +3603,21 @@ canvas {
 
     #gameScreen.eval-sheet-open .bot-action-row {
         display: none;
+    }
+
+    /* Затемнение под bottom-sheet (Eval/Moves): тап вне панели закрывает её.
+       Ниже панелей (700) и кнопок (660), выше контента. */
+    .sheet-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 650;
+        background: rgba(0, 0, 0, .5);
+    }
+
+    #gameScreen.eval-sheet-open .sheet-backdrop,
+    #gameScreen.moves-sheet-open .sheet-backdrop {
+        display: block;
     }
 }
 
