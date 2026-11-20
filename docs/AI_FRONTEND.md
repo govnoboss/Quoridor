@@ -50,6 +50,8 @@ Line counts/sizes are snapshot-specific and should not be treated as stable API.
   - Moves sheet = `#moveHistory` re-shown the same way (`moves-sheet-open`).
   - `#sheetBackdrop` (`.sheet-backdrop`, z-index 650, below the bar at 660 and the sheets at 700) dims the board; tapping it closes both sheets. Escape also closes them (see `game.js` keydown handler).
 - `#gameScreen.bot-mode .history-container-wrapper { gap: 0 }` is scoped to ≥769px in `style.css`: the mobile block shows the wall templates in a row with `gap: 60px`, and the bot-mode rule must not override it there (it caused the templates to overlap on mobile).
+- `.eval-bar-h` sets `flex-shrink: 0`: the bar lives in the `.board-area` flex column, and the default `flex-shrink: 1` collapsed it to 0 px height on short viewports (320×568, 390×600, landscape <769px wide), making eval invisible there. Keep the fixed 14 px height when touching the mobile layout.
+- Known pre-existing limitation: below ~390 px viewport height (landscape phones ≤768 px wide) the mobile column layout overflows — the top wall inventory is clipped and `#mobileBotBar` sits below the fold, with or without eval. Not caused by the eval bar; needs a separate layout fix.
 - Eval state: `Game.evalOn` / `Game.evalDepth` persisted in `localStorage` (`quoridor_eval_on`, `quoridor_eval_depth`); the worker is created only while eval is on.
 
 ## 3. HTML page inventory
