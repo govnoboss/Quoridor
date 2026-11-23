@@ -7,7 +7,8 @@ FROM node:20-alpine
 WORKDIR /app
 RUN apk add --no-cache tini
 COPY --from=build /app/node_modules ./node_modules
-COPY . .
+# Host source can be root-only after synchronization; runtime runs as node.
+COPY --chown=node:node . .
 EXPOSE 3000
 ENV NODE_ENV=production
 # Требуется для стабильных прав на каталог загружаемых аватарок (volume)

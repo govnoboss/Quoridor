@@ -133,6 +133,13 @@ Normal delivery order: commit and test locally, push `main` to GitHub, then run
 rebuilds and restarts the containers. Use Bash (`./deploy.sh` or `bash deploy.sh`);
 the script uses Bash's `pipefail` and is not a portable `sh` script.
 
+The runtime-stage `COPY --chown=node:node` makes copied application files readable
+by the configured runtime user even when source files on the host are root-owned
+with mode 0600. Keep `.env`/backups excluded via `.dockerignore`; do not make host
+secrets world-readable to fix image permissions. When changing build permissions,
+pre-build and run `node --check /app/src/server.js` in the resulting image as its
+default user before restarting the service.
+
 Keep the server checkout on `main` with no local source edits. Pull rejects
 divergent history instead of silently merging it. Keep `.env`, database data,
 avatars and backups outside Git. Do not automatically reapply the reconciliation
