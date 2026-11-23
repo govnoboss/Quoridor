@@ -1,5 +1,7 @@
 # SEO — PlayQuor
 
+> **Актуальная проверка production и Search Console: [SEO_AUDIT_2026-11-23.md](SEO_AUDIT_2026-11-23.md).** Уточняет приоритеты и устаревшие рекомендации ниже; новые SEO-доработки пока не реализованы.
+
 > Состояние, решения и реализация SEO-слоя. Аудит 2026-11-13, фаза 1 реализована в ветке `seo/phase1-404-og-sitemap`.
 > **Очередь оставшихся работ и пошаговые ручные инструкции — в `docs/SEO_NEXT_STEPS.md`.**
 
@@ -31,7 +33,7 @@ Cloudflare (proxy + Managed content-signal robots) → Caddy (reverse_proxy :300
 
 ## 4. Известные ограничения / TODO (фазы 2–5)
 
-1. **Битые внутренние ссылки** `/strategy` и `/multiplayer` в `faq.html` (строки 183–184, 246–247) — страниц нет, сейчас честный 404. Создать страницы (фаза 4).
+1. **FAQ:** по решению владельца 2026-11-23 отдельные `/strategy` и `/multiplayer` не нужны. Ссылки на них удалены из обеих языковых секций FAQ; остались правила и игра. Добавлена инструкция хода нажатием на подсвеченную клетку.
 2. **RU-версия**: на `/rules` и `/faq` RU-контент уже в HTML (`lang-block`), но на одном URL с EN и дублированным `<h1>`. Решение (2026-11-13): отдельные `/ru/`, `/ru/rules`, `/ru/faq` + hreflang en↔ru + x-default. Главная — JS-only i18n (`data-i18n`), для RU-лендинга нужен статический hero-блок.
 3. **OG-теги на `/leaderboard`** + `og:image:width/height`, `twitter:site`.
 4. **JSON-LD**: `VideoGame`-тип, BreadcrumbList на rules/faq/strategy.

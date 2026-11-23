@@ -1229,11 +1229,11 @@ const Game = {
 
   /**
    * Рисует подсказки (зеленые круги) для возможных ходов фишки текущего игрока,
-   * если он перетаскивает свою фишку.
+   * сразу, когда игроку разрешено ходить.
    */
   drawPossibleMoves(state) {
     state = state || this.state;
-    if (!state.drag || state.drag.type !== 'pawn' || state.drag.playerIdx !== state.currentPlayer) return;
+    if (!this.canPlayTurn() || (state.drag && state.drag.type === 'wall')) return;
     const { r, c } = state.players[state.currentPlayer].pos;
 
     // Получаем все возможные целевые позиции
@@ -1379,6 +1379,45 @@ const Game = {
     }
     return null;
   },
+
+  // Shared gate for visible destinations and player actions (not bot/server moves).
+  canPlayTurn() {
+    if (!this.isGameLive || this.isGameOver || this.isInputBlocked || this.isReplayMode || this.viewHistoryIndex !== -1) return false;
+    if (Net.isOnline) return this.state.currentPlayer === (Net.myColor === 'white' ? 0 : 1);
+    return this.state.botDifficulty === 'none' || this.state.currentPlayer === this.myPlayerIndex;
+  },
+
+  getPawnMoveAt(x, y) {
+    const target = this.getCellFromCoords(x, y);
+    if (!target) return null;
+    // Match the visible circle; leave the cell edges available for wall placement.
+    const dx = x / this.CONFIG.cellSize - target.c - 0.5;
+    const dy = y / this.CONFIG.cellSize - this.transformRow(target.r) - 0.5;
+    if (dx * dx + dy * dy > 0.38 * 0.38) return null;
+    const player = this.state.players[this.state.currentPlayer];
+    return Shared.canMovePawn(this.state, player.pos.r, player.pos.c, target.r, target.c) ? target : null;
+  },
+
+  playPawnMove(r, c) {
+    if (!this.canPlayTurn()) return false;
+    const playerIdx = this.state.currentPlayer;
+    const player = this.state.players[playerIdx];
+    if (!Shared.canMovePawn(this.state, player.pos.r, player.pos.c, r, c)) return false;
+    const move = { type: 'pawn', r, c };
+    this.state.hoverWall = null;
+    if (Net.isOnline) {
+      Net.sendMove(move);
+    } else {
+      const startPos = { ...player.pos };
+      player.pos = { r, c };
+      this.animatePawn(playerIdx, startPos, player.pos);
+      UI.AudioManager.play('move');
+      this.addToHistory(move);
+      if (!this.checkVictory()) this.nextTurn();
+    }
+    this.draw();
+    return true;
+  },
   /**
   * Трансформирует абсолютную строку (R) в отображаемую (R_display)
   * и наоборот, если мы играем за Черного (Player 1).
@@ -1402,8 +1441,9 @@ const Game = {
    * @returns {?{r: number, c: number}} Координаты слота или null, если за пределами слотов.
    */
   updateHoverWall(x, y) {
-    if (this.isReplayMode || this.isInputBlocked || this.viewHistoryIndex !== -1) {
+    if (!this.canPlayTurn()) {
       this.state.hoverWall = null;
+      this.canvas.style.cursor = 'default';
       return;
     }
 
@@ -1413,6 +1453,12 @@ const Game = {
 
     if (this.state.drag || this.isGameOver) {
       this.state.hoverWall = null;
+      return;
+    }
+
+    if (this.getPawnMoveAt(x, y)) {
+      this.state.hoverWall = null;
+      this.canvas.style.cursor = 'pointer';
       return;
     }
 
@@ -1990,6 +2036,7 @@ const Game = {
 
     // === 7.1. Начало перетаскивания (pointerdown) ===
     this.canvas.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
       // [Replay Mode] Block all game interactions during replay
       if (this.isReplayMode) {
         return;
@@ -2005,7 +2052,7 @@ const Game = {
         return;
       }
 
-      if (this.isGameOver) return;
+      if (!this.canPlayTurn()) return;
 
       // На мобильных устройствах сразу убираем призраков при нажатии
       if (e.pointerType === 'touch') {
@@ -2219,10 +2266,19 @@ const Game = {
         this.wasDragging = false;
         return;
       }
+      if (e.button !== 0 || !this.canPlayTurn()) return;
       // Клик работает только если мы НЕ перетаскивали (drag был null)
       if (this.isInputBlocked) return;
       if (this.isReplayMode) return;
       if (this.state.drag) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const logicalSize = this.CONFIG.cellSize * this.CONFIG.gridCount;
+      const target = this.getPawnMoveAt((e.clientX - rect.left) * logicalSize / rect.width,
+        (e.clientY - rect.top) * logicalSize / rect.height);
+      if (target) {
+        this.playPawnMove(target.r, target.c);
+        return;
+      }
       if (!this.state.hoverWall || !this.state.hoverWall.isValid) return;
 
       const { r, c, isVertical } = this.state.hoverWall;
@@ -2267,33 +2323,16 @@ const Game = {
         }
       }
 
-      if (potentialMove) {
-        if (Net.isOnline) {
+      if (potentialMove && this.canPlayTurn()) {
+        if (potentialMove.type === 'pawn') {
+          if (!this.playPawnMove(potentialMove.r, potentialMove.c)) UI.AudioManager.play('error');
+        } else if (Net.isOnline) {
           Net.sendMove(potentialMove);
         } else {
           // ЛОКАЛЬНАЯ ИГРА: Восстановленная логика
           const playerIdx = this.state.currentPlayer;
 
-          if (potentialMove.type === 'pawn') {
-            const { r: tr, c: tc } = potentialMove;
-            const player = this.state.players[playerIdx];
-            // Проверяем, что ход допустим (нужна реальная проверка, а не только потенциальный ход)
-            if (Shared.canMovePawn(this.state, player.pos.r, player.pos.c, tr, tc)) {
-              // [Animation] Trigger local animation
-              const startPos = { ...player.pos };
-              const endPos = { r: potentialMove.r, c: potentialMove.c };
-
-              Game.state.players[playerIdx].pos = endPos;
-              this.animatePawn(playerIdx, startPos, endPos);
-
-              UI.AudioManager.play('move');
-              this.addToHistory(potentialMove);
-              if (!this.checkVictory()) this.nextTurn();
-            } else {
-              UI.AudioManager.play('error');
-            }
-
-          } else if (potentialMove.type === 'wall') {
+          if (potentialMove.type === 'wall') {
             const { r: wr, c: wc, isVertical } = potentialMove;
             // Проверяем, что есть стены и размещение прошло успешно
             if (this.state.players[playerIdx].wallsLeft > 0 &&

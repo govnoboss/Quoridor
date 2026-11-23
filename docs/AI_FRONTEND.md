@@ -30,6 +30,30 @@ Check `frontend/index.html` for exact version strings and order before editing. 
 
 ## 2. JavaScript modules
 
+### Pawn input (2026-11-23)
+
+`game.js?v=1.3.0` shows legal pawn destinations immediately during an actionable
+turn. `canPlayTurn()` gates hints and direct pawn actions: live game, current view,
+no input block/game over/replay, and the human's side in online/bot games (either
+side in local PvP). `getPawnMoveAt(x, y)` takes logical canvas coordinates and
+matches the visible hint circle (radius 0.38 cells); cell edges retain wall input.
+`playPawnMove(r, c)` validates with `Shared.canMovePawn` and is shared by click/tap
+and existing pawn drag. Local moves retain animation, sound, history, victory and
+turn/session handling; online moves only send the existing `playerMove` through
+`Net.sendMove`, leaving state updates authoritative on the server. Hints are hidden
+while dragging a wall or inspecting history/replays. Black's board transform and
+CSS-to-canvas scaling apply to click/tap as well as drag. Regression coverage:
+`tests/game-input.test.js`.
+
+Acceptance on 2026-11-23: isolated local preview with the actual frontend, shared
+rules and AI bundle; Pass & Play showed hints before selecting a pawn, and real
+browser clicks moved white/black and updated history/turn hints at 1280x720 and
+390x844. EN/RU FAQ instructions and replacement links were checked in the browser.
+Touch pointer sequences, online send-only behavior, flipped black perspective,
+blocked input, jump/diagonal moves, goal detection and wall/drag compatibility are
+covered by VM-based input tests. This does not certify physical touch devices or
+constitute a production deployment.
+
 Admin stage 1: all seven admin pages load `/js/admin-api.js?v=1.0.0` before their inline scripts. Non-2xx/network responses reject before success handlers run; failures preserve notes/replies/dialogs, and identical pending mutations are blocked. Bot polling does not fill settings fields; dirty forms and in-flight edits are preserved, with confirmation before an explicit discard/reload. Complaint notes are pre-filled. See `AI_ADMIN.md` for contracts, tests and deployment scope.
 
 | File | Approx. size (measured 2026-11-10) | Role |
