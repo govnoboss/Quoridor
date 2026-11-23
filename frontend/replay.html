@@ -14,16 +14,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/tokens.css?v=2.0.1" />
+    <link rel="stylesheet" href="/css/header.css?v=1.1.1" />
     <link rel="stylesheet" href="/css/style.css?v=1.0.40" />
-    <link rel="stylesheet" href="/css/replay.css?v=1.0.8" />
+    <link rel="stylesheet" href="/css/components.css?v=1.2.0" />
+    <link rel="stylesheet" href="/css/replay.css?v=2.3.0" />
 </head>
 <body>
+    <div id="siteHeader"></div>
+    <script src="/js/site-shell.js?v=1.2.0"></script>
     <div class="replay-page">
-        <div class="replay-header">
-            <a href="/" class="replay-back">&larr; Home</a>
-            <span class="replay-title">Replay</span>
-        </div>
-
         <div class="replay-body">
             <div class="board-area">
                 <div class="player-bar" id="topPlayerBar">
@@ -68,33 +67,44 @@
             </div>
 
             <div class="replay-sidebar">
+                <div class="replay-heading">
+                    <a href="/" class="replay-back" id="replayBack">&larr; Home</a>
+                    <h1 class="replay-title">Game analysis</h1>
+                </div>
                 <div id="replayInfo" class="replay-info"></div>
                 <div id="gameResult" class="replay-result"></div>
 
+                <details class="replay-section" open>
+                <summary>Moves</summary>
                 <div id="moveHistory">
                     <div class="history-header">
                         <span>White</span>
                         <span>Black</span>
                     </div>
                     <div class="history-list" id="historyList"></div>
-                    <div class="history-controls">
-                        <button onclick="goToStart()" title="Start">&laquo;</button>
-                        <button onclick="prevMove()" title="Previous">&lsaquo;</button>
-                        <button onclick="nextMove()" title="Next">&rsaquo;</button>
-                        <button onclick="goToEnd()" title="End">&raquo;</button>
-                    </div>
                 </div>
+                </details>
 
-                <div class="replay-row">
-                    <button id="playBtn" class="replay-action-btn" onclick="togglePlay()">&#9654;</button>
-                    <select class="replay-select" onchange="setSpeed(Number(this.value))">
+                <div class="replay-transport" id="replayTransport" aria-label="Replay controls">
+                    <div class="transport-buttons">
+                        <button onclick="goToStart()" aria-label="First move">&laquo;</button>
+                        <button onclick="prevMove()" aria-label="Previous move">&lsaquo;</button>
+                        <button id="playBtn" onclick="togglePlay()" aria-label="Play or pause">&#9654;</button>
+                        <button onclick="nextMove()" aria-label="Next move">&rsaquo;</button>
+                        <button onclick="goToEnd()" aria-label="Last move">&raquo;</button>
+                    </div>
+                    <div class="transport-meta"><span id="moveCounter">Move 0 / 0</span>
+                    <select class="replay-select" aria-label="Playback speed" onchange="setSpeed(Number(this.value))">
                         <option value="2000">0.5x</option>
                         <option value="1000" selected>1x</option>
                         <option value="500">2x</option>
                         <option value="250">4x</option>
                     </select>
+                    </div>
                 </div>
 
+                <details class="replay-section" open>
+                <summary>Evaluation</summary>
                 <div class="replay-row eval-controls">
                     <select id="evalDepth" class="replay-select" title="Engine search depth">
                         <option value="4">Eval: Fast (4)</option>
@@ -103,6 +113,7 @@
                     </select>
                     <span class="eval-status" id="evalStatus"></span>
                 </div>
+                </details>
 
                 <div class="replay-row">
                     <button class="replay-action-btn" onclick="togglePerspective()">&#x21C4; Flip</button>
@@ -117,12 +128,24 @@
     <div id="exportModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeExportModal()">
         <div class="modal-content modal-content--narrow">
             <button class="modal-close" onclick="closeExportModal()">&times;</button>
+            <h2>Export video</h2>
+            <p id="exportDuration"></p>
+            <label for="exportQuality">Vertical video quality</label>
+            <select id="exportQuality" class="replay-select">
+                <option value="720">720p · 720 × 1280</option>
+                <option value="1080">1080p · 1080 × 1920</option>
+            </select>
+            <label class="export-sound" for="exportSound"><input id="exportSound" type="checkbox" checked> Include game sound in MP4</label>
+            <div class="replay-row">
+                <button id="exportStart" class="replay-action-btn" onclick="startVideoExport()">Create MP4</button>
+                <button class="replay-action-btn" onclick="cancelVideoExport()">Cancel export</button>
+            </div>
+            <p id="exportStatus" role="status" aria-live="polite"></p>
             <div id="exportProgress">
-                <p class="rendering-label">Rendering video</p>
                 <div class="progress-bar"><div id="exportBar" class="progress-fill"></div></div>
             </div>
             <div id="exportPreview" style="display:none">
-                <video id="exportVideo" controls class="export-video"></video>
+                <video id="exportVideo" controls playsinline class="export-video"></video>
                 <div class="video-speed-row">
                     <button class="speed-btn" onclick="setVideoSpeed(0.5)">0.5x</button>
                     <button class="speed-btn active" onclick="setVideoSpeed(1)">1x</button>
@@ -134,11 +157,13 @@
     </div>
 
     <script src="/js/analytics-boot.js?v=1.3.0"></script>
-    <script src="/js/analytics.js?v=1.3.0"></script>
-    <script src="/shared.js?v=1.0.4"></script>
+    <script src="/js/analytics.js?v=1.5.0"></script>
+    <script src="/shared.js?v=1.1.0"></script>
     <script src="/js/board-renderer.js?v=1.0.6"></script>
     <script src="/js/mp4-muxer.js?v=1.0.4"></script>
-    <script src="/js/replay.js?v=1.0.6"></script>
+    <script src="/js/replay-export.js?v=1.1.0"></script>
+    <script src="/js/replay.js?v=1.4.0"></script>
+    <script src="/js/replay-layout.js?v=1.1.0"></script>
     <script>
         var gameId = window.location.pathname.split('/').pop();
         if (gameId && gameId.length > 5) {

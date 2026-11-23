@@ -20,6 +20,15 @@ class MockRedisClient extends EventEmitter {
 
     async ping() { return 'PONG'; }
 
+    async eval(script, { keys, arguments: args }) {
+        if (await this.get(keys[0]) !== args[0]) return 0;
+        if (script.includes('pexpire')) {
+            this._data.get(keys[0]).expiry = Date.now() + Number(args[1]);
+            return 1;
+        }
+        return this.del(keys[0]);
+    }
+
     async get(key) {
         const entry = this._data.get(key);
         if (!entry) return null;

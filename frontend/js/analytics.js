@@ -136,11 +136,15 @@
 
     var queue = [];
     var timer = null;
-
+    var activeSearchId = null;
     function flush() {
+        clearTimeout(timer);
         timer = null;
-        if (!queue.length) return;
-        var events = queue.splice(0, queue.length);
+        // Drain every batch now: a closing page cannot wait for another timer.
+        while (queue.length) sendBatch(queue.splice(0, 20));
+    }
+
+    function sendBatch(events) {
         var payload = JSON.stringify({
             events: events,
             deviceId: DEVICE_ID,
@@ -150,14 +154,12 @@
         try {
             if (navigator.sendBeacon) {
                 var blob = new Blob([payload], { type: 'application/json' });
-                navigator.sendBeacon('/api/analytics/events', blob);
-            } else {
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/analytics/events');
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.send(payload);
+                if (navigator.sendBeacon('/api/analytics/events', blob)) return;
             }
-        } catch (e) {}
+            fetch('/api/analytics/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(function () {
+                console.warn('[Analytics] Delivery failed');
+            });
+        } catch (e) { console.warn('[Analytics] Delivery failed'); }
     }
 
     function schedule() {
@@ -167,9 +169,20 @@
 
     window.trackEvent = function (event, data) {
         if (!event) return;
-        var props = normalizeMode(data && typeof data === 'object' ? Object.assign({}, data) : {});
         try {
-            queue.push({ name: event, props: props, ts: new Date().toISOString() });
+            // Explicit local opt-out for developer/test devices. Does not clear history.
+            if (localStorage.getItem('analytics.disabled') === '1') return;
+        } catch (_) { /* Storage may be unavailable. */ }
+        if (/^\/admin(?:\/|$)/.test(window.location && window.location.pathname || '')) return;
+        var props = normalizeMode(data && typeof data === 'object' ? Object.assign({}, data) : {});
+        if (event === 'search-started') activeSearchId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+        if (['search-started', 'search-matched', 'search-timeout', 'search-cancelled'].indexOf(event) !== -1 && activeSearchId) {
+            props.searchId = activeSearchId;
+            if (event !== 'search-started') activeSearchId = null;
+        }
+        if (['game-started', 'game-finished', 'game-abandoned'].indexOf(event) !== -1 && props.gameId) props.measurementVersion = 2;
+        try {
+            if (event !== 'register-complete') queue.push({ name: event, props: props, ts: new Date().toISOString() });
         } catch (e) {}
         schedule();
 
@@ -179,7 +192,12 @@
             var umamiProps = Object.assign({ platform: PLATFORM }, props);
             pendingUmami.push({ event: event, data: umamiProps });
             umamiAttempts = 0;
-            scheduleUmamiFlush();
+            if (umamiReady()) {
+                clearTimeout(umamiPollTimer);
+                flushUmamiQueue();
+            } else {
+                scheduleUmamiFlush();
+            }
         }
     };
 
@@ -201,4 +219,5 @@
     };
 
     window.trackEvent('session-start');
+    window.trackEvent('app-loaded');
 })();

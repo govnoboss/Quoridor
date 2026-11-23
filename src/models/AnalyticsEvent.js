@@ -37,4 +37,6 @@ const analyticsEventSchema = new mongoose.Schema({
     }
 });
 
+analyticsEventSchema.index({ name: 1, timestamp: 1 });
+
 module.exports = mongoose.model('AnalyticsEvent', analyticsEventSchema);

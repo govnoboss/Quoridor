@@ -71,6 +71,13 @@
         if (state.botDifficulty !== undefined) cloned.botDifficulty = state.botDifficulty;
         if (state.botIdentity !== undefined) cloned.botIdentity = state.botIdentity;
         if (state.botStyle !== undefined) cloned.botStyle = state.botStyle;
+        if (state.timers === null) cloned.timers = null;
+        for (const key of ['timeControl', 'clock', 'presence']) {
+            if (state[key] !== undefined) cloned[key] = JSON.parse(JSON.stringify(state[key]));
+        }
+        for (const key of ['revision', 'startedAt', 'finished', 'gameMode', 'abandonedAt']) {
+            if (state[key] !== undefined) cloned[key] = state[key];
+        }
 
         return cloned;
     };
@@ -359,6 +366,7 @@
             playerProfiles: [null, null],
             disconnectTimer: null,
             timers: [base, base],
+            timeControl: timeControl?.mode === 'untimed' ? { mode: 'untimed', base: null, inc: 0 } : { mode: 'timed', base, inc },
             increment: inc,
             lastMoveTimestamp: Date.now(),
             history: [],

@@ -21,8 +21,9 @@ set from `req.session.playerToken` or from a fresh token via `assignToken`).
 
 | Event | Payload | Description |
 | --- | --- | --- |
-| `createRoom` | `{ token? }` | Create a private room. Replies with `roomCreated { roomCode }`. |
-| `joinRoom` | `{ roomCode, token? }` | Join a room (code normalized to uppercase). When full (2nd player), the game starts. |
+| `createRoom` | `{ token?, timeControl?: {mode:'untimed'} \| {mode:'timed',base:60\|180\|300\|600,inc:0} }` | Create a private room. New UI defaults to untimed; omitted control retains legacy 600+0. Returns `roomCreated {roomCode,timeControl}`. |
+| `getRoomInfo` | `{roomCode}` + ack | Pre-join confirmation metadata: `{roomCode,timeControl}` or `{error}`. |
+| `joinRoom` | `{ roomCode, token?, expectedTimeControl? }` | Join after confirming host settings; code normalized to uppercase. Mismatched settings rejected; untimed rooms require the confirmation field (old tabs must refresh). Admission is serialized. |
 
 ### Reconnect / replay
 
@@ -37,7 +38,7 @@ set from `req.session.playerToken` or from a fresh token via `assignToken`).
 | --- | --- |
 | `playerMove` | `{ lobbyId, move }` where `move` is `{ type: 'pawn', r, c }` or `{ type: 'wall', r, c, isVertical }` (`playerIdx` is added server-side). |
 | `surrender` | `{ lobbyId }` |
-| `requestTimerSync` | `{ lobbyId }` + acknowledgement callback — recovers the clock after reconnect/background (`net.js` emits it on every socket `connect` while in an online game): ack `{ timers, currentPlayer, serverNow }`, `{ finished: true }` after resending a missed `gameOver`, or `{}` for non-participants. |
+| `requestTimerSync` | `{ lobbyId }` + acknowledgement callback — full recovery after reconnect/background: emits `gameResumed` or participant-authorized `gameOver`, then ack `{restored:true}`. Missing/non-participant: `{unavailable:true}`; failure: `{error}`. See `AI_CLOCKS.md`. |
 | `leaveGame` | `{ lobbyId }` — leave the game: it is finalized with the opponent as winner (reason `Surrender`). |
 | `sendReaction` | `{ lobbyId, emoji }` — emoji must be in the server allowlist (25 emoji). |
 | `requestRematch` | `{ lobbyId, token? }` |
@@ -50,8 +51,9 @@ set from `req.session.playerToken` or from a fresh token via `assignToken`).
 | `inviteToGame` | `{ friendId }` — creates a `game_invite` notification (accepted friends only). |
 | `acceptGameInvite` | `{ fromId }` — creates a private room with the inviter and starts the game. |
 
-Implicit: `disconnect` — the server removes the player from queues, pauses their game
-(turn clocks cleared), notifies the opponent, and clears queues when both are absent.
+Implicit: `disconnect` removes the player from queues and notifies the opponent. Online turn
+clocks continue; separate reconnect allowance is 30 seconds timed / 120 seconds untimed.
+Both-absent and restart policies are specified in `AI_CLOCKS.md`.
 
 ## Server → Client
 
@@ -68,7 +70,7 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 ### Matchmaking / rooms
 - `findGameFailed` — `{ reason }` (`Too many requests…`, `Invalid time limits…`,
   `Ranked play requires login`, `Already in a queue`, `Server error`).
-- `roomCreated` — `{ roomCode }`.
+- `roomCreated` — `{ roomCode, timeControl }` (normalized host settings).
 - `joinRoomFailed` — `{ reason }` (localized, ru/en). RU examples: `Комната не найдена`
   ("room not found"), `Комната полна` ("room full"), `Вы уже в этой комнате` ("you are already in
   this room"), `Нельзя играть с самим собой` ("you can't play yourself"), ….
@@ -77,11 +79,11 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 - `gameStartFailed` — `{ reason }` (opponent disconnected).
 
 ### Gameplay
-- `serverMove` — `{ playerIdx, move, nextPlayer, timers }` broadcast to the lobby.
+- `serverMove` — `{ lobbyId, playerIdx, move, nextPlayer, state, clock, timers, revision, serverNow, timeControl }`; `state` is a public snapshot without player tokens/socket IDs. `timers` is nullable seconds compatibility; `clock` is authoritative sampled milliseconds.
 - `moveRejected` — `{ reason }` (`Too many moves`, `Invalid request`, `Invalid lobby format`, `Invalid move format`,
   `Room busy`, `Game not found`, `Game already finished`, `Unauthorized`, `Server error`,
   or a `gameReducer` validation message).
-- `timerUpdate` — `{ timers }`, broadcast every second by the server pulse.
+- `timerUpdate` — `{lobbyId,clock,timers,revision,serverNow,timeControl,...}`, sampled every second. Apply only at matching board revision/turn; otherwise recover the full game.
 - `receiveReaction` — `{ emoji, playerIdx }` broadcast to the lobby.
 - `opponentDisconnected` — opponent left; the game is paused (30 s grace).
 - `opponentReconnected` — game resumes.
@@ -89,7 +91,7 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
   (`{ playerWhite, playerBlack, newRatingWhite, newRatingBlack }`) only for ranked games.
 
 ### Reconnect / replay
-- `gameResumed` — `{ lobbyId, lobbyCode, color, myPlayerIndex, state, timers, profiles }`.
+- `gameResumed` — `{ lobbyId, lobbyCode, color, myPlayerIndex, state, clock, timers, profiles, revision, serverNow, timeControl, gameMode }`.
 - `gameReplayAvailable` — `{ lobbyCode, history, playerProfiles, timers, result }`.
 - `gameActiveError` — `{ lobbyCode }` when a rejoin is denied because the game is active.
 
@@ -101,10 +103,11 @@ Implicit: `disconnect` — the server removes the player from queues, pauses the
 - `rematchExpired` — the 30 s response window elapsed.
 
 ### Presence / moderation
-- `notification:new` — `{ notification }` pushed in real time when a notification is created for the logged-in user.
+- `notification:new` — the notification object itself, not an envelope; client refreshes canonical HTTP history.
 - `forceDisconnect` — `{ reason }` (`You have been banned`, `Admin access removed`,
   `Account deleted`, `Logged in from another tab`) — disconnect the socket.
 - `error` — generic `{ message }` (e.g. rate-limited `createRoom`).
 
 ### Friend invites
+- `acceptGameInvite {fromId,notificationId?}` acknowledges `{ok:true}` or `{ok:false,error}`. Saved invites must be current (120 seconds), unaccepted and owned; both players must be free. See `AI_NOTIFICATIONS.md`.
 - `inviteFailed` — `{ reason }` (`Friend is offline …`) when a friend game invite cannot be delivered.

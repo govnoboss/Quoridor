@@ -8,227 +8,40 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quoridor Admin: Bots</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --muted: #94a3b8;
-            --text: #e2e8f0;
-            --accent: #f59e0b;
-            --ok: #22c55e;
-            --danger: #ef4444;
-            --border: #334155;
-            --info: #3b82f6;
-        }
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 24px 16px 40px;
-        }
-        h1, h2, h3 {
-            margin-top: 0;
-        }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-        .row {
-            display: grid;
-            grid-template-columns: 1fr 180px;
-            gap: 12px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .row label {
-            color: var(--muted);
-        }
-        input[type="number"], input[type="password"], input[type="text"] {
-            width: 100%;
-            background: #0b1220;
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 10px;
-            box-sizing: border-box;
-        }
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            justify-self: start;
-        }
-        button {
-            background: var(--accent);
-            color: #1f2937;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 14px;
-            font-weight: 700;
-            cursor: pointer;
-            margin-right: 8px;
-        }
-        button.secondary {
-            background: #64748b;
-            color: #fff;
-        }
-        button.info {
-            background: var(--info);
-            color: #fff;
-        }
-        .status {
-            min-height: 20px;
-            margin: 10px 0;
-            color: var(--muted);
-        }
-        .status.ok { color: var(--ok); }
-        .status.error { color: var(--danger); }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border-bottom: 1px solid var(--border);
-            text-align: left;
-            padding: 8px 6px;
-            font-size: 14px;
-        }
-        .meta {
-            color: var(--muted);
-            font-size: 13px;
-        }
-        .hidden { display: none; }
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin: 12px 0;
-        }
-        .stat-card {
-            background: #0b1220;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        .stat-card .value {
-            font-size: 28px;
-            font-weight: 700;
-        }
-        .stat-card .label {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 4px;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .badge-online { background: #065f46; color: #6ee7b7; }
-        .badge-offline { background: #451a03; color: #fbbf24; }
-        .badge-playing { background: #1e3a5f; color: #93c5fd; }
-        .badge-cooldown { background: #3b0764; color: #d8b4fe; }
-        .btn-small {
-            background: none;
-            border: 1px solid #555;
-            color: #aaa;
-            cursor: pointer;
-            padding: 0 6px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-        .btn-small:hover { background: #333; color: #fff; }
-        .bot-name-text { margin-right: 6px; }
-    </style>
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1">
+    <link rel="stylesheet" href="/css/admin.css?v=1.0.0">
+    <script src="/js/admin-shell.js?v=1.1.0" defer></script>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
-<body>
-    <div class="container">
-        <h1>Bot Control Panel</h1>
-        <div id="authError" class="panel hidden">
-            <h2>Access denied</h2>
-            <p class="meta">Admin session required on the same domain.</p>
-        </div>
-
-        <div id="mainContent" class="hidden">
-            <!-- Runtime -->
-            <div class="panel">
-                <h2>Runtime</h2>
-                <div id="runtime" class="meta">-</div>
-            </div>
-
-            <!-- Bot Presence Dashboard -->
-            <div class="panel">
-                <h2>Bot Presence</h2>
-                <div id="presenceStats" class="stat-grid">
-                    <div class="stat-card"><div class="value" id="presTotalBots">-</div><div class="label">Total Bots</div></div>
-                    <div class="stat-card"><div class="value" id="presOnline">-</div><div class="label">Online Now</div></div>
-                </div>
-            </div>
-
-            <!-- Bot settings -->
-            <div class="panel">
-                <h2>Bot Settings</h2>
-                <div class="row"><label for="enabled">BOTS_ENABLED</label><input id="enabled" type="checkbox"></div>
-                <div class="row"><label for="rankedEnabled">BOT_RANKED_ENABLED</label><input id="rankedEnabled" type="checkbox"></div>
-                <div class="row"><label for="fallbackMinWaitMs">BOT_FALLBACK_MIN_WAIT_MS</label><input id="fallbackMinWaitMs" type="number" min="0"></div>
-                <div class="row"><label for="fallbackMaxWaitMs">BOT_FALLBACK_MAX_WAIT_MS</label><input id="fallbackMaxWaitMs" type="number" min="0"></div>
-                <div class="row"><label for="maxActiveGames">BOT_MAX_ACTIVE_GAMES</label><input id="maxActiveGames" type="number" min="0"></div>
-                <div class="row"><label for="moveMinDelayMs">BOT_MOVE_MIN_DELAY_MS</label><input id="moveMinDelayMs" type="number" min="0"></div>
-                <div class="row"><label for="moveMaxDelayMs">BOT_MOVE_MAX_DELAY_MS</label><input id="moveMaxDelayMs" type="number" min="0"></div>
-                <div class="row"><label for="maxRecentMatches">BOT_MAX_RECENT_MATCHES</label><input id="maxRecentMatches" type="number" min="0"></div>
-                <div class="row"><label for="recentWindowMs">BOT_RECENT_WINDOW_MS</label><input id="recentWindowMs" type="number" min="60000"></div>
-                <div class="status" id="settingsStatus"></div>
-                <button id="saveSettingsBtn">Save settings</button>
-                <button id="reloadBtn" class="secondary">Reload</button>
-            </div>
-
-            <!-- Seed bots -->
-            <div class="panel">
-                <h2>Seed bot accounts</h2>
-                <div class="row">
-                    <label for="seedPassword">Password (optional)</label>
-                    <input id="seedPassword" type="password" placeholder="Leave empty for auto">
-                </div>
-                <div class="status" id="seedStatus"></div>
-                <button id="seedAllBtn" class="info">Seed All (120 bots)</button>
-                <button id="recalcBtn" class="secondary">Recalculate Ratings</button>
-            </div>
-
-            <!-- Bot accounts list -->
-            <div class="panel">
-                <h2>Bot accounts</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Rating</th>
-                            <th>Country</th>
-                            <th>SeedId</th>
-                            <th>Stats (W/L)</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="botsTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+<body class="admin-app" data-admin-page="bots">
+    <main class="admin-main container" id="adminMain" tabindex="-1">
+        <header class="admin-page-heading"><div><div class="admin-eyebrow">Operations</div><h1>Bots</h1><p class="admin-page-description">Control matchmaking and the bot population.</p></div><div class="admin-page-actions"><button class="refresh-btn" onclick="loadPanel(false).catch(function(error){setStatus('settingsStatus',error.message,'error')})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div></header>
+  <div id="authError" class="panel hidden"><h2>Access required</h2><p class="meta">Sign in with an administrator account on this domain.</p></div>
+  <div id="mainContent" class="hidden">
+    <div class="admin-section-grid">
+      <section class="panel"><div class="panel-heading"><h3>Matchmaking activity</h3><span class="meta">Refreshes every 10s</span></div><div id="runtime" class="runtime-stats">Loading activity…</div></section>
+      <section class="panel"><h3>Bot presence</h3><div id="presenceStats" class="stat-grid"><div class="stat-card"><div class="value" id="presTotalBots">—</div><div class="label">Total bots</div></div><div class="stat-card"><div class="value" id="presOnline">—</div><div class="label">Online now</div></div></div></section>
     </div>
+    <section class="panel"><h3>Matchmaking settings</h3><p class="panel-subtitle">Changes apply after saving. Editing is preserved during automatic refresh.</p><div class="admin-form-grid">
+      <div class="admin-toggle"><div><label for="enabled">Enable bot opponents</label><small>Offer bot games when human matchmaking takes longer.</small></div><input id="enabled" type="checkbox"></div>
+      <div class="admin-toggle"><div><label for="rankedEnabled">Bots in ranked games</label><small>Allow account bots to join ranked queues.</small></div><input id="rankedEnabled" type="checkbox"></div>
+      <div class="admin-field"><label for="fallbackMinWaitMs">Minimum matchmaking wait (ms)</label><input id="fallbackMinWaitMs" type="number" min="0"><small>Delay before considering a bot opponent.</small></div><div class="admin-field"><label for="fallbackMaxWaitMs">Maximum matchmaking wait (ms)</label><input id="fallbackMaxWaitMs" type="number" min="0"><small>Upper bound for the randomized matching delay.</small></div><div class="admin-field"><label for="maxActiveGames">Concurrent bot games</label><input id="maxActiveGames" type="number" min="0"><small>Set to 0 to disable new bot games.</small></div><div class="admin-field"><label for="maxRecentMatches">Recent match limit</label><input id="maxRecentMatches" type="number" min="0"><small>Maximum recent bot matches per player; 0 removes this limit.</small></div><div class="admin-field"><label for="moveMinDelayMs">Minimum move delay (ms)</label><input id="moveMinDelayMs" type="number" min="0"><small>Shortest simulated thinking delay.</small></div><div class="admin-field"><label for="moveMaxDelayMs">Maximum move delay (ms)</label><input id="moveMaxDelayMs" type="number" min="0"><small>Upper bound for simulated thinking time.</small></div><div class="admin-field"><label for="recentWindowMs">Recent match window (ms)</label><input id="recentWindowMs" type="number" min="60000"><small>Time window used for repeat-match limits.</small></div>
+    </div><div class="admin-form-footer"><div class="status" id="settingsStatus" role="status" aria-live="polite"></div><button id="reloadBtn" class="secondary">Reload values</button><button id="saveSettingsBtn" disabled>Save changes</button></div></section>
+    <section class="panel"><div class="panel-heading"><h3>Bot accounts</h3><span class="meta" id="botCount"></span></div><div class="filter-bar"><input type="search" id="botSearchInput" placeholder="Find a bot by name or seed ID" aria-label="Search bot accounts" oninput="renderBots(botRows)"></div><table><thead><tr><th>Bot</th><th>Rating</th><th>Country</th><th>Seed ID</th><th>Wins / losses</th><th>Pool</th></tr></thead><tbody id="botsTableBody"></tbody></table></section>
+    <details class="panel admin-maintenance"><summary>Population maintenance</summary><p>Seeding synchronizes the default bot population. Rating recalculation rebuilds bot ratings from archived ranked games. These actions change stored bot data.</p><label for="seedPassword">Password for new bot accounts (optional)</label><input id="seedPassword" type="password" placeholder="Generate automatically" autocomplete="new-password"><div class="actions-row"><button id="seedAllBtn" class="secondary">Synchronize 120 bots</button><button id="recalcBtn" class="secondary">Recalculate ratings</button></div><div class="status" id="seedStatus" role="status" aria-live="polite"></div></details>
+  </div>
+</main>
 
-    <script>
+<script src="/js/admin-api.js?v=1.0.0"></script>
+<script>
         const fieldIds = [
             'enabled', 'rankedEnabled', 'fallbackMinWaitMs', 'fallbackMaxWaitMs',
             'maxActiveGames', 'moveMinDelayMs', 'moveMaxDelayMs', 'maxRecentMatches', 'recentWindowMs'
         ];
+        let settingsLoaded = false;
+        let settingsDirty = false;
+        let settingsEditRevision = 0;
 
         function setStatus(elementId, message, cls = '') {
             const node = document.getElementById(elementId);
@@ -246,6 +59,7 @@
             document.getElementById('moveMaxDelayMs').value = settings.moveMaxDelayMs;
             document.getElementById('maxRecentMatches').value = settings.maxRecentMatches;
             document.getElementById('recentWindowMs').value = settings.recentWindowMs;
+            settingsDirty = false;
         }
 
         function readSettingsPayload() {
@@ -262,35 +76,41 @@
             };
         }
 
+        let botRows = [];
         function renderBots(bots) {
+            botRows = bots;
             const body = document.getElementById('botsTableBody');
+            const search = (document.getElementById('botSearchInput').value || '').trim().toLowerCase();
+            const filtered = bots.filter(bot => (bot.username + ' ' + (bot.seedId || '')).toLowerCase().includes(search));
             body.innerHTML = '';
-            for (const bot of bots) {
-                const tr = document.createElement('tr');
-                const stats = bot.stats || {};
-                const w = stats.wins || 0;
-                const l = stats.losses || 0;
-                const type = bot.seedId && bot.seedId.startsWith('qbot-') ? 'old' : bot.seedId && bot.seedId.startsWith('sbot-') ? 'social' : 'legacy';
-                const badgeClass = type === 'old' ? 'badge-online' : type === 'social' ? 'badge-playing' : 'badge-offline';
-                const badgeLabel = type === 'old' ? 'ranked' : type === 'social' ? 'social' : 'legacy';
-                const statusBadge = `<span class="status-badge ${badgeClass}">${badgeLabel}</span>`;
+            document.getElementById('botCount').textContent = filtered.length + ' of ' + bots.length + ' bots';
+            if (!filtered.length) {
+                const row = document.createElement('tr'), cell = document.createElement('td');
+                cell.colSpan = 6; cell.className = 'empty-state'; cell.textContent = search ? 'No bots match your search.' : 'No bot accounts found.';
+                row.appendChild(cell); body.appendChild(row); return;
+            }
+            for (const bot of filtered) {
+                const row = document.createElement('tr');
                 const nameCell = document.createElement('td');
-                nameCell.innerHTML = `<span class="bot-name-text">${bot.username}</span> <button class="btn-small" onclick="renameBot('${bot.id}', '${bot.username}')">✎</button>`;
-                tr.appendChild(nameCell);
-                tr.innerHTML += `
-                    <td>${bot.rating || 1200}</td>
-                    <td>${bot.country || 'XX'}</td>
-                    <td class="meta">${bot.seedId || '-'}</td>
-                    <td>${w}/${l}</td>
-                    <td>${statusBadge}</td>`;
-                body.appendChild(tr);
+                const name = document.createElement('span'); name.className = 'bot-name-text'; name.textContent = bot.username;
+                const rename = document.createElement('button'); rename.className = 'btn-small'; rename.textContent = 'Edit';
+                rename.setAttribute('aria-label', 'Rename ' + bot.username);
+                rename.addEventListener('click', () => renameBot(bot.id, bot.username).catch(error => setStatus('seedStatus', error.message, 'error')));
+                const identity = document.createElement('div'); identity.className = 'bot-name-cell'; identity.appendChild(name); identity.appendChild(rename);
+                nameCell.appendChild(identity); row.appendChild(nameCell);
+                const stats = bot.stats || {};
+                const pool = bot.seedId?.startsWith('qbot-') ? 'Ranked' : bot.seedId?.startsWith('sbot-') ? 'Social' : 'Legacy';
+                for (const value of [bot.rating ?? 1200, bot.country || 'XX', bot.seedId || '—', (stats.wins || 0) + ' / ' + (stats.losses || 0), pool]) {
+                    const cell = document.createElement('td'); cell.textContent = String(value); row.appendChild(cell);
+                }
+                body.appendChild(row);
             }
         }
 
         function renderRuntime(runtime) {
-            const activeIds = (runtime.activeBotGameIds || []).join(', ') || '-';
+            const ids = (runtime.activeBotGameIds || []).join(', ') || 'None';
             document.getElementById('runtime').textContent =
-                `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
+                'Active games: ' + (runtime.activeBotGames ?? 0) + ' · Waiting searches: ' + (runtime.pendingFallbacks ?? 0) + ' · Room codes: ' + ids;
         }
 
         function renderPresence(presence) {
@@ -305,7 +125,7 @@
 
         async function recalcRatings() {
             setStatus('seedStatus', 'Recalculating...');
-            const res = await fetch('/api/admin/bots/recalc', {
+            const res = await AdminAPI.fetch('/api/admin/bots/recalc', {
                 method: 'POST',
                 credentials: 'include',
             });
@@ -315,35 +135,40 @@
             setStatus('seedStatus', `Recalculated ${data.updated} bot ratings`, 'ok');
         }
 
-        function renderRuntime(runtime) {
-            const activeIds = (runtime.activeBotGameIds || []).join(', ') || '-';
-            document.getElementById('runtime').textContent =
-                `activeBotGames=${runtime.activeBotGames}, pendingFallbacks=${runtime.pendingFallbacks}, activeIds=${activeIds}`;
-        }
 
-        async function loadPanel() {
-            setStatus('settingsStatus', 'Loading...');
-            const res = await fetch('/api/admin/bots', { credentials: 'include' });
-            if (res.status === 401 || res.status === 403) {
-                document.getElementById('authError').classList.remove('hidden');
-                document.getElementById('mainContent').classList.add('hidden');
-                return;
+        async function loadPanel(refreshSettings = true) {
+            if (refreshSettings) setStatus('settingsStatus', 'Loading...');
+            const revision = settingsEditRevision;
+            let res;
+            try { res = await AdminAPI.fetch('/api/admin/bots', { credentials: 'include' }); }
+            catch (err) {
+                const denied = err.status === 401 || err.status === 403;
+                document.getElementById('authError').classList.toggle('hidden', !denied);
+                document.getElementById('mainContent').classList.toggle('hidden', denied);
+                throw err;
             }
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            fillSettings(data.settings);
+            const firstLoad = !settingsLoaded;
+            if (firstLoad || (refreshSettings && !settingsDirty && revision === settingsEditRevision)) fillSettings(data.settings);
+            if (firstLoad) {
+                settingsLoaded = true;
+                for (const id of fieldIds) document.getElementById(id).disabled = false;
+                document.getElementById('saveSettingsBtn').disabled = false;
+            }
             renderRuntime(data.runtime || {});
             renderPresence(data.presence);
             renderBots(data.bots || []);
             document.getElementById('mainContent').classList.remove('hidden');
             document.getElementById('authError').classList.add('hidden');
-            setStatus('settingsStatus', 'Updated', 'ok');
+            if (refreshSettings || firstLoad) setStatus('settingsStatus', settingsDirty ? 'Unsaved changes preserved' : 'Updated', settingsDirty ? '' : 'ok');
         }
 
         async function saveSettings() {
+            if (!settingsLoaded) throw new Error('Load settings before saving.');
             setStatus('settingsStatus', 'Saving...');
+            const revision = settingsEditRevision;
             const payload = readSettingsPayload();
-            const res = await fetch('/api/admin/bots/settings', {
+            const res = await AdminAPI.fetch('/api/admin/bots/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -351,15 +176,15 @@
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            fillSettings(data.settings);
+            if (revision === settingsEditRevision) fillSettings(data.settings);
             renderRuntime(data.runtime || {});
-            setStatus('settingsStatus', 'Settings saved', 'ok');
+            setStatus('settingsStatus', settingsDirty ? 'Saved. Newer edits are still unsaved.' : 'Settings saved', 'ok');
         }
 
         async function seedBots() {
             setStatus('seedStatus', 'Seeding...');
             const password = document.getElementById('seedPassword').value.trim();
-            const res = await fetch('/api/admin/bots/seed', {
+            const res = await AdminAPI.fetch('/api/admin/bots/seed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -374,7 +199,7 @@
         async function renameBot(id, currentName) {
             const newName = prompt('New username for bot:', currentName);
             if (!newName || newName === currentName) return;
-            const res = await fetch('/api/admin/bots/rename', {
+            const res = await AdminAPI.fetch('/api/admin/bots/rename', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -386,24 +211,37 @@
                 return;
             }
             setStatus('seedStatus', `Bot renamed to ${newName}`, 'ok');
-            loadPanel();
+            await loadPanel(false);
         }
 
         document.getElementById('saveSettingsBtn').addEventListener('click', () => {
             saveSettings().catch(err => setStatus('settingsStatus', err.message, 'error'));
         });
         document.getElementById('reloadBtn').addEventListener('click', () => {
+            if (settingsDirty && !confirm('Discard unsaved settings and reload?')) return;
+            settingsDirty = false;
+            settingsEditRevision++;
             loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));
         });
         document.getElementById('seedAllBtn').addEventListener('click', () => {
+            if (!confirm('Synchronize the default bot population? Default names may be restored.')) return;
             seedBots().catch(err => setStatus('seedStatus', err.message, 'error'));
         });
         document.getElementById('recalcBtn').addEventListener('click', () => {
+            if (!confirm('Recalculate ratings from ranked history? This updates affected bot accounts.')) return;
             recalcRatings().catch(err => setStatus('seedStatus', err.message, 'error'));
         });
 
+        for (const id of fieldIds) {
+            document.getElementById(id).disabled = true;
+            document.getElementById(id).addEventListener('input', () => {
+                settingsDirty = true;
+                settingsEditRevision++;
+                setStatus('settingsStatus', 'Unsaved changes');
+            });
+        }
         loadPanel().catch(err => setStatus('settingsStatus', err.message, 'error'));
-        setInterval(() => loadPanel().catch(() => {}), 10000);
+        setInterval(() => loadPanel(false).catch(err => setStatus('settingsStatus', err.message, 'error')), 10000);
     </script>
 </body>
 </html>

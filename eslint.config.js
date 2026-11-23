@@ -29,6 +29,7 @@ module.exports = [
             globals: {
                 describe: 'readonly',
                 it: 'readonly',
+                test: 'readonly',
                 expect: 'readonly',
                 beforeEach: 'readonly',
                 afterEach: 'readonly',
@@ -62,6 +63,8 @@ module.exports = [
                 document: 'readonly',
                 navigator: 'readonly',
                 localStorage: 'readonly',
+                sessionStorage: 'readonly',
+                performance: 'readonly',
                 fetch: 'readonly',
                 io: 'readonly',
                 UI: 'writable',

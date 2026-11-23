@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/css/auth.css?v=1.0.6" type="text/css" />
     <link rel="stylesheet" href="/css/auth-pages.css?v=1.0.6" type="text/css" />
     <script src="/js/analytics-boot.js?v=1.3.0"></script>
-    <script src="/js/analytics.js?v=1.3.0"></script>
+    <script src="/js/analytics.js?v=1.5.0"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #888; font-size: 13px; }
@@ -32,7 +32,7 @@
 <body class="auth-page-body">
     <div id="siteHeader"></div>
     <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
-    <script src="/js/site-shell.js?v=1.1.1"></script>
+    <script src="/js/site-shell.js?v=1.2.0"></script>
 
     <div class="auth-page-container">
         <div class="auth-form-wrapper">
@@ -282,7 +282,7 @@
                 return r.json().then(function(data) { return { status: r.status, data: data }; });
             }).then(function(resp) {
                 if (resp.status === 201) {
-                    trackEvent('register-complete');
+                    trackEvent('register-complete', { method: 'password' });
                     window.location.href = '/';
                 } else {
                     if (resp.data.error === 'Username taken') showFieldError('regUsername', d.error_username_taken);
@@ -303,7 +303,7 @@
                 return r.json().then(function(data) { return { status: r.status, data: data }; });
             }).then(function(resp) {
                 if (resp.status === 200) {
-                    trackEvent('login-complete');
+                    trackEvent(resp.data.created ? 'register-complete' : 'login-complete', { method: 'google' });
                     window.location.href = '/';
                 } else {
                     showGlobalError(dict[getLang()].error_google);

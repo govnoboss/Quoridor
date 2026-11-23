@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
+    id: { type: String, default: () => require('crypto').randomUUID() },
+    notificationPending: { type: Boolean, default: false },
     role: {
         type: String,
         enum: ['user', 'admin'],
@@ -57,5 +59,7 @@ const reportSchema = new mongoose.Schema({
         default: Date.now
     }
 }, { timestamps: false });
+
+reportSchema.index({ 'messages.notificationPending': 1 });
 
 module.exports = mongoose.model('Report', reportSchema);

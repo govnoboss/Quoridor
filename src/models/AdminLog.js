@@ -16,6 +16,8 @@ const adminLogSchema = new mongoose.Schema({
             'user_rating_changed',
             'user_deleted',
             'user_report_resolved',
+            'user_report_in_progress',
+            'user_report_note_updated',
             'user_report_dismissed',
             'bot_settings_updated',
             'bot_seeded',

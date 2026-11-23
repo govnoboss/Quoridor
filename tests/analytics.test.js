@@ -1,4 +1,5 @@
 jest.mock('redis');
+jest.mock('../src/analytics/product-metrics', () => ({ loadProductMetrics: jest.fn() }));
 jest.mock('../src/storage/db', () => jest.fn().mockResolvedValue());
 
 const bcrypt = require('bcryptjs');
@@ -262,6 +263,25 @@ describe('Analytics Ingest API', () => {
 });
 
 describe('Admin Metrics API', () => {
+    it('product report requires admin and validates days before querying', async () => {
+        expect((await request(app).get('/api/admin/product-metrics')).status).toBe(401);
+        User.__seedUser({ username: 'regular', passwordHash: bcrypt.hashSync('testpass123', 10), _id: 'user1' });
+        const regular = request.agent(app);
+        await regular.post('/api/auth/login').send({ username: 'regular', password: 'testpass123' });
+        expect((await regular.get('/api/admin/product-metrics')).status).toBe(403);
+        User.__seedUser({ username: 'admin1', passwordHash: bcrypt.hashSync('testpass123', 10), _id: 'admin1', isAdmin: true });
+        const admin = request.agent(app);
+        await admin.post('/api/auth/login').send({ username: 'admin1', password: 'testpass123' });
+        for (const days of ['0', '31', '1.5', 'invalid']) expect((await admin.get('/api/admin/product-metrics?days=' + days)).status).toBe(400);
+        const { loadProductMetrics } = require('../src/analytics/product-metrics');
+        loadProductMetrics.mockResolvedValueOnce({ version: 2, current: { d7: null } });
+        const response = await admin.get('/api/admin/product-metrics?days=28');
+        expect(response.status).toBe(200); expect(response.body.version).toBe(2);
+        expect(response.headers['cache-control']).toBe('no-store');
+        expect(loadProductMetrics).toHaveBeenCalledWith(expect.objectContaining({ days: 28 }));
+        loadProductMetrics.mockRejectedValueOnce(Object.assign(new Error('Report limit exceeded'), { status: 503 }));
+        expect((await admin.get('/api/admin/product-metrics')).status).toBe(503);
+    });
     it('GET /api/admin/metrics requires auth -> 401', async () => {
         const res = await request(app).get('/api/admin/metrics');
         expect(res.status).toBe(401);

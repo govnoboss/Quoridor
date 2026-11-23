@@ -9,3 +9,6 @@ Thumbs.db
 coverage
 tests
 avatars
+.tmp-export
+artifacts
+*.bak

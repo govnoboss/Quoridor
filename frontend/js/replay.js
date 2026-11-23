@@ -152,28 +152,14 @@ function buildSnapshots() {
   snapshots = [];
   var base = getBaseTime();
   var initial = Shared.createInitialState({ base: base });
+  initial.timers = gameData.finalClock && !gameData.finalClock.legacy && gameData.timeControl?.mode !== 'untimed' ? [base, base] : null;
   snapshots.push(Shared.cloneState(initial));
   var state = Shared.cloneState(initial);
   var history = gameData.history || [];
-  var timers = [base, base];
-  var lastTimestamp = gameData.date ? new Date(gameData.date).getTime() : Date.now();
-
   for (var i = 0; i < history.length; i++) {
     var record = history[i];
-    if (!record.move) {
-      console.warn('[replay] history[' + i + '] missing move, skipping');
-      continue;
-    }
-
+    if (!record || !record.move) continue;
     var playerIdx = record.playerIdx;
-    if (record.timestamp && lastTimestamp) {
-      var elapsed = (record.timestamp - lastTimestamp) / 1000;
-      if (elapsed > 0) {
-        timers[playerIdx] = Math.max(0, timers[playerIdx] - elapsed);
-      }
-    }
-    lastTimestamp = record.timestamp;
-
     var px = typeof record.move.playerIdx === 'number' ? record.move.playerIdx : playerIdx;
     var action = {
       type: record.move.type,
@@ -185,7 +171,7 @@ function buildSnapshots() {
     try {
       state = Shared.gameReducer(state, action);
       var snapshot = Shared.cloneState(state);
-      snapshot.timers = [timers[0], timers[1]];
+      snapshot.timers = record.clock?.enabled ? record.clock.remainingMs.map(t => t / 1000) : null;
       snapshots.push(snapshot);
     } catch (e) {
       console.error('[replay] gameReducer error at history[' + i + ']:', e.message, action);
@@ -325,12 +311,14 @@ function getMoveData(idx) {
 }
 
 function formatTime(s) {
+  s = Math.max(0, Math.ceil(s));
   var min = Math.floor(s / 60);
   var sec = Math.floor(s % 60);
   return min + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
 function updatePlayerBars() {
+  document.getElementById('moveCounter').textContent = 'Move ' + currentMove + ' / ' + Math.max(0, snapshots.length - 1);
   var state = snapshots[currentMove];
   if (!state || !gameData) return;
 
@@ -354,8 +342,11 @@ function updatePlayerBars() {
   if (bottomPlayer?.avatar) bottomAvatar.src = bottomPlayer.avatar;
   else bottomAvatar.src = 'https://ui-avatars.com/api/?name=' + (bottomPlayer?.username?.[0] || 'W') + '&background=333&color=fff';
 
-  document.getElementById('topPlayerTimer').textContent = formatTime(state.timers[topIdx]);
-  document.getElementById('bottomPlayerTimer').textContent = formatTime(state.timers[bottomIdx]);
+  for (var pair of [['topPlayerTimer', topIdx], ['bottomPlayerTimer', bottomIdx]]) {
+    var timerEl = document.getElementById(pair[0]);
+    timerEl.style.display = state.timers ? '' : 'none';
+    timerEl.textContent = state.timers ? formatTime(state.timers[pair[1]]) : '';
+  }
 
   var topInv = document.getElementById('topWallInventory');
   var bottomInv = document.getElementById('bottomWallInventory');
@@ -642,11 +633,13 @@ function setEvalDepth(d) {
 }
 
 function goToMove(idx, animate) {
+  if (!snapshots.length) return;
   if (idx < 0) idx = 0;
   if (idx >= snapshots.length) idx = snapshots.length - 1;
 
   var oldMove = currentMove;
   currentMove = idx;
+  document.getElementById('moveCounter').textContent = 'Move ' + idx + ' / ' + (snapshots.length - 1);
 
   if (animate && idx === oldMove + 1 && idx > 0 && idx < snapshots.length) {
     cancelAnimationFrame(animFrame);
@@ -708,6 +701,7 @@ function scheduleNextTick() {
 }
 
 function togglePlay() {
+  if (!snapshots.length) return;
   if (isNaN(playSpeed) || playSpeed < 50) playSpeed = 1000;
   var btn = document.getElementById('playBtn');
   if (isPlaying) {
@@ -764,177 +758,67 @@ function copyLink() {
   });
 }
 
-async function exportVideo() {
+var exportTask = null;
+function exportVideo() {
   if (snapshots.length < 2) return;
-
-  var progressEl = document.getElementById('exportProgress');
-  var progressBar = document.getElementById('exportBar');
-  var modal = document.getElementById('exportModal');
-  var preview = document.getElementById('exportPreview');
-  modal.style.display = 'flex';
-
-  if (cachedBlob) {
-    progressEl.style.display = 'none';
-    preview.style.display = 'block';
-    showExportResult(cachedBlob, progressEl, progressBar, preview);
-    return;
-  }
-
-  progressEl.style.display = 'block';
+  document.getElementById('exportModal').style.display = 'flex';
+  document.getElementById('exportDuration').textContent =
+    'Duration: ' + (ReplayExport.timeline(snapshots.length - 1).frames / 30).toFixed(1) + ' s · 30 FPS · MP4';
+}
+async function startVideoExport() {
+  if (exportTask || snapshots.length < 2) return;
+  const task = new AbortController();
+  exportTask = task;
+  const button = document.getElementById('exportStart');
+  const status = document.getElementById('exportStatus');
+  const bar = document.getElementById('exportBar');
+  const progress = document.getElementById('exportProgress');
+  const preview = document.getElementById('exportPreview');
+  const width = Number(document.getElementById('exportQuality').value);
+  const savedPerspective = perspective;
+  const states = snapshots.slice();
+  const moves = states.map((_, i) => i ? getMoveData(i) : null);
+  const sound = document.getElementById('exportSound').checked;
+  document.getElementById('exportVideo').pause();
+  button.disabled = true;
+  progress.style.display = 'block';
   preview.style.display = 'none';
-
-  if (typeof VideoEncoder === 'undefined') {
-    exportFallback();
-    return;
-  }
-  var exportCanvas = document.createElement('canvas');
-  exportCanvas.width = 1080;
-  exportCanvas.height = 1920;
-  var ectx = exportCanvas.getContext('2d');
-  var cellSize = 120;
-  var boardSize = cellSize * 9;
-  var topBarH = Math.floor((1920 - boardSize) / 2);
-  var bottomBarH = 1920 - boardSize - topBarH;
-  var fps = 60;
-  var framesPerMove = Math.floor(fps * 1.2);
-
-  console.log('[export] using WebCodecs + mp4-muxer, fps=' + fps + ', framesPerMove=' + framesPerMove);
+  bar.style.width = '0%';
+  status.textContent = 'Preparing…';
+  if (isPlaying) togglePlay();
+  stopAnalysis();
+  const output = document.createElement('canvas');
+  const context = output.getContext('2d');
   try {
-    var muxer = new Mp4Muxer.Muxer({
-      target: new Mp4Muxer.ArrayBufferTarget(),
-      video: { codec: 'avc', width: 1080, height: 1920 },
-      fastStart: 'in-memory'
-    });
-
-    var encoderFailed = false;
-    var encoder = new VideoEncoder({
-      output: function (chunk, meta) {
-        if (encoderFailed || !muxer) return;
-        muxer.addVideoChunk(chunk, meta);
+    if (document.fonts) await document.fonts.ready;
+    const blob = await ReplayExport.render({ canvas: output, width, moves: states.length - 1, signal: task.signal,
+      sound, moveTypes: moves.slice(1).map(move => move && move.type),
+      onProgress(percent, stage) {
+        bar.style.width = percent + '%';
+        status.textContent = stage + ' · ' + Math.floor(percent) + '%';
       },
-      error: function () {
-        encoderFailed = true;
+      draw(info) {
+        context.save();
+        context.scale(width / 1080, width / 1080);
+        drawExportFrame(context, states[info.move], 120, 1080, 420,
+          info.move ? states[info.move - 1] : null, info.elapsed, moves[info.move], savedPerspective);
+        context.restore();
       }
     });
-
-    encoder.configure({
-      codec: 'avc1.42001f',
-      width: 1080,
-      height: 1920,
-      bitrate: 2_000_000
-    });
-
-    for (var i = 1; i < snapshots.length; i++) {
-      var moveData = getMoveData(i);
-      for (var f = 0; f < framesPerMove; f++) {
-        if (framesPerMove > 1 && f < framesPerMove - 1) {
-          var elapsedMs = (f / fps) * 1000;
-          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH, snapshots[i - 1], elapsedMs, moveData);
-        } else {
-          drawExportFrame(ectx, snapshots[i], cellSize, boardSize, topBarH);
-        }
-        var frame = new VideoFrame(exportCanvas, {
-          timestamp: ((i - 1) * framesPerMove + f) * 1_000_000 / fps
-        });
-        encoder.encode(frame, { keyFrame: f === 0 });
-        frame.close();
-      }
-      var pct = Math.round((i / (snapshots.length - 1)) * 100);
-      progressBar.style.width = pct + '%';
-      await yieldToEventLoop();
-    }
-
-    await encoder.flush();
-    muxer.finalize();
-    var blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+    if (task.signal.aborted) return;
     if (cachedURL) URL.revokeObjectURL(cachedURL);
     cachedBlob = blob;
     cachedURL = URL.createObjectURL(blob);
-    showExportResult(cachedBlob, progressEl, progressBar, preview);
-  } catch (e) {
-    exportFallback();
+    showExportResult(blob, progress, bar, preview);
+  } catch (err) {
+    status.textContent = task.signal.aborted ? 'Export cancelled.' : (err.message || 'Export failed. Please retry.');
+  } finally {
+    exportTask = null;
+    button.disabled = false;
   }
 }
-
-function exportFallback() {
-  var modal = document.getElementById('exportModal');
-  var progressEl = document.getElementById('exportProgress');
-  var progressBar = document.getElementById('exportBar');
-  var preview = document.getElementById('exportPreview');
-  if (modal) modal.style.display = 'flex';
-  if (progressEl) progressEl.style.display = 'block';
-  if (preview) preview.style.display = 'none';
-  console.log('[export] using MediaRecorder fallback');
-
-  var exportCanvas = document.createElement('canvas');
-  exportCanvas.width = 1080;
-  exportCanvas.height = 1920;
-  var ectx = exportCanvas.getContext('2d');
-  var cellSize = 120;
-  var boardSize = cellSize * 9;
-  var topBarH = Math.floor((1920 - boardSize) / 2);
-  var bottomBarH = 1920 - boardSize - topBarH;
-  var totalMoves = snapshots.length - 1;
-  var fps = 60;
-  var framesPerMove = Math.floor(fps * 1.2);
-  var moveIdx = 1;
-  var frameCount = 0;
-
-  var stream = exportCanvas.captureStream(fps);
-  var mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E')
-    ? 'video/mp4;codecs=avc1.42E01E'
-    : 'video/webm;codecs=vp9';
-
-  var recorder = new MediaRecorder(stream, { mimeType: mime });
-  var chunks = [];
-  recorder.ondataavailable = function (e) { if (e.data.size > 0) chunks.push(e.data); };
-
-  recorder.onstop = function () {
-    var blob = new Blob(chunks, { type: mime });
-    if (cachedURL) URL.revokeObjectURL(cachedURL);
-    cachedBlob = blob;
-    cachedURL = URL.createObjectURL(blob);
-    showExportResult(cachedBlob, progressEl, progressBar, preview);
-  };
-
-  recorder.start();
-
-  function onVisibilityChange() {
-    if (document.hidden && recorder.state === 'recording') {
-      recorder.pause();
-    } else if (!document.hidden && recorder.state === 'paused') {
-      recorder.resume();
-    }
-  }
-  document.addEventListener('visibilitychange', onVisibilityChange);
-
-  var origOnStop = recorder.onstop;
-  recorder.onstop = function () {
-    document.removeEventListener('visibilitychange', onVisibilityChange);
-    origOnStop.apply(recorder, arguments);
-  };
-
-  function loop() {
-    if (moveIdx >= snapshots.length) {
-      recorder.stop();
-      return;
-    }
-    var moveData = getMoveData(moveIdx);
-    if (framesPerMove > 1 && frameCount < framesPerMove - 1) {
-      var elapsedMs = (frameCount / fps) * 1000;
-      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH, snapshots[moveIdx - 1], elapsedMs, moveData);
-    } else {
-      drawExportFrame(ectx, snapshots[moveIdx], cellSize, boardSize, topBarH);
-    }
-    frameCount++;
-    if (frameCount >= framesPerMove) {
-      frameCount = 0;
-      moveIdx++;
-      progressBar.style.width = Math.round(((moveIdx - 1) / totalMoves) * 100) + '%';
-    }
-    requestAnimationFrame(loop);
-  }
-  loop();
+function cancelVideoExport() {
+  if (exportTask) exportTask.abort();
 }
 
 function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
@@ -958,7 +842,7 @@ function drawExportWallPanel(ectx, x, y, w, wallsLeft) {
   }
 }
 
-function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, elapsedMs, move) {
+function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, elapsedMs, move, exportPerspective = perspective) {
   var w = 1080;
   var h = 1920;
   var boardX = Math.floor((w - boardSize) / 2);
@@ -968,8 +852,8 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
   ectx.fillRect(0, 0, w, h);
 
   // Wall panels
-  var topIdx = perspective === 1 ? 0 : 1;
-  var bottomIdx = perspective === 1 ? 1 : 0;
+  var topIdx = exportPerspective === 1 ? 0 : 1;
+  var bottomIdx = exportPerspective === 1 ? 1 : 0;
   drawExportWallPanel(ectx, boardX, boardY - 48, boardSize, state.players[topIdx].wallsLeft);
   drawExportWallPanel(ectx, boardX, boardY + boardSize + 6, boardSize, state.players[bottomIdx].wallsLeft);
 
@@ -1015,7 +899,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
     wallThick: WALL_THICK,
     wallRadius: WALL_THICK / 2,
     wallColor: exportTheme.wall,
-    transformWallRow: function(r) { return perspective === 1 ? 7 - r : r; },
+    transformWallRow: function(r) { return exportPerspective === 1 ? 7 - r : r; },
     wallAnims: Object.keys(wallAnims).length > 0 ? wallAnims : undefined,
   });
 
@@ -1034,7 +918,7 @@ function drawExportFrame(ectx, state, cellSize, boardSize, topBarH, prevState, e
 
   BoardRenderer.drawPawns(ectx, state, {
     cellSize: cellSize,
-    transformRow: function(r) { return perspective === 1 ? 8 - r : r; },
+    transformRow: function(r) { return exportPerspective === 1 ? 8 - r : r; },
     pawnPositions: Object.keys(pawnPositions).length > 0 ? pawnPositions : undefined,
     pawnFillColors: state.players.map(function(p) { return p.color === 'white' ? exportTheme.pawnWhite : exportTheme.pawnBlack; }),
     pawnStrokeColors: state.players.map(function(p) { return p.color === 'white' ? exportTheme.pawnWhiteBorder : exportTheme.pawnBlackBorder; }),
@@ -1071,10 +955,13 @@ function setVideoSpeed(speed) {
 }
 
 function closeExportModal() {
+  cancelVideoExport();
+  document.getElementById('exportVideo').pause();
   document.getElementById('exportModal').style.display = 'none';
 }
 
 document.addEventListener('keydown', function (e) {
+  if (e.target.closest('button, select, input, textarea, summary, a, [contenteditable]')) return;
   if (e.key === 'ArrowLeft') { e.preventDefault(); prevMove(); }
   if (e.key === 'ArrowRight') { e.preventDefault(); nextMove(); }
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
@@ -1088,4 +975,10 @@ if (depthSelect) {
 }
 
 window.addEventListener('pagehide', stopAnalysis);
+window.addEventListener('pagehide', function () {
+  cancelVideoExport();
+  if (cachedURL) URL.revokeObjectURL(cachedURL);
+  cachedURL = null;
+  cachedBlob = null;
+});
 window.addEventListener('beforeunload', stopAnalysis);

@@ -5,6 +5,7 @@
 | File | Responsibility |
 |---|---|
 | `src/bots/BotManager.js` | Creates server-side bot engines and manages bot game/move scheduling and fallback integration |
+| `src/bots/think-worker.js` | Per-game engine in a Node worker; remaining-time-aware search budget; terminated when the game finishes |
 | `src/bots/matchmaking.js` | Pure bot opponent selection helper |
 | `src/bots/BotPresenceManager.js` | Simulated online presence/activity for bot accounts |
 | `src/bots/defaultBots.js` | Default bot account seed definitions |
@@ -36,6 +37,10 @@
   per game and dropped in `finalizeGame` (anti-repetition state must not cross games).
 
 ## Relevant environment variables
+
+Admin persistence policy: see `AI_ADMIN.md`. Environment values initialize missing settings; they no longer overwrite Mongo settings on GET/startup. `applyPersistedBotSettings()` applies saved settings at startup; PUT applies runtime changes only after a successful save. GET does not change runtime or persist defaults. Ten-second admin polling preserves dirty inputs. Recalculation errors propagate to the admin API, whose `updated` field is the actual updated count; startup recalculation remains best effort.
+
+Clock v2 (`AI_CLOCKS.md`): the explicit local bot mode is untimed; server fallback bots retain the queue's timed control. Both move delay and search budget adapt to remaining time. `BotManager` keeps one worker/engine per active game and rejects results from a finished/cancelled or newer-revision position. The engine's synchronous search no longer runs on the server event loop. Local AI search tokens are invalidated on hidden/game-over/Undo/Restart and resumed only for the bot's current turn.
 
 The following names appear in `.env.example` and/or Compose/server configuration. Defaults can differ between source and Compose; check both before changing deployment behavior.
 

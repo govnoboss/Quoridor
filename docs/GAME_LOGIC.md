@@ -32,17 +32,18 @@ Runtime fields added by `createInitialState` in `quoridor-engine/rules/quoridor-
   playerProfiles: [{ name, username, ... }, { ... }],
   isRanked: false,
   timers: [600, 600],                  // initial clock per side = timeControl.base
+  timeControl: { mode: 'timed', base: 600, inc: 0 },
   increment: 0,                        // seconds added per move (from timeControl.inc)
   lastMoveTimestamp: <Date.now()>,
   disconnectTimer: null
 }
 ```
-**Note:** the state itself carries **no `timeControl` field** — the original base/increment live only
-in the arguments to `createInitialState` (and in rematch context / archive fallbacks in
-`src/server.js`). Read the clock from `timers`/`increment`, never from `state.timeControl`.
-```
-Timers count down on the server; the browser renders `timerUpdate` events. Timeout handling
-lives in `src/server.js` (`handleTurnTimeout` → loser is the player who ran out).
+The state preserves the original `timeControl`; `cloneState` deep-copies it and clock/lifecycle
+metadata. Server lifecycle adds the authoritative v2 millisecond `clock`, `revision` and `startedAt`.
+`timers`/`increment` remain second-based compatibility values; untimed games have `timers:null`.
+Local bot/local PvP are untimed. Room controls are untimed or 1/3/5/10 minutes **per player for
+the whole game**. Deadline validation belongs to the server transition before reducer admission,
+not to the board rules or UI interval. See `AI_CLOCKS.md` for the complete contract.
 
 ## Core Mechanics
 

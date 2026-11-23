@@ -96,6 +96,9 @@ const userSchema = new mongoose.Schema({
         default: Date.now
     },
     unreadNotifications: { type: Number, default: 0 },
+    notificationPreferences: {
+        supportEmail: { type: Boolean, default: false }
+    },
     resetPasswordToken: {
         type: String,
         index: true

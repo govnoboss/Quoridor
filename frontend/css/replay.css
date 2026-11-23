@@ -369,6 +369,17 @@ body {
     max-width: 480px;
 }
 
+#exportModal .modal-content > * + * { margin-top: 12px; }
+#exportQuality { width: 100%; }
+.export-sound { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.export-sound input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--wall); }
+#exportModal { padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+#exportModal .modal-content { width: 100%; box-sizing: border-box; max-height: calc(100dvh - 24px); overscroll-behavior: contain; }
+#exportModal .replay-row { flex-wrap: wrap; }
+#exportModal .replay-action-btn { min-height: 44px; flex: 1 1 140px; }
+#exportStatus, #exportDuration { color: var(--text-3); font-size: 13px; line-height: 1.5; }
+#exportStart:disabled { opacity: .5; cursor: wait; }
+
 .modal-close {
     float: right;
     background: none;
@@ -460,7 +471,7 @@ body {
     text-decoration: none;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 768px) {
     .replay-body { flex-direction: column; gap: 16px; padding: 8px; }
     .replay-sidebar { width: 100%; min-width: 0; max-height: none; }
 
@@ -492,4 +503,64 @@ body {
         left: 4px;
         transform: translateY(-50%);
     }
+}
+
+/* Replay uses the same neutral panels and amber accents as the game screen. */
+body { height: auto; min-height: 100dvh; overflow: auto; }
+.replay-page { margin-top: var(--header-h); height: auto; min-height: calc(100dvh - var(--header-h)); overflow: visible; }
+.replay-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.replay-title { color: var(--text); font-size: clamp(22px, 1.5vw, 28px); letter-spacing: -.02em; font-weight: 800; }
+.replay-back { color: var(--text-3); }
+.replay-body { --sidebar-size: clamp(320px, 24vw, 440px); align-items: flex-start; gap: 28px; padding: 24px; overflow: visible; flex: none; }
+.board-area { --replay-size: min(1000px, calc(100vw - var(--sidebar-size) - 108px), max(420px, calc(100dvh - 390px)));
+  width: calc(var(--replay-size) + 32px); max-height: none; gap: 8px; }
+.board-row { width: 100%; max-height: none; gap: 8px; }
+#game-container { width: var(--replay-size); height: var(--replay-size); flex: 0 0 auto; box-shadow: none; }
+.eval-bar { width: 24px; flex: 0 0 24px; border-radius: 4px; }
+.board-area .player-bar { width: 100%; min-height: 58px; height: auto; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.board-area .player-bar.active-turn { border-color: var(--accent-border); background: var(--accent-bg); }
+.board-area .player-name { font-size: 16px; overflow-wrap: anywhere; }
+.board-area .avatar-container, .board-area .avatar { width: 40px; height: 40px; }
+.board-area .timer { font-size: 23px; font-variant-numeric: tabular-nums; }
+.board-area .wall-inventory { padding: 8px; min-height: 22px; background: var(--raised); gap: 5px; }
+.board-area .wall-piece { flex: 1; max-width: 52px; min-width: 0; }
+.replay-sidebar { width: var(--sidebar-size); flex: 0 0 var(--sidebar-size); min-width: 0; max-height: none; background: var(--raised); border: 1px solid var(--border-strong); padding: 24px; border-radius: 14px; gap: 20px; }
+.replay-info:empty, .replay-result:empty { display: none; }
+.replay-result { color: var(--text-2); padding-bottom: 12px; border-bottom: 1px solid var(--border-strong); }
+.replay-section { min-width: 0; }
+.replay-section summary { cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 16px; color: var(--text-2); }
+#moveHistory { width: 100%; height: auto; background: var(--surface); border: 1px solid var(--border); }
+.replay-section:has(#moveHistory) { flex: 1; }
+.history-list { max-height: clamp(260px, calc(100dvh - 560px), 640px); min-height: 100px; }
+.history-row .move { min-height: 40px; padding: 10px; font-size: 15px; }
+.replay-result { font-size: 15px; }
+.replay-transport { display: flex; align-items: center; gap: 16px; width: 100%; background: var(--raised); border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px; }
+.replay-transport .transport-buttons { flex: 1; min-width: 0; }
+.replay-transport .transport-meta { margin-top: 0; font-size: 14px; }
+.transport-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.transport-buttons button { min-height: 48px; background: var(--btn-neutral); border: 1px solid var(--border-btn); border-radius: 8px; color: var(--text); font-size: 26px; cursor: pointer; }
+.transport-buttons #playBtn { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.transport-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.transport-meta .replay-select { flex: 0 0 80px; padding: 6px; }
+.replay-action-btn, .replay-select, .replay-export-btn { min-height: 48px; font-size: 15px; font-family: var(--font-sans); }
+.replay-export-btn { background: var(--btn-neutral); color: var(--text-2); border: 1px solid var(--border-btn); font-size: 13px; padding: 10px; }
+.eval-controls { flex-wrap: wrap; }
+.eval-status { white-space: normal; }
+.modal-content { background: var(--raised); max-height: 90dvh; overflow-y: auto; }
+button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 960px) {
+  .replay-body { flex-direction: column; align-items: center; padding: 12px 12px max(20px, env(safe-area-inset-bottom)); gap: 16px; }
+  .board-area { --replay-size: min(100vw - 24px, 720px); width: var(--replay-size); }
+  .board-row { flex-direction: column; }
+  .eval-bar { width: 100%; height: 16px; flex: 0 0 16px; flex-direction: row; }
+  .eval-fill.eval-p0 { order: -1; }
+  .eval-mid { left: 50%; right: auto; top: 0; bottom: 0; width: 1px; height: auto; }
+  .eval-num { top: 50%; left: 4px; transform: translateY(-50%); }
+  .replay-sidebar { width: min(100%, 720px); flex: none; padding: 18px; }
+  .replay-transport { display: block; }
+  .replay-transport .transport-meta { margin-top: 10px; }
+  .replay-heading { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; }
+  .replay-title { font-size: 20px; }
+  .history-list { max-height: 240px; }
+  .replay-section summary { min-height: 44px; padding: 12px 0; }
 }

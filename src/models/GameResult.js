@@ -6,6 +6,7 @@ const gameResultSchema = new mongoose.Schema({
         required: true
     },
     timeControl: {
+        mode: { type: String, enum: ['timed', 'untimed'], default: 'timed' },
         base: {
             type: Number,
             default: 600
@@ -54,7 +55,10 @@ const gameResultSchema = new mongoose.Schema({
     date: {
         type: Date,
         default: Date.now
-    }
+    },
+    startedAt: { type: Date, default: null },
+    finalClock: { type: mongoose.Schema.Types.Mixed, default: null },
+    participantTokenHashes: { type: [String], default: [], select: false }
 });
 
 // ТЗ этапа 3 §4.2: выборка delta7 идёт по isRanked + date >= now-7d.

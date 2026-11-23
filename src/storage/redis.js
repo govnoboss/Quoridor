@@ -6,16 +6,17 @@
  */
 
 const redis = require('redis');
+const { randomUUID } = require('node:crypto');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const TTL = {
-    GAME: 2 * 60 * 60,
+    GAME: 25 * 60 * 60,
     FINISHED_GAME: 5 * 60, // 5 min — доступ для реплея после окончания
-    TOKEN_MAPPING: 2 * 60 * 60,
+    TOKEN_MAPPING: 25 * 60 * 60,
     ROOM: 30 * 60,
     REMATCH: 5 * 60,
-    USER_ACTIVE_LOBBY: 2 * 60 * 60,
+    USER_ACTIVE_LOBBY: 25 * 60 * 60,
 };
 
 const KEYS = {
@@ -72,13 +73,13 @@ class MemoryStore {
 
     saveGame(lobbyId, state) {
         const cleanState = { ...state, disconnectTimer: null };
-        this.games.set(lobbyId, cleanState);
+        this.games.set(lobbyId, JSON.parse(JSON.stringify(cleanState)));
     }
 
     getGame(lobbyId) {
         const data = this.games.get(lobbyId);
         if (!data) return null;
-        return { ...data, disconnectTimer: null };
+        return { ...JSON.parse(JSON.stringify(data)), disconnectTimer: null };
     }
 
     deleteGame(lobbyId) {
@@ -101,18 +102,26 @@ class MemoryStore {
         return Array.from(this.activeGames);
     }
 
-    acquireLock(lobbyId, ttlMs = 2000) {
+    acquireLock(lobbyId, ttlMs = 30000) {
         const lockKey = `lock:${lobbyId}`;
         if (this.locks.has(lockKey)) {
-            const expiry = this.locks.get(lockKey);
-            if (Date.now() < expiry) return false;
+            const existing = this.locks.get(lockKey);
+            if (Date.now() < existing.expiry) return false;
         }
-        this.locks.set(lockKey, Date.now() + ttlMs);
-        return true;
+        const token = randomUUID();
+        this.locks.set(lockKey, { expiry: Date.now() + ttlMs, token });
+        return token;
     }
 
-    releaseLock(lobbyId) {
-        this.locks.delete(`lock:${lobbyId}`);
+    releaseLock(lobbyId, token) {
+        if (this.locks.get(`lock:${lobbyId}`)?.token === token) this.locks.delete(`lock:${lobbyId}`);
+    }
+
+    renewLock(lobbyId, token, ttlMs) {
+        const lock = this.locks.get(`lock:${lobbyId}`);
+        if (!lock || lock.token !== token) return false;
+        lock.expiry = Date.now() + ttlMs;
+        return true;
     }
 
     setTokenMapping(token, lobbyId) {
@@ -476,20 +485,31 @@ async function getActiveGameIds() {
     return await store.sMembers(KEYS.ACTIVE_GAMES);
 }
 
-async function acquireLock(lobbyId, ttlMs = 2000) {
+async function acquireLock(lobbyId, ttlMs = 30000) {
     const store = getStore();
     if (!store) return false;
     if (isMemoryMode()) return store.acquireLock(lobbyId, ttlMs);
     const lockKey = `lock:${lobbyId}`;
-    const result = await store.set(lockKey, 'locked', { NX: true, PX: ttlMs });
-    return result === 'OK';
+    const token = randomUUID();
+    const result = await store.set(lockKey, token, { NX: true, PX: ttlMs });
+    return result === 'OK' ? token : false;
 }
 
-async function releaseLock(lobbyId) {
+async function releaseLock(lobbyId, token) {
     const store = getStore();
     if (!store) return;
-    if (isMemoryMode()) return store.releaseLock(lobbyId);
-    await store.del(`lock:${lobbyId}`);
+    if (isMemoryMode()) return store.releaseLock(lobbyId, token);
+    if (!token) return;
+    await store.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",
+        { keys: [`lock:${lobbyId}`], arguments: [token] });
+}
+
+async function renewLock(lobbyId, token, ttlMs = 30000) {
+    const store = getStore();
+    if (!store || !token) return false;
+    if (isMemoryMode()) return store.renewLock(lobbyId, token, ttlMs);
+    return !!await store.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end",
+        { keys: [`lock:${lobbyId}`], arguments: [token, String(ttlMs)] });
 }
 
 async function setTokenMapping(token, lobbyId) {
@@ -862,6 +882,7 @@ module.exports = {
     getActiveGameIds,
     acquireLock,
     releaseLock,
+    renewLock,
 
     setTokenMapping,
     getLobbyByToken,

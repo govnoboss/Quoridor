@@ -1,3 +1,4 @@
+const { URL } = require('node:url');
 let resend = null;
 
 function getResend() {
@@ -30,4 +31,22 @@ async function sendPasswordResetEmail(to, token) {
   return data;
 }
 
-module.exports = { sendPasswordResetEmail };
+async function sendSupportReplyEmail(to, reportId, notificationId) {
+  const r = getResend();
+  if (!r || !process.env.EMAIL_FROM) throw new Error('Support email is not configured');
+  const origin = new URL(process.env.SITE_URL || 'https://playquor.org').origin;
+  const link = `${origin}/profile/reports?report=${encodeURIComponent(reportId)}`;
+  let timeout;
+  const { data, error } = await Promise.race([r.emails.send({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject: 'Support replied — PlayQuor',
+    text: `There is a new reply to your support report. Sign in to read it: ${link}\nYou can disable these emails in the notification centre on PlayQuor.`
+  }, { idempotencyKey: `support-notification/${notificationId}` }), new Promise((resolve, reject) => {
+    timeout = setTimeout(() => reject(new Error('Support email timed out')), 15000);
+  })]).finally(() => clearTimeout(timeout));
+  if (error) throw new Error('Support email delivery failed');
+  return data;
+}
+
+module.exports = { sendPasswordResetEmail, sendSupportReplyEmail };

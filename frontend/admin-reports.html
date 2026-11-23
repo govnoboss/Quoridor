@@ -8,196 +8,20 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quoridor Admin: Reports</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --muted: #94a3b8;
-            --text: #e2e8f0;
-            --accent: #f59e0b;
-            --ok: #22c55e;
-            --danger: #ef4444;
-            --border: #334155;
-        }
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
-        .container {
-            max-width: 1020px;
-            margin: 0 auto;
-            padding: 24px 16px 40px;
-        }
-        h1 { margin-top: 0; }
-        .panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        th, td {
-            text-align: left;
-            padding: 10px 8px;
-            border-bottom: 1px solid var(--border);
-        }
-        th {
-            color: var(--muted);
-            font-weight: 600;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .badge-new { background: #3b82f6; color: #fff; }
-        .badge-in_progress { background: #f59e0b; color: #000; }
-        .badge-closed { background: #64748b; color: #fff; }
-        .btn-sm {
-            padding: 4px 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .btn-sm + .btn-sm { margin-left: 4px; }
-        .btn-primary-sm { background: var(--accent); color: #000; }
-        .btn-ok-sm { background: var(--ok); color: #000; }
-        .btn-danger-sm { background: var(--danger); color: #fff; }
-        .filter-bar {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .filter-bar select {
-            background: #1e293b;
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 6px 10px;
-            border-radius: 6px;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: var(--muted);
-        }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: var(--muted);
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 16px;
-            color: var(--accent);
-            text-decoration: none;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 640px;
-            width: 90%;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-        .modal h2 { margin-top: 0; font-size: 16px; }
-        .modal-close {
-            float: right;
-            background: none;
-            border: none;
-            color: var(--muted);
-            font-size: 24px;
-            cursor: pointer;
-        }
-        .modal label { color: var(--muted); font-size: 13px; display: block; margin-top: 12px; margin-bottom: 4px; }
-        .modal p { margin: 0 0 12px; line-height: 1.5; white-space: pre-wrap; font-size: 14px; }
-        .msg-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .msg {
-            padding: 8px 12px;
-            border-radius: 8px;
-            max-width: 80%;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-        .msg-user {
-            align-self: flex-end;
-            background: #3b82f6;
-            color: #fff;
-        }
-        .msg-admin {
-            align-self: flex-start;
-            background: #334155;
-            color: var(--text);
-        }
-        .msg-role {
-            font-size: 10px;
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 2px;
-        }
-        .msg-time {
-            font-size: 10px;
-            color: rgba(255,255,255,0.5);
-            margin-top: 4px;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px 16px;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-        .info-grid .label { color: var(--muted); }
-        .info-grid .value { color: var(--text); word-break: break-all; }
-        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-        .player-link {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        .player-link:hover { text-decoration: underline; }
-    </style>
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1">
+    <link rel="stylesheet" href="/css/admin.css?v=1.0.0">
+    <script src="/js/admin-shell.js?v=1.1.0" defer></script>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
-<body>
-<div class="container">
-    <a href="/" class="back-link">← Home</a>
-    <h1>Reports</h1>
+<body class="admin-app" data-admin-page="reports">
+<main class="admin-main container" id="adminMain" tabindex="-1">
+    <header class="admin-page-heading"><div><div class="admin-eyebrow">Moderation</div><h1>Support inbox</h1><p class="admin-page-description">Investigate issues and reply to your players.</p></div><div class="admin-page-actions"><button class="refresh-btn" onclick="loadReports()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div></header>
 
     <div class="panel">
         <div class="filter-bar">
             <span>Status filter:</span>
-            <select id="statusFilter" onchange="loadReports()">
+            <select id="statusFilter" aria-label="Filter reports by status" onchange="loadReports()">
                 <option value="all">All</option>
                 <option value="new">New</option>
                 <option value="in_progress">In Progress</option>
@@ -220,7 +44,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</main>
 
 <div id="detailModal" class="modal-overlay" style="display:none;" onclick="closeDetail(event)">
     <div class="modal">
@@ -248,13 +72,15 @@
         <div id="msgList" class="msg-list"></div>
 
         <hr>
-        <label>Reply to reporter</label>
-        <textarea id="replyInput" style="width:100%;box-sizing:border-box;min-height:70px;background:#0f172a;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:14px;margin-bottom:8px" placeholder="Write your reply..."></textarea>
-        <button class="btn-sm btn-ok-sm" onclick="sendReply()">Send Reply</button>
+        <label for="replyInput">Reply to player</label>
+        <textarea id="replyInput" style="width:100%;box-sizing:border-box;min-height:70px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:14px;margin-bottom:8px" maxlength="5000" placeholder="Write your reply..."></textarea>
+        <button id="sendReplyBtn" class="btn-sm btn-ok-sm" onclick="sendReply()">Send Reply</button>
         <span id="replyStatus" style="margin-left:8px;color:var(--ok);font-size:13px;display:none">Sent!</span>
     </div>
 </div>
 
+<script src="/js/admin-api.js?v=1.0.0"></script>
+<script src="/js/support-client.js?v=1.0.0"></script>
 <script>
 var reports = [];
 
@@ -263,7 +89,7 @@ function loadReports() {
     var tbody = document.getElementById('reportBody');
     tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
 
-    fetch('/api/admin/reports')
+    AdminAPI.fetch('/api/admin/reports')
         .then(function(r) {
             if (!r.ok) throw new Error('Not authorized');
             return r.json();
@@ -322,7 +148,7 @@ function actionButtons(r) {
 }
 
 function updateStatus(id, status) {
-    fetch('/api/admin/reports/' + id, {
+    AdminAPI.fetch('/api/admin/reports/' + id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: status })
@@ -331,102 +157,20 @@ function updateStatus(id, status) {
         return r.json();
     }).then(function() {
         loadReports();
-    }).catch(function() {
-        alert('Failed to update');
-    });
+    }).catch(function(err) { alert(err.message || 'Failed to update'); });
 }
 
 var _currentReportId = null;
 
-function showDetail(id) {
-    _currentReportId = id;
-    var r = reports.find(function(x) { return x._id === id; });
-    if (!r) return;
-
-    document.getElementById('detailSubject').textContent = r.subject;
-    document.getElementById('detailDesc').textContent = r.description;
-
-    var playerName = r.userId ? (r.userId.username || 'Unknown') : 'Guest';
-    var playerLink = r.userId ? '/profiles/' + esc(r.userId.username) : '#';
-    document.getElementById('detailPlayer').textContent = playerName;
-    document.getElementById('detailPlayer').href = playerLink;
-
-    document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
-    document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
-    document.getElementById('detailIp').textContent = r.ip || '-';
-
-    var di = r.deviceInfo || {};
-    document.getElementById('detailDevice').textContent = di.userAgent ? di.userAgent.slice(0, 120) : '-';
-    document.getElementById('detailPlatform').textContent = di.platform || '-';
-    document.getElementById('detailScreen').textContent = di.screenSize || '-';
-    document.getElementById('detailLang').textContent = di.language || '-';
-
-    renderMessages(r.messages || []);
-
-    document.getElementById('replyInput').value = '';
-    document.getElementById('replyStatus').style.display = 'none';
-    document.getElementById('detailModal').style.display = 'flex';
-}
-
-function renderMessages(messages) {
-    var container = document.getElementById('msgList');
-    container.innerHTML = '';
-    if (!messages || messages.length === 0) {
-        container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">No messages yet</div>';
-        return;
-    }
-    messages.forEach(function(m) {
-        var div = document.createElement('div');
-        div.className = 'msg msg-' + m.role;
-        var roleLabel = document.createElement('div');
-        roleLabel.className = 'msg-role';
-        roleLabel.textContent = m.role === 'admin' ? 'Admin' : 'User';
-        var textDiv = document.createElement('div');
-        textDiv.textContent = m.text;
-        var timeDiv = document.createElement('div');
-        timeDiv.className = 'msg-time';
-        timeDiv.textContent = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
-        div.appendChild(roleLabel);
-        div.appendChild(textDiv);
-        div.appendChild(timeDiv);
-        container.appendChild(div);
-    });
-    container.scrollTop = container.scrollHeight;
-}
-
-function sendReply() {
-    var reply = document.getElementById('replyInput').value.trim();
-    if (!reply) return;
-    var statusEl = document.getElementById('replyStatus');
-    statusEl.style.display = 'none';
-    fetch('/api/admin/reports/' + _currentReportId, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply: reply })
-    }).then(function(r) {
-        if (!r.ok) throw new Error();
-        return r.json();
-    }).then(function(updated) {
-        var idx = reports.findIndex(function(x) { return x._id === _currentReportId; });
-        if (idx !== -1) reports[idx] = updated;
-        renderMessages(updated.messages || []);
-        document.getElementById('replyInput').value = '';
-        statusEl.style.display = 'inline';
-        loadReports();
-    }).catch(function() {
-        alert('Failed to send reply');
-    });
-}
-
-function closeDetail(e) {
-    if (e && e.target !== e.currentTarget) return;
-    document.getElementById('detailModal').style.display = 'none';
-}
+var conversation = PQSupportClient(window, { admin: true, afterSend: loadReports });
+function showDetail(id) { return conversation.open(id); }
+function sendReply() { return conversation.send(); }
+function closeDetail(event) { conversation.close(event); }
 
 function esc(s) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(s || ''));
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 loadReports();

@@ -191,11 +191,13 @@
             margin-left: 8px;
         }
     </style>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
 <body>
 <div id="siteHeader"></div>
 <noscript><a href="/" style="color:#F2F2F2;padding:16px;display:block">PlayQuor</a></noscript>
-<script src="/js/site-shell.js?v=1.1.1"></script>
+<script src="/js/site-shell.js?v=1.2.0"></script>
 <div class="container">
     <div id="listView" class="list-view">
         <h1 id="pageTitle">My Reports</h1>
@@ -213,99 +215,23 @@
         <label style="color:var(--muted);font-size:13px;display:block;margin-bottom:4px" id="lblMessages">Messages</label>
         <div id="msgList" class="msg-list"></div>
         <div class="reply-section" id="replySection">
-            <textarea id="replyInput" placeholder="Write a message..." maxlength="5000"></textarea>
+            <textarea id="replyInput" aria-label="Your reply" placeholder="Write a message..." maxlength="5000"></textarea>
             <button class="btn-sm btn-ok-sm" id="sendReplyBtn" onclick="sendReply()">Send</button>
             <span id="replyStatus" style="margin-left:8px;color:var(--ok);font-size:13px;display:none">Sent!</span>
         </div>
     </div>
 </div>
 
+<script src="/js/support-client.js?v=1.0.0"></script>
 <script>
 var currentReportId = null;
 
-function showList() {
-    document.getElementById('listView').style.display = 'block';
-    document.getElementById('detailView').classList.remove('active');
-    document.getElementById('detailView').style.display = 'none';
-    loadReports();
-}
+function showList() { conversation.close(); }
 
-function showDetail(id) {
-    currentReportId = id;
-    document.getElementById('listView').style.display = 'none';
-
-    fetch('/api/reports/' + id)
-        .then(function(r) {
-            if (!r.ok) throw new Error('Not found');
-            return r.json();
-        })
-        .then(function(r) {
-            document.getElementById('detailSubject').textContent = r.subject;
-            document.getElementById('detailDate').textContent = new Date(r.createdAt).toLocaleString();
-            document.getElementById('detailStatus').textContent = r.status.replace('_', ' ');
-            document.getElementById('detailStatus').className = 'badge badge-' + r.status + ' detail-status';
-            document.getElementById('detailDesc').textContent = r.description;
-
-            var hasUnreadAdmin = false;
-            var container = document.getElementById('msgList');
-            container.innerHTML = '';
-            (r.messages || []).forEach(function(m) {
-                var div = document.createElement('div');
-                div.className = 'msg msg-' + m.role;
-                var roleLabel = document.createElement('div');
-                roleLabel.className = 'msg-role';
-                roleLabel.textContent = m.role === 'admin' ? 'Admin' : 'You';
-                var textDiv = document.createElement('div');
-                textDiv.textContent = m.text;
-                var timeDiv = document.createElement('div');
-                timeDiv.className = 'msg-time';
-                timeDiv.textContent = m.createdAt ? new Date(m.createdAt).toLocaleString() : '';
-                div.appendChild(roleLabel);
-                div.appendChild(textDiv);
-                div.appendChild(timeDiv);
-                container.appendChild(div);
-                if (m.role === 'admin') hasUnreadAdmin = true;
-            });
-            container.scrollTop = container.scrollHeight;
-
-            document.getElementById('replySection').style.display = r.status !== 'closed' ? 'block' : 'none';
-            document.getElementById('replyInput').value = '';
-            document.getElementById('replyStatus').style.display = 'none';
-            document.getElementById('detailView').style.display = 'block';
-            document.getElementById('detailView').classList.add('active');
-        })
-        .catch(function() {
-            alert('Failed to load report details');
-            showList();
-        });
-}
-
-function sendReply() {
-    var text = document.getElementById('replyInput').value.trim();
-    if (!text) return;
-    var btn = document.getElementById('sendReplyBtn');
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    fetch('/api/reports/' + currentReportId + '/reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
-    }).then(function(r) {
-        if (!r.ok) throw new Error();
-        return r.json();
-    }).then(function() {
-        document.getElementById('replyStatus').style.display = 'inline';
-        document.getElementById('replyInput').value = '';
-        btn.disabled = false;
-        btn.textContent = 'Send';
-        showDetail(currentReportId);
-    }).catch(function() {
-        alert('Failed to send');
-        btn.disabled = false;
-        btn.textContent = 'Send';
-    });
-}
+var conversation = PQSupportClient(window, { admin: false, afterSend: loadReports });
+function showDetail(id) { return conversation.open(id); }
+function sendReply() { return conversation.send(); }
+function closeDetail(event) { conversation.close(event); }
 
 function loadReports() {
     var list = document.getElementById('reportList');
@@ -319,7 +245,8 @@ function loadReports() {
             }
             return r.json();
         })
-        .then(function() {
+        .then(function(auth) {
+            if (!auth.isAuthenticated) throw new Error('Sign in to view your reports');
             return fetch('/api/my/reports');
         })
         .then(function(r) {

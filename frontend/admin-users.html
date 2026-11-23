@@ -8,92 +8,26 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quoridor Admin: Users</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --muted: #94a3b8;
-            --text: #e2e8f0;
-            --accent: #f59e0b;
-            --ok: #22c55e;
-            --danger: #ef4444;
-            --border: #334155;
-            --info: #3b82f6;
-        }
-        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
-        h1, h2, h3 { margin-top: 0; }
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-        .nav { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
-        .nav a:hover, .nav a.active { color: var(--text); border-color: var(--accent); }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-        th { color: var(--muted); font-weight: 600; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
-        .badge-banned { background: var(--danger); color: #fff; }
-        .badge-admin { background: var(--accent); color: #000; }
-        .badge-bot { background: #64748b; color: #fff; }
-        .badge-online { background: var(--ok); color: #000; }
-        .badge-offline { background: #475569; color: #fff; }
-        .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
-        .btn-sm + .btn-sm { margin-left: 4px; }
-        .btn-primary-sm { background: var(--accent); color: #000; }
-        .btn-ok-sm { background: var(--ok); color: #000; }
-        .btn-danger-sm { background: var(--danger); color: #fff; }
-        .btn-info-sm { background: var(--info); color: #fff; }
-        .filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-        .filter-bar select, .filter-bar input {
-            background: var(--panel); color: var(--text); border: 1px solid var(--border);
-            padding: 6px 10px; border-radius: 6px; font-size: 13px;
-        }
-        .filter-bar input { min-width: 200px; }
-        .empty-state { text-align: center; padding: 40px; color: var(--muted); }
-        .loading { text-align: center; padding: 40px; color: var(--muted); }
-        .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; font-size: 14px; }
-        .back-link:hover { text-decoration: underline; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 85vh; overflow-y: auto; }
-        .modal h2 { margin-top: 0; font-size: 16px; }
-        .modal-close { float: right; background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; }
-        .modal label { color: var(--muted); font-size: 13px; display: block; margin-top: 12px; margin-bottom: 4px; }
-        .modal p { margin: 0 0 12px; line-height: 1.5; font-size: 14px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; margin-bottom: 8px; }
-        .info-grid .label { color: var(--muted); }
-        .info-grid .value { color: var(--text); word-break: break-all; }
-        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-        .avatar-sm { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-        .actions-row { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
-        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-        .form-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-        .form-row input, .form-row textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
-        .user-detail-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; }
-        .log-list { max-height: 300px; overflow-y: auto; font-size: 12px; margin-top: 8px; }
-        .log-item { padding: 6px 0; border-bottom: 1px solid var(--border); }
-        .log-item .action { color: var(--accent); font-weight: 600; }
-        .log-item .time { color: var(--muted); font-size: 11px; }
-        .game-list { font-size: 12px; margin-top: 8px; }
-        .game-item { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
-        .game-win { color: var(--ok); }
-        .game-loss { color: var(--danger); }
-    </style>
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1">
+    <link rel="stylesheet" href="/css/admin.css?v=1.0.0">
+    <script src="/js/admin-shell.js?v=1.1.0" defer></script>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
-<body>
-<div class="container">
-    <a href="/admin" class="back-link">← Admin Dashboard</a>
-    <h1>User Management</h1>
+<body class="admin-app" data-admin-page="users">
+<main class="admin-main container" id="adminMain" tabindex="-1">
+    <header class="admin-page-heading"><div><div class="admin-eyebrow">Workspace</div><h1>Players</h1><p class="admin-page-description">Find accounts, review activity and manage access.</p></div><div class="admin-page-actions"><button class="refresh-btn" onclick="loadUsers()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div></header>
 
     <div class="panel">
         <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Search by username or email..." onkeydown="if(event.key==='Enter')loadUsers()">
-            <select id="statusFilter" onchange="loadUsers()">
-                <option value="all">All</option>
+            <input type="text" id="searchInput" placeholder="Search by username or email" aria-label="Search accounts" onkeydown="if(event.key==='Enter'){currentPage=1;loadUsers()}">
+            <select id="statusFilter" aria-label="Filter accounts" onchange="currentPage=1;loadUsers()">
+                <option value="all">All accounts</option>
                 <option value="online">Online</option>
                 <option value="banned">Banned</option>
-                <option value="admins">Admins</option>
+                <option value="admins">Administrators</option><option value="bots">Bots</option>
             </select>
-            <button class="btn-sm btn-primary-sm" onclick="loadUsers()">Search</button>
+            <button class="btn-sm btn-primary-sm" onclick="currentPage=1;loadUsers()">Search</button>
             <span style="margin-left:auto;color:var(--muted);font-size:13px" id="userCount"></span>
         </div>
         <table>
@@ -103,7 +37,7 @@
                     <th>Username</th>
                     <th>Email</th>
                     <th>Rating</th>
-                    <th>Status</th>
+                    <th>Last seen</th>
                     <th>Joined</th>
                     <th>Actions</th>
                 </tr>
@@ -112,13 +46,13 @@
                 <tr><td colspan="7" class="loading">Loading...</td></tr>
             </tbody>
         </table>
-        <div style="text-align:center;margin-top:12px">
+        <div class="admin-pagination">
             <button class="btn-sm btn-info-sm" id="prevPageBtn" onclick="prevPage()" style="display:none">← Prev</button>
             <span id="pageIndicator" style="margin:0 12px;color:var(--muted);font-size:13px"></span>
             <button class="btn-sm btn-info-sm" id="nextPageBtn" onclick="nextPage()" style="display:none">Next →</button>
         </div>
     </div>
-</div>
+</main>
 
 <div id="userModal" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
     <div class="modal">
@@ -184,9 +118,9 @@
     <div class="modal" style="max-width:400px">
         <button class="modal-close" onclick="closeBanModal()">&times;</button>
         <h2>Ban User</h2>
-        <label>Reason</label>
+        <label for="banReasonInput">Reason</label>
         <textarea id="banReasonInput" style="width:100%;box-sizing:border-box;min-height:60px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;font-family:inherit;font-size:13px" placeholder="Why are you banning this user?"></textarea>
-        <label>Duration (days, empty = permanent)</label>
+        <label for="banDurationInput">Duration (days, empty = permanent)</label>
         <input type="number" id="banDurationInput" min="1" max="365" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
         <div class="actions-row">
             <button class="btn-sm btn-danger-sm" onclick="confirmBan()">Confirm Ban</button>
@@ -195,6 +129,7 @@
     </div>
 </div>
 
+<script src="/js/admin-api.js?v=1.0.0"></script>
 <script>
 var users = [];
 var currentPage = 1;
@@ -209,18 +144,16 @@ function loadUsers() {
     if (search) params.set('search', search);
     if (filter === 'banned') params.set('banned', 'true');
     if (filter === 'admins') params.set('admins', 'true');
-    if (filter === 'online') params.set('limit', '100'); // load more to filter client-side
+    if (filter === 'online') params.set('online', 'true');
+    if (filter === 'bots') params.set('bots', 'true');
 
     document.getElementById('userBody').innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
 
-    fetch('/api/admin/users?' + params.toString())
+    AdminAPI.fetch('/api/admin/users?' + params.toString())
         .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
         .then(function(data) {
             users = data.users;
-            totalPages = Math.ceil(data.total / 20);
-            if (filter === 'online') {
-                users = users.filter(function(u) { return u.online; });
-            }
+            totalPages = Math.max(1, Math.ceil(data.total / (data.limit || 20)));
             document.getElementById('userCount').textContent = data.total + ' total, showing page ' + currentPage;
             renderUsers();
             updatePagination();
@@ -250,7 +183,7 @@ function renderUsers() {
             '<td><img class="avatar-sm" src="' + esc(u.avatarUrl || '') + '" onerror="this.style.display=\'none\'"></td>' +
             '<td>' + esc(u.username) + ' ' + badges + '</td>' +
             '<td style="color:var(--muted);font-size:12px">' + esc(u.email || '') + '</td>' +
-            '<td>' + (u.rating || 1200) + '</td>' +
+            '<td>' + (u.rating ?? 1200) + '</td>' +
             '<td>' + (u.lastSeen ? timeAgo(u.lastSeen) : 'Never') + '</td>' +
             '<td>' + date + '</td>' +
             '<td><button class="btn-sm btn-primary-sm" onclick="openUser(\'' + u._id + '\')">View</button></td>';
@@ -267,13 +200,13 @@ function prevPage() { currentPage--; loadUsers(); }
 function nextPage() { currentPage++; loadUsers(); }
 
 function openUser(id) {
-    fetch('/api/admin/users/' + id)
+    AdminAPI.fetch('/api/admin/users/' + id)
         .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
         .then(function(data) {
             currentUser = data.user;
             renderUserModal(data);
         })
-        .catch(function() { alert('Failed to load user'); });
+        .catch(function(err) { alert(err.message || 'Failed to load user'); });
 }
 
 function renderUserModal(data) {
@@ -281,7 +214,7 @@ function renderUserModal(data) {
     document.getElementById('modalAvatar').src = u.avatarUrl || '';
     document.getElementById('modalUsername').textContent = u.username;
     document.getElementById('modalEmail').textContent = u.email || '';
-    document.getElementById('modalRating').textContent = u.rating || 1200;
+    document.getElementById('modalRating').textContent = u.rating ?? 1200;
     document.getElementById('modalStatus').textContent = u.status || '(none)';
     document.getElementById('modalBio').textContent = u.bio || '(none)';
     document.getElementById('modalCountry').textContent = u.country || 'XX';
@@ -290,7 +223,7 @@ function renderUserModal(data) {
     document.getElementById('modalWinLoss').textContent = (stats.wins || 0) + ' / ' + (stats.losses || 0);
     document.getElementById('modalJoined').textContent = new Date(u.createdAt).toLocaleString();
     document.getElementById('modalLastSeen').textContent = u.lastSeen ? new Date(u.lastSeen).toLocaleString() : 'Never';
-    document.getElementById('newRatingInput').value = u.rating || 1200;
+    document.getElementById('newRatingInput').value = u.rating ?? 1200;
 
     var badges = '';
     if (u.banned) badges += '<span class="badge badge-banned">Banned</span> ';
@@ -350,7 +283,7 @@ function banUser() {
 function confirmBan() {
     var reason = document.getElementById('banReasonInput').value.trim();
     var days = parseInt(document.getElementById('banDurationInput').value) || 0;
-    fetch('/api/admin/users/' + pendingBanUserId + '/ban', {
+    AdminAPI.fetch('/api/admin/users/' + pendingBanUserId + '/ban', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason, durationDays: days || null })
@@ -362,7 +295,7 @@ function confirmBan() {
         openUser(pendingBanUserId);
         loadUsers();
     })
-    .catch(function() { alert('Failed'); });
+    .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function closeBanModal(e) {
@@ -371,57 +304,57 @@ function closeBanModal(e) {
 }
 
 function unbanUser() {
-    fetch('/api/admin/users/' + currentUser._id + '/unban', { method: 'POST' })
+    AdminAPI.fetch('/api/admin/users/' + currentUser._id + '/unban', { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function() { openUser(currentUser._id); loadUsers(); })
-        .catch(function() { alert('Failed'); });
+        .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function resetAvatar() {
     if (!confirm('Reset avatar to default?')) return;
-    fetch('/api/admin/users/' + currentUser._id + '/avatar', { method: 'DELETE' })
+    AdminAPI.fetch('/api/admin/users/' + currentUser._id + '/avatar', { method: 'DELETE' })
         .then(function(r) { return r.json(); })
         .then(function(d) { openUser(currentUser._id); loadUsers(); })
-        .catch(function() { alert('Failed'); });
+        .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function toggleRole() {
     var action = currentUser.isAdmin ? 'Remove admin from' : 'Make admin:';
     if (!confirm(action + ' ' + currentUser.username + '?')) return;
-    fetch('/api/admin/users/' + currentUser._id + '/role', { method: 'PATCH' })
+    AdminAPI.fetch('/api/admin/users/' + currentUser._id + '/role', { method: 'PATCH' })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {
             if (!res.ok) { alert(res.data.error); return; }
             openUser(currentUser._id);
             loadUsers();
         })
-        .catch(function() { alert('Failed'); });
+        .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function setRating() {
     var val = parseInt(document.getElementById('newRatingInput').value);
     if (isNaN(val) || val < 0 || val > 4000) { alert('Rating must be 0-4000'); return; }
-    fetch('/api/admin/users/' + currentUser._id + '/rating', {
+    AdminAPI.fetch('/api/admin/users/' + currentUser._id + '/rating', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating: val })
     })
     .then(function(r) { return r.json(); })
     .then(function() { openUser(currentUser._id); loadUsers(); })
-    .catch(function() { alert('Failed'); });
+    .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function deleteUser() {
     if (!confirm('DELETE ' + currentUser.username + '? This cannot be undone!')) return;
     if (!confirm('Are you ABSOLUTELY sure?')) return;
-    fetch('/api/admin/users/' + currentUser._id + '/delete', { method: 'POST' })
+    AdminAPI.fetch('/api/admin/users/' + currentUser._id + '/delete', { method: 'POST' })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {
             if (!res.ok) { alert(res.data.error); return; }
             closeModal();
             loadUsers();
         })
-        .catch(function() { alert('Failed'); });
+        .catch(function(err) { alert(err.message || 'Failed'); });
 }
 
 function closeModal(e) {
@@ -432,7 +365,7 @@ function closeModal(e) {
 function esc(s) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(s || ''));
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function timeAgo(date) {

@@ -8,99 +8,42 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quoridor Admin Dashboard</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --muted: #94a3b8;
-            --text: #e2e8f0;
-            --accent: #f59e0b;
-            --ok: #22c55e;
-            --danger: #ef4444;
-            --border: #334155;
-            --info: #3b82f6;
-        }
-        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
-        h1, h2, h3 { margin-top: 0; }
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
-        .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
-        .stat-card .number { font-size: 28px; font-weight: 700; color: var(--text); }
-        .stat-card .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
-        .stat-card.accent .number { color: var(--accent); }
-        .stat-card.ok .number { color: var(--ok); }
-        .stat-card.danger .number { color: var(--danger); }
-        .stat-card.info .number { color: var(--info); }
-        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
-        .nav a:hover { color: var(--text); border-color: var(--accent); }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
-        .badge-danger { background: var(--danger); color: #fff; }
-        .badge-accent { background: var(--accent); color: #000; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
-        th { color: var(--muted); font-weight: 600; }
-        .empty-state { text-align: center; padding: 20px; color: var(--muted); }
-        .loading { text-align: center; padding: 20px; color: var(--muted); }
-        .player-link { color: var(--accent); text-decoration: none; }
-        .player-link:hover { text-decoration: underline; }
-        hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-        .refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
-        .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
-    </style>
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1">
+    <link rel="stylesheet" href="/css/admin.css?v=1.0.0">
+    <script src="/js/admin-shell.js?v=1.1.0" defer></script>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
-<body>
-<div class="container">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-        <h1>Admin Dashboard</h1>
-        <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
-    </div>
+<body class="admin-app" data-admin-page="overview">
+<main class="admin-main container" id="adminMain" tabindex="-1">
+    <header class="admin-page-heading"><div><div class="admin-eyebrow">Workspace</div><h1>Overview</h1><p class="admin-page-description">Players, games and the moderation queue.</p></div><div class="admin-page-actions"><button class="refresh-btn" onclick="loadDashboard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div></header>
 
-    <div class="nav">
-        <a href="/admin" class="active">Dashboard</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/user-reports">User Reports</a>
-        <a href="/admin/reports">Bug Reports</a>
-        <a href="/admin/bots">Bots</a>
-        <a href="/admin/metrics">Analytics</a>
-        <a href="/admin/logs">Admin Logs</a>
-    </div>
 
-    <div class="stats-grid" id="statsGrid">
-        <div class="stat-card"><div class="number" id="statUsers">-</div><div class="label">Total Users</div></div>
-        <div class="stat-card info"><div class="number" id="statOnline">-</div><div class="label">Online Now</div></div>
-        <div class="stat-card accent"><div class="number" id="statNewToday">-</div><div class="label">New Today</div></div>
-        <div class="stat-card danger"><div class="number" id="statBanned">-</div><div class="label">Banned</div></div>
-        <div class="stat-card"><div class="number" id="statGames">-</div><div class="label">Total Games</div></div>
-        <div class="stat-card ok"><div class="number" id="statRecentGames">-</div><div class="label">Games (24h)</div></div>
-        <div class="stat-card danger"><div class="number" id="statPending">-</div><div class="label">Pending Reports</div></div>
-        <div class="stat-card"><div class="number" id="statBots">-</div><div class="label">Bots</div></div>
-    </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="stats-grid" id="statsGrid"><a class="stat-card " href="/admin/users"><div class="label">Players</div><div class="number" id="statUsers">—</div><div class="stat-note">Registered accounts · excludes bots</div></a><a class="stat-card info" href="/admin/users"><div class="label">Online players</div><div class="number" id="statOnline">—</div><div class="stat-note">Registered accounts online</div></a><a class="stat-card accent" href="/admin/user-reports"><div class="label">New player reports</div><div class="number" id="statPending">—</div><div class="stat-note">Waiting for an initial review</div></a><a class="stat-card " href="/admin/metrics"><div class="label">Games played</div><div class="number" id="statGames">—</div><div class="stat-note">All archived games</div></a><a class="stat-card " href="/admin/metrics"><div class="label">Games · 24 hours</div><div class="number" id="statRecentGames">—</div><div class="stat-note">Archived in the last 24 hours</div></a><a class="stat-card " href="/admin/users"><div class="label">Registrations · 24h</div><div class="number" id="statNewToday">—</div><div class="stat-note">All accounts · includes bots</div></a><a class="stat-card danger" href="/admin/users"><div class="label">Banned accounts</div><div class="number" id="statBanned">—</div><div class="stat-note">Accounts marked as banned</div></a><a class="stat-card " href="/admin/bots"><div class="label">Bot accounts</div><div class="number" id="statBots">—</div><div class="stat-note">Managed bot population</div></a></div>
+<div class="admin-section-grid">
         <div class="panel">
-            <h3>Recent Registrations</h3>
+            <h3>Latest registrations</h3>
             <div id="recentList"><div class="loading">Loading...</div></div>
         </div>
         <div class="panel">
-            <h3>Top Reported Users (Open Reports)</h3>
+            <h3>Most reported · new reports</h3>
             <div id="topReports"><div class="loading">Loading...</div></div>
         </div>
     </div>
 
     <div class="panel">
-        <h3>Pending User Reports</h3>
+        <h3>Moderation queue</h3>
         <div id="pendingReports"><div class="loading">Loading...</div></div>
     </div>
-</div>
+</main>
 
+<script src="/js/admin-api.js?v=1.0.0"></script>
 <script>
 function loadDashboard() {
     document.getElementById('statsGrid').querySelectorAll('.number').forEach(function(el) { el.textContent = '...'; });
 
-    fetch('/api/admin/stats')
+    AdminAPI.fetch('/api/admin/stats')
         .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
         .then(function(s) {
             document.getElementById('statUsers').textContent = s.totalUsers;
@@ -138,7 +81,7 @@ function loadDashboard() {
             document.getElementById('topReports').innerHTML = '<div class="empty-state">Failed to load</div>';
         });
 
-    fetch('/api/admin/user-reports?status=new')
+    AdminAPI.fetch('/api/admin/user-reports?status=new')
         .then(function(r) { return r.json(); })
         .then(function(reports) {
             var div = document.getElementById('pendingReports');
@@ -162,7 +105,7 @@ function loadDashboard() {
 function esc(s) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(s || ''));
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 loadDashboard();

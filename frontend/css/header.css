@@ -287,6 +287,8 @@
 /* mobile menu button */
 .header-menu-btn {
     display: none;
+    flex-shrink: 0;
+    padding: 0;
     width: 44px;
     height: 44px;
     align-items: center;
@@ -297,6 +299,8 @@
     border-radius: 8px;
     cursor: pointer;
 }
+.header-menu-btn svg { flex: 0 0 22px; }
+#siteHeaderAuth { display: flex; align-items: center; gap: 4px; }
 .header-menu-btn:hover { background: var(--hover-tint); }
 .header-menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -411,6 +415,7 @@
 }
 
 @media (max-width: 380px) {
+    #siteHeaderSignUp { display: none; }
     /* На самых узких кнопки больше не помещаются — Sign In остаётся
        в мобильном меню (гамбургер) */
     #headerLoginBtn { display: none; }

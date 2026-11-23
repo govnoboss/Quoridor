@@ -2,6 +2,8 @@
 
 ## 1. Persistence responsibilities
 
+Clock v2 schema/lifetime/recovery contracts are in `AI_CLOCKS.md`. Game state now includes millisecond `clock`, original `timeControl`, `revision` and `startedAt`. `GameResult` adds `timeControl.mode`, `startedAt`, `finalClock` and private `participantTokenHashes` (excluded from normal selections). History records include post-move `clock` and `elapsedMs`; never reconstruct exact historical clocks from adjacent timestamps.
+
 | Store | Role | Implementation |
 |---|---|---|
 | MongoDB | Durable application records | Mongoose models in `src/models/`; connection in `src/storage/db.js` |
@@ -29,7 +31,19 @@ Model files found in `src/models/`:
 
 The table is a navigation aid, not a complete schema. Use the relevant model file as the source of truth for field names, defaults, indexes, enums and validation.
 
+Admin stage 1 (`AI_ADMIN.md`): banning atomically increments `User.sessionVersion` with the ban. Saved `BotSettings` takes precedence over initial environment defaults. Complaint updates use/increment Mongoose `__v` for optimistic concurrency, clear completion fields on reopen and preserve them on note-only edits. `AdminLog.action` adds `user_report_in_progress` and `user_report_note_updated`; new complaint logs target the reported User and put the complaint ID in `details.reportId`. Historical misclassified logs are retained; legacy complaint metadata is repaired on a subsequent save, without a bulk migration.
+
 ## 3. Redis abstraction inventory
+
+Notification/support update: User.notificationPreferences.supportEmail defaults
+false. Report messages add opaque id/notificationPending. Notification adds sparse
+unique dedupeKey, expiresAt/actionStatus and email retry state. Additive indexes,
+no bulk historical notification replay. Details and single-process worker limits:
+`AI_NOTIFICATIONS.md`.
+
+Product analytics v2 uses the existing AnalyticsEvent fields and opaque linkage IDs
+in `props`, plus an additive `{name:1,timestamp:1}` index. Full-day cohort definitions,
+identity/exclusion limitations, read limits and rollout are in `AI_ANALYTICS.md`.
 
 `src/storage/redis.js` exports a broad wrapper. Function names found in the source include:
 
@@ -37,14 +51,14 @@ The table is a navigation aid, not a complete schema. Use the relevant model fil
 |---|---|
 | Lifecycle / mode | `connect`, `disconnect`, `isReady` |
 | Game state | `saveGame`, `getGame`, `deleteGame`, `getAllGameIds`, `addActiveGame`, `removeActiveGame`, `getActiveGameIds` |
-| Concurrency | `acquireLock`, `releaseLock` |
+| Concurrency | `acquireLock` returns an owner token or false; `releaseLock(lobbyId,token)` compare-deletes; `renewLock(lobbyId,token,ttlMs)` compare-renews. Lifecycle callers use `src/core/lobby-lock.js`. |
 | Token / lobby mapping | `setTokenMapping`, `getLobbyByToken`, `deleteTokenMapping`, `setTokenUserMapping`, `getUserIdByToken`, `deleteTokenUserMapping`, `setActiveLobbyForUser`, `getActiveLobbyForUser`, `clearActiveLobbyForUser` |
 | Rooms / codes | `incrementLobbyCounter`, `getLobbyCounter`, `generateUniqueLobbyCode`, `createRoom`, `getRoom`, `updateRoom`, `deleteRoom` |
 | Queues | `addToQueue`, `removeFromQueue`, `popTwoFromQueue`, `removeFromAllQueues` |
 | Timers | `setDisconnectTimer`, `clearDisconnectTimer`, `getExpiredDisconnectTimers`, `hasDisconnectTimer`, `setTurnTimeout`, `clearTurnTimeout`, `getExpiredTurnTimeouts` |
 | Rematch / replay | `saveRematchContext`, `getRematchContext`, `deleteRematchContext`, `saveFinishedGame`, `getFinishedGame` |
 | Bot repeat tracking | `incrementBotRecentMatchCount`, `getBotRecentMatchCount`, `recordBotOpponent`, `getBotOpponents` |
-| Constants | `TTL` (cache lifetimes in seconds: `GAME` 2h, `FINISHED_GAME` 5 min, `TOKEN_MAPPING` 2h, `ROOM` 30 min, `REMATCH` 5 min, `USER_ACTIVE_LOBBY` 2h) and `KEYS` (key-name builders, `game:*`, `token:*`, `queue:*`, `room:*`, …) |
+| Constants | `TTL` (cache lifetimes in seconds: `GAME`/`TOKEN_MAPPING`/`USER_ACTIVE_LOBBY` 25h, `FINISHED_GAME` 5 min, `ROOM` 30 min, `REMATCH` 5 min) and `KEYS` (key-name builders, `game:*`, `token:*`, `queue:*`, `room:*`, …). Connected game/link lifetime is renewed once per minute; untimed both-absent games retain up to 24h. |
 
 > The following exist as internal helpers in the file but are **not** in `module.exports`
 > (do not call them via `Redis.<name>`): `getStore`, `isMemoryMode`, `lobbyExists`,

@@ -201,6 +201,7 @@ const Game = {
   startOnline(color, playerIdx, initialTime = 600, profiles = null, gameMode = 'online') {
     this.initialTime = initialTime; // Устанавливаем ДО reset или обновляем после
     this.reset();
+    try { localStorage.removeItem('quoridor_local_session_v2'); } catch (_) { /* Storage may be unavailable. */ }
     this.state.botDifficulty = 'none';
     this.state.gameMode = gameMode;
     this.exitBotMode();
@@ -237,7 +238,8 @@ const Game = {
       UI.updateGameInfo(this.state.playerProfiles, this.myPlayerIndex);
     }
 
-    trackEvent('game-started', { mode: gameMode });
+    this.analyticsGameId = Net.lobbyId ? 'online_' + Net.lobbyId : null;
+    trackEvent('game-started', { mode: gameMode, lobbyId: Net.lobbyId, gameId: this.analyticsGameId });
   },
 
   setupCanvas() {
@@ -283,6 +285,7 @@ const Game = {
     this.stopTimer();
     this.isGameOver = true;
     this.isGameLive = false;
+    try { localStorage.removeItem('quoridor_local_session_v2'); } catch (_) { /* Storage may be unavailable. */ }
 
     // Отпускаем движок локального бота: его транспозиционная таблица больше не нужна, а следующая
     // партия всё равно получит новый экземпляр в startVsBot.
@@ -316,7 +319,7 @@ const Game = {
       const colorName = UI.translate(colorKey);
       statusMessage = UI.translate('modal_win_local').replace('{color}', colorName);
     }
-    trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local' });
+    trackEvent('game-finished', { result: isWinner ? 'win' : 'loss', reason, mode: this.state.gameMode || 'local', lobbyId: Net.isOnline ? Net.lobbyId : undefined, gameResultId, gameId: this.analyticsGameId });
 
     // После завершённой партии сбрасываем кэш строки «You» (рейтинг мог измениться).
     if (typeof UI !== 'undefined' && UI.refreshLeaderboardYou
@@ -415,7 +418,7 @@ const Game = {
     this._abandonSent = true;
     const mode = this.state.gameMode || 'local';
     const moveNumber = (this.state.history || []).length;
-    trackEvent('game-abandoned', { mode, move_number: moveNumber, reason });
+    trackEvent('game-abandoned', { mode, move_number: moveNumber, reason, gameId: this.analyticsGameId });
     return true;
   },
 
@@ -541,7 +544,7 @@ const Game = {
     }
 
     // Set static timers (don't tick in replay)
-    this.timers = [replayBase, replayBase];
+    this.reconstructReplayTimers(0);
 
     // Update UI
     UI.showScreen('gameScreen');
@@ -661,42 +664,18 @@ const Game = {
    * @param {number} moveIndex - Current move index
    */
   reconstructReplayTimers(moveIndex) {
-    if (!this._replayGameData || !this._replayHistory) return;
-
-    // Get initial time from game data
-    const initialTime = this._replayGameData.timeControl?.base || 600;
-    this.timers = [initialTime, initialTime];
-
-    // Calculate elapsed time for each move
-    for (let i = 0; i < moveIndex && i < this._replayHistory.length; i++) {
-      const move = this._replayHistory[i];
-      const nextMove = this._replayHistory[i + 1];
-
-      if (move && nextMove && move.timestamp && nextMove.timestamp) {
-        // Time spent = next move timestamp - this move timestamp
-        const elapsed = Math.floor((nextMove.timestamp - move.timestamp) / 1000);
-        const playerIdx = i % 2; // White = 0, Black = 1
-        this.timers[playerIdx] = Math.max(0, this.timers[playerIdx] - elapsed);
-      } else if (move && move.timestamp && i === moveIndex - 1) {
-        // For the last move before current, estimate from game end or current
-        // Just use what we have
-      }
-    }
+    const data = this._replayGameData;
+    const clock = moveIndex > 0 ? this._replayHistory[moveIndex - 1]?.clock : null;
+    const knownInitial = data?.finalClock && !data.finalClock.legacy && data.timeControl?.mode !== 'untimed' && Number.isFinite(data.timeControl?.base);
+    this._clock = clock || { enabled: !!knownInitial };
+    this.timers = clock ? (clock.enabled ? clock.remainingMs.map(t => t / 1000) : null) :
+      (moveIndex === 0 && knownInitial ? [data.timeControl.base, data.timeControl.base] : null);
   },
 
   reconstructHistoryTimers(moveIndex) {
-    const initialTime = this.initialTime || 600;
-    this.timers = [initialTime, initialTime];
-    const hist = this.state.history;
-    for (let i = 0; i < moveIndex && i < hist.length; i++) {
-      const move = hist[i];
-      const nextMove = hist[i + 1];
-      if (move && nextMove && move.timestamp && nextMove.timestamp) {
-        const elapsed = Math.floor((nextMove.timestamp - move.timestamp) / 1000);
-        const playerIdx = i % 2;
-        this.timers[playerIdx] = Math.max(0, this.timers[playerIdx] - elapsed);
-      }
-    }
+    const clock = moveIndex > 0 ? this.state.history[moveIndex - 1]?.clock : null;
+    this._historyTimers = clock?.enabled ? clock.remainingMs.map(t => t / 1000) : null;
+    if (moveIndex === 0 && this.state.timeControl?.mode === 'timed') this._historyTimers = [this.state.timeControl.base, this.state.timeControl.base];
   },
 
   /**
@@ -792,6 +771,7 @@ const Game = {
    * Вызывается при старте новой игры или нажатии кнопки "Сброс".
    */
   reset() {
+    this.analyticsGameId = 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 12);
     this.state.hWalls.forEach(r => r.fill(false));
     this.state.vWalls.forEach(r => r.fill(false));
     this.state.players[0].pos = { r: 8, c: 4 };
@@ -801,11 +781,19 @@ const Game = {
     this.state.currentPlayer = 0;
     this.state.drag = null;
     this.stopTimer();
+    delete this.state.clock;
+    delete this.state.finished;
+    this.state.revision = 0;
+    this.isInputBlocked = false;
     this.timers = [this.initialTime, this.initialTime];
     // Сбрасываем локальную базу часов: иначе новая партия подхватила бы из
     // timerBase остаток времени (и 0 после партии, проигранной по времени),
     // из-за чего таймер сразу показывал бы 0 и выкидывал «Time out».
     this.timerBase = null;
+    this._clock = { enabled: false };
+    this._revision = -1;
+    this._clockSampleAt = -1;
+    this.isReplayMode = false;
 
     this.state.history = [];
     this.viewHistoryIndex = -1; // Сброс просмотра при ресете
@@ -839,13 +827,16 @@ const Game = {
   startPvP() {
     this.state.botDifficulty = 'none';
     this.state.gameMode = 'local';
+    this.state.timeControl = { mode: 'untimed', base: null, inc: 0 };
+    this.myPlayerIndex = -1;
     this.exitBotMode();
     this.initialTime = 600;
     this.reset();
     UI.showScreen('gameScreen');
     this.startTimer();
     this.draw();
-    trackEvent('game-started', { mode: 'local' });
+    this.saveLocalSession();
+    trackEvent('game-started', { mode: 'local', gameId: this.analyticsGameId });
   },
 
   selectBotDifficulty(difficulty) {
@@ -866,6 +857,7 @@ const Game = {
     }
     this.state.botDifficulty = diff;
     this.state.gameMode = 'bot';
+    this.state.timeControl = { mode: 'untimed', base: null, inc: 0 };
 
     // Если мы Белые: myPlayerIndex = 0. Бот = 1.
     // Если мы Черные: myPlayerIndex = 1. Бот = 0.
@@ -897,7 +889,8 @@ const Game = {
       this.requestEval();
     }
 
-    trackEvent('game-started', { mode: 'bot', difficulty: diff });
+    this.saveLocalSession();
+    trackEvent('game-started', { mode: 'bot', difficulty: diff, gameId: this.analyticsGameId });
   },
 
   setTimerBase(timers, activeIdx) {
@@ -914,26 +907,21 @@ const Game = {
   },
 
   tickTimer() {
-    if (!this.timerBase) return;
-    const cur = this.currentTimers();
-    this.timers = cur.map(t => Math.ceil(t));
+    if (!this.timerBase || !this._clock?.enabled || this.isGameOver || this.isReplayMode) return;
+    this.timers = this.currentTimers().map(t => Math.ceil(t));
     this.updateTimerDisplay();
-    const a = this.timerBase.active;
-    if (cur[a] <= 0 && typeof Net !== 'undefined' && !Net.isOnline) {
-      this.stopTimer();
-      this.handleGameOver(1 - a, 'Time out');
-    }
+    // Only the server decides whether an online game has expired.
   },
 
   startTimer() {
     this.stopTimer();
-    const active = this.state.currentPlayer;
-    if (!this.timerBase || this.timerBase.active !== active) {
-      const base = this.timerBase ? this.currentTimers() : this.timers;
-      this.setTimerBase(base, active);
+    this.isGameLive = !this.isGameOver && !this.isReplayMode;
+    if (!this._clock?.enabled || this.isReplayMode || this.isGameOver) {
+      this.timers = this._clock?.enabled ? this.timers : null;
+      this.updateTimerDisplay();
+      return;
     }
     this.timerInterval = setInterval(() => this.tickTimer(), 250);
-    this.isGameLive = true;
     this.tickTimer();
   },
 
@@ -943,32 +931,57 @@ const Game = {
     this.isGameLive = false;
   },
 
-  syncTimers(serverTimers, force = false) {
-    if (!this.state) return;
-    const cur = this.currentTimers();
-    const drift = Math.max(Math.abs(cur[0] - serverTimers[0]), Math.abs(cur[1] - serverTimers[1]));
-    if (force || drift > 1.5) {
-      this.setTimerBase(serverTimers, this.state.currentPlayer);
-      if (!this.timerInterval) this.startTimer();
-      else this.tickTimer();
+  acceptClock(data, transitMs = 0) {
+    if (!data.clock || data.clock.version !== 2) return false;
+    const rev = data.revision ?? data.clock.revision ?? 0;
+    const sampledAt = data.serverNow ?? data.clock.sampledAt ?? 0;
+    if (rev < (this._revision ?? -1) || (rev === this._revision && sampledAt < (this._clockSampleAt ?? -1))) return false;
+    this._revision = rev; this._clockSampleAt = sampledAt;
+    this._clock = data.clock;
+    this.state.timeControl = data.timeControl || this.state.timeControl;
+    if (data.clock.enabled) {
+      const timers = data.clock.remainingMs.map(t => t / 1000);
+      if (data.clock.running) timers[data.clock.active] = Math.max(0, timers[data.clock.active] - Math.max(0, transitMs) / 1000);
+      this.setTimerBase(timers, data.clock.active);
+    } else { this.timerBase = null; this.timers = null; }
+    this.updateTimerDisplay();
+    return true;
+  },
+
+  applyNetworkSnapshot(data) {
+    if (!data || !data.state || !data.clock) return false;
+    if ((data.revision ?? 0) < (this._revision ?? -1)) return false;
+    if ((data.revision ?? 0) === this._revision && (data.serverNow ?? 0) < (this._clockSampleAt ?? -1)) return false;
+    if (data.lobbyId || data.lobbyCode) this.analyticsGameId = 'online_' + (data.lobbyId || data.lobbyCode);
+    this.state = { ...data.state, botDifficulty: 'none', gameMode: data.gameMode || this.state.gameMode || 'normal' };
+    this.state.history = (this.state.history || []).map(rec => ({ ...rec, notation: rec.notation || this.getNotation(rec.move) }));
+    this.isReplayMode = false; this.isGameOver = !!data.state.finished;
+    this.isInputBlocked = false; this.viewHistoryIndex = -1;
+    this.acceptClock(data, typeof Net !== 'undefined' ? (Net._clockTransitMs || 0) : 0);
+    this.updateTurnDisplay(); this.startTimer(); this.draw();
+    if (typeof UI !== 'undefined' && UI.renderHistory) UI.renderHistory(this.state.history, -1);
+    return true;
+  },
+
+  syncTimers(data) {
+    if (this.isGameOver || this.isReplayMode) return;
+    if (!data.clock) return;
+    if (data.revision !== this._revision || data.clock.active !== this.state.currentPlayer) {
+      if (typeof Net !== 'undefined') Net.recoverGame?.();
+      return;
     }
+    if (this.acceptClock(data, typeof Net !== 'undefined' ? Net._clockTransitMs || 0 : 0)) this.startTimer();
   },
 
   updateTimerDisplay() {
-    const bottomIdx = (this.myPlayerIndex === 1) ? 1 : 0;
-    const topIdx = 1 - bottomIdx;
-
-    const formatTime = (s) => {
-      const min = Math.floor(s / 60);
-      const sec = s % 60;
-      return `${min}:${sec < 10 ? '0' : ''}${sec}`;
-    };
-
-    const elBottom = document.getElementById('bottomPlayerTimer');
-    const elTop = document.getElementById('topPlayerTimer');
-
-    if (elBottom) elBottom.textContent = formatTime(this.timers[bottomIdx]);
-    if (elTop) elTop.textContent = formatTime(this.timers[topIdx]);
+    const bottomIdx = this.myPlayerIndex === 1 ? 1 : 0;
+    const values = this.viewHistoryIndex !== -1 && !this.isReplayMode ? this._historyTimers : this.timers;
+    const enabled = !!this._clock?.enabled && Array.isArray(values);
+    const format = value => { const n = Math.max(0, Math.ceil(value)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+    for (const [id, idx] of [['bottomPlayerTimer', bottomIdx], ['topPlayerTimer', 1 - bottomIdx]]) {
+      const el = document.getElementById(id);
+      if (el) { el.style.display = enabled ? '' : 'none'; el.textContent = enabled ? format(values[idx]) : ''; }
+    }
   },
 
   // ====================================================================
@@ -1631,6 +1644,10 @@ const Game = {
   // ====================================================================
 
   applyServerMove(data) {
+    if (data.state && data.clock) {
+      if (this.applyNetworkSnapshot(data)) UI.AudioManager.play(data.move?.type === 'wall' ? 'wall' : 'move');
+      return;
+    }
     const { playerIdx, move, nextPlayer } = data;
 
     // 1. Применяем изменения к локальному State
@@ -1672,6 +1689,7 @@ const Game = {
    * @param {object} move Ход бота.
    */
   applyBotMove(move) {
+    if (this.isGameOver || !this.isGameLive || this.isReplayMode || document.hidden) return;
     const playerIdx = this.state.currentPlayer;
 
     if (move.type === 'pawn') {
@@ -1740,6 +1758,7 @@ const Game = {
     }
 
     this.startTimer();
+    this.saveLocalSession();
     this.draw();
     this.refreshBotControls();
     this.requestEval();
@@ -2537,6 +2556,7 @@ const Game = {
 
   restartBotGame() {
     if (this.state.gameMode !== 'bot') return;
+    this.trackAbandonment('restart');
     const diff = this.state.botDifficulty;
     if (typeof AI !== 'undefined') {
       AI.cancelSearch();
@@ -2551,6 +2571,8 @@ const Game = {
     // reset() сохраняет gameMode/botDifficulty, заново ставит часы к initialTime.
     this.reset();
     this.startTimer();
+    this.saveLocalSession();
+    trackEvent('game-started', { mode: 'bot', difficulty: diff, gameId: this.analyticsGameId });
     this.draw();
     this.updateTimerDisplay();
     this.updateTurnDisplay();
@@ -2609,6 +2631,7 @@ const Game = {
     if (typeof UI !== 'undefined' && UI.renderHistory) UI.renderHistory(this.state.history, -1);
     this.updateTurnDisplay();
     this.startTimer();
+    this.saveLocalSession();
     this.draw();
     this.refreshBotControls();
     this.requestEval();
@@ -2810,20 +2833,46 @@ const Game = {
     if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   },
 
+  saveLocalSession() {
+    if (!this.isGameLive || this.isGameOver || this.isReplayMode || !['local', 'bot'].includes(this.state.gameMode)) return;
+    try { localStorage.setItem('quoridor_local_session_v2', JSON.stringify({ version: 2, state: this.state, analyticsGameId: this.analyticsGameId,
+      myPlayerIndex: this.myPlayerIndex, savedAt: Date.now() })); } catch (_) { /* Storage may be unavailable. */ }
+  },
+
+  restoreLocalSession() {
+    if (location.pathname !== '/' || location.search || (typeof Net !== 'undefined' && Net.lobbyId)) return false;
+    try {
+      const saved = JSON.parse(localStorage.getItem('quoridor_local_session_v2'));
+      if (!saved || saved.version !== 2 || !['local', 'bot'].includes(saved.state?.gameMode) ||
+          !Array.isArray(saved.state.players) || saved.state.players.length !== 2) return false;
+      this.state = saved.state; this.myPlayerIndex = saved.myPlayerIndex;
+      this.analyticsGameId = saved.analyticsGameId || null;
+      this._clock = { enabled: false }; this.timerBase = null; this.isReplayMode = false; this.isGameOver = false;
+      this.state.timeControl = { mode: 'untimed', base: null, inc: 0 };
+      this.viewHistoryIndex = -1; this.isInputBlocked = false;
+      if (this.state.gameMode === 'bot') { AI.newGame(this.state.botDifficulty); this.enterBotMode(); }
+      UI.showScreen('gameScreen'); this.startTimer(); this.updateTurnDisplay(); this.draw();
+      if (UI.renderHistory) UI.renderHistory(this.state.history || [], -1);
+      if (this.state.gameMode === 'bot' && this.state.currentPlayer !== this.myPlayerIndex && !document.hidden) AI.makeMove(this.state.botDifficulty);
+      return true;
+    } catch (_) { return false; }
+  },
+
   initTimerVisibilityHandlers() {
     const refresh = () => {
-      if (!this.state || this.isGameOver || !this.isGameLive) return;
-      if (!this.timerInterval) this.startTimer();
-      else this.tickTimer();
-      if (typeof Net !== 'undefined' && Net.isOnline && Net.requestTimerSync) {
-        Net.requestTimerSync();
-      }
+      if (!this.state || this.isGameOver || !this.isGameLive || this.isReplayMode || document.hidden) return;
+      if (typeof Net !== 'undefined' && Net.isOnline) { Net.recoverGame?.(); return; }
+      if (this.state.gameMode === 'bot' && this.state.currentPlayer !== this.myPlayerIndex) AI.makeMove(this.state.botDifficulty);
     };
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.hidden) {
+        this.saveLocalSession();
+        if (this.state.gameMode === 'bot' && !this.isReplayMode) AI.cancelSearch();
+      } else refresh();
     });
     window.addEventListener('pageshow', refresh);
     window.addEventListener('online', refresh);
+    document.addEventListener('resume', refresh);
   },
 };
 
@@ -3167,5 +3216,6 @@ document.addEventListener('DOMContentLoaded', () => {
   Game.updateTurnDisplay();
   Game.initEvents();
   Game.initTimerVisibilityHandlers();
+  Game.restoreLocalSession();
   DemoBoard.init();
 });

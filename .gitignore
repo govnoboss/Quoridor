@@ -5,12 +5,16 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+*.bak
 
 # Sentry
 .sentry.properties
 
 # Coverage
 coverage/
+/artifacts/
 
 # OS
 Thumbs.db

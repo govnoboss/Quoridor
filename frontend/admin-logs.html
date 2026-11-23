@@ -8,48 +8,15 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quoridor Admin: Logs</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --muted: #94a3b8;
-            --text: #e2e8f0;
-            --accent: #f59e0b;
-            --ok: #22c55e;
-            --danger: #ef4444;
-            --border: #334155;
-        }
-        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
-        .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
-        h1, h2, h3 { margin-top: 0; }
-        .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); }
-        .nav a:hover, .nav a.active { color: var(--text); border-color: var(--accent); }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
-        th { color: var(--muted); font-weight: 600; }
-        .empty-state { text-align: center; padding: 40px; color: var(--muted); }
-        .loading { text-align: center; padding: 40px; color: var(--muted); }
-        .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
-        .action-ban { color: var(--danger); }
-        .action-unban { color: var(--ok); }
-        .action-role { color: #3b82f6; }
-        .action-rating { color: var(--accent); }
-        .action-delete { color: var(--danger); }
-        .action-report { color: #8b5cf6; }
-        .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
-        .btn-info-sm { background: #3b82f6; color: #fff; }
-        #prevPageBtn, #nextPageBtn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
-        #prevPageBtn:hover, #nextPageBtn:hover { border-color: var(--accent); color: var(--accent); }
-    </style>
+    <link rel="stylesheet" href="/css/tokens.css?v=2.0.1">
+    <link rel="stylesheet" href="/css/admin.css?v=1.0.0">
+    <script src="/js/admin-shell.js?v=1.1.0" defer></script>
+<script defer src="https://analytics.playquor.org/script.js" data-exclude-search="true" data-website-id="4efbc356-ed5e-4f8b-9761-c00a500f67c2"></script>
+<script src="/js/analytics.js?v=1.5.0"></script>
 </head>
-<body>
-<div class="container">
-    <a href="/admin" class="back-link">← Admin Dashboard</a>
-    <h1>Admin Action Logs</h1>
+<body class="admin-app" data-admin-page="logs">
+<main class="admin-main container" id="adminMain" tabindex="-1">
+    <header class="admin-page-heading"><div><div class="admin-eyebrow">Operations</div><h1>Activity log</h1><p class="admin-page-description">A record of administrative decisions and changes.</p></div><div class="admin-page-actions"><button class="refresh-btn" onclick="loadLogs()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div></header>
 
     <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -69,14 +36,15 @@
                 <tr><td colspan="5" class="loading">Loading...</td></tr>
             </tbody>
         </table>
-        <div style="text-align:center;margin-top:12px">
+        <div class="admin-pagination">
             <button id="prevPageBtn" onclick="prevPage()">← Prev</button>
             <span id="pageIndicator" style="margin:0 12px;color:var(--muted);font-size:13px"></span>
             <button id="nextPageBtn" onclick="nextPage()">Next →</button>
         </div>
     </div>
-</div>
+</main>
 
+<script src="/js/admin-api.js?v=1.0.0"></script>
 <script>
 var logs = [];
 var currentPage = 1;
@@ -86,7 +54,7 @@ function loadLogs() {
     var tbody = document.getElementById('logBody');
     tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
 
-    fetch('/api/admin/logs?page=' + currentPage + '&limit=20')
+    AdminAPI.fetch('/api/admin/logs?page=' + currentPage + '&limit=20')
         .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
         .then(function(data) {
             logs = data.logs;
@@ -148,7 +116,7 @@ function nextPage() { currentPage++; loadLogs(); }
 function esc(s) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(s || ''));
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 loadLogs();

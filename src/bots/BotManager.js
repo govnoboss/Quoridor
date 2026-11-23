@@ -1,4 +1,7 @@
 const crypto = require('crypto');
+const { Worker } = require('node:worker_threads');
+const path = require('node:path');
+const Clock = require('../../frontend/js/game-clock');
 const { createEngineV3, VARIETY_DEFAULT, DIFFICULTY_VARIETY } = require('../../quoridor-engine/engines/v3');
 const { personality } = require('../../quoridor-engine/engines/personality');
 const { botIdentity, styleOf, chooseBot } = require('./matchmaking');
@@ -87,6 +90,8 @@ class BotManager {
         this.runtimeConfig = null;
 
         this.botEngines = new Map();
+        this.botWorkers = new Map();
+        this.botThinking = new Set();
 
         this.config = this.readConfig();
     }
@@ -179,6 +184,10 @@ class BotManager {
         this.moveTimers.delete(lobbyId);
         this.activeBotGames.delete(lobbyId);
         this.botEngines.delete(lobbyId);
+        const worker = this.botWorkers.get(lobbyId);
+        if (worker) worker.terminate();
+        this.botWorkers.delete(lobbyId);
+        this.botThinking.delete(lobbyId);
     }
 
     isBotToken(token) {
@@ -232,7 +241,7 @@ class BotManager {
             if (lobbyId) {
                 this.activeBotGames.add(lobbyId);
                 this.botTokens.add(bot.token);
-                this.botEngines.set(lobbyId, createBotEngine(bot.difficulty, bot.identity || bot.token));
+                // Engine state lives in a worker, created lazily for its first turn.
 
                 await this.recordBotMatch(playerData.token);
                 await this.recordBotOpponent(playerData.token, bot);
@@ -308,11 +317,13 @@ class BotManager {
     }
 
     scheduleMoveIfNeeded(lobbyId, game) {
-        if (!this.isEnabled() || !game?.hasBot) return false;
+        if (!this.isEnabled() || !game?.hasBot || game.finished || this.botThinking.has(lobbyId)) return false;
         if (!this.isBotSlot(game, game.currentPlayer)) return false;
         if (this.moveTimers.has(lobbyId)) return false;
 
-        const delay = this.randomDelay(this.config.minMoveDelayMs, this.config.maxMoveDelayMs);
+        const remaining = Clock.remaining(game, Date.now());
+        const available = remaining ? remaining[game.currentPlayer] : Infinity;
+        const delay = Math.min(this.randomDelay(this.config.minMoveDelayMs, this.config.maxMoveDelayMs), Math.max(0, Math.floor(available * .15)));
         const timer = setTimeout(async () => {
             this.moveTimers.delete(lobbyId);
             await this.makeMove(lobbyId);
@@ -323,9 +334,11 @@ class BotManager {
     }
 
     async makeMove(lobbyId) {
+        if (this.botThinking.has(lobbyId)) return false;
+        this.botThinking.add(lobbyId);
         try {
             const game = await this.Redis.getGame(lobbyId);
-            if (!game || !game.hasBot || !this.isBotSlot(game, game.currentPlayer)) {
+            if (!game || game.finished || !game.hasBot || !this.isBotSlot(game, game.currentPlayer)) {
                 return false;
             }
 
@@ -336,24 +349,37 @@ class BotManager {
             // `startBotGame` registers the engine right after the lobby exists, but the first move is
             // scheduled with a human-like delay, so this lazily-built fallback is what actually covers
             // any path that reaches makeMove without one (restored lobby, hot reload, test stub).
-            let engine = this.botEngines.get(lobbyId);
-            if (!engine) {
-                engine = createBotEngine(difficulty, game.botIdentity || game.playerTokens[botIdx]);
-                this.botEngines.set(lobbyId, engine);
+            let worker = this.botWorkers.get(lobbyId);
+            if (!worker) {
+                worker = new Worker(path.join(__dirname, 'think-worker.js'), { workerData: {
+                    difficulty, identity: game.botIdentity || game.playerTokens[botIdx] } });
+                worker.unref();
+                this.botWorkers.set(lobbyId, worker);
             }
-
-            const result = engine.think(game, {
-                player: botIdx,
-                maxDepth,
+            const remaining = Clock.remaining(game, Date.now());
+            const available = remaining ? remaining[botIdx] : Infinity;
+            const timeMs = Math.max(1, Math.min({ easy: 150, medium: 400, hard: 900 }[difficulty] || 400, Math.floor((available - 30) / 2)));
+            const result = await new Promise((resolve, reject) => {
+                const cleanup = () => { clearTimeout(timeout); worker.off('message', onMessage); worker.off('error', onError); worker.off('exit', onExit); };
+                const onMessage = data => { cleanup(); data.error ? reject(new Error(data.error)) : resolve(data.result); };
+                const onError = err => { cleanup(); reject(err); };
+                const onExit = () => { cleanup(); reject(new Error('Bot calculation cancelled')); };
+                const timeout = setTimeout(() => { cleanup(); worker.terminate(); this.botWorkers.delete(lobbyId); reject(new Error('Bot calculation timed out')); }, 10000);
+                worker.once('message', onMessage); worker.once('error', onError); worker.once('exit', onExit);
+                worker.postMessage({ state: game, limits: { player: botIdx, maxDepth, timeMs } });
             });
 
             const move = result && result.move;
             if (!move) return false;
+            const current = await this.Redis.getGame(lobbyId);
+            if (!current || current.finished || current.currentPlayer !== botIdx || current.revision !== game.revision) return false;
 
             return await this.applyBotMove(lobbyId, game.playerTokens[botIdx], move);
         } catch (err) {
             console.error(`[BOT] Move failed for ${lobbyId}:`, err);
             return false;
+        } finally {
+            this.botThinking.delete(lobbyId);
         }
     }
 
@@ -381,3 +407,4 @@ class BotManager {
 }
 
 module.exports = BotManager;
+module.exports.createBotEngine = createBotEngine;

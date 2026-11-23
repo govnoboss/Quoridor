@@ -25,7 +25,10 @@ const AI = {
             }
 
             if (data.type === 'ready' || data.type === 'error') {
-                if (data.type === 'error') console.error('[LOCAL-AI] engine error:', data.message);
+                if (data.type === 'error') {
+                    if (data.token === undefined || data.token === this.searchToken) this.pending = false;
+                    console.error('[LOCAL-AI] engine error:', data.message);
+                }
                 return;
             }
 
@@ -33,6 +36,9 @@ const AI = {
 
             // Drop results from a cancelled search (Undo, Restart, new game).
             if (data.token !== undefined && data.token !== this.searchToken) return;
+            this.pending = false;
+            if (Game.isGameOver || !Game.isGameLive || Game.isReplayMode || document.hidden ||
+                Game.state.gameMode !== 'bot' || Game.state.currentPlayer === Game.myPlayerIndex) return;
 
             if (data.move) {
                 console.log(`[LOCAL-AI] ${data.move.type} d=${data.depth} n=${data.nodes} ${data.ms}ms`);
@@ -44,6 +50,7 @@ const AI = {
         };
         this.worker.onerror = (err) => {
             console.error('[AI] Worker error:', err);
+            this.pending = false;
             Game.isInputBlocked = false;
         };
     },
@@ -74,14 +81,19 @@ const AI = {
      */
     cancelSearch() {
         this.searchToken++;
+        this.pending = false;
     },
 
     endGame() {
+        this.cancelSearch();
         if (this.worker) this.worker.postMessage({ type: 'endGame' });
     },
 
     makeMove(difficulty = this.difficulty) {
+        if (this.pending || document.hidden || Game.isGameOver || !Game.isGameLive || Game.isReplayMode ||
+            Game.state.gameMode !== 'bot' || Game.state.currentPlayer === Game.myPlayerIndex) return;
         this.init();
+        this.pending = true;
         this.difficulty = difficulty;
 
         const botIdx = this.getBotIndex();

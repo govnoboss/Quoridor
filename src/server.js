@@ -21,9 +21,13 @@ const Shared = require('./core/shared.js');
 const { RULES_FILE } = require('../quoridor-engine/rules/paths');
 const { buildAiV1Bundle } = require('./core/ai-v1-bundle');
 const Redis = require('./storage/redis.js');
+const Clock = require('../frontend/js/game-clock');
+const withLobbyLock = require('./core/lobby-lock')(Redis);
+const { normalizeBotSettings, complaintTransition } = require('./admin/policy');
+const { loadProductMetrics } = require('./analytics/product-metrics');
 const BotManager = require('./bots/BotManager');
 const log = require('./utils/logger');
-const { sendPasswordResetEmail } = require('./utils/mailer');
+const { sendPasswordResetEmail, sendSupportReplyEmail } = require('./utils/mailer');
 const { verifyGoogleIdToken, verifyFreshGoogleReauth } = require('./auth/google');
 const Report = require('./models/Report');
 const geoip = require('geoip-lite');
@@ -125,7 +129,8 @@ async function getSessionVersion(userId) {
     const cached = svCache.get(key);
     if (cached && cached.expires > Date.now()) return cached.value;
     try {
-        const user = await resolveUserById(userId, 'sessionVersion');
+        const user = await resolveUserById(userId, 'sessionVersion banned banReason banExpires');
+        if (!user || (await isUserBanned(user)).banned) return -2;
         const value = (user && user.sessionVersion) || 0;
         svCache.set(key, { value, expires: Date.now() + SV_CACHE_TTL });
         return value;
@@ -277,6 +282,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         const newUser = new User({ username, email: trimmedEmail, passwordHash, country });
         await newUser.save();
+        await AnalyticsEvent.insertMany([{ name: 'register-complete', userId: newUser._id, props: { method: 'password' } }]).catch(err => console.error('[ANALYTICS] Registration:', err.message));
 
         // Auto login
         req.session.userId = newUser._id;
@@ -404,6 +410,7 @@ app.post('/api/auth/google', async (req, res) => {
         }
 
         let user = await User.findOne({ googleId: profile.googleId });
+        let created = false;
 
         if (!user) {
             // Привязка к существующему аккаунту по email (Google подтвердил владение почтой).
@@ -441,6 +448,8 @@ app.post('/api/auth/google', async (req, res) => {
                 avatarUrl: profile.picture || undefined
             });
             await user.save();
+            created = true;
+            await AnalyticsEvent.insertMany([{ name: 'register-complete', userId: user._id, props: { method: 'google' } }]).catch(err => console.error('[ANALYTICS] Registration:', err.message));
         }
 
         const ban = await isUserBanned(user);
@@ -461,7 +470,7 @@ app.post('/api/auth/google', async (req, res) => {
         req.session.avatarUrl = user.avatarUrl;
         req.session.sv = user.sessionVersion || 0;
 
-        res.json({ message: 'Logged in', user: { username: user.username, id: user._id } });
+        res.json({ message: 'Logged in', created, user: { username: user.username, id: user._id } });
     } catch (err) {
         console.error('[GOOGLE AUTH ERROR]', err);
         res.status(500).json({ error: 'Server error' });
@@ -547,16 +556,24 @@ async function isUserBanned(user) {
     return { banned: true, reason: user.banReason || 'Account banned', expires };
 }
 
+async function isTokenBanned(token) {
+    const ownerId = await Redis.getUserIdByToken(token);
+    if (!ownerId) return false;
+    const owner = await resolveUserById(ownerId, 'banned banReason banExpires');
+    return !owner || (await isUserBanned(owner)).banned;
+}
+
 async function requireAdmin(req, res, next) {
     if (!req.session?.userId) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
-        const user = await resolveUserById(req.session.userId, 'username isAdmin');
+        const user = await resolveUserById(req.session.userId, 'username isAdmin banned banReason banExpires');
         if (!user?.isAdmin) {
             return res.status(403).json({ error: 'Forbidden' });
         }
+        if ((await isUserBanned(user)).banned) return res.status(403).json({ error: 'Account banned' });
         req.adminUser = user;
         next();
     } catch (err) {
@@ -566,39 +583,27 @@ async function requireAdmin(req, res, next) {
 }
 
 function botSettingsFromEnv() {
-    return {
+    const integer = (name, fallback) => {
+        const raw = process.env[name];
+        const value = raw && raw.trim() ? Number(raw) : NaN;
+        return Number.isSafeInteger(value) && value >= 0 && value <= 2147483647 ? value : fallback;
+    };
+    return normalizeBotSettings({}, {
         key: 'global',
         enabled: ['1', 'true', 'yes', 'on'].includes(String(process.env.BOTS_ENABLED || 'false').toLowerCase()),
         rankedEnabled: ['1', 'true', 'yes', 'on'].includes(String(process.env.BOT_RANKED_ENABLED || 'false').toLowerCase()),
-        fallbackMinWaitMs: parseInt(process.env.BOT_FALLBACK_MIN_WAIT_MS, 10) || 15000,
-        fallbackMaxWaitMs: parseInt(process.env.BOT_FALLBACK_MAX_WAIT_MS, 10) || 25000,
-        maxActiveGames: parseInt(process.env.BOT_MAX_ACTIVE_GAMES, 10) || 15,
-        moveMinDelayMs: parseInt(process.env.BOT_MOVE_MIN_DELAY_MS, 10) || 800,
-        moveMaxDelayMs: parseInt(process.env.BOT_MOVE_MAX_DELAY_MS, 10) || 2500,
-        maxRecentMatches: parseInt(process.env.BOT_MAX_RECENT_MATCHES, 10) || 3,
-        recentWindowMs: parseInt(process.env.BOT_RECENT_WINDOW_MS, 10) || 3600000,
-    };
+        fallbackMinWaitMs: integer('BOT_FALLBACK_MIN_WAIT_MS', 15000),
+        fallbackMaxWaitMs: integer('BOT_FALLBACK_MAX_WAIT_MS', 25000),
+        maxActiveGames: integer('BOT_MAX_ACTIVE_GAMES', 15),
+        moveMinDelayMs: integer('BOT_MOVE_MIN_DELAY_MS', 800),
+        moveMaxDelayMs: integer('BOT_MOVE_MAX_DELAY_MS', 2500),
+        maxRecentMatches: integer('BOT_MAX_RECENT_MATCHES', 3),
+        recentWindowMs: integer('BOT_RECENT_WINDOW_MS', 3600000),
+    });
 }
 
-function sanitizeBotSettings(input) {
-    const defaults = botSettingsFromEnv();
-    const minWait = Math.max(0, parseInt(input.fallbackMinWaitMs ?? defaults.fallbackMinWaitMs, 10));
-    const maxWait = Math.max(minWait, parseInt(input.fallbackMaxWaitMs ?? defaults.fallbackMaxWaitMs, 10));
-    const minMoveDelay = Math.max(0, parseInt(input.moveMinDelayMs ?? defaults.moveMinDelayMs, 10));
-    const maxMoveDelay = Math.max(minMoveDelay, parseInt(input.moveMaxDelayMs ?? defaults.moveMaxDelayMs, 10));
-
-    return {
-        key: 'global',
-        enabled: Boolean(input.enabled),
-        rankedEnabled: Boolean(input.rankedEnabled),
-        fallbackMinWaitMs: minWait,
-        fallbackMaxWaitMs: maxWait,
-        maxActiveGames: Math.max(0, parseInt(input.maxActiveGames ?? defaults.maxActiveGames, 10)),
-        moveMinDelayMs: minMoveDelay,
-        moveMaxDelayMs: maxMoveDelay,
-        maxRecentMatches: Math.max(0, parseInt(input.maxRecentMatches ?? defaults.maxRecentMatches, 10)),
-        recentWindowMs: Math.max(60000, parseInt(input.recentWindowMs ?? defaults.recentWindowMs, 10)),
-    };
+function sanitizeBotSettings(input, defaults = botSettingsFromEnv()) {
+    return normalizeBotSettings(input, defaults);
 }
 
 function settingsForBotManager(settings) {
@@ -615,45 +620,12 @@ function settingsForBotManager(settings) {
     };
 }
 
-async function getOrCreateBotSettings() {
+async function getOrCreateBotSettings({ persist = true } = {}) {
     let settings = await BotSettings.findOne({ key: 'global' });
     const envDefaults = botSettingsFromEnv();
     if (!settings) {
         settings = new BotSettings(envDefaults);
-        await settings.save();
-    } else {
-        let changed = false;
-        if (process.env.BOTS_ENABLED !== undefined) {
-            const envEnabled = ['1', 'true', 'yes', 'on'].includes(String(process.env.BOTS_ENABLED).toLowerCase());
-            if (settings.enabled !== envEnabled) {
-                settings.enabled = envEnabled;
-                changed = true;
-            }
-        }
-        if (process.env.BOT_RANKED_ENABLED !== undefined) {
-            const envRanked = ['1', 'true', 'yes', 'on'].includes(String(process.env.BOT_RANKED_ENABLED).toLowerCase());
-            if (settings.rankedEnabled !== envRanked) {
-                settings.rankedEnabled = envRanked;
-                changed = true;
-            }
-        }
-        if (process.env.BOT_FALLBACK_MIN_WAIT_MS !== undefined) {
-            const envMinWait = parseInt(process.env.BOT_FALLBACK_MIN_WAIT_MS, 10);
-            if (!isNaN(envMinWait) && settings.fallbackMinWaitMs !== envMinWait) {
-                settings.fallbackMinWaitMs = envMinWait;
-                changed = true;
-            }
-        }
-        if (process.env.BOT_FALLBACK_MAX_WAIT_MS !== undefined) {
-            const envMaxWait = parseInt(process.env.BOT_FALLBACK_MAX_WAIT_MS, 10);
-            if (!isNaN(envMaxWait) && settings.fallbackMaxWaitMs !== envMaxWait) {
-                settings.fallbackMaxWaitMs = envMaxWait;
-                changed = true;
-            }
-        }
-        if (changed) {
-            await settings.save();
-        }
+        if (persist) await settings.save();
     }
     return settings;
 }
@@ -675,8 +647,7 @@ app.get('/admin/bots', requireAdmin, (req, res) => {
 
 app.get('/api/admin/bots', requireAdmin, async (req, res) => {
     try {
-        const settings = await getOrCreateBotSettings();
-        botManager.setRuntimeConfig(settingsForBotManager(settings));
+        const settings = await getOrCreateBotSettings({ persist: false });
 
         const bots = await User.find({ isBot: true }).sort({ rating: -1 });
         res.json({
@@ -701,20 +672,21 @@ app.get('/api/admin/bots', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/bots/settings', requireAdmin, async (req, res) => {
     try {
-        const nextSettings = sanitizeBotSettings(req.body || {});
+        const current = await getOrCreateBotSettings({ persist: false });
+        const nextSettings = sanitizeBotSettings(req.body, current);
         nextSettings.updatedBy = req.adminUser._id;
 
         const settings = await BotSettings.findOneAndUpdate(
             { key: 'global' },
             { $set: nextSettings },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
+            { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
         );
 
         botManager.setRuntimeConfig(settingsForBotManager(settings));
         res.json({ settings, runtime: botManager.getRuntimeStats() });
     } catch (err) {
         console.error('[ADMIN] Failed to update bot settings:', err);
-        res.status(500).json({ error: 'Server error' });
+        res.status(err.status === 400 ? 400 : 500).json({ error: err.status === 400 ? err.message : 'Server error' });
     }
 });
 
@@ -762,10 +734,10 @@ app.post('/api/admin/bots/rename', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/bots/recalc', requireAdmin, async (req, res) => {
     try {
-        await recalculateBotRatings();
+        const updated = await recalculateBotRatings();
         const bots = await User.find({ isBot: true }).sort({ rating: -1 });
         res.json({
-            updated: bots.length,
+            updated,
             bots: bots.map(bot => ({
                 id: bot._id,
                 username: bot.username,
@@ -1683,6 +1655,15 @@ function findSocketByUserId(userId) {
     return null;
 }
 
+function disconnectUserSockets(userId, reason) {
+    for (const socket of io.sockets.sockets.values()) {
+        if (socket.userId && String(socket.userId) === String(userId)) {
+            socket.emit('forceDisconnect', { reason });
+            socket.disconnect(true);
+        }
+    }
+}
+
 function findSocketByToken(token) {
     for (const s of io.sockets.sockets.values()) {
         if (s.playerToken === token) return s;
@@ -1727,19 +1708,12 @@ async function getAcceptedFriendIds(userId) {
     });
 }
 
-async function createNotification(recipientId, type, title, body = '', data = {}) {
-    try {
-        const notif = await Notification.create({ recipient: recipientId, type, title, body, data });
-        await User.findByIdAndUpdate(recipientId, { $inc: { unreadNotifications: 1 } });
-        const recipientSocket = findSocketByUserId(recipientId);
-        if (recipientSocket) {
-            recipientSocket.emit('notification:new', notif);
-        }
-        return notif;
-    } catch (err) {
-        console.error('[NOTIFICATION] Create error:', err);
-        return null;
-    }
+const { createNotificationService, publicNotification } = require('./notifications/service');
+const { registerNotificationRoutes } = require('./notifications/routes');
+const notificationService = createNotificationService({ User, Report, Notification, getSocket: findSocketByUserId, sendEmail: sendSupportReplyEmail });
+async function createNotification(...args) {
+    try { return await notificationService.create(...args); }
+    catch (_) { console.error('[NOTIFICATION] Create failed'); return null; }
 }
 
 // POST /api/friends/request — send friend request
@@ -2013,219 +1987,7 @@ const reportLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-app.post('/api/reports', reportLimiter, async (req, res) => {
-    try {
-        if (!req.session.userId) {
-            return res.status(401).json({ error: 'You must be logged in to submit a report' });
-        }
-        const { subject, description, deviceInfo } = req.body;
-        if (!subject || subject.trim().length < 3) {
-            return res.status(400).json({ error: 'Subject must be at least 3 characters' });
-        }
-        if (!description || description.trim().length < 10) {
-            return res.status(400).json({ error: 'Description must be at least 10 characters' });
-        }
-
-        const report = await Report.create({
-            subject: subject.trim(),
-            description: description.trim(),
-            userId: req.session.userId,
-            ip: getClientIp(req),
-            messages: [{ role: 'user', text: description.trim() }],
-            deviceInfo: {
-                userAgent: (deviceInfo?.userAgent || '').slice(0, 500),
-                platform: (deviceInfo?.platform || '').slice(0, 100),
-                screenSize: (deviceInfo?.screenSize || '').slice(0, 50),
-                language: (deviceInfo?.language || '').slice(0, 50)
-            }
-        });
-
-        res.status(201).json({ message: 'Report submitted', id: report._id });
-    } catch (e) {
-        console.error('[REPORT] Create error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.get('/api/admin/reports', requireAdmin, async (req, res) => {
-    try {
-        const reports = await Report.find().sort({ createdAt: -1 }).populate('userId', 'username avatarUrl').lean();
-        res.json(reports);
-    } catch (e) {
-        console.error('[REPORT] List error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.patch('/api/admin/reports/:id', requireAdmin, async (req, res) => {
-    try {
-        const { status, reply } = req.body;
-        if (status && !['new', 'in_progress', 'closed'].includes(status)) {
-            return res.status(400).json({ error: 'Invalid status' });
-        }
-        const update = {};
-        if (status) update.status = status;
-        if (reply && reply.trim()) {
-            update.$push = { messages: { role: 'admin', text: reply.trim() } };
-        }
-        const report = await Report.findByIdAndUpdate(
-            req.params.id,
-            update,
-            { new: true }
-        );
-        if (!report) return res.status(404).json({ error: 'Report not found' });
-
-        if (reply && reply.trim() && report.userId) {
-            await createNotification(report.userId, 'admin_message',
-                'Reply to your report: ' + report.subject,
-                reply.trim(),
-                { reportId: report._id, message: reply.trim() }
-            );
-        }
-
-        res.json(report);
-    } catch (e) {
-        console.error('[REPORT] Update error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// User reply to their report
-app.post('/api/reports/:id/reply', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const { text } = req.body;
-        if (!text || !text.trim()) {
-            return res.status(400).json({ error: 'Message is required' });
-        }
-        const report = await Report.findById(req.params.id);
-        if (!report) return res.status(404).json({ error: 'Report not found' });
-        if (String(report.userId) !== String(req.session.userId)) {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
-
-        report.messages.push({ role: 'user', text: text.trim() });
-        report.status = 'in_progress';
-        await report.save();
-
-        const adminUsers = await User.find({ isAdmin: true }).select('_id').lean();
-        for (const admin of adminUsers) {
-            await createNotification(admin._id, 'bug_report_update',
-                'User replied to report: ' + report.subject,
-                text.trim(),
-                { reportId: report._id, message: text.trim() }
-            );
-        }
-
-        res.json({ message: 'Reply sent' });
-    } catch (e) {
-        console.error('[REPORT] User reply error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// Get single report with messages (owner or admin)
-app.get('/api/reports/:id', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const report = await Report.findById(req.params.id).populate('userId', 'username avatarUrl').lean();
-        if (!report) return res.status(404).json({ error: 'Report not found' });
-
-        const user = await User.findById(req.session.userId).select('isAdmin').lean();
-        if (String(report.userId._id) !== String(req.session.userId) && !user?.isAdmin) {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
-
-        res.json(report);
-    } catch (e) {
-        console.error('[REPORT] Get error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// Get user's own reports
-app.get('/api/my/reports', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const reports = await Report.find({ userId: req.session.userId })
-            .sort({ createdAt: -1 })
-            .select('subject status createdAt messages')
-            .lean();
-        res.json(reports);
-    } catch (e) {
-        console.error('[REPORT] My reports error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// --- NOTIFICATION API ---
-
-app.get('/api/notifications', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-        const filter = { recipient: req.session.userId };
-        if (req.query.unread === 'true') filter.read = false;
-
-        const [notifications, total] = await Promise.all([
-            Notification.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
-            Notification.countDocuments(filter)
-        ]);
-
-        res.json({ notifications, total, page, limit });
-    } catch (e) {
-        console.error('[NOTIFICATIONS] List error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.patch('/api/notifications/:id/read', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const notif = await Notification.findOneAndUpdate(
-            { _id: req.params.id, recipient: req.session.userId, read: false },
-            { read: true },
-            { new: true }
-        );
-        if (notif) {
-            await User.findByIdAndUpdate(req.session.userId, { $inc: { unreadNotifications: -1 } });
-        }
-        res.json({ success: true });
-    } catch (e) {
-        console.error('[NOTIFICATIONS] Read error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.patch('/api/notifications/read-all', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const result = await Notification.updateMany(
-            { recipient: req.session.userId, read: false },
-            { read: true }
-        );
-        await User.findByIdAndUpdate(req.session.userId, { unreadNotifications: 0 });
-        res.json({ success: true, modified: result.modifiedCount });
-    } catch (e) {
-        console.error('[NOTIFICATIONS] Read-all error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.delete('/api/notifications/:id', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-        const notif = await Notification.findOneAndDelete({ _id: req.params.id, recipient: req.session.userId });
-        if (notif && !notif.read) {
-            await User.findByIdAndUpdate(req.session.userId, { $inc: { unreadNotifications: -1 } });
-        }
-        res.json({ success: true });
-    } catch (e) {
-        console.error('[NOTIFICATIONS] Delete error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+registerNotificationRoutes({ app, User, Report, Notification, service: notificationService, reportLimiter, requireAdmin, getClientIp });
 
 // --- ADMIN USER MANAGEMENT ---
 
@@ -2257,6 +2019,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
         if (req.query.banned === 'false') filter.banned = false;
         if (req.query.admins === 'true') filter.isAdmin = true;
         if (req.query.bots === 'true') filter.isBot = true;
+        if (req.query.online === 'true') filter.online = true;
 
         const [users, total] = await Promise.all([
             User.find(filter)
@@ -2297,10 +2060,17 @@ app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
 // POST /api/admin/users/:id/ban — бан пользователя
 app.post('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
     try {
+        if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ error: 'Invalid user ID' });
         if (String(req.params.id) === String(req.adminUser._id)) {
             return res.status(400).json({ error: 'Cannot ban yourself' });
         }
-        const { reason, durationDays } = req.body;
+        if (req.body && (typeof req.body !== 'object' || Array.isArray(req.body))) return res.status(400).json({ error: 'Ban parameters must be an object' });
+        const { reason, durationDays } = req.body || {};
+        if (reason !== undefined && typeof reason !== 'string') return res.status(400).json({ error: 'Reason must be a string' });
+        if (durationDays !== undefined && durationDays !== null &&
+            (!Number.isInteger(durationDays) || durationDays < 0 || durationDays > 36500)) {
+            return res.status(400).json({ error: 'Duration must be 0–36500 whole days, or null for permanent' });
+        }
         const target = await User.findById(req.params.id).select('username banned banReason banExpires isAdmin isBot');
         if (!target) return res.status(404).json({ error: 'User not found' });
         if (target.isAdmin) return res.status(400).json({ error: 'Cannot ban an admin' });
@@ -2310,19 +2080,18 @@ app.post('/api/admin/users/:id/ban', requireAdmin, async (req, res) => {
             ? new Date(Date.now() + durationDays * 86400000)
             : null;
 
-        await User.findByIdAndUpdate(req.params.id, {
+        const bannedUser = await User.findByIdAndUpdate(req.params.id, { $set: {
             banned: true,
             banReason: (reason || '').substring(0, 500),
             banExpires,
             bannedAt: new Date(),
             bannedBy: req.adminUser._id
-        });
+        }, $inc: { sessionVersion: 1 } }, { new: true });
+        if (!bannedUser) return res.status(404).json({ error: 'User not found' });
+        setCachedSessionVersion(String(bannedUser._id), bannedUser.sessionVersion);
+        disconnectUserSockets(bannedUser._id, 'You have been banned');
 
         await logAdminAction(req.adminUser._id, 'user_banned', req.params.id, target.username, { reason, durationDays, banExpires });
-
-        // Отключаем сокет забаненного, если он онлайн
-        const victimSocket = findSocketByUserId(req.params.id);
-        if (victimSocket) victimSocket.emit('forceDisconnect', { reason: 'You have been banned' });
 
         res.json({ message: 'User banned', banExpires });
     } catch (e) {
@@ -2583,24 +2352,32 @@ app.get('/api/admin/user-reports', requireAdmin, async (req, res) => {
 // PATCH /api/admin/user-reports/:id — обработать жалобу (resolve/dismiss)
 app.patch('/api/admin/user-reports/:id', requireAdmin, async (req, res) => {
     try {
-        const { status, adminNote } = req.body;
-        if (!['in_progress', 'resolved', 'dismissed'].includes(status)) {
-            return res.status(400).json({ error: 'Invalid status' });
+        if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(400).json({ error: 'Invalid report ID' });
+        const current = await UserReport.findById(req.params.id);
+        if (!current) return res.status(404).json({ error: 'Report not found' });
+        const version = req.body?.version;
+        if (version !== undefined && (!Number.isSafeInteger(version) || version < 0)) {
+            return res.status(400).json({ error: 'Version must be a non-negative integer' });
         }
-        const report = await UserReport.findByIdAndUpdate(
-            req.params.id,
-            { status, adminNote: (adminNote || '').substring(0, 1000), resolvedBy: req.adminUser._id, resolvedAt: new Date() },
-            { new: true }
+        const transition = complaintTransition(current, req.body || {}, req.adminUser._id);
+        if (transition.unchanged) return res.json(current);
+        if (version !== undefined && version !== (current.__v ?? 0)) {
+            return res.status(409).json({ error: 'Report changed. Reload it before saving again.' });
+        }
+        const report = await UserReport.findOneAndUpdate(
+            { _id: req.params.id, status: current.status, __v: current.__v },
+            { $set: transition.update, $inc: { __v: 1 } },
+            { new: true, runValidators: true }
         );
-        if (!report) return res.status(404).json({ error: 'Report not found' });
+        if (!report) return res.status(409).json({ error: 'Report changed. Reload it before saving again.' });
 
-        await logAdminAction(req.adminUser._id, status === 'resolved' ? 'user_report_resolved' : 'user_report_dismissed',
-            req.params.id, '', { target: report.target, reason: report.reason, status });
+        await logAdminAction(req.adminUser._id, transition.action,
+            report.target, '', { reportId: report._id, reason: report.reason, previousStatus: current.status, status: report.status });
 
         res.json(report);
     } catch (e) {
         console.error('[USER REPORT] Update error:', e);
-        res.status(500).json({ error: 'Server error' });
+        res.status(e.status === 400 ? 400 : 500).json({ error: e.status === 400 ? e.message : 'Server error' });
     }
 });
 
@@ -2619,7 +2396,7 @@ const ANALYTICS_EVENT_WHITELIST = new Set([
     'play-friend-click', 'play-local-click', 'surrender-click', 'room-created',
     'room-joined', 'room-link-copied', 'room-opened-via-link', 'search-cancelled', 'search-matched',
     'search-timeout', 'search-fallback-to-bot', 'screen-view', 'rematch-click', 'game-started',
-    'game-abandoned', 'game-finished', 'play-bot-click', 'session-start', 'net-latency'
+    'game-abandoned', 'game-finished', 'play-bot-click', 'session-start', 'net-latency', 'app-loaded', 'admin-metrics-viewed', 'room-join-failed'
 ]);
 
 // POST /api/analytics/events — батч событий от клиента (до 20 за запрос)
@@ -2635,6 +2412,8 @@ app.post('/api/analytics/events', analyticsLimiter, async (req, res) => {
         for (const ev of events) {
             const name = ev && typeof ev.name === 'string' ? ev.name.trim() : '';
             if (!ANALYTICS_EVENT_WHITELIST.has(name)) continue;
+            // Registrations are recorded by auth routes, never trust client counts.
+            if (name === 'register-complete') continue;
 
             let props = {};
             if (ev.props && typeof ev.props === 'object' && !Array.isArray(ev.props)) {
@@ -2651,9 +2430,9 @@ app.post('/api/analytics/events', analyticsLimiter, async (req, res) => {
             docs.push({
                 name,
                 userId: req.session && req.session.userId ? req.session.userId : null,
-                sessionId: typeof ev.sessionId === 'string' ? ev.sessionId.slice(0, 64) : '',
-                deviceId: typeof ev.deviceId === 'string' ? ev.deviceId.slice(0, 64) : '',
-                platform: ev.platform === 'android' ? 'android' : 'web',
+                sessionId: typeof (ev.sessionId || req.body.sessionId) === 'string' ? (ev.sessionId || req.body.sessionId).slice(0, 64) : '',
+                deviceId: typeof (ev.deviceId || req.body.deviceId) === 'string' ? (ev.deviceId || req.body.deviceId).slice(0, 64) : '',
+                platform: (ev.platform || req.body.platform) === 'android' ? 'android' : 'web',
                 props,
                 timestamp: ts
             });
@@ -2716,6 +2495,19 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
     } catch (e) {
         console.error('[ANALYTICS] Metrics error:', e);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Separate versioned report: legacy counters retain their existing definitions.
+app.get('/api/admin/product-metrics', requireAdmin, async (req, res) => {
+    const days = req.query.days === undefined ? 28 : Number(req.query.days);
+    if (!Number.isInteger(days) || days < 1 || days > 30) return res.status(400).json({ error: 'days must be an integer from 1 to 30' });
+    try {
+        const report = await loadProductMetrics({ AnalyticsEvent, User, days });
+        res.set('Cache-Control', 'no-store').json(report);
+    } catch (err) {
+        console.error('[ANALYTICS] Product report failed:', err.message);
+        res.status(err.status === 503 ? 503 : 500).json({ error: err.status === 503 ? err.message : 'Product metrics unavailable' });
     }
 });
 
@@ -2846,6 +2638,18 @@ io.use((socket, next) => {
     next();
 });
 
+// A remembered game token must not restore a banned account after cookies are cleared.
+io.use(async (socket, next) => {
+    try {
+        const token = socket.handshake.auth?.token;
+        if (typeof token === 'string' && await isTokenBanned(token)) return next(new Error('banned'));
+        next();
+    } catch (err) {
+        console.error('[SOCKET TOKEN AUTH]', err.message);
+        next(new Error('unauthorized'));
+    }
+});
+
 /**
  * Генерирует короткий уникальный код комнаты.
  */
@@ -2965,15 +2769,16 @@ async function recalculateBotRatings() {
             updated++;
         }
         console.log(`[RATING] Recalculated ratings for ${updated} bots`);
+        return updated;
     } catch (err) {
         console.error('[RATING] Recalculation error:', err);
+        throw err;
     }
 }
 
 function checkVictory(state) {
     if (state.players[0].pos.r === 0) return 0;
     if (state.players[1].pos.r === 8) return 1;
-    if (state.timers[state.currentPlayer] <= 0) return state.currentPlayer;
     return -1;
 }
 
@@ -3012,9 +2817,10 @@ async function startBotGame(socket, humanPlayer, bot, isRanked) {
     gameState.playerProfiles[botIdx] = bot.profile;
     socket.searchToken = null;
 
+    prepareNewGame(gameState);
     await Redis.saveGame(lobbyId, gameState);
     await Redis.addActiveGame(lobbyId);
-    await Redis.setTurnTimeout(lobbyId, Date.now() + gameState.timers[gameState.currentPlayer] * 1000);
+    await scheduleClock(lobbyId, gameState);
     await linkPlayersToLobbyByToken([humanPlayer.token, bot.token], lobbyId);
     if (bot.isAccount && bot.userId) {
         await Redis.setTokenUserMapping(bot.token, bot.userId);
@@ -3028,7 +2834,7 @@ async function startBotGame(socket, humanPlayer, bot, isRanked) {
         color: humanIdx === 0 ? 'white' : 'black',
         opponent: gameState.playerProfiles[botIdx],
         me: gameState.playerProfiles[humanIdx],
-        initialTime: gameState.timers[humanIdx]
+        ...Clock.payload(gameState, Date.now())
     });
 
     botManager.scheduleMoveIfNeeded(lobbyId, gameState);
@@ -3041,99 +2847,88 @@ async function applyBotMove(lobbyId, token, move) {
     return await applyGameMove({ lobbyId, token, move });
 }
 
-async function applyGameMove({ lobbyId, token, move, rejectSocket = null }) {
-    if (!Shared.isValidLobbyId(lobbyId)) {
-        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Invalid lobby format' });
-        return false;
-    }
+async function scheduleClock(lobbyId, game) {
+    const deadline = Clock.deadline(game);
+    if (deadline === null || game.finished) await Redis.clearTurnTimeout(lobbyId);
+    else await Redis.setTurnTimeout(lobbyId, deadline);
+}
 
-    if (!Shared.isValidMove(move)) {
-        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Invalid move format' });
-        return false;
-    }
+function prepareNewGame(game, mode) {
+    if (mode) game.gameMode = mode;
+    Clock.start(game, Date.now());
+    game.presence = { disconnectedAt: [null, null] };
+}
 
-    let attempts = 0;
-    let locked = false;
+function resumePayload(lobbyId, game, idx, now = Date.now()) {
+    return { lobbyId, lobbyCode: lobbyId, color: idx === 0 ? 'white' : 'black',
+        myPlayerIndex: idx, state: publicGameState(game), profiles: game.playerProfiles, ...Clock.payload(game, now) };
+}
 
-    while (attempts < 10) {
-        locked = await Redis.acquireLock(lobbyId);
-        if (locked) break;
-        attempts++;
-        await sleep(50);
-    }
+function publicGameState(game) {
+    const state = Shared.cloneState(game);
+    delete state.playerTokens; delete state.playerSockets; delete state.presence;
+    return state;
+}
 
-    if (!locked) {
-        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Room busy' });
-        return false;
-    }
-
-    try {
+async function resumeGame(socket, lobbyId, token = socket.playerToken) {
+    if (await isTokenBanned(token)) return false;
+    return withLobbyLock(lobbyId, async () => {
         const game = await Redis.getGame(lobbyId);
-
-        if (!game) {
-            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Game not found' });
-            return false;
-        }
-
-        if (game.finished === true) {
-            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Game already finished' });
-            return false;
-        }
-
-        const playerIdx = game.playerTokens.indexOf(token);
-        if (playerIdx === -1) {
-            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Unauthorized' });
-            return false;
-        }
-
-        const now = Date.now();
-        const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
-        game.timers[game.currentPlayer] -= elapsed;
-        game.lastMoveTimestamp = now;
-
-        if (game.timers[game.currentPlayer] < 0) {
+        if (!game || game.finished) return resendGameOverIfFinished(socket, lobbyId, game);
+        const idx = game.playerTokens.indexOf(token);
+        if (idx < 0) return false;
+        if (Clock.expired(game, Date.now())) {
             await finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
-            return true;
+            return resendGameOverIfFinished(socket, lobbyId);
         }
+        game.playerSockets[idx] = socket.id;
+        socket.playerToken = token;
+        game.presence = game.presence || { disconnectedAt: [null, null] };
+        game.presence.disconnectedAt[idx] = null;
+        game.abandonedAt = null;
+        socket.join(lobbyId);
+        await Redis.saveGame(lobbyId, game);
+        await updatePresenceDeadline(lobbyId, game);
+        socket.emit('gameResumed', resumePayload(lobbyId, game, idx));
+        io.to(lobbyId).emit('opponentReconnected');
+        botManager.scheduleMoveIfNeeded(lobbyId, game);
+        return true;
+    });
+}
 
-        try {
-            const action = { ...move, playerIdx };
-            const nextState = Shared.gameReducer(game, action);
-
-            if (nextState.increment > 0) {
-                nextState.timers[playerIdx] += nextState.increment;
+async function applyGameMove({ lobbyId, token, move, rejectSocket = null }) {
+    const reject = reason => { if (rejectSocket) rejectSocket.emit('moveRejected', { reason }); return false; };
+    if (!Shared.isValidLobbyId(lobbyId) || !Shared.isValidMove(move)) return reject('Invalid move format');
+    try {
+        return await withLobbyLock(lobbyId, async () => {
+            const game = await Redis.getGame(lobbyId);
+            if (!game || game.finished) return reject('Game already finished');
+            const playerIdx = game.playerTokens.indexOf(token);
+            if (playerIdx < 0) return reject('Unauthorized');
+            if (await isTokenBanned(token)) return reject('Account banned');
+            const now = Date.now();
+            if (Clock.expired(game, now)) {
+                await finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
+                return false;
             }
-
-            const winnerIdx = checkVictory(nextState);
-            if (winnerIdx !== -1) {
-                await finalizeGame(lobbyId, winnerIdx, 'Goal reached', nextState);
-                return true;
-            }
-
-            await Redis.saveGame(lobbyId, nextState);
-            await Redis.setTurnTimeout(lobbyId, Date.now() + nextState.timers[nextState.currentPlayer] * 1000);
-
-            io.to(lobbyId).emit('serverMove', {
-                playerIdx,
-                move,
-                nextPlayer: nextState.currentPlayer,
-                timers: nextState.timers
-            });
-
-            botManager.scheduleMoveIfNeeded(lobbyId, nextState);
+            if (playerIdx !== game.currentPlayer) return reject('Not your turn');
+            const c = Clock.ensure(game);
+            const elapsedMs = c.enabled ? Math.max(0, now - c.startedAt) : null;
+            Clock.settle(game, now);
+            let next;
+            try { next = Shared.gameReducer(game, { ...move, playerIdx }); }
+            catch (err) { return reject(err.message); }
+            Clock.moved(next, playerIdx, now, elapsedMs);
+            const winner = checkVictory(next);
+            if (winner !== -1) { await finalizeGame(lobbyId, winner, 'Goal reached', next); return true; }
+            await Redis.saveGame(lobbyId, next);
+            await scheduleClock(lobbyId, next);
+            io.to(lobbyId).emit('serverMove', { lobbyId, playerIdx, move, nextPlayer: next.currentPlayer,
+                ...Clock.payload(next, Date.now()), state: publicGameState(next) });
+            botManager.scheduleMoveIfNeeded(lobbyId, next);
             return true;
-        } catch (reducerError) {
-            console.log(`[MOVE REJECTED] Lobby ${lobbyId}: ${reducerError.message}`);
-            if (rejectSocket) rejectSocket.emit('moveRejected', { reason: reducerError.message });
-            return false;
-        }
-    } catch (err) {
-        console.error('[PLAYER MOVE ERROR]', err);
-        if (rejectSocket) rejectSocket.emit('moveRejected', { reason: 'Server error' });
-        return false;
-    } finally {
-        await Redis.releaseLock(lobbyId);
-    }
+        });
+    } catch (err) { console.error('[MOVE ERROR]', err); return reject('Server error; resynchronize'); }
 }
 
 /**
@@ -3288,7 +3083,7 @@ io.on('connection', (socket) => {
 
         Notification.find({ recipient: socket.userId, read: false }).sort({ createdAt: -1 }).limit(20).lean()
             .then(notifs => {
-                socket.emit('notifications:list', notifs || []);
+                socket.emit('notifications:list', (notifs || []).map(n => publicNotification(n)));
             }).catch(console.error);
     }
     socket.on('disconnect', () => {
@@ -3322,12 +3117,12 @@ io.on('connection', (socket) => {
         const MAX_INC_SEC = 60;
 
         if (
-            typeof tc.base !== 'number' ||
-            typeof tc.inc !== 'number' ||
+            !Number.isFinite(tc.base) || !Number.isInteger(tc.base) ||
+            !Number.isFinite(tc.inc) || !Number.isInteger(tc.inc) ||
             tc.base < MIN_BASE_SEC ||
             tc.base > MAX_BASE_SEC ||
             tc.inc < 0 ||
-            tc.inc > MAX_INC_SEC
+            tc.inc > MAX_INC_SEC || tc.mode === 'untimed'
         ) {
             console.warn(`[SECURITY] Invalid time control from ${socket.id}:`, tc);
             socket.emit('findGameFailed', { reason: 'Invalid time limits (60-1800s)' });
@@ -3404,12 +3199,12 @@ io.on('connection', (socket) => {
                     gameState.playerProfiles[1] = await getPlayerProfile(p2.token);
 
                     // Сохраняем в Redis
-                    await Redis.saveGame(lobbyId, gameState);
+                    prepareNewGame(gameState);
+    await Redis.saveGame(lobbyId, gameState);
                     await Redis.addActiveGame(lobbyId);
 
                     // Устанавливаем таймер хода
-                    const timeoutAt = Date.now() + gameState.timers[0] * 1000;
-                    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+                    await scheduleClock(lobbyId, gameState);
 
                     // Сохраняем маппинг токенов для Rejoin
                     await linkPlayersToLobbyByToken([p1.token, p2.token], lobbyId);
@@ -3424,7 +3219,7 @@ io.on('connection', (socket) => {
                         color: 'white',
                         opponent: gameState.playerProfiles[1], // Pass full profile
                         me: gameState.playerProfiles[0],
-                        initialTime: gameState.timers[0]
+                        ...Clock.payload(gameState, Date.now())
                     });
                     s2.emit('gameStart', {
                         lobbyId,
@@ -3432,7 +3227,7 @@ io.on('connection', (socket) => {
                         color: 'black',
                         opponent: gameState.playerProfiles[0], // Pass full profile
                         me: gameState.playerProfiles[1],
-                        initialTime: gameState.timers[1]
+                        ...Clock.payload(gameState, Date.now())
                     });
                     console.log(`[GAME START] Lobby ${lobbyId} created for ${tc.base}+${tc.inc}. Random Swap: ${swap}`);
                     schedulePresenceBroadcast();
@@ -3479,24 +3274,40 @@ io.on('connection', (socket) => {
         const token = data?.token || socket.playerToken;
         if (!isValidToken(token)) return;
         if (socket.searchToken === token) socket.searchToken = null;
+        let roomControl;
+        try { roomControl = Clock.control(data?.timeControl || { base: 600, inc: 0 }, true); }
+        catch (_) { return socket.emit('error', { message: 'Invalid time control' }); }
 
         try {
             // Удаляем игрока из ВСЕХ очередей поиска, если он там был
+            if (await isPlayerBusy(token)) return socket.emit('error', { message: 'Already in game' });
+            if (socket.pendingRoom) await Redis.deleteRoom(socket.pendingRoom);
             await Redis.removeFromAllQueues(token);
             botManager.cancelFallback(token);
 
             const roomCode = await generateUniqueRoomCode();
             await Redis.createRoom(roomCode, {
-                players: [{ socketId: socket.id, token: token }]
+                players: [{ socketId: socket.id, token: token }], timeControl: roomControl
             });
 
             socket.join(roomCode);
-            socket.emit('roomCreated', { roomCode });
+            socket.pendingRoom = roomCode;
+            socket.emit('roomCreated', { roomCode, timeControl: roomControl });
             // console.log(`[ROOM] Created private room: ${roomCode} by ${socket.id}`);
         } catch (err) {
             console.error('[CREATE ROOM ERROR]', err);
             socket.emit('error', { message: 'Failed to create room' });
         }
+    });
+
+    socket.on('getRoomInfo', async (data, cb) => {
+        if (typeof cb !== 'function' || !checkRateLimit(socket.id, 'roomInfo', 10, 60000)) return;
+        const code = String(data?.roomCode || '').trim().toUpperCase();
+        if (!Shared.isValidLobbyId(code)) return cb({ error: 'Invalid room code' });
+        try {
+            const room = await Redis.getRoom(code);
+            cb(room ? { roomCode: code, timeControl: room.timeControl || { mode: 'timed', base: 600, inc: 0 } } : { error: 'Room not found' });
+        } catch (_) { cb({ error: 'Room unavailable' }); }
     });
 
     socket.on('joinRoom', async (data) => {
@@ -3512,8 +3323,9 @@ io.on('connection', (socket) => {
             return;
         }
 
+        const normalizedCode = roomCode.toUpperCase().trim();
         try {
-            const normalizedCode = roomCode.toUpperCase().trim();
+          await withLobbyLock('room:' + normalizedCode, async () => {
             const room = await Redis.getRoom(normalizedCode);
 
             if (!room) {
@@ -3540,6 +3352,16 @@ io.on('connection', (socket) => {
                 return;
             }
 
+            const agreed = room.timeControl || { mode: 'timed', base: 600, inc: 0 };
+            if (agreed.mode === 'untimed' && !data.expectedTimeControl) {
+                socket.emit('joinRoomFailed', { reason: 'Refresh the page to join a game without a timer.' }); return;
+            }
+            if (await isPlayerBusy(playerToken) || await isPlayerBusy(room.players[0].token)) {
+                socket.emit('joinRoomFailed', { reason: 'Already in game' }); return;
+            }
+            if (data.expectedTimeControl && JSON.stringify(Clock.control(data.expectedTimeControl, true)) !== JSON.stringify(Clock.control(agreed, true))) {
+                socket.emit('joinRoomFailed', { reason: 'Room settings changed. Please join again.' }); return;
+            }
             room.players.push({ socketId: socket.id, token: playerToken });
             socket.join(normalizedCode);
 
@@ -3560,7 +3382,7 @@ io.on('connection', (socket) => {
                     sWhite.join(lobbyId);
                     sBlack.join(lobbyId);
 
-                    const gameState = Shared.createInitialState({ base: 600, inc: 0 }); // Default for private rooms
+                    const gameState = Shared.createInitialState(agreed);
                     gameState.playerSockets[0] = whitePlayer.socketId;
                     gameState.playerSockets[1] = blackPlayer.socketId;
                     gameState.playerTokens[0] = whitePlayer.token;
@@ -3571,12 +3393,12 @@ io.on('connection', (socket) => {
                     gameState.playerProfiles[1] = await getPlayerProfile(blackPlayer.token);
 
                     // Сохраняем в Redis
-                    await Redis.saveGame(lobbyId, gameState);
+                    prepareNewGame(gameState, 'friend');
+    await Redis.saveGame(lobbyId, gameState);
                     await Redis.addActiveGame(lobbyId);
 
                     // Устанавливаем таймер хода (по умолчанию 600 сек для приватных комнат)
-                    const timeoutAt = Date.now() + 600 * 1000;
-                    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+                    await scheduleClock(lobbyId, gameState);
 
                     // Сохраняем маппинг токенов для Rejoin
                     await linkPlayersToLobbyByToken([whitePlayer.token, blackPlayer.token], lobbyId);
@@ -3586,14 +3408,14 @@ io.on('connection', (socket) => {
                         lobbyCode: lobbyId,
                         color: 'white',
                         opponent: gameState.playerProfiles[1],
-                        me: gameState.playerProfiles[0]
+                        me: gameState.playerProfiles[0], ...Clock.payload(gameState, Date.now())
                     });
                     sBlack.emit('gameStart', {
                         lobbyId,
                         lobbyCode: lobbyId,
                         color: 'black',
                         opponent: gameState.playerProfiles[0],
-                        me: gameState.playerProfiles[1]
+                        me: gameState.playerProfiles[1], ...Clock.payload(gameState, Date.now())
                     });
 
                     console.log(`[GAME START] Лобби ${lobbyId} создано из комнаты ${normalizedCode}. White: ${isSwap ? 'Joiner' : 'Creator'}`);
@@ -3611,6 +3433,7 @@ io.on('connection', (socket) => {
                 // Обновляем комнату с новым игроком
                 await Redis.updateRoom(normalizedCode, room);
             }
+          });
         } catch (err) {
             console.error('[JOIN ROOM ERROR]', err);
             socket.emit('joinRoomFailed', { reason: 'Ошибка сервера' });
@@ -3618,68 +3441,11 @@ io.on('connection', (socket) => {
     });
 
     // --- REJOIN GAME ---
-    socket.on('rejoinGame', async (data) => {
+    socket.on('rejoinGame', async data => {
         const token = data?.token;
-
-        // Валидация входных данных
-        if (!isValidToken(token)) {
-            // console.log(`[VALIDATION] rejoinGame: invalid token from ${socket.id}`);
-            return;
-        }
-
-        const shortToken = '...' + token.substr(-4);
-        // console.log(`[REJOIN] Attempting rejoin for token ${shortToken}`);
-
-        try {
-            // Ищем lobbyId по токену в Redis
-            const lobbyId = await Redis.getLobbyByToken(token);
-
-            if (!lobbyId) {
-                // console.log(`[REJOIN] No active game found for token.`);
-                return;
-            }
-
-            const game = await Redis.getGame(lobbyId);
-
-            if (!game) {
-                // console.log(`[REJOIN] Game ${lobbyId} not found in Redis.`);
-                return;
-            }
-
-            const pIdx = game.playerTokens.indexOf(token);
-
-            if (pIdx !== -1) {
-                // Found the game!
-                console.log(`[RECONNECT] Player ${pIdx} returned to ${lobbyId}`);
-
-                // 1. Update socket
-                game.playerSockets[pIdx] = socket.id;
-                socket.join(lobbyId);
-
-                // 2. Таймер дисконнекта теперь обрабатывается пульсом (setInterval).
-                // Мы просто обновляем сокет и помечаем игрока как присутствующего.
-                await Redis.saveGame(lobbyId, game);
-
-                // 4. Send Resume event
-                socket.emit('gameResumed', {
-                    lobbyId,
-                    lobbyCode: lobbyId,
-                    color: pIdx === 0 ? 'white' : 'black',
-                    myPlayerIndex: pIdx,
-                    state: game,
-                    timers: game.timers,
-                    profiles: game.playerProfiles // Pass saved profiles
-                });
-
-                // 5. Notify opponent
-                const opponentSocket = game.playerSockets[1 - pIdx];
-                if (opponentSocket) {
-                    io.to(opponentSocket).emit('opponentReconnected');
-                }
-            }
-        } catch (err) {
-            console.error('[REJOIN ERROR]', err);
-        }
+        if (!isValidToken(token)) return;
+        const lobbyId = await Redis.getLobbyByToken(token);
+        if (lobbyId) await resumeGame(socket, lobbyId, token).catch(err => console.error('[RESUME]', err));
     });
 
     socket.on('rejoinLobby', async (data) => {
@@ -3701,23 +3467,12 @@ io.on('connection', (socket) => {
                     socket.emit('gameActiveError', { lobbyCode });
                     return;
                 }
-                // Свой игрок переподключается — пускаем
-                game.playerSockets[pIdx] = socket.id;
-                socket.join(lobbyCode);
-                await Redis.saveGame(lobbyCode, game);
-                socket.emit('gameResumed', {
-                    lobbyId: lobbyCode,
-                    lobbyCode,
-                    color: pIdx === 0 ? 'white' : 'black',
-                    myPlayerIndex: pIdx,
-                    state: game,
-                    timers: game.timers,
-                    profiles: game.playerProfiles
-                });
+                await resumeGame(socket, lobbyCode, token);
                 return;
             }
 
-            // 2. Активной игры нет — проверяем finished-копию (TTL 5 мин)
+            if (!isReplay && await resendGameOverIfFinished(socket, lobbyCode)) return;
+            // Explicit replay visits remain available independently of active-game recovery.
             const finished = await Redis.getFinishedGame(lobbyCode);
             if (finished) {
                 socket.emit('gameReplayAvailable', {
@@ -3725,7 +3480,9 @@ io.on('connection', (socket) => {
                     history: finished.history || [],
                     playerProfiles: finished.playerProfiles || [],
                     timers: finished.timers || null,
-                    result: finished.result || null
+                    timeControl: finished.timeControl || null,
+                    finalClock: Clock.snapshot(finished, Date.now()),
+                    result: finished.endResult || finished.result || null
                 });
                 return;
             }
@@ -3742,6 +3499,8 @@ io.on('connection', (socket) => {
                         { username: archived.playerBlack?.username || 'Black' }
                     ],
                     timers: null,
+                    timeControl: archived.timeControl,
+                    finalClock: archived.finalClock,
                     result: {
                         winnerIdx: archived.winner,
                         reason: archived.reason
@@ -3759,145 +3518,17 @@ io.on('connection', (socket) => {
 
 
     // --- ОБРАБОТКА ХОДА (SERVER AUTHORITATIVE) ---
-    socket.on('playerMove', async (data) => {
-        // Rate Limiting: 5 moves per 1 second
-        if (!checkRateLimit(socket.id, 'move', 5, 1000)) {
-            socket.emit('moveRejected', { reason: 'Too many moves' });
-            return;
-        }
-
-        // Валидация структуры запроса
-        if (!data || typeof data !== 'object') {
-            console.log(`[VALIDATION] playerMove: invalid data from ${socket.id}`);
-            socket.emit('moveRejected', { reason: 'Invalid request' });
-            return;
-        }
-
-        const { lobbyId, move } = data;
-
-        // Валидация lobbyId и хода через Shared логику
-        if (!Shared.isValidLobbyId(lobbyId)) {
-            socket.emit('moveRejected', { reason: 'Invalid lobby format' });
-            return;
-        }
-
-        if (!Shared.isValidMove(move)) {
-            socket.emit('moveRejected', { reason: 'Invalid move format' });
-            return;
-        }
-
-        let attempts = 0;
-        let locked = false;
-
-        while (attempts < 10) {
-            locked = await Redis.acquireLock(lobbyId);
-            if (locked) break;
-            attempts++;
-            await sleep(50);
-        }
-
-        if (!locked) {
-            socket.emit('moveRejected', { reason: 'Room busy' });
-            return;
-        }
-
-        try {
-
-            const game = await Redis.getGame(lobbyId);
-
-            if (!game) {
-                socket.emit('moveRejected', { reason: 'Game not found' });
-                return;
-            }
-
-            const playerIdx = game.playerTokens.indexOf(socket.playerToken);
-            if (playerIdx === -1) {
-                socket.emit('moveRejected', { reason: 'Unauthorized' });
-                return;
-            }
-
-            const now = Date.now();
-            const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
-
-            // 1. Предварительное обновление таймера (уменьшаем время за раздумья)
-            game.timers[game.currentPlayer] -= elapsed;
-            game.lastMoveTimestamp = now;
-
-            if (game.timers[game.currentPlayer] < 0) {
-                await finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
-                return;
-            }
-
-            // 2. Выполнение хода через Reducer
-            try {
-                const action = { ...move, playerIdx };
-                const nextState = Shared.gameReducer(game, action);
-
-                // 3. Дополнительная серверная логика (инкремент Fisher)
-                if (nextState.increment > 0) {
-                    nextState.timers[playerIdx] += nextState.increment;
-                }
-
-                // 4. Проверка победы (после обновления состояния)
-                const winnerIdx = checkVictory(nextState);
-                if (winnerIdx !== -1) {
-                    await finalizeGame(lobbyId, winnerIdx, 'Goal reached', nextState);
-                    return;
-                }
-
-                // 5. Сохранение и установка новых таймеров
-                await Redis.saveGame(lobbyId, nextState);
-
-                const nextTimeoutAt = Date.now() + nextState.timers[nextState.currentPlayer] * 1000;
-                await Redis.setTurnTimeout(lobbyId, nextTimeoutAt);
-
-                io.to(lobbyId).emit('serverMove', {
-                    playerIdx: playerIdx,
-                    move: move,
-                    nextPlayer: nextState.currentPlayer,
-                    timers: nextState.timers
-                });
-                botManager.scheduleMoveIfNeeded(lobbyId, nextState);
-
-            } catch (reducerError) {
-                console.log(`[MOVE REJECTED] Lobby ${lobbyId}: ${reducerError.message}`);
-                socket.emit('moveRejected', { reason: reducerError.message });
-            }
-        } catch (err) {
-            console.error('[PLAYER MOVE ERROR]', err);
-            socket.emit('moveRejected', { reason: 'Server error' });
-        } finally {
-            await Redis.releaseLock(lobbyId);
-        }
+    socket.on('playerMove', async data => {
+        if (!checkRateLimit(socket.id, 'move', 5, 1000)) return socket.emit('moveRejected', { reason: 'Too many moves' });
+        await applyGameMove({ lobbyId: data?.lobbyId, token: socket.playerToken, move: data?.move, rejectSocket: socket });
     });
 
     socket.on('requestTimerSync', async (payload, cb) => {
+        if (typeof cb !== 'function' || !Shared.isValidLobbyId(payload?.lobbyId)) return;
         try {
-            const lobbyId = payload && payload.lobbyId;
-            if (typeof cb !== 'function' || !lobbyId) return;
-            const game = await Redis.getGame(lobbyId);
-
-            // Игра не найдена или уже завершена: клиент мог пропустить gameOver
-            // в фоне — переотправляем его этому сокету, если он участник игры.
-            if (!game || game.finished) {
-                await resendGameOverIfFinished(socket, lobbyId, game);
-                return cb({ finished: true });
-            }
-
-            const playerIdx = game.playerTokens.indexOf(socket.playerToken);
-            if (playerIdx === -1) return cb({});
-            const now = Date.now();
-            const timers = [...game.timers];
-            const a = game.currentPlayer;
-            timers[a] -= Math.floor((now - game.lastMoveTimestamp) / 1000);
-            if (timers[a] <= 0) {
-                await handleTurnTimeout(lobbyId);
-                return cb({});
-            }
-            cb({ timers, currentPlayer: a, serverNow: now });
-        } catch (e) {
-            if (typeof cb === 'function') cb({});
-        }
+            const ok = await resumeGame(socket, payload.lobbyId);
+            cb(ok ? { restored: true } : { unavailable: true });
+        } catch (_) { cb({ error: 'Recovery failed' }); }
     });
 
     socket.on('surrender', async (data) => {
@@ -4178,9 +3809,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('acceptGameInvite', async ({ fromId }) => {
-        if (!socket.userId) return;
+    const pendingInviteAccepts = new Set();
+    socket.on('acceptGameInvite', async ({ fromId, notificationId } = {}, ack) => {
+        const respond = result => { if (typeof ack === 'function') ack(result); };
+        const fail = reason => { socket.emit('inviteFailed', { reason }); respond({ ok: false, error: reason }); };
+        if (!socket.userId) return fail('Sign in to accept invitations');
+        if (typeof fromId !== 'string' || !/^[a-f0-9]{24}$/i.test(fromId)) return fail('Invalid invitation sender');
+        if (pendingInviteAccepts.has(socket.userId)) return fail('Invitation is already being accepted');
+        pendingInviteAccepts.add(socket.userId);
         try {
+            const invitation = notificationId && /^[a-f0-9]{24}$/i.test(notificationId)
+                ? await Notification.findOne({ _id: notificationId, recipient: socket.userId, type: 'game_invite', 'data.requesterId': fromId })
+                : await Notification.findOne({ recipient: socket.userId, type: 'game_invite', 'data.requesterId': fromId, createdAt: { $gte: new Date(Date.now() - 120000) } }).sort({ createdAt: -1 });
+            if (!invitation || !publicNotification(invitation).actionable) return fail('Invitation has expired or was already accepted');
+            if (await isPlayerBusy(socket.playerToken)) return fail('You are already in a game');
             const friendship = await Friendship.findOne({
                 $or: [
                     { requester: socket.userId, recipient: fromId },
@@ -4188,20 +3830,25 @@ io.on('connection', (socket) => {
                 ],
                 status: 'accepted'
             });
-            if (!friendship) return;
+            if (!friendship) return fail('This player is no longer in your friends list');
 
             const fromSocket = findSocketByUserId(fromId);
             if (!fromSocket) {
-                socket.emit('inviteFailed', { reason: 'Friend is offline' });
-                return;
+                return fail('Friend is offline');
             }
 
+            if (socket.handshake.auth.clockVersion !== 2 || fromSocket.handshake.auth.clockVersion !== 2) {
+                return fail('Both players must refresh the page before starting an untimed game.');
+            }
+
+            if (await isPlayerBusy(fromSocket.playerToken)) return fail('Friend is already in a game');
+            let inviteStarted = false;
             const roomCode = await generateUniqueRoomCode();
             await Redis.createRoom(roomCode, {
                 players: [{ socketId: fromSocket.id, token: fromSocket.playerToken }]
             });
             fromSocket.join(roomCode);
-            fromSocket.emit('roomCreated', { roomCode });
+            fromSocket.emit('roomCreated', { roomCode, timeControl: { mode: 'untimed', base: null, inc: 0 } });
 
             // Second player joins
             const normalizedCode = roomCode;
@@ -4221,7 +3868,7 @@ io.on('connection', (socket) => {
                     sWhite.join(normalizedCode);
                     sBlack.join(normalizedCode);
 
-                    const gameState = Shared.createInitialState({ base: 600, inc: 0 });
+                    const gameState = Shared.createInitialState({ mode: 'untimed' });
                     gameState.playerSockets[0] = whitePlayer.socketId;
                     gameState.playerSockets[1] = blackPlayer.socketId;
                     gameState.playerTokens[0] = whitePlayer.token;
@@ -4229,28 +3876,37 @@ io.on('connection', (socket) => {
                     gameState.playerProfiles[0] = await getPlayerProfile(whitePlayer.token);
                     gameState.playerProfiles[1] = await getPlayerProfile(blackPlayer.token);
 
+                    prepareNewGame(gameState, 'friend');
                     await Redis.saveGame(normalizedCode, gameState);
                     await Redis.addActiveGame(normalizedCode);
-                    const timeoutAt = Date.now() + 600 * 1000;
-                    await Redis.setTurnTimeout(normalizedCode, timeoutAt);
+                    await scheduleClock(normalizedCode, gameState);
                     await linkPlayersToLobbyByToken([whitePlayer.token, blackPlayer.token], normalizedCode);
 
                     sWhite.emit('gameStart', {
                         lobbyId: normalizedCode, lobbyCode: normalizedCode,
-                        color: 'white', opponent: gameState.playerProfiles[1], me: gameState.playerProfiles[0]
+                        color: 'white', opponent: gameState.playerProfiles[1], me: gameState.playerProfiles[0], ...Clock.payload(gameState, Date.now())
                     });
                     sBlack.emit('gameStart', {
                         lobbyId: normalizedCode, lobbyCode: normalizedCode,
-                        color: 'black', opponent: gameState.playerProfiles[0], me: gameState.playerProfiles[1]
+                        color: 'black', opponent: gameState.playerProfiles[0], me: gameState.playerProfiles[1], ...Clock.payload(gameState, Date.now())
                     });
 
                     await Redis.deleteRoom(normalizedCode);
                     schedulePresenceBroadcast();
+                    inviteStarted = true;
                 }
             }
+            if (!inviteStarted) {
+                await Redis.deleteRoom(normalizedCode);
+                return fail('A player disconnected before the game could start');
+            }
+            await Notification.updateOne({ _id: invitation._id }, { $set: { actionStatus: 'accepted' } });
+            await notificationService.markRead(socket.userId, invitation._id);
+            respond({ ok: true });
         } catch (err) {
             console.error('[ACCEPT INVITE ERROR]', err);
-        }
+            fail('Could not accept the invitation. Please try again.');
+        } finally { pendingInviteAccepts.delete(socket.userId); }
     });
 
     socket.on('disconnect', async () => {
@@ -4286,19 +3942,16 @@ io.on('connection', (socket) => {
                         const disconnectedIdx = game.playerSockets.indexOf(socket.id);
 
                         if (disconnectedIdx !== -1) {
-                            // Start 30s Grace Period in Redis
-                            await Redis.setDisconnectTimer(lobbyId, 30000);
-                            // Pause turn timer
-                            await Redis.clearTurnTimeout(lobbyId);
-
-                            console.log(`[GAME SUSPEND] Player ${disconnectedIdx} disconnected from ${lobbyId}. Starting grace period.`);
-
-                            // Notify opponent
-                            const opponentSocket = game.playerSockets[1 - disconnectedIdx];
-                            if (opponentSocket) {
-                                io.to(opponentSocket).emit('opponentDisconnected');
-                            }
-
+                            await withLobbyLock(lobbyId, async () => {
+                                const current = await Redis.getGame(lobbyId);
+                                if (!current || current.finished || current.playerSockets[disconnectedIdx] !== socket.id) return;
+                                current.playerSockets[disconnectedIdx] = null;
+                                current.presence = current.presence || { disconnectedAt: [null, null] };
+                                current.presence.disconnectedAt[disconnectedIdx] = Date.now();
+                                await Redis.saveGame(lobbyId, current);
+                                await updatePresenceDeadline(lobbyId, current);
+                                io.to(lobbyId).emit('opponentDisconnected');
+                            });
                         }
                     }
                 }
@@ -4309,99 +3962,51 @@ io.on('connection', (socket) => {
     });
 });
 
-async function acquireGameLock(lobbyId) {
-    let attempts = 0;
-    let locked = false;
-    while (attempts < 10) {
-        locked = await Redis.acquireLock(lobbyId);
-        if (locked) break;
-        attempts++;
-        await sleep(50);
-    }
-    return locked;
+function present(game, idx) {
+    return botManager.isBotSlot(game, idx) || !!io.sockets.sockets.get(game.playerSockets[idx]);
 }
 
-// Новый асинхронный хендлер для завершения игры (Disconnect Timeout)
+async function updatePresenceDeadline(lobbyId, game) {
+    const missing = [0, 1].filter(i => !present(game, i));
+    if (!missing.length) { await Redis.clearDisconnectTimer(lobbyId); return; }
+    game.presence = game.presence || { disconnectedAt: [null, null] };
+    for (const i of missing) if (!game.presence.disconnectedAt[i]) game.presence.disconnectedAt[i] = Date.now();
+    const grace = Clock.ensure(game).enabled ? 30000 : 120000;
+    let until;
+    if (missing.length === 2) {
+        game.abandonedAt = game.abandonedAt || Date.now();
+        until = Clock.deadline(game) ?? game.abandonedAt + 24 * 60 * 60 * 1000;
+    } else until = game.presence.disconnectedAt[missing[0]] + grace;
+    await Redis.saveGame(lobbyId, game);
+    await Redis.setDisconnectTimer(lobbyId, Math.max(0, until - Date.now()));
+}
+
 async function handleDisconnectTimeout(lobbyId) {
-    const locked = await acquireGameLock(lobbyId);
-    if (!locked) return;
-
-    try {
+    return withLobbyLock(lobbyId, async () => {
         const game = await Redis.getGame(lobbyId);
-        if (!game || game.finished === true) {
-            // Stale-таймер: игра уже удалена/не существует или завершена.
-            // Очищаем мусор из ZSET, иначе пульс будет дёргать это лобби каждую секунду.
-            await Redis.clearDisconnectTimer(lobbyId);
-            await Redis.clearTurnTimeout(lobbyId);
-            if (!game) await Redis.removeActiveGame(lobbyId);
-            return;
+        if (!game || game.finished) { await Redis.clearDisconnectTimer(lobbyId); return; }
+        if (Clock.expired(game, Date.now())) return finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
+        const a = present(game, 0), b = present(game, 1);
+        if (a && b) return Redis.clearDisconnectTimer(lobbyId);
+        if (!a && !b) {
+            if (game.abandonedAt && Date.now() - game.abandonedAt >= 86400000) return finalizeGame(lobbyId, -1, 'Abandoned');
+            return updatePresenceDeadline(lobbyId, game);
         }
-
-        console.log(`[GAME TIMEOUT] Player took too long to reconnect. Ending game ${lobbyId}.`);
-        const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
-        const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
-
-        let winnerIdx = -1;
-        if (s0 && !s1) winnerIdx = 0;
-        else if (s1 && !s0) winnerIdx = 1;
-
-        if (winnerIdx !== -1) {
-            await finalizeGame(lobbyId, winnerIdx, 'Opponent disconnected');
-        } else {
-            // Edge case: no winner detected? Should clean up anyway.
-            // Original logic just cleaned up.
-            await Redis.deleteGame(lobbyId);
-            await Redis.removeActiveGame(lobbyId);
-            await clearPlayersLobbyLinkByToken(game.playerTokens);
-            await Redis.clearDisconnectTimer(lobbyId);
-            await Redis.clearTurnTimeout(lobbyId);
-        }
-    } finally {
-        await Redis.releaseLock(lobbyId);
-    }
+        const missing = a ? 1 : 0;
+        const since = game.presence?.disconnectedAt[missing] ?? Date.now();
+        const grace = Clock.ensure(game).enabled ? 30000 : 120000;
+        if (Date.now() - since < grace) return updatePresenceDeadline(lobbyId, game);
+        return finalizeGame(lobbyId, a ? 0 : 1, 'Opponent disconnected');
+    });
 }
 
-// Новый асинхронный хендлер для завершения игры (Turn Timeout)
 async function handleTurnTimeout(lobbyId) {
-    const locked = await acquireGameLock(lobbyId);
-    if (!locked) return;
-
-    try {
+    return withLobbyLock(lobbyId, async () => {
         const game = await Redis.getGame(lobbyId);
-
-        if (!game) {
-            // Game data expired or missing - cleanup stale references
-            await Redis.removeActiveGame(lobbyId);
-            await Redis.clearTurnTimeout(lobbyId);
-            await Redis.clearDisconnectTimer(lobbyId);
-            console.log(`[TIMEOUT] Cleaned stale lobby ${lobbyId}`);
-            return;
-        }
-
-        if (game.finished === true) {
-            await Redis.clearTurnTimeout(lobbyId);
-            await Redis.clearDisconnectTimer(lobbyId);
-            return;
-        }
-
-        // Перепроверяем дедлайн по авторитетным часам в игре, чтобы отсечь
-        // ложные срабатывания: ZSET-дедлайн мог протухнуть (пауза на дисконнект,
-        // конкуренция с ходом), хотя по таймерам время ещё не истекло.
-        const deadline = game.lastMoveTimestamp + game.timers[game.currentPlayer] * 1000;
-        if (Date.now() < deadline) {
-            // Само-починка: записываем актуальный дедлайн в ZSET, чтобы пульс
-            // не дёргал этот лобби повторно по протухшему значению.
-            await Redis.setTurnTimeout(lobbyId, deadline);
-            console.log(`[TIMEOUT] Лобби ${lobbyId}: дедлайн не истёк (stale ZSET), пропускаем.`);
-            return;
-        }
-
-        console.log(`[TIMEOUT] Лобби ${lobbyId}: Время истекло.`);
-        const winnerIdx = 1 - game.currentPlayer;
-        await finalizeGame(lobbyId, winnerIdx, 'Time out');
-    } finally {
-        await Redis.releaseLock(lobbyId);
-    }
+        if (!game || game.finished) { await Redis.clearTurnTimeout(lobbyId); return; }
+        if (Clock.expired(game, Date.now())) return finalizeGame(lobbyId, 1 - game.currentPlayer, 'Time out');
+        await scheduleClock(lobbyId, game);
+    });
 }
 
 // --- ARCHIVE HELPER ---
@@ -4493,7 +4098,7 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
         if (u1) await u1.save();
 
 
-        let gameType = game.timeControl ? (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid') : 'friend';
+        let gameType = game.gameMode === 'friend' || !game.timeControl ? 'friend' : (game.timeControl.base <= 120 ? 'bullet' : game.timeControl.base <= 420 ? 'blitz' : 'rapid');
         if (game.hasBot) gameType = 'bot';
 
         const result = new GameResult({
@@ -4507,7 +4112,10 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
             reason,
             turns: Math.ceil((game.history?.length || 0) / 2),
             history: game.history || [],
-            date: new Date()
+            date: new Date(),
+            startedAt: game.startedAt ? new Date(game.startedAt) : null,
+            finalClock: Clock.snapshot(game, Date.now()),
+            participantTokenHashes: game.playerTokens.map(token => crypto.createHash('sha256').update(token).digest('hex'))
         });
 
         await result.save();
@@ -4531,7 +4139,22 @@ async function archiveGame(game, winnerIdx, reason, lobbyId) {
  */
 async function resendGameOverIfFinished(socket, lobbyId, gameData) {
     const source = gameData || await Redis.getFinishedGame(lobbyId);
-    if (!source || !Array.isArray(source.playerTokens)) return false;
+    if (!source || !Array.isArray(source.playerTokens)) {
+        const query = GameResult.findOne({ lobbyId });
+        const archived = await (query?.select ? query.select('+participantTokenHashes') : query);
+        if (!archived) return false;
+        const uid = socket.userId && String(socket.userId);
+        const hash = crypto.createHash('sha256').update(socket.playerToken || '').digest('hex');
+        const hashes = archived.participantTokenHashes || [];
+        const allowed = (uid && [archived.playerWhite?.id, archived.playerBlack?.id].some(id => id && String(id) === uid)) || hashes.includes(hash);
+        if (!allowed) return false;
+        const myPlayerIndex = hashes.includes(hash) ? hashes.indexOf(hash) :
+            [archived.playerWhite?.id, archived.playerBlack?.id].findIndex(id => id && String(id) === uid);
+        socket.emit('gameOver', { lobbyId, winnerIdx: archived.winner, reason: archived.reason, gameResultId: archived._id,
+            myPlayerIndex, profiles: [archived.playerWhite, archived.playerBlack],
+            clock: archived.finalClock || null, timeControl: archived.timeControl, revision: archived.finalClock?.revision || 0 });
+        return true;
+    }
     if (!source.playerTokens.includes(socket.playerToken)) return false;
 
     let endResult = source.endResult || null;
@@ -4559,17 +4182,24 @@ async function resendGameOverIfFinished(socket, lobbyId, gameData) {
     if (!endResult) return false;
 
     socket.emit('gameOver', {
+        lobbyId,
+        myPlayerIndex: source.playerTokens.indexOf(socket.playerToken), profiles: source.playerProfiles,
         winnerIdx: endResult.winnerIdx ?? -1,
         reason: endResult.reason || 'unknown',
         gameResultId: endResult.gameResultId || null,
         hasBot: !!source.hasBot,
-        ratingChanges: endResult.ratingChanges || null
+        ratingChanges: endResult.ratingChanges || null,
+        ...Clock.payload(source, Date.now())
     });
     return true;
 }
 
 // Unified Game End Handler
 async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
+    return withLobbyLock(lobbyId, () => finalizeGameLocked(lobbyId, winnerIdx, reason, stateOverride));
+}
+
+async function finalizeGameLocked(lobbyId, winnerIdx, reason, stateOverride = null) {
     const game = stateOverride || await Redis.getGame(lobbyId);
 
     if (!game || game.finished === true) return;
@@ -4577,6 +4207,10 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
     // Идемпотентность: помечаем игру завершённой ДО долгих операций (архивация в БД),
     // чтобы конкурентный таймаут/дисконнект/двойной ход не заархивировал игру повторно
     // и не пересчитал рейтинг дважды (с разными победителями), обнуляя начисленные очки.
+    if (reason !== 'Goal reached' && Clock.expired(game, Date.now())) {
+        winnerIdx = 1 - game.currentPlayer; reason = 'Time out';
+    }
+    Clock.stop(game, reason === 'Goal reached' ? Clock.ensure(game).startedAt : Date.now());
     game.finished = true;
     await Redis.saveGame(lobbyId, game);
 
@@ -4606,15 +4240,18 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
         winnerIdx: winnerIdx,
         reason: reason,
         gameResultId: resultData?.gameResultId || null,
-        ratingChanges: ratingChanges
+        ratingChanges: ratingChanges,
+        ...Clock.payload(game, Date.now())
     };
 
     io.to(lobbyId).emit('gameOver', {
+        lobbyId,
+        state: publicGameState(game),
         winnerIdx: winnerIdx,
         reason: reason,
         gameResultId: resultData?.gameResultId || null,
         hasBot: !!game.hasBot,
-        ratingChanges: ratingChanges
+        ...game.endResult
     });
 
     // Save rematch context before deleting game data
@@ -4627,6 +4264,7 @@ async function finalizeGame(lobbyId, winnerIdx, reason, stateOverride = null) {
             return s && s.userId ? String(s.userId) : null;
         }),
         timeControl: game.timeControl || { base: 600, inc: 0 },
+        gameMode: game.gameMode || (game.isRanked ? 'ranked' : 'normal'),
         isRanked: !!game.isRanked,
         hasBot: !!game.hasBot,
         pending: [],
@@ -4683,11 +4321,11 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
     gameState.playerProfiles[0] = rematchCtx.playerProfiles[swap ? 1 : 0];
     gameState.playerProfiles[1] = rematchCtx.playerProfiles[swap ? 0 : 1];
 
+    prepareNewGame(gameState, rematchCtx.gameMode);
     await Redis.saveGame(lobbyId, gameState);
     await Redis.addActiveGame(lobbyId);
 
-    const timeoutAt = Date.now() + gameState.timers[0] * 1000;
-    await Redis.setTurnTimeout(lobbyId, timeoutAt);
+    await scheduleClock(lobbyId, gameState);
 
     await linkPlayersToLobbyByToken([p1.token, p2.token], lobbyId);
 
@@ -4700,7 +4338,7 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
         color: 'white',
         opponent: gameState.playerProfiles[1],
         me: gameState.playerProfiles[0],
-        initialTime: gameState.timers[0]
+        ...Clock.payload(gameState, Date.now())
     });
     s2.emit('rematchStarted', {
         lobbyId,
@@ -4708,7 +4346,7 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
         color: 'black',
         opponent: gameState.playerProfiles[0],
         me: gameState.playerProfiles[1],
-        initialTime: gameState.timers[1]
+        ...Clock.payload(gameState, Date.now())
     });
 
     console.log(`[REMATCH] New game ${lobbyId} from rematch of ${oldLobbyId}`);
@@ -4716,69 +4354,40 @@ async function startRematchGame(oldLobbyId, rematchCtx) {
 
 const PORT = process.env.PORT || 3000;
 
-// Оптимизированный интервал проверки таймеров (не в тестах)
-if (process.env.NODE_ENV !== 'test') setInterval(async () => {
+let pulseRunning = false;
+const lastGameTouch = new Map();
+async function runGamePulse() {
+    if (pulseRunning || !server.listening) return;
+    pulseRunning = true;
     try {
-        // 1. Проверяем просроченные дисконнекты
-        const expiredDisconnects = await Redis.getExpiredDisconnectTimers();
-        for (const lobbyId of expiredDisconnects) {
-            await handleDisconnectTimeout(lobbyId);
-        }
-
-        // 2. Проверяем просроченные ходы
-        const expiredTurns = await Redis.getExpiredTurnTimeouts();
-        for (const lobbyId of expiredTurns) {
-            await handleTurnTimeout(lobbyId);
-        }
-
-        // 3. Синхронизация таймеров и проверка коннекта
-        const now = Date.now();
-        const gameIds = await Redis.getActiveGameIds();
-        for (const lobbyId of gameIds) {
-            const game = await Redis.getGame(lobbyId);
-            if (!game) continue;
-
-            const s0 = botManager.isBotSlot(game, 0) ? true : io.sockets.sockets.get(game.playerSockets[0]);
-            const s1 = botManager.isBotSlot(game, 1) ? true : io.sockets.sockets.get(game.playerSockets[1]);
-
-            // Если кто-то отсутствует
-            if (!s0 || !s1) {
-                if (!(await Redis.hasDisconnectTimer(lobbyId))) {
-                    console.log(`[PULSE] Lobby ${lobbyId}: Player(s) missing. Starting grace period.`);
-                    await Redis.setDisconnectTimer(lobbyId, 30000);
-                    await Redis.clearTurnTimeout(lobbyId);
+        for (const id of await Redis.getExpiredTurnTimeouts()) await handleTurnTimeout(id);
+        for (const id of await Redis.getExpiredDisconnectTimers()) await handleDisconnectTimeout(id);
+        for (const id of await Redis.getActiveGameIds()) {
+            await withLobbyLock(id, async () => {
+                const game = await Redis.getGame(id);
+                if (!game) { await Redis.removeActiveGame(id); await Redis.clearTurnTimeout(id); await Redis.clearDisconnectTimer(id); lastGameTouch.delete(id); return; }
+                if (game.finished) return;
+                if (Clock.expired(game, Date.now())) return finalizeGame(id, 1 - game.currentPlayer, 'Time out');
+                const missing = !present(game, 0) || !present(game, 1);
+                if (missing && !(await Redis.hasDisconnectTimer(id))) await updatePresenceDeadline(id, game);
+                else if (!missing) await Redis.clearDisconnectTimer(id);
+                if (!missing && Date.now() - (lastGameTouch.get(id) || 0) > 60000) {
+                    await Redis.saveGame(id, game);
+                    for (let i = 0; i < 2; i++) {
+                        const playerSocket = io.sockets.sockets.get(game.playerSockets[i]);
+                        if (playerSocket?.userId) await Redis.setTokenUserMapping(game.playerTokens[i], playerSocket.userId);
+                    }
+                    await linkPlayersToLobbyByToken(game.playerTokens, id);
+                    lastGameTouch.set(id, Date.now());
                 }
-                continue;
-            }
-
-            // Если оба на месте, но висел таймер дисконнекта - возобновляем
-            if (await Redis.hasDisconnectTimer(lobbyId)) {
-                console.log(`[PULSE] Lobby ${lobbyId}: All players reconnected. Resuming game.`);
-                await Redis.clearDisconnectTimer(lobbyId);
-
-                // Возобновляем таймер хода
-                const nextTimeoutAt = Date.now() + game.timers[game.currentPlayer] * 1000;
-                await Redis.setTurnTimeout(lobbyId, nextTimeoutAt);
-
-                // Сбрасываем метку последнего хода на "сейчас", чтобы время не "утекло" за время паузы
-                game.lastMoveTimestamp = Date.now();
-                await Redis.saveGame(lobbyId, game);
-
-                io.to(lobbyId).emit('opponentReconnected');
-            }
-
-            // Обычный пульс времени
-            const activeIdx = game.currentPlayer;
-            const elapsed = Math.floor((now - game.lastMoveTimestamp) / 1000);
-            const currentTimers = [...game.timers];
-            currentTimers[activeIdx] -= elapsed;
-
-            io.to(lobbyId).emit('timerUpdate', { timers: currentTimers });
+                io.to(id).emit('timerUpdate', { lobbyId: id, ...Clock.payload(game, Date.now()) });
+                botManager.scheduleMoveIfNeeded(id, game);
+            });
         }
-    } catch (err) {
-        console.error('[TIMER TICK ERROR]', err);
-    }
-}, 1000);
+    } catch (err) { console.error('[CLOCK PULSE]', err); }
+    finally { pulseRunning = false; }
+}
+if (process.env.NODE_ENV !== 'test') setInterval(runGamePulse, 1000);
 
 // Broadcast online stats to all clients every 5 seconds (не в тестах)
 if (process.env.NODE_ENV !== 'test') setInterval(() => {
@@ -4791,52 +4400,31 @@ if (process.env.NODE_ENV !== 'test') setInterval(() => {
  * Удаляет игры, у которых оба игрока offline (нет активных сокетов).
  */
 async function cleanupStaleGames() {
-    try {
-        const activeGameIds = await Redis.getActiveGameIds();
-        console.log(`[Startup] Checking ${activeGameIds.length} active games for stale entries...`);
-
-        let cleaned = 0;
-        for (const lobbyId of activeGameIds) {
-            const game = await Redis.getGame(lobbyId);
-
-            if (!game) {
-                // Игра не существует, но есть в Set — удаляем из Set
-                await Redis.removeActiveGame(lobbyId);
-                cleaned++;
-                continue;
-            }
-
-            const whiteSock = game.playerSockets?.[0];
-            const blackSock = game.playerSockets?.[1];
-
-            // Проверяем, есть ли эти сокеты среди активных подключений
-            const whiteAlive = botManager.isBotSlot(game, 0) || (whiteSock && io.sockets.sockets.has(whiteSock));
-            const blackAlive = botManager.isBotSlot(game, 1) || (blackSock && io.sockets.sockets.has(blackSock));
-
-            if (!whiteAlive && !blackAlive) {
-                // Оба игрока offline — удаляем игру полностью
-                await Redis.deleteGame(lobbyId);
-                await Redis.removeActiveGame(lobbyId);
-                await Redis.clearDisconnectTimer(lobbyId);
-                await Redis.clearTurnTimeout(lobbyId);
-
-                // Очищаем маппинг токенов
-                await clearPlayersLobbyLinkByToken(game.playerTokens);
-
-                console.log(`[Startup] Cleaned stale game: ${lobbyId}`);
-                cleaned++;
-            }
-        }
-
-        console.log(`[Startup] Cleanup complete. Removed ${cleaned} stale games.`);
-    } catch (err) {
-        console.error('[Startup] Error during stale game cleanup:', err);
+    // Old socket IDs are never evidence that a persisted game is disposable.
+    for (const id of await Redis.getActiveGameIds()) {
+        await withLobbyLock(id, async () => {
+            const game = await Redis.getGame(id);
+            if (!game) { await Redis.removeActiveGame(id); await Redis.clearTurnTimeout(id); await Redis.clearDisconnectTimer(id); return; }
+            if (game.finished) return;
+            game.playerSockets = [null, null];
+            game.presence = { disconnectedAt: [Date.now(), Date.now()] };
+            await Redis.saveGame(id, game);
+            await scheduleClock(id, game);
+            await updatePresenceDeadline(id, game);
+            botManager.scheduleMoveIfNeeded(id, game);
+        });
     }
 }
 
 async function startServer() {
     try {
         await connectDB();
+        const notificationPulse = async () => {
+            try { await notificationService.drain(); await notificationService.deliverEmails(); }
+            catch (_) { console.error('[NOTIFICATION] Background delivery deferred'); }
+        };
+        notificationPulse();
+        setInterval(notificationPulse, 15000).unref();
 
         await Redis.connect();
 
@@ -4847,15 +4435,15 @@ async function startServer() {
         console.log('[STARTUP] Loaded bot settings from MongoDB');
 
         // Очистка зомби-игр при старте (удаляет только игры с обоими offline игроками)
-        await cleanupStaleGames();
-        console.log('[STARTUP] Cleaned stale games. Preserving active games with online players.');
+
 
         // Sync all bot population (120 bots)
         const popResult = await syncBotPopulation(User);
         console.log(`[POPULATION] Synced bot population: created=${popResult.created} updated=${popResult.updated}`);
 
         // Recalculate bot ratings from actual game history
-        await recalculateBotRatings();
+        // Rating maintenance is best effort at startup; the admin operation reports failures.
+        await recalculateBotRatings().catch(err => console.error('[STARTUP] Bot rating maintenance failed:', err.message));
 
         // Initialize bot presence manager for realistic online/offline
         const allBotDocs = await User.find({ isBot: true }).select('_id username');
@@ -4870,6 +4458,7 @@ async function startServer() {
         // Запускаем HTTP сервер
         const port = process.env.PORT || 3000;
         const env = process.env.NODE_ENV || 'development';
+        await cleanupStaleGames();
         server.listen(port, '0.0.0.0', async () => {
             log.server('Server started on port %d (env=%s)', port, env);
 
@@ -4899,7 +4488,7 @@ process.on('SIGINT', async () => {
 });
 
 // Экспорт для тестов
-module.exports = { app, server, io, startServer, clearSessionVersionCache, clearLeaderboardCache, clearSitemapCache };
+module.exports = { app, server, io, startServer, clearSessionVersionCache, clearLeaderboardCache, clearSitemapCache, runGamePulse, cleanupStaleGames, applyGameMove, resumeGame, handleTurnTimeout, handleDisconnectTimeout, applyPersistedBotSettings };
 
 // Запуск (если не тесты)
 if (process.env.NODE_ENV !== 'test') {

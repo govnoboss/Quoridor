@@ -77,6 +77,9 @@ const UI = {
       theme_dark: "Тёмная",
       label_lang: "Язык:",
       label_sound: "Звук:",
+      room_time_label: "Время на партию", room_time_none: "Без таймера", room_time_1: "1 минута каждому",
+      room_time_3: "3 минуты каждому", room_time_5: "5 минут каждому", room_time_10: "10 минут каждому",
+      room_time_hint: "Время каждому на всю партию, без добавления.",
       sound_on: "Вкл",
       sound_off: "Выкл",
       btn_save: "Сохранить",
@@ -431,6 +434,9 @@ const UI = {
       theme_dark: "Dark",
       label_lang: "Language:",
       label_sound: "Sound:",
+      room_time_label: "Time control", room_time_none: "No time limit", room_time_1: "1 minute per player",
+      room_time_3: "3 minutes per player", room_time_5: "5 minutes per player", room_time_10: "10 minutes per player",
+      room_time_hint: "Time is for the whole game, without increment.",
       sound_on: "On",
       sound_off: "Off",
       btn_save: "Save",
@@ -802,10 +808,13 @@ const UI = {
   },
   showModeSelect() { this.showScreen('modeScreen'); },
   showRoomScreen() {
-    this.showInfoPanel('panelRoom');
+    this.showDynamicPanel('panelRoom');
     document.getElementById('roomCodeDisplay').classList.add('hidden');
     document.getElementById('createRoomBtn').classList.remove('hidden');
     document.getElementById('roomCodeInput').value = '';
+    this.currentRoomCode = null;
+    document.getElementById('roomTimeControl').disabled = false;
+    document.getElementById('roomSettingsSummary').textContent = '';
   },
   backToMenu() {
     // Уход в меню должен завершить активную партию, иначе её таймер продолжит тикать
@@ -868,7 +877,7 @@ const UI = {
 
   onPlayFriendClick() {
     trackEvent('play-friend-click');
-    this.showDynamicPanel('panelRoom');
+    this.showRoomScreen();
   },
 
   onPlayLocalClick() {
@@ -892,10 +901,7 @@ const UI = {
       panel.classList.remove('hidden');
       container.classList.remove('empty');
 
-      // Auto-create room when opening panelRoom (only if autoCreate is true and no code exists)
-      if (panelId === 'panelRoom' && autoCreate && !this.currentRoomCode) {
-        this.createPrivateRoom();
-      }
+      // Room settings are chosen before the server allocates a code.
 
       // Фокус: запоминаем вызвавший элемент, переносим фокус в окно (a11y).
       this.lastFocusedElement = document.activeElement;
@@ -1499,257 +1505,22 @@ const UI = {
 
   // --- NOTIFICATION BELL ---
   notifications: [],
-
-  toggleNotifications(event) {
-    if (event) event.stopPropagation();
-    const dropdown = document.getElementById('notifDropdown');
-    if (dropdown) dropdown.classList.toggle('hidden');
-    if (!dropdown.classList.contains('hidden')) {
-      this.renderNotifications();
-    }
-  },
-
-  closeNotifications(event) {
-    const dropdown = document.getElementById('notifDropdown');
-    const bell = document.getElementById('notificationBell');
-    if (!dropdown || dropdown.classList.contains('hidden')) return;
-    if (bell && bell.contains(event.target)) return;
-    if (dropdown && !dropdown.contains(event.target)) {
-      dropdown.classList.add('hidden');
-    }
-  },
-
-  loadNotifications(notifications) {
-    this.notifications = notifications || [];
-    this.updateNotifBadge();
-  },
-
-  addNotification(notif) {
-    this.notifications.unshift(notif);
-    this.updateNotifBadge();
-    this.renderNotifications();
-  },
-
-  renderNotifications() {
-    const list = document.getElementById('notifList');
-    const empty = document.getElementById('notifEmpty');
-    if (!list) return;
-    list.innerHTML = '';
-    if (this.notifications.length === 0) {
-      if (empty) empty.classList.remove('hidden');
-      return;
-    }
-    if (empty) empty.classList.add('hidden');
-    this.notifications.slice(0, 20).forEach(n => {
-      const item = this.renderNotificationItem(n);
-      list.appendChild(item);
-    });
-  },
-
-  renderNotificationItem(notif) {
-    const item = document.createElement('div');
-    item.className = 'notif-item' + (notif.read ? '' : ' unread');
-    item.dataset.id = notif._id;
-
-    const iconMap = {
-      friend_request: '👤',
-      friend_request_accepted: '✅',
-      game_invite: '🎮',
-      rematch_request: '🔄',
-      admin_message: '📢',
-      bug_report_update: '📋'
-    };
-    const iconClassMap = {
-      friend_request: 'friend',
-      friend_request_accepted: 'friend',
-      game_invite: 'game',
-      rematch_request: 'game',
-      admin_message: 'admin',
-      bug_report_update: 'admin'
-    };
-
-    const iconDiv = document.createElement('div');
-    iconDiv.className = 'notif-icon ' + (iconClassMap[notif.type] || '');
-    iconDiv.textContent = iconMap[notif.type] || '🔔';
-
-    const bodyDiv = document.createElement('div');
-    bodyDiv.className = 'notif-body';
-
-    const titleSpan = document.createElement('div');
-    titleSpan.className = 'notif-title';
-    titleSpan.textContent = notif.title;
-
-    const timeSpan = document.createElement('div');
-    timeSpan.className = 'notif-time';
-    const diff = Date.now() - new Date(notif.createdAt).getTime();
-    if (diff < 60000) timeSpan.textContent = 'just now';
-    else if (diff < 3600000) timeSpan.textContent = Math.floor(diff / 60000) + 'm ago';
-    else if (diff < 86400000) timeSpan.textContent = Math.floor(diff / 3600000) + 'h ago';
-    else timeSpan.textContent = new Date(notif.createdAt).toLocaleDateString();
-
-    bodyDiv.appendChild(titleSpan);
-    bodyDiv.appendChild(timeSpan);
-
-    if (notif.body) {
-      const bodySpan = document.createElement('div');
-      bodySpan.className = 'notif-body-text';
-      bodySpan.textContent = notif.body;
-      bodyDiv.appendChild(bodySpan);
-    }
-
-    if (!notif.read) {
-      item.addEventListener('click', () => {
-        this.markNotifRead(notif._id);
-      });
-    }
-
-    if (notif.type === 'admin_message' && notif.data && notif.data.reportId && !notif.read) {
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'notif-actions';
-      actionsDiv.style.flexDirection = 'column';
-      actionsDiv.style.gap = '4px';
-      const replyArea = document.createElement('div');
-      replyArea.style.display = 'none';
-      const replyInput = document.createElement('textarea');
-      replyInput.placeholder = 'Write a reply...';
-      replyInput.style.cssText = 'width:100%;box-sizing:border-box;min-height:50px;background:#222;color:#fff;border:1px solid #444;border-radius:4px;padding:6px;resize:vertical;font-size:12px;font-family:inherit';
-      const sendBtn = document.createElement('button');
-      sendBtn.className = 'notif-btn notif-btn-join';
-      sendBtn.textContent = 'Send';
-      sendBtn.style.cssText = 'margin-top:4px';
-      sendBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const text = replyInput.value.trim();
-        if (!text) return;
-        fetch('/api/reports/' + notif.data.reportId + '/reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text })
-        }).then(r => {
-          if (r.ok) {
-            replyInput.value = '';
-            replyArea.style.display = 'none';
-            UI.markNotifRead(notif._id);
-          }
-        }).catch(() => {});
-      });
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'notif-btn notif-btn-rematch';
-      toggleBtn.textContent = 'Reply';
-      toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        replyArea.style.display = replyArea.style.display === 'none' ? 'block' : 'none';
-      });
-      replyArea.appendChild(replyInput);
-      replyArea.appendChild(sendBtn);
-      actionsDiv.appendChild(toggleBtn);
-      actionsDiv.appendChild(replyArea);
-      bodyDiv.appendChild(actionsDiv);
-    }
-
-    if (notif.type === 'bug_report_update') {
-      item.addEventListener('click', () => {
-        window.location.href = '/admin/reports';
-      });
-    }
-
-    if (notif.type === 'friend_request' && !notif.read) {
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'notif-actions';
-      const acceptBtn = document.createElement('button');
-      acceptBtn.className = 'notif-btn notif-btn-accept';
-      acceptBtn.textContent = UI.translate('friends_btn_accept');
-      acceptBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        UI.acceptFriend(notif.data.requesterId);
-        UI.markNotifRead(notif._id);
-      });
-      const declineBtn = document.createElement('button');
-      declineBtn.className = 'notif-btn notif-btn-decline';
-      declineBtn.textContent = UI.translate('friends_btn_decline');
-      declineBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        UI.declineFriend(notif.data.requesterId);
-        UI.markNotifRead(notif._id);
-      });
-      actionsDiv.appendChild(acceptBtn);
-      actionsDiv.appendChild(declineBtn);
-      bodyDiv.appendChild(actionsDiv);
-    }
-
-    if (notif.type === 'game_invite' && !notif.read) {
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'notif-actions';
-      const joinBtn = document.createElement('button');
-      joinBtn.className = 'notif-btn notif-btn-join';
-      joinBtn.textContent = UI.translate('friends_btn_join');
-      joinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        Net.socket.emit('acceptGameInvite', { fromId: notif.data.requesterId });
-        UI.markNotifRead(notif._id);
-      });
-      actionsDiv.appendChild(joinBtn);
-      bodyDiv.appendChild(actionsDiv);
-    }
-
-    if (notif.type === 'rematch_request' && !notif.read) {
-      const actionsDiv = document.createElement('div');
-      actionsDiv.className = 'notif-actions';
-      const rematchBtn = document.createElement('button');
-      rematchBtn.className = 'notif-btn notif-btn-rematch';
-      rematchBtn.textContent = UI.translate('btn_rematch');
-      rematchBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        Net.requestRematch(notif.data && notif.data.gameId);
-        UI.markNotifRead(notif._id);
-      });
-      actionsDiv.appendChild(rematchBtn);
-      bodyDiv.appendChild(actionsDiv);
-    }
-
-    item.appendChild(iconDiv);
-    item.appendChild(bodyDiv);
-    return item;
-  },
-
-  markNotifRead(id) {
-    fetch('/api/notifications/' + id + '/read', { method: 'PATCH' }).catch(() => {});
-    const item = document.querySelector('.notif-item[data-id="' + id + '"]');
-    if (item) {
-      item.classList.remove('unread');
-      item.querySelectorAll('.notif-actions').forEach(el => el.remove());
-    }
-    const notif = this.notifications.find(n => n._id === id);
-    if (notif) notif.read = true;
-    this.updateNotifBadge();
-  },
-
-  markAllNotifRead() {
-    fetch('/api/notifications/read-all', { method: 'PATCH' }).catch(() => {});
-    document.querySelectorAll('.notif-item.unread').forEach(el => {
-      el.classList.remove('unread');
-      el.querySelectorAll('.notif-actions').forEach(a => a.remove());
-    });
-    this.notifications.forEach(n => n.read = true);
-    this.updateNotifBadge();
-  },
-
-  updateNotifBadge() {
-    const badge = document.getElementById('notifBadge');
-    const bell = document.getElementById('notificationBell');
-    if (!badge || !bell) return;
-    const unread = this.notifications.filter(n => !n.read).length;
-    if (unread > 0) {
-      badge.textContent = unread > 99 ? '99+' : unread;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
-    }
-  },
+  toggleNotifications(event) { if (event) event.stopPropagation(); window.PQNotifications?.toggle(); },
+  closeNotifications(event) { window.PQNotifications?.close(event); },
+  loadNotifications() { window.PQNotifications?.refresh().catch(() => {}); },
+  addNotification() { window.PQNotifications?.refresh().catch(() => {}); },
+  renderNotifications() {},
+  markNotifRead(id) { return window.PQNotifications?.markRead(id); },
+  markAllNotifRead() { return window.PQNotifications?.markAll(); },
+  updateNotifBadge() {},
 
   // --- DISCONNECT OVERLAY ---
-  showDisconnectOverlay() {
+  showDisconnectOverlay(recovering = false) {
     const el = document.getElementById('disconnectModal');
+    const ru = (localStorage.getItem('quoridor-lang') || 'en') === 'ru';
+    el.querySelector('.disconnect-title').textContent = recovering ? (ru ? 'Восстановление игры' : 'Recovering game') : this.translate('disconnect_title');
+    el.querySelector('.disconnect-msg').innerHTML = recovering ?
+      (ru ? 'Соединение потеряно. Ходы будут доступны после восстановления.' : 'Connection lost. Moves will be available after recovery.') : this.translate('disconnect_msg');
     el.classList.remove('hidden');
   },
 
@@ -1760,15 +1531,20 @@ const UI = {
 
   // --- PRIVATE ROOMS ---
   createPrivateRoom() {
-    Net.createRoom();
+    const value = document.getElementById('roomTimeControl').value;
+    Net.createRoom(value === 'untimed' ? { mode: 'untimed' } : { mode: 'timed', base: Number(value), inc: 0 });
   },
 
-  onRoomCreated(code) {
+  onRoomCreated(code, timeControl) {
     trackEvent('room-created');
     this.currentRoomCode = code;
     document.getElementById('createRoomBtn').classList.add('hidden');
     document.getElementById('roomCodeDisplay').classList.remove('hidden');
     document.getElementById('roomCodeValue').textContent = code;
+    document.getElementById('roomTimeControl').disabled = true;
+    const ru = (localStorage.getItem('quoridor-lang') || 'en') === 'ru';
+    document.getElementById('roomSettingsSummary').textContent = timeControl?.mode === 'untimed' ?
+      (ru ? 'Без таймера' : 'No time limit') : (timeControl?.base / 60) + (ru ? ' мин каждому · без добавления' : ' min per player · no increment');
 
     // Update link display
     const link = window.location.origin + window.location.pathname + '?room=' + code;
@@ -1829,7 +1605,6 @@ const UI = {
     if (!code) return;
     document.getElementById('joinRoomBtn').disabled = true;
     Net.joinRoom(code);
-    trackEvent('room-joined');
   },
 
   hideRoomJoining() {
@@ -2539,22 +2314,13 @@ UI.updateAuthUI = function () {
     if (notifBell) notifBell.classList.add('hidden');
     if (adminLink) adminLink.classList.add('hidden');
     if (navAuthMobile) navAuthMobile.classList.remove('hidden');
+    window.PQNotifications?.setAuthenticated(false);
     this.notifications = [];
     this.updateNotifBadge();
   }
 };
 
-UI.loadNotificationsFromServer = function () {
-  fetch('/api/notifications')
-    .then(res => res.json())
-    .then(data => {
-      if (Array.isArray(data)) {
-        this.loadNotifications(data);
-        this.renderNotifications();
-      }
-    })
-    .catch(() => {});
-};
+UI.loadNotificationsFromServer = function () { window.PQNotifications?.setAuthenticated(Boolean(this.currentUser)); };
 
 // Рейтинг в шапке игры показываем только в рейтинговых партиях
 UI.isRankedGame = function () {
@@ -3549,6 +3315,8 @@ UI.launchReplay = function (data) {
   this.showScreen('gameScreen');
   const gameData = {
     history: data.history || [],
+    timeControl: data.timeControl,
+    finalClock: data.finalClock,
     playerWhite: { username: data.playerProfiles?.[0]?.username || 'White' },
     playerBlack: { username: data.playerProfiles?.[1]?.username || 'Black' }
   };

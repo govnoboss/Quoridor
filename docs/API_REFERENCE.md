@@ -64,7 +64,7 @@ Redis store); protected routes return `401` when there is no session.
 | GET | `/api/profiles/:username/rating-history` | rating points over time (chart) |
 | GET | `/api/leaderboard` | ranked players (`stats.totalGames` included) |
 | GET | `/api/leaderboard/me` | leaderboard context for the current session user (rank around own position) |
-| GET | `/api/games/:id` | one archived game (result + history for replay) |
+| GET | `/api/games/:id` | archived result/history; v2 records include `timeControl.mode`, `startedAt`, `finalClock` and per-move clock snapshots. Private participant token hashes are excluded. |
 
 ## Friends
 
@@ -81,6 +81,7 @@ Redis store); protected routes return `401` when there is no session.
 | Method | Path |
 | --- | --- |
 | GET | `/api/notifications` |
+| GET/PATCH | `/api/notifications/preferences` |
 | PATCH | `/api/notifications/:id/read` |
 | PATCH | `/api/notifications/read-all` |
 | DELETE | `/api/notifications/:id` |
@@ -92,19 +93,33 @@ Redis store); protected routes return `401` when there is no session.
 | POST | `/api/reports` | bug report (rate-limited) |
 | GET | `/api/reports/:id` | report + replies (author or admin) |
 | POST | `/api/reports/:id/reply` | reply to a report |
+| POST | `/api/reports/:id/read` | acknowledge own report notifications through fetched cutoff |
 | GET | `/api/my/reports` | own reports |
 | POST | `/api/user-reports` | complain about a player (rate-limited) |
 
+Notification pagination/unread totals, reply idempotency/validation, ownership and
+opt-in email contracts: `AI_NOTIFICATIONS.md`.
+
 ## Analytics
+
+Product report v2: `GET /api/admin/product-metrics?days=1..30` (default 28, admin only,
+no-store). Returns current/previous full-day metrics, D1/D7/week-one cohorts, linked
+game/search outcomes, mode/platform segments and quality counts. Invalid days → 400;
+report size limit → 503; query failure → 500. Definitions: `AI_ANALYTICS.md`.
+Legacy `/api/admin/metrics` remains unchanged. CLI now delegates to the v2 calculator.
+
+Registration events are written by password/Google auth routes after creation (best effort, failures logged). Client registration events are ignored by ingest to prevent duplicates. Google auth returns `created: boolean` so Umami distinguishes registration from login. Batch metadata `deviceId`, `sessionId`, `platform` is accepted; per-event values take precedence. The whitelist includes `admin-metrics-viewed` and `room-join-failed`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
 | POST | `/api/analytics/events` | batch events `{ events: [...] }` (≤ 20), rate-limited (60/min). Accepted names come from the server whitelist `session-start`, `screen-view`, `register-click`, `register-complete`, `login-complete`, `play-online-click`, `play-friend-click`, `play-local-click`, `play-bot-click`, `search-started`, `search-matched`, `search-timeout`, `search-cancelled`, `search-fallback-to-bot`, `room-created`, `room-joined`, `room-link-copied`, `room-opened-via-link`, `game-started`, `game-finished`, `game-abandoned`, `rematch-click`, `net-latency`, `surrender-click`, `admin-metrics-viewed`); unknown names are dropped, oversized `props` are cleared. `userId` is taken from the session automatically. See `docs/AI_FRONTEND.md` §6 for which events also go to Umami |
 | GET | `/api/admin/metrics` | `?days=1..30` (default 7, `requireAdmin`): aggregates events by name, per day (`$dateToString`), active users, totals |
 
-Dashboard: `GET /admin/metrics` (admin page). CLI: `node scripts/retention_report.js` (D1/D3/D7 cohorts + funnel).
+Dashboard: `GET /admin/metrics` (admin page). CLI: `node scripts/retention_report.js [days]` (v2 full-day D1/D7 and days 1–7 return report).
 
 ## Admin (`requireAdmin`)
+
+Stage 1 reliability contracts and validation are in `AI_ADMIN.md` (deployed 2026-11-22; see `DEPLOY.md`). Bans increment the session version and server-disconnect all matching sockets; remembered banned tokens cannot resume/play. Bot settings GET is read-only and stored settings override environment defaults; PUT supports partial updates and validates JSON field types. Recalculation returns the actual update count or HTTP 500. Complaint updates distinguish in-progress/completion metadata, preserve omitted notes, accept optional non-negative integer `version` from the loaded card, return 409 on stale/concurrent changes and avoid duplicate no-op audit entries. Admin pages use `AdminAPI.fetch` for HTTP errors and repeated-submission protection.
 
 ### Bots
 - `GET /admin/bots` (page) · `GET /api/admin/bots`
@@ -116,6 +131,7 @@ Dashboard: `GET /admin/metrics` (admin page). CLI: `node scripts/retention_repor
 
 ### Users
 - `GET /api/admin/users` · `GET /api/admin/users/:id`
+  - List accepts optional `online=true` (deployed 2026-11-22): filters online accounts before pagination and total counting, and combines with the existing search/account filters.
 - `POST /api/admin/users/:id/ban` · `POST /api/admin/users/:id/unban`
 - `POST /api/admin/users/:id/rating` · `POST /api/admin/users/:id/delete`
 - `DELETE /api/admin/users/:id/avatar` · `PATCH /api/admin/users/:id/role`

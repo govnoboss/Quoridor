@@ -36,6 +36,8 @@ const Net = {
     init() {
         // 1. Пытаемся получить сохраненный токен
         this.playerToken = localStorage.getItem('quoridor_token');
+        this.lobbyId = localStorage.getItem('quoridor_active_lobby_v2');
+        this.isOnline = !!this.lobbyId;
         console.log('[NET] Local token:', this.playerToken || 'none');
 
         // 2. Подключаемся, передавая токен (если есть)
@@ -47,7 +49,8 @@ const Net = {
                 "ngrok-skip-browser-warning": "any-value"
             },
             auth: {
-                token: this.playerToken
+                token: this.playerToken,
+                clockVersion: 2
             }
         });
 
@@ -75,6 +78,8 @@ const Net = {
         // после grace-периода, равного серверному (setDisconnectTimer lobbyId=30000):
         // кратковременный разрыв обычно реконнектится и партия продолжается — событие отменяется.
         this.socket.on('disconnect', () => {
+            if (this.isOnline && this.lobbyId) { Game.isInputBlocked = true; UI.showDisconnectOverlay(true); }
+            this._recoveryPromise = null;
             clearTimeout(this._abandonGraceTimer);
             this._abandonGraceTimer = setTimeout(() => {
                 this._abandonGraceTimer = null;
@@ -92,10 +97,15 @@ const Net = {
             clearTimeout(this._abandonGraceTimer);
             this._abandonGraceTimer = null;
             // Пытаемся вернуться в игру при переподключении
-            this.socket.emit('rejoinGame', { token: this.playerToken });
+            if (this.isOnline && this.lobbyId) this.recoverGame();
+            else this.socket.emit('rejoinGame', { token: this.playerToken });
         });
 
         this.socket.on('gameStart', (data) => {
+            if (this.pendingRoomJoin) {
+                trackEvent('room-joined');
+                this.pendingRoomJoin = false;
+            }
             console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             const lobbyCode = data.lobbyCode || data.lobbyId;
 
@@ -105,8 +115,9 @@ const Net = {
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = lobbyCode;
+            localStorage.setItem('quoridor_active_lobby_v2', lobbyCode);
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
-            const gameMode = !data.initialTime ? 'friend' : (this.lastIsRanked ? 'ranked' : 'normal');
+            const gameMode = data.gameMode || (!data.initialTime ? 'friend' : (this.lastIsRanked ? 'ranked' : 'normal'));
             this.lastGameMode = gameMode;
             if (searchWaitMs !== null) {
                 // Матч найден очередью поиска (а не входом в комнату по коду)
@@ -117,6 +128,8 @@ const Net = {
             UI.updateLobbyRoute(lobbyCode);
 
             Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent }, gameMode);
+            Game.applyNetworkSnapshot({ ...data, state: data.state || Game.state });
+            UI.hideDisconnectOverlay();
         });
 
         // Обработка восстановления игры
@@ -129,37 +142,17 @@ const Net = {
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = lobbyCode;
+            localStorage.setItem('quoridor_active_lobby_v2', lobbyCode);
             this.myPlayerIndex = data.myPlayerIndex;
 
             UI.hideSearch(false);
             UI.showScreen('gameScreen');
             UI.updateLobbyRoute(lobbyCode, true);
 
-            // Восстанавливаем состояние локально
             Game.myPlayerIndex = this.myPlayerIndex;
-
-            // Restore notation for history (server doesn't store it)
-            if (data.state.history) {
-                data.state.history.forEach(item => {
-                    if (!item.notation && Game.getNotation) {
-                        item.notation = Game.getNotation(item.move);
-                    }
-                });
-            }
-
-            Game.state = data.state;
-            if (data.profiles) Game.state.playerProfiles = data.profiles; // Restore profiles
-            Game.timers = data.timers; // Синхронизируем таймеры
-
-            Game.draw();
-            Game.updateTurnDisplay();
-            Game.updateTimerDisplay();
-            Game.updateTurnDisplay();
-            Game.updateTimerDisplay();
-            Game.startTimer();
-            if (Game.state.history && UI.renderHistory) {
-                UI.renderHistory(Game.state.history);
-            }
+            this.lastGameMode = data.gameMode || this.lastGameMode || 'friend';
+            Game.applyNetworkSnapshot(data);
+            UI.hideDisconnectOverlay();
         });
 
         this.socket.on('opponentDisconnected', () => {
@@ -177,7 +170,14 @@ const Net = {
 
             // Нет активного лобби — значит мы уже не в игре (меню/профиль/реплей).
             // Игнорируем поздние события, чтобы они не всплывали модалкой поверх меню.
+            if (data.lobbyId && data.lobbyId === this.pendingLobbyCode) this.lobbyId = data.lobbyId;
+            if (data.lobbyId && data.lobbyId !== this.lobbyId) return;
             if (!this.lobbyId) return;
+            if (data.clock) Game.acceptClock(data);
+            if (typeof data.myPlayerIndex === 'number') Game.myPlayerIndex = data.myPlayerIndex;
+            if (data.profiles) Game.state.playerProfiles = data.profiles;
+            if (data.state) { Game.state = { ...data.state, botDifficulty: 'none', gameMode: data.gameMode || 'friend' }; Game.isGameOver = false; Game.draw(); }
+            UI.hideDisconnectOverlay();
 
             // Save lobbyId for rematch
             this.lastGameLobbyId = this.lobbyId;
@@ -211,12 +211,14 @@ const Net = {
             this.isOnline = true;
             this.myColor = data.color;
             this.lobbyId = data.lobbyCode || data.lobbyId;
+            localStorage.setItem('quoridor_active_lobby_v2', this.lobbyId);
             this.myPlayerIndex = data.color === 'white' ? 0 : 1;
             this.lastGameLobbyId = null;
             UI.hideSearch(false);
             UI.currentRoomCode = null;
             UI.updateLobbyRoute(this.lobbyId);
             Game.startOnline(data.color, this.myPlayerIndex, data.initialTime, { me: data.me, opponent: data.opponent }, this.lastGameMode || 'normal');
+            Game.applyNetworkSnapshot({ ...data, state: data.state || Game.state });
         });
 
         this.socket.on('rematchFailed', (data) => {
@@ -244,6 +246,7 @@ const Net = {
             this.resetRematchState();
         });
         this.socket.on('serverMove', (data) => {
+            if (!this.isOnline || (data.lobbyId && data.lobbyId !== this.lobbyId)) return;
             Game.applyServerMove(data);
         });
 
@@ -253,23 +256,10 @@ const Net = {
         });
 
         this.socket.on('timerUpdate', (data) => {
-            Game.syncTimers(data.timers);
+            if (this.isOnline && (!data.lobbyId || data.lobbyId === this.lobbyId)) Game.syncTimers(data);
         });
 
-        this.requestTimerSync = () => {
-            if (!this.isOnline || !this.socket || !this.socket.connected) return;
-            const sentAt = Date.now();
-            this.socket.emit('requestTimerSync', { lobbyId: this.lobbyId }, (res) => {
-                this.recordLatency(Date.now() - sentAt);
-                if (res && res.timers) {
-                    Game.syncTimers(res.timers, true);
-                }
-            });
-        };
-
-        this.socket.on('connect', () => {
-            this.requestTimerSync();
-        });
+        this.requestTimerSync = () => this.recoverGame();
 
         this.socket.on('forceDisconnect', (data) => {
             console.log('[NET] Force Disconnected:', data.reason);
@@ -296,16 +286,21 @@ const Net = {
 
         this.socket.on('roomCreated', (data) => {
             console.log('[NET] Room created:', data.roomCode);
-            UI.onRoomCreated(data.roomCode);
+            UI.onRoomCreated(data.roomCode, data.timeControl);
         });
 
         this.socket.on('joinRoomFailed', (data) => {
+            this.pendingRoomJoin = false;
+            trackEvent('room-join-failed');
             console.log('[NET] Join Room Failed:', data.reason);
             UI.showToast(UI.translate('toast_join_error') + ': ' + data.reason, 'error');
             UI.hideRoomJoining();
         });
 
         // Notification events
+        this.socket.on('inviteFailed', (data) => {
+            UI.showToast(data?.reason || 'Invitation failed. Please try again.', 'warning');
+        });
         this.socket.on('notifications:list', (notifs) => {
             if (Array.isArray(notifs)) {
                 UI.loadNotifications(notifs);
@@ -354,6 +349,8 @@ const Net = {
      * Сбрасывает локальное состояние активной сетевой партии.
      */
     clearActiveGame() {
+        localStorage.removeItem('quoridor_active_lobby_v2');
+        this.pendingLobbyCode = null;
         this.isOnline = false;
         this.lobbyId = null;
         this.myColor = null;
@@ -474,18 +471,51 @@ const Net = {
         UI.showSearch(this.lastTimeControl, this.lastIsRanked);
     },
 
-    createRoom() {
-        this.socket.emit('createRoom', { token: this.playerToken });
+    createRoom(timeControl) {
+        this.socket.emit('createRoom', { token: this.playerToken, timeControl });
         console.log('[NET] Creating room...');
     },
 
+    recoverGame() {
+        if (!this.isOnline || !this.lobbyId || !this.socket?.connected) return Promise.resolve(false);
+        if (this._recoveryPromise) return this._recoveryPromise;
+        Game.isInputBlocked = true;
+        const lobbyId = this.lobbyId, sent = performance.now();
+        this._recoveryPromise = new Promise(resolve => {
+            const timeout = setTimeout(() => { this._recoveryPromise = null; if (this.lobbyId === lobbyId) UI.showDisconnectOverlay(true); resolve(false); }, 5000);
+            this.socket.emit('requestTimerSync', { lobbyId }, result => {
+                clearTimeout(timeout);
+                const rtt = performance.now() - sent;
+                this.recordLatency(rtt); this._clockTransitMs = Math.min(1000, rtt / 2);
+                this._recoveryPromise = null;
+                if (this.lobbyId !== lobbyId) return resolve(false);
+                if (result?.unavailable) { UI.hideDisconnectOverlay(); Game.isInputBlocked = true; UI.showToast('Game unavailable. Return to the menu.', 'warning'); }
+                resolve(!!result?.restored);
+            });
+        });
+        return this._recoveryPromise;
+    },
+
     joinRoom(roomCode) {
-        this.socket.emit('joinRoom', { roomCode, token: this.playerToken });
-        console.log('[NET] Joining room:', roomCode);
+        const code = String(roomCode || '').trim().toUpperCase();
+        this.socket.timeout(5000).emit('getRoomInfo', { roomCode: code }, (err, info) => {
+            if (err || info?.error || !info) { UI.hideRoomJoining(); UI.showToast(info?.error || 'Room unavailable', 'error'); return; }
+            const ru = (localStorage.getItem('quoridor-lang') || 'en') === 'ru';
+            const tc = info.timeControl;
+            const label = tc.mode === 'untimed' ? (ru ? 'Без таймера' : 'No time limit') :
+                (ru ? (tc.base / 60) + ' мин каждому на всю партию' : (tc.base / 60) + ' minutes per player for the whole game');
+            UI.showConfirm(ru ? 'Войти в комнату?' : 'Join room?', label,
+                () => {
+                    this.pendingRoomJoin = true;
+                    this.socket.emit('joinRoom', { roomCode: code, token: this.playerToken, expectedTimeControl: tc });
+                },
+                () => UI.hideRoomJoining());
+        });
     },
 
     rejoinLobbyByCode(lobbyCode, replay = false) {
         if (!lobbyCode) return;
+        if (!replay) this.pendingLobbyCode = lobbyCode;
         this.socket.emit('rejoinLobby', { lobbyCode, token: this.playerToken, replay });
     },
 

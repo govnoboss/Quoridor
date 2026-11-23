@@ -8,7 +8,7 @@ COMPOSE_FILE="docker-compose.yml"
 cd "$REPO_DIR"
 
 echo ">>> Pulling latest code..."
-git pull origin main
+git pull --ff-only origin main
 
 echo ">>> Rebuilding and restarting..."
 docker compose -f "$COMPOSE_FILE" up -d --build

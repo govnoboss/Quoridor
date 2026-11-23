@@ -49,7 +49,9 @@ Production URL referenced by the repository: `https://playquor.org`.
 | Task | Read first |
 |---|---|
 | General orientation / architecture | `docs/AI_ARCHITECTURE.md` |
+| Admin bans, bot settings, complaint statuses, operation errors | `docs/AI_ADMIN.md`, `docs/API_REFERENCE.md` |
 | Online game, matchmaking, reconnect, rematch | `docs/AI_GAME_FLOWS.md`, `docs/WS_PROTOCOL.md`, relevant sections in `src/server.js` and `src/storage/redis.js` |
+| Game clocks, untimed modes, mobile/background recovery | `docs/AI_CLOCKS.md`, `frontend/js/game-clock.js` |
 | Rules, moves, wall placement, win conditions | `docs/GAME_LOGIC.md`, `quoridor-engine/rules/` |
 | AI strength, engine search, bot personality | `docs/AI_ENGINE.md`, `quoridor-engine/README.md`, `quoridor-engine/engines/v3/` |
 | REST endpoint changes | `docs/API_REFERENCE.md`, route implementation in `src/server.js` |
@@ -60,6 +62,8 @@ Production URL referenced by the repository: `https://playquor.org`.
 | UTM links / marketing traffic | `docs/UTM_GUIDE.md`, `docs/AI_FRONTEND.md` §6 |
 | SEO / sitemap / robots / 404 | `docs/SEO.md` (состояние), `docs/SEO_NEXT_STEPS.md` (очередь работ + ручные шаги), route implementations in `src/server.js` (SEO section near `/profiles`) |
 | Tests / lint / tooling | `docs/TOOLS.md`, `package.json`, `jest.config.js` |
+| Product metrics, D1/D7, game/search linkage | `docs/AI_ANALYTICS.md`, `src/analytics/product-metrics.js` |
+| Notifications, support replies, invitation alerts and opt-in reply email | `docs/AI_NOTIFICATIONS.md`, `src/notifications/` |
 
 ## 6. Development workflow for agents
 

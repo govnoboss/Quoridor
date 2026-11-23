@@ -113,7 +113,7 @@
 
   function applyLabels() {
     var d = t();
-    var labels = { play: d.play, leaderboard: d.leaderboard, rules: d.rules, faq: d.faq };
+    var labels = { play: d.play, leaderboard: d.leaderboard, rules: d.rules, faq: d.faq, signIn: d.signIn, signUp: d.signUp };
     Object.keys(labels).forEach(function (key) {
       document.querySelectorAll('.header-nav-link[data-nav="' + key + '"]').forEach(function (a) {
         a.textContent = labels[key];
@@ -205,6 +205,10 @@
         } else {
           slot.innerHTML = '<a href="/login" class="pq-btn pq-btn--neutral" id="siteHeaderSignIn"></a>' +
             '<a href="/register" class="pq-btn pq-btn--primary" id="siteHeaderSignUp"></a>';
+          var mobileMenu = document.getElementById('headerNavMobile');
+          if (mobileMenu) mobileMenu.insertAdjacentHTML('beforeend',
+            '<a class="header-nav-link" data-nav="signIn" href="/login"></a>' +
+            '<a class="header-nav-link" data-nav="signUp" href="/register"></a>');
         }
         applyLabels();
         markProfileActive();
@@ -215,6 +219,12 @@
   }
 
     mountHeader();
+    if (!window.PQNotifications && !document.getElementById('pqNotificationsScript')) {
+      var notificationsScript = document.createElement('script');
+      notificationsScript.id = 'pqNotificationsScript';
+      notificationsScript.src = '/js/notifications.js?v=1.0.0';
+      document.head.appendChild(notificationsScript);
+    }
 
     function init() {
       mountFooter();

@@ -22,6 +22,15 @@ const notificationSchema = new mongoose.Schema({
     },
     title: { type: String, required: true },
     body: { type: String, default: '' },
+    dedupeKey: { type: String },
+    expiresAt: Date,
+    actionStatus: { type: String, enum: ['pending', 'accepted'], default: 'pending' },
+    email: {
+        state: { type: String, enum: ['pending', 'sent', 'skipped'], default: 'skipped' },
+        attempts: { type: Number, default: 0 },
+        nextAttemptAt: Date,
+        sentAt: Date
+    },
     data: {
         requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         requesterUsername: { type: String },
@@ -38,5 +47,7 @@ const notificationSchema = new mongoose.Schema({
 
 notificationSchema.index({ recipient: 1, createdAt: -1 });
 notificationSchema.index({ recipient: 1, read: 1 });
+notificationSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
+notificationSchema.index({ 'email.state': 1, 'email.nextAttemptAt': 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

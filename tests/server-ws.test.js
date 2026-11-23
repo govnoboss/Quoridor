@@ -64,6 +64,7 @@ jest.mock('../src/models/GameResult', () => {
     const MockGameResult = jest.fn().mockImplementation((data) => ({ ...data, save: jest.fn().mockResolvedValue(true) }));
     MockGameResult.find = jest.fn().mockResolvedValue([]);
     MockGameResult.findById = jest.fn().mockResolvedValue(null);
+    MockGameResult.findOne = jest.fn().mockResolvedValue(null);
     return MockGameResult;
 });
 
@@ -645,5 +646,137 @@ describe('Bot matchmaking fallback', () => {
         await new Promise(r => setTimeout(r, 150));
 
         expect(captured.some(e => e.event === 'gameStart')).toBe(false);
+    });
+});
+
+
+describe('Clock v2 integration', () => {
+    async function room(tc = { mode: 'timed', base: 60, inc: 0 }) {
+        const a = await connectClient(), b = await connectClient();
+        const ta = a.captured.find(e => e.event === 'assignToken').args[0].token;
+        const tb = b.captured.find(e => e.event === 'assignToken').args[0].token;
+        const created = waitForEvent(a.sock, 'roomCreated');
+        a.sock.emit('createRoom', { token: ta, timeControl: tc });
+        const settings = await created;
+        const starts = Promise.all([waitForEvent(a.sock,'gameStart'),waitForEvent(b.sock,'gameStart')]);
+        b.sock.emit('joinRoom', { roomCode: settings.roomCode, token: tb, expectedTimeControl: settings.timeControl });
+        const [ga,gb] = await starts;
+        return { a:a.sock,b:b.sock,ta,tb,ga,gb,id:ga.lobbyId,white:ga.color==='white'?a.sock:b.sock };
+    }
+    test.each([60,180,300,600])('preserves %i-second room settings and advertises them before admission', async base => {
+        const r=await room({base,inc:0});
+        expect(r.ga.timeControl).toEqual({mode:'timed',base,inc:0});
+        expect(r.ga.clock.remainingMs[0]).toBeLessThanOrEqual(base*1000);
+        expect(r.ga.initialTime).toBe(base);
+        const game=await require('../src/storage/redis').getGame(r.id);
+        expect(game.timeControl.base).toBe(base);expect(game.clock.version).toBe(2);
+    });
+    test('untimed room has no turn deadline and no timeout after a large elapsed interval', async () => {
+        const r=await room({mode:'untimed'}), Redis=require('../src/storage/redis');
+        const g=await Redis.getGame(r.id);g.clock.startedAt-=86400000;await Redis.saveGame(r.id,g);
+        await require('../src/server').handleTurnTimeout(r.id);
+        expect((await Redis.getGame(r.id)).finished).not.toBe(true);
+        expect(r.ga.clock.enabled).toBe(false);expect(r.ga.timers).toBeNull();
+    });
+    test('concurrent duplicate moves charge one increment and save one history record', async () => {
+        const r=await room(), Redis=require('../src/storage/redis'), api=require('../src/server');
+        const g=await Redis.getGame(r.id);g.clock.startedAt=Date.now()-900;g.clock.incrementMs=2000;
+        await Redis.saveGame(r.id,g);
+        const token=g.playerTokens[0],args={lobbyId:r.id,token,move:{type:'pawn',r:7,c:4}};
+        const result=await Promise.all([api.applyGameMove(args),api.applyGameMove(args)]);
+        expect(result.filter(Boolean)).toHaveLength(1);
+        const next=await Redis.getGame(r.id);
+        expect(next.history).toHaveLength(1);expect(next.clock.remainingMs[0]).toBeLessThanOrEqual(61100);
+        expect(next.clock.remainingMs[0]).toBeGreaterThan(60000);expect(next.history[0].elapsedMs).toBeGreaterThanOrEqual(900);
+    });
+    test('untimed reconnect grace is 120 seconds, independent of turn time', async () => {
+        const r=await room({mode:'untimed'}),Redis=require('../src/storage/redis'),api=require('../src/server');
+        const g=await Redis.getGame(r.id);g.playerSockets[0]=null;
+        g.presence={disconnectedAt:[Date.now()-60000,null]};await Redis.saveGame(r.id,g);
+        await api.handleDisconnectTimeout(r.id);
+        expect((await Redis.getGame(r.id)).finished).not.toBe(true);
+        g.presence.disconnectedAt[0]=Date.now()-120001;await Redis.saveGame(r.id,g);
+        const ended=waitForEvent(r.a,'gameOver');await api.handleDisconnectTimeout(r.id);
+        expect((await ended).reason).toBe('Opponent disconnected');
+    });
+    test('clock expiry takes precedence over a simultaneous disconnect deadline', async () => {
+        const r=await room(),Redis=require('../src/storage/redis'),api=require('../src/server');
+        const g=await Redis.getGame(r.id);g.playerSockets[1]=null;
+        g.presence={disconnectedAt:[null,Date.now()-31000]};g.clock.startedAt=Date.now()-61000;
+        await Redis.saveGame(r.id,g);
+        const ended=waitForEvent(r.a,'gameOver');await api.handleDisconnectTimeout(r.id);
+        const result=await ended;expect(result.reason).toBe('Time out');expect(result.winnerIdx).toBe(1);
+    });
+    test('both absent untimed players retain the game until the abandonment limit', async () => {
+        const r=await room({mode:'untimed'}),Redis=require('../src/storage/redis'),api=require('../src/server');
+        const g=await Redis.getGame(r.id);g.playerSockets=[null,null];
+        g.presence={disconnectedAt:[Date.now()-180000,Date.now()-180000]};g.abandonedAt=Date.now()-180000;
+        await Redis.saveGame(r.id,g);await api.handleDisconnectTimeout(r.id);
+        expect((await Redis.getGame(r.id)).finished).not.toBe(true);
+        g.abandonedAt=Date.now()-86400001;await Redis.saveGame(r.id,g);
+        const ended=waitForEvent(r.a,'gameOver');await api.handleDisconnectTimeout(r.id);
+        const result=await ended;expect(result.reason).toBe('Abandoned');expect(result.winnerIdx).toBe(-1);
+    });
+    test('rejects a move after deadline even when the production pulse has not run', async () => {
+        const r=await room(),Redis=require('../src/storage/redis');
+        const g=await Redis.getGame(r.id);g.clock.remainingMs[0]=10;g.clock.startedAt=Date.now()-20;await Redis.saveGame(r.id,g);
+        const end=waitForEvent(r.a,'gameOver');r.white.emit('playerMove',{lobbyId:r.id,move:{type:'pawn',r:7,c:4}});
+        const result=await end;expect(result.reason).toBe('Time out');expect(result.winnerIdx).toBe(1);
+        expect(result.clock.remainingMs[0]).toBe(0);
+    });
+    test('full recovery never refunds thinking time and never exposes participant tokens', async () => {
+        const r=await room(),Redis=require('../src/storage/redis');
+        const g=await Redis.getGame(r.id);g.clock.startedAt=Date.now()-20000;await Redis.saveGame(r.id,g);
+        const resumed=waitForEvent(r.a,'gameResumed');
+        r.a.emit('requestTimerSync',{lobbyId:r.id},()=>{});
+        const restored=await resumed;
+        expect(restored.clock.remainingMs[0]).toBeLessThanOrEqual(40000);
+        expect(restored.state.currentPlayer).toBe(0);expect(restored.state.playerTokens).toBeUndefined();
+        expect((await Redis.getGame(r.id)).clock.startedAt).toBe(g.clock.startedAt);
+    });
+    test('reconnect restores a new socket without resetting clock or losing the board', async () => {
+        const r=await room(),Redis=require('../src/storage/redis');
+        const g=await Redis.getGame(r.id);g.clock.startedAt=Date.now()-15000;await Redis.saveGame(r.id,g);
+        r.a.close();await new Promise(resolve=>setTimeout(resolve,40));
+        const back=await connectClient({auth:{token:r.ta}});
+        const restored=waitForEvent(back.sock,'gameResumed');back.sock.emit('rejoinGame',{token:r.ta});
+        const data=await restored;expect(data.clock.remainingMs[0]).toBeLessThanOrEqual(45000);
+        expect((await Redis.getGame(r.id)).clock.startedAt).toBe(g.clock.startedAt);
+    });
+    test('restart reconciliation retains human games and restores the original deadline', async () => {
+        const r=await room(),Redis=require('../src/storage/redis'),api=require('../src/server');
+        const before=await Redis.getGame(r.id);await api.cleanupStaleGames();
+        const after=await Redis.getGame(r.id);expect(after).toBeTruthy();
+        expect(after.clock.startedAt).toBe(before.clock.startedAt);expect(after.timeControl).toEqual(before.timeControl);
+        const resumed=waitForEvent(r.a,'gameResumed');r.a.emit('rejoinGame',{token:r.ta});
+        expect((await resumed).clock.enabled).toBe(true);
+    });
+    test('archive recovery works after Redis finished snapshot expires, only for participants', async () => {
+        const r=await room(),Redis=require('../src/storage/redis'),Model=require('../src/models/GameResult');
+        const ends=Promise.all([waitForEvent(r.a,'gameOver'),waitForEvent(r.b,'gameOver')]);r.a.emit('surrender',{lobbyId:r.id});await ends;
+        await new Promise(resolve=>setTimeout(resolve,30));
+        const archived=Model.mock.calls.at(-1)[0];Model.findOne.mockResolvedValue({...archived,_id:'archived-clock-game'});
+        const spy=jest.spyOn(Redis,'getFinishedGame').mockResolvedValue(null);
+        try {
+            const result=waitForEvent(r.a,'gameOver');r.a.emit('requestTimerSync',{lobbyId:r.id},()=>{});
+            expect((await result).gameResultId).toBe('archived-clock-game');
+            const outsider=await connectClient();
+            const ack=await new Promise(resolve=>outsider.sock.emit('requestTimerSync',{lobbyId:r.id},resolve));
+            expect(ack.unavailable).toBe(true);expect(outsider.captured.some(e=>e.event==='gameOver')).toBe(false);
+        } finally {spy.mockRestore();Model.findOne.mockResolvedValue(null);}
+    });
+    test('owner tokens prevent an expired lock holder from releasing a replacement', async () => {
+        const Redis=require('../src/storage/redis');
+        const a=await Redis.acquireLock('lease-owner',5);await new Promise(resolve=>setTimeout(resolve,10));
+        const b=await Redis.acquireLock('lease-owner',1000);expect(b).toBeTruthy();expect(b).not.toBe(a);
+        await Redis.releaseLock('lease-owner',a);expect(await Redis.acquireLock('lease-owner')).toBe(false);
+        await Redis.releaseLock('lease-owner',b);const c=await Redis.acquireLock('lease-owner');expect(c).toBeTruthy();await Redis.releaseLock('lease-owner',c);
+    });
+    test.each([{mode:'untimed'},{mode:'timed',base:180,inc:0}])('rematch inherits the exact control %j', async tc => {
+        const r=await room(tc);const ends=Promise.all([waitForEvent(r.a,'gameOver'),waitForEvent(r.b,'gameOver')]);
+        r.a.emit('surrender',{lobbyId:r.id});await ends;await new Promise(resolve=>setTimeout(resolve,30));
+        const invite=waitForEvent(r.b,'rematchInvite');r.a.emit('requestRematch',{lobbyId:r.id,token:r.ta});await invite;
+        const start=waitForEvent(r.a,'rematchStarted');r.b.emit('respondRematch',{lobbyId:r.id,token:r.tb,accept:true});
+        const data=await start;expect(data.timeControl.mode).toBe(tc.mode);expect(data.timeControl.base).toBe(tc.base??null);
     });
 });
