@@ -5,6 +5,7 @@ const Shared = require('../quoridor-engine/rules');
 const Clock = require('../frontend/js/game-clock');
 function client() {
     let now = 0;
+    let navType = 'reload';
     const elements = new Map(), listeners = {}, storage = new Map();
     const element = id => {
         if (!elements.has(id)) elements.set(id, { style: {}, textContent: '', classList: { add() {}, remove() {}, toggle() {} } });
@@ -14,7 +15,7 @@ function client() {
     const ctx = { Shared, GameClock: Clock, UI, navigator: { maxTouchPoints: 0 },
         document: { hidden: false, getElementById: element, addEventListener: (k,f) => { listeners[k] = f; } },
         window: { addEventListener: (k,f) => { listeners[k] = f; } }, location: { pathname: '/', search: '' },
-        performance: { now: () => now }, Net: { isOnline: false, recoverGame: jest.fn() },
+        performance: { now: () => now, getEntriesByType: () => [{ type: navType }] }, Net: { isOnline: false, recoverGame: jest.fn() },
         AI: { cancelSearch: jest.fn(), makeMove: jest.fn(), newGame() {} },
         localStorage: { getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v), removeItem: k => storage.delete(k) },
         sessionStorage: { removeItem() {} }, trackEvent: jest.fn(), console,
@@ -23,7 +24,7 @@ function client() {
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../frontend/js/game.js'),'utf8')+'\nthis.g = Game;',ctx);
     const g = ctx.g;
     for (const k of ['draw','restoreGameUI','exitBotMode','updateTurnDisplay','refreshBotControls','requestEval','enterBotMode']) g[k] = () => {};
-    return { g,ctx,elements,listeners,storage,time: t => { now=t; } };
+    return { g,ctx,elements,listeners,storage,time: t => { now=t; }, navType: t => { navType=t; } };
 }
 describe('client clock/session recovery', () => {
     test('analytics local IDs survive restore, while a new game gets a fresh ID', () => {
@@ -86,6 +87,25 @@ describe('client clock/session recovery', () => {
         expect(c.g.restoreLocalSession()).toBe(true);
         expect(c.g.state.players[0].pos.r).toBe(6); expect(c.g.state.currentPlayer).toBe(1);
         expect(c.g._clock.enabled).toBe(false);
+    });
+    test('a fresh visit or app launch opens the menu instead of the saved local game', () => {
+        const c=client(); c.g.startPvP(); c.g.state.players[0].pos.r=6; c.g.saveLocalSession();
+        c.g.state=Shared.createInitialState(); c.navType('navigate');
+        expect(c.g.restoreLocalSession()).toBe(false);
+        expect(c.storage.has('quoridor_local_session_v2')).toBe(false);
+        expect(c.g.state.players[0].pos.r).toBe(8);
+    });
+    test('leaving the game for the menu discards the saved local session', () => {
+        const c=client(); c.g.startPvP();
+        expect(c.storage.has('quoridor_local_session_v2')).toBe(true);
+        expect(c.g.leaveActiveGame()).toBe(true);
+        expect(c.storage.has('quoridor_local_session_v2')).toBe(false);
+    });
+    test('native app launch always opens the menu', () => {
+        const c=client(); c.g.startPvP(); c.g.saveLocalSession();
+        c.ctx.Capacitor = { isNativePlatform: () => true };
+        expect(c.g.restoreLocalSession()).toBe(false);
+        expect(c.storage.has('quoridor_local_session_v2')).toBe(false);
     });
     test('late AI application cannot mutate a finished board', () => {
         const c=client(); c.g.state.gameMode='bot'; c.g.isGameOver=true; c.g.isGameLive=false;

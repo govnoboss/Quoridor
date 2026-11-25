@@ -201,7 +201,7 @@ const Game = {
   startOnline(color, playerIdx, initialTime = 600, profiles = null, gameMode = 'online') {
     this.initialTime = initialTime; // Устанавливаем ДО reset или обновляем после
     this.reset();
-    try { localStorage.removeItem('quoridor_local_session_v2'); } catch (_) { /* Storage may be unavailable. */ }
+    this.clearLocalSession();
     this.state.botDifficulty = 'none';
     this.state.gameMode = gameMode;
     this.exitBotMode();
@@ -285,7 +285,7 @@ const Game = {
     this.stopTimer();
     this.isGameOver = true;
     this.isGameLive = false;
-    try { localStorage.removeItem('quoridor_local_session_v2'); } catch (_) { /* Storage may be unavailable. */ }
+    this.clearLocalSession();
 
     // Отпускаем движок локального бота: его транспозиционная таблица больше не нужна, а следующая
     // партия всё равно получит новый экземпляр в startVsBot.
@@ -438,6 +438,9 @@ const Game = {
     this.stopTimer();
     this.isGameOver = true;
     this.isGameLive = false;
+    // Игрок осознанно ушёл с доски (меню/логотип/навигация): сохранённую партию
+    // нельзя восстанавливать при следующей перезагрузке страницы.
+    this.clearLocalSession();
     return true;
   },
 
@@ -2872,6 +2875,23 @@ const Game = {
     if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   },
 
+  clearLocalSession() {
+    try { localStorage.removeItem('quoridor_local_session_v2'); } catch (_) { /* Storage may be unavailable. */ }
+  },
+
+  /**
+   * Партия восстанавливается только при перезагрузке страницы (F5/reload), а не при
+   * новом открытии сайта или запуске приложения. Иначе старая локальная партия
+   * перехватывает главное меню при каждом визите.
+   */
+  isPageReload() {
+    try {
+      const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      if (nav) return nav.type === 'reload';
+      return !!performance.navigation && performance.navigation.type === 1;
+    } catch (_) { return false; }
+  },
+
   saveLocalSession() {
     if (!this.isGameLive || this.isGameOver || this.isReplayMode || !['local', 'bot'].includes(this.state.gameMode)) return;
     try { localStorage.setItem('quoridor_local_session_v2', JSON.stringify({ version: 2, state: this.state, analyticsGameId: this.analyticsGameId,
@@ -2881,9 +2901,17 @@ const Game = {
   restoreLocalSession() {
     if (location.pathname !== '/' || location.search || (typeof Net !== 'undefined' && Net.lobbyId)) return false;
     try {
+      // Нативное приложение всегда стартует с главного меню: WebView может
+      // восстановить страницу без пользовательской перезагрузки.
+      if (typeof globalThis.Capacitor !== 'undefined' && globalThis.Capacitor.isNativePlatform && globalThis.Capacitor.isNativePlatform()) {
+        this.clearLocalSession();
+        return false;
+      }
+      // Новый визит/запуск приложения: чистим устаревшую сессию и показываем меню.
+      if (!this.isPageReload()) { this.clearLocalSession(); return false; }
       const saved = JSON.parse(localStorage.getItem('quoridor_local_session_v2'));
       if (!saved || saved.version !== 2 || !['local', 'bot'].includes(saved.state?.gameMode) ||
-          !Array.isArray(saved.state.players) || saved.state.players.length !== 2) return false;
+          !Array.isArray(saved.state.players) || saved.state.players.length !== 2) { this.clearLocalSession(); return false; }
       this.state = saved.state; this.myPlayerIndex = saved.myPlayerIndex;
       this.analyticsGameId = saved.analyticsGameId || null;
       this._clock = { enabled: false }; this.timerBase = null; this.isReplayMode = false; this.isGameOver = false;
@@ -2894,7 +2922,7 @@ const Game = {
       if (UI.renderHistory) UI.renderHistory(this.state.history || [], -1);
       if (this.state.gameMode === 'bot' && this.state.currentPlayer !== this.myPlayerIndex && !document.hidden) AI.makeMove(this.state.botDifficulty);
       return true;
-    } catch (_) { return false; }
+    } catch (_) { this.clearLocalSession(); return false; }
   },
 
   initTimerVisibilityHandlers() {
