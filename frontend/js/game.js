@@ -2692,8 +2692,7 @@ const Game = {
         this.currentEval = d.eval;
         this.renderEval();
       };
-      this.evalWorker.onerror = (err) => {
-        console.error('[EVAL] worker error:', err);
+      this.evalWorker.onerror = () => {
         this.terminateEvalWorker();
       };
     } catch (e) {

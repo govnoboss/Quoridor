@@ -89,7 +89,6 @@ onmessage = function (e) {
             token: token,
         });
     } catch (err) {
-        console.error('[AI-WORKER] think failed:', err);
         postMessage({ type: 'error', message: String((err && err.message) || err), token: msg.token });
     }
 };

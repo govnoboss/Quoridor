@@ -38,7 +38,6 @@ const Net = {
         this.playerToken = localStorage.getItem('quoridor_token');
         this.lobbyId = localStorage.getItem('quoridor_active_lobby_v2');
         this.isOnline = !!this.lobbyId;
-        console.log('[NET] Local token:', this.playerToken || 'none');
 
         // 2. Подключаемся, передавая токен (если есть)
         // Use absolute URL so it works in Capacitor WebView
@@ -58,7 +57,6 @@ const Net = {
         this.socket.on('assignToken', (data) => {
             this.playerToken = data.token;
             localStorage.setItem('quoridor_token', this.playerToken);
-            console.log('[NET] Server assigned NEW token:', this.playerToken);
 
             // Если нужно - обновляем auth для будущих реконнектов сокета
             this.socket.auth.token = this.playerToken;
@@ -67,10 +65,7 @@ const Net = {
         // 0. Забаненный пользователь не может подключиться
         this.socket.on('connect_error', (err) => {
             if (err && (err.message === 'banned' || (err.data && err.data.code === 'banned'))) {
-                console.warn('[NET] Connection rejected: account banned');
                 UI.showBannedNotice && UI.showBannedNotice();
-            } else {
-                console.log('[NET] Socket connect_error:', err && err.message);
             }
         });
 
@@ -92,7 +87,6 @@ const Net = {
 
 
         this.socket.on('connect', () => {
-            console.log('[NET] Socket connected:', this.socket.id);
             // Соединение восстановлено до истечения grace-периода — отменяем game-abandoned
             clearTimeout(this._abandonGraceTimer);
             this._abandonGraceTimer = null;
@@ -106,7 +100,6 @@ const Net = {
                 trackEvent('room-joined');
                 this.pendingRoomJoin = false;
             }
-            console.log(`[NET] Игра началась! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             const lobbyCode = data.lobbyCode || data.lobbyId;
 
             // wait_ms нужно посчитать до hideSearch — он обнуляет точку отсчёта.
@@ -134,7 +127,6 @@ const Net = {
 
         // Обработка восстановления игры
         this.socket.on('gameResumed', (data) => {
-            console.log(`[NET] ИГРА ВОССТАНОВЛЕНА! Лобби: ${data.lobbyId}`);
             // Партия продолжается — отменяем game-abandoned, если он ещё в grace-периоде
             clearTimeout(this._abandonGraceTimer);
             this._abandonGraceTimer = null;
@@ -156,17 +148,14 @@ const Net = {
         });
 
         this.socket.on('opponentDisconnected', () => {
-            console.log('[NET] Противник отключился. Ждем...');
             UI.showToast(UI.translate('toast_opponent_disconnected'), 'warning', 30000);
         });
 
         this.socket.on('opponentReconnected', () => {
-            console.log('[NET] Противник вернулся!');
             // Тост удален, чтобы избежать спама уведомлениями
         });
 
         this.socket.on('gameOver', (data) => {
-            console.log(`[NET] Игра окончена! Победитель: ${data.winnerIdx}, Причина: ${data.reason}`);
 
             // Нет активного лобби — значит мы уже не в игре (меню/профиль/реплей).
             // Игнорируем поздние события, чтобы они не всплывали модалкой поверх меню.
@@ -189,20 +178,17 @@ const Net = {
             Game.handleGameOver(data.winnerIdx, data.reason, data.ratingChanges, data.gameResultId, data.hasBot);
         });
 
-        this.socket.on('gameActiveError', (data) => {
-            console.log('[NET] Игра активна, доступ заблокирован:', data.lobbyCode);
+        this.socket.on('gameActiveError', () => {
             UI.showToast(UI.translate('toast_game_active') || 'Эта игра уже началась. Доступ запрещён.', 'error');
             UI.clearLobbyRoute();
             UI.showScreen('mainMenu');
         });
 
         this.socket.on('gameReplayAvailable', (data) => {
-            console.log('[NET] Доступен реплей игры:', data.lobbyCode);
             UI.launchReplay(data);
         });
 
         this.socket.on('rematchStarted', (data) => {
-            console.log(`[NET] Реванш начался! Вы: ${data.color}, Лобби: ${data.lobbyId}`);
             // Close result modal if still open
             const modal = document.getElementById('resultModal');
             if (modal) modal.classList.add('hidden');
@@ -222,27 +208,23 @@ const Net = {
         });
 
         this.socket.on('rematchFailed', (data) => {
-            console.log('[NET] Реванш не удался:', data.reason);
             this.resetRematchState();
             UI.showToast(data.reason, 'error');
             UI.showRematchBtn(true);
         });
 
         this.socket.on('rematchInvite', (data) => {
-            console.log('[NET] Приглашение на реванш:', data.lobbyId);
             // Оба нажали реванш — старт уже идёт, тост не нужен
             if (this._rematchWaitingLobby === data.lobbyId) return;
             UI.showRematchInviteToast(data);
         });
 
         this.socket.on('rematchDeclined', (data) => {
-            console.log('[NET] Реванш отклонён:', data.reason);
             this.resetRematchState();
             UI.handleRematchDeclined(data.reason);
         });
 
         this.socket.on('rematchExpired', () => {
-            console.log('[NET] Реванш не состоялся: время вышло');
             this.resetRematchState();
         });
         this.socket.on('serverMove', (data) => {
@@ -250,8 +232,7 @@ const Net = {
             Game.applyServerMove(data);
         });
 
-        this.socket.on('moveRejected', (data) => {
-            console.warn('[NET] Ход отклонен сервером:', data.reason);
+        this.socket.on('moveRejected', () => {
             UI.showToast(UI.translate('toast_invalid_move'), 'error');
         });
 
@@ -262,7 +243,6 @@ const Net = {
         this.requestTimerSync = () => this.recoverGame();
 
         this.socket.on('forceDisconnect', (data) => {
-            console.log('[NET] Force Disconnected:', data.reason);
             this.socket.disconnect();
             this.isOnline = false;
             if (data.reason && data.reason.indexOf('banned') !== -1) {
@@ -273,7 +253,6 @@ const Net = {
         });
 
         this.socket.on('findGameFailed', (data) => {
-            console.log('[NET] Find Game Failed:', data.reason);
             // Поиск завершился без соперника (сервер не подобрал игру / уже в игре)
             const searchWaitMs = (UI._searchStartedAt != null) ? Math.max(0, Date.now() - UI._searchStartedAt) : null;
             trackEvent('search-timeout', Object.assign({ mode: this.lastIsRanked ? 'ranked' : 'online' }, searchWaitMs !== null ? { wait_ms: searchWaitMs } : {}));
@@ -285,14 +264,12 @@ const Net = {
         });
 
         this.socket.on('roomCreated', (data) => {
-            console.log('[NET] Room created:', data.roomCode);
             UI.onRoomCreated(data.roomCode, data.timeControl);
         });
 
         this.socket.on('joinRoomFailed', (data) => {
             this.pendingRoomJoin = false;
             trackEvent('room-join-failed');
-            console.log('[NET] Join Room Failed:', data.reason);
             UI.showToast(UI.translate('toast_join_error') + ': ' + data.reason, 'error');
             UI.hideRoomJoining();
         });
@@ -340,7 +317,6 @@ const Net = {
 
     surrender() {
         if (this.isOnline && this.lobbyId) {
-            console.log('[NET] Отправка запроса на сдачу...');
             this.socket.emit('surrender', { lobbyId: this.lobbyId });
         }
     },
@@ -386,12 +362,10 @@ const Net = {
             timeControl: timeData,
             isRanked: !!isRanked
         });
-        console.log('[NET] Ищу игру с контролем:', timeData, 'Ranked:', isRanked);
     },
 
     cancelFindGame() {
         this.socket.emit('cancelSearch', { token: this.playerToken });
-        console.log('[NET] Поиск отменен.');
         trackEvent('search-cancelled');
     },
 
@@ -437,7 +411,6 @@ const Net = {
         if (!target) return;
         // Если есть активный тост-инвайт на это же лобби — закрываем (кнопка важнее тоста)
         if (this._inviteLobbyId === target) this.clearInviteToast();
-        console.log('[NET] Requesting rematch for lobby:', target);
         this.setRematchWaiting(target);
         this.socket.emit('requestRematch', { lobbyId: target, token: this.playerToken });
         trackEvent('rematch-click');
@@ -448,7 +421,6 @@ const Net = {
         if (!lobbyId) return;
         // Уже отправили запрос через кнопку — тост игнорируем
         if (this._rematchWaitingLobby === lobbyId && !accept) return;
-        console.log('[NET] Responding to rematch:', accept ? 'accept' : 'decline', lobbyId);
         this.clearInviteToast();
         this.socket.emit('respondRematch', { lobbyId, token: this.playerToken, accept });
     },
@@ -473,7 +445,6 @@ const Net = {
 
     createRoom(timeControl) {
         this.socket.emit('createRoom', { token: this.playerToken, timeControl });
-        console.log('[NET] Creating room...');
     },
 
     recoverGame() {

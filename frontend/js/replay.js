@@ -173,13 +173,9 @@ function buildSnapshots() {
       var snapshot = Shared.cloneState(state);
       snapshot.timers = record.clock?.enabled ? record.clock.remainingMs.map(t => t / 1000) : null;
       snapshots.push(snapshot);
-    } catch (e) {
-      console.error('[replay] gameReducer error at history[' + i + ']:', e.message, action);
+    } catch {
       break;
     }
-  }
-  if (snapshots.length < 2) {
-    console.warn('[replay] no valid moves in history, snapshots=', snapshots.length);
   }
 }
 

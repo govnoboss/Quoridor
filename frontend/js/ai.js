@@ -14,20 +14,18 @@ const AI = {
         if (this.worker) return;
         // ?v= must match the ai-worker.js script itself: a worker cached from before the engine
         // switch would import the unversioned bundle URL and stay on the old engine for 4h.
-        this.worker = new Worker('/js/ai-worker.js?v=1.2.2');
+        this.worker = new Worker('/js/ai-worker.js?v=1.2.3');
         this.worker.onmessage = (e) => {
             const data = e.data;
             if (!data) return;
 
             if (data.type === 'debug') {
-                console.log('%c[LOCAL-AI] ' + data.message, 'color: #d63384; background: #fff0f6; padding: 2px 5px; border-radius: 3px;');
                 return;
             }
 
             if (data.type === 'ready' || data.type === 'error') {
                 if (data.type === 'error') {
                     if (data.token === undefined || data.token === this.searchToken) this.pending = false;
-                    console.error('[LOCAL-AI] engine error:', data.message);
                 }
                 return;
             }
@@ -41,15 +39,13 @@ const AI = {
                 Game.state.gameMode !== 'bot' || Game.state.currentPlayer === Game.myPlayerIndex) return;
 
             if (data.move) {
-                console.log(`[LOCAL-AI] ${data.move.type} d=${data.depth} n=${data.nodes} ${data.ms}ms`);
                 Game.applyBotMove(data.move);
             } else {
                 Game.isInputBlocked = false;
                 Game.nextTurn();
             }
         };
-        this.worker.onerror = (err) => {
-            console.error('[AI] Worker error:', err);
+        this.worker.onerror = () => {
             this.pending = false;
             Game.isInputBlocked = false;
         };

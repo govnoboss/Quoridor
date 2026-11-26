@@ -1560,8 +1560,7 @@ const UI = {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(code).then(() => {
         this.showToast(this.translate('toast_code_copied'), 'info');
-      }).catch(err => {
-        console.error('Clipboard error:', err);
+      }).catch(() => {
         this.showToast(this.translate('toast_copy_error'), 'error');
       });
     } else {
@@ -1576,8 +1575,7 @@ const UI = {
       navigator.clipboard.writeText(url).then(() => {
         trackEvent('room-link-copied');
         this.showToast(this.translate('toast_link_copied'), 'info');
-      }).catch(err => {
-        console.error('Clipboard error:', err);
+      }).catch(() => {
         this.showToast(this.translate('toast_copy_error'), 'error');
       });
     } else {
@@ -1620,9 +1618,7 @@ const UI = {
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
-      } catch (e) {
-        console.warn('Web Audio API not supported', e);
-      }
+      } catch { /* Best effort. */ }
     },
 
     resume() {
@@ -2205,9 +2201,7 @@ UI.checkSession = async function () {
     if (data && data.banned) {
       this.showBannedNotice(data.banReason, data.banExpires);
     }
-  } catch (e) {
-    console.error('Session check failed', e);
-  } finally {
+  } catch { /* Best effort. */ } finally {
     // MARK SESSION AS LOADED
     this.appLoaded.session = true;
     this.tryHideLoading();
@@ -2438,8 +2432,7 @@ UI.saveBio = async function () {
     document.getElementById('ppBio').textContent = data.bio || this.translate('pp_no_bio_js');
     this.cancelEditBio();
     this.showToast(this.translate('toast_bio_updated'), 'success');
-  } catch (err) {
-    console.error('[BIO SAVE ERROR]', err);
+  } catch {
     this.showToast(this.translate('toast_network_error'), 'error');
   }
 };
@@ -2485,8 +2478,7 @@ UI.onAvatarFileSelected = async function (event) {
     if (header) header.src = data.avatarUrl;
     if (ppAvatar) ppAvatar.src = data.avatarUrl;
     this.showToast(this.translate('toast_avatar_updated'), 'success');
-  } catch (err) {
-    console.error('[AVATAR UPLOAD ERROR]', err);
+  } catch {
     if (ppAvatar) ppAvatar.src = prevSrc;
     this.showToast(this.translate('toast_avatar_upload_failed'), 'error');
   } finally {
@@ -2843,8 +2835,7 @@ UI.showProfilePage = async function (username, pushState = true) {
     if (pushState) {
       window.history.pushState({ screen: 'profile', username: username }, '', '/profiles/' + username);
     }
-  } catch (err) {
-    console.error('Error loading profile:', err);
+  } catch {
     this.showToast(this.translate('toast_profile_error'), 'error');
     document.getElementById('ppSkeleton')?.classList.add('hidden');
     document.getElementById('ppContent')?.classList.remove('hidden');
@@ -2873,8 +2864,7 @@ UI._loadMoreProfileGames = async function (username, limit) {
         loadMoreBtn.style.display = 'none';
       }
     }
-  } catch (err) {
-    console.error('Error loading more games:', err);
+  } catch {
     this.showToast(this.translate('toast_profile_error'), 'error');
   }
 };
@@ -2918,9 +2908,7 @@ UI._loadRatingChart = async function (username) {
         const title = document.getElementById('ppChartTitle');
         if (title) title.textContent = this._profileChartTitle();
         this._renderProfileChart();
-    } catch (err) {
-        console.error('[RATING CHART] Error:', err);
-    }
+    } catch { /* Best effort. */ }
 };
 
 UI._profileChartTitle = function () {
@@ -3079,9 +3067,7 @@ UI.loadFriends = async function () {
     document.getElementById('ppRequestCount').textContent = (data.incoming ? data.incoming.length : 0) + (data.outgoing ? data.outgoing.length : 0);
 
     this.renderFriendsTab();
-  } catch (err) {
-    console.error('[FRIENDS] Load error:', err);
-  }
+  } catch { /* Best effort. */ }
 };
 
 UI.renderFriendsTab = function () {
@@ -3175,8 +3161,7 @@ UI.addFriend = async function (recipientId) {
     } else {
       UI.showToast(data.error || UI.translate('friends_request_error'), 'error');
     }
-  } catch (err) {
-    console.error('[FRIENDS] Add error:', err);
+  } catch {
     UI.showToast(UI.translate('friends_request_error'), 'error');
   }
 };
@@ -3192,9 +3177,7 @@ UI.acceptFriend = async function (requesterId) {
       UI.showToast(UI.translate('friends_accept_success'), 'success');
       UI.loadFriends();
     }
-  } catch (err) {
-    console.error('[FRIENDS] Accept error:', err);
-  }
+  } catch { /* Best effort. */ }
 };
 
 UI.declineFriend = async function (requesterId) {
@@ -3205,9 +3188,7 @@ UI.declineFriend = async function (requesterId) {
       body: JSON.stringify({ requesterId })
     });
     UI.loadFriends();
-  } catch (err) {
-    console.error('[FRIENDS] Decline error:', err);
-  }
+  } catch { /* Best effort. */ }
 };
 
 UI.removeFriend = async function (userId) {
@@ -3217,9 +3198,7 @@ UI.removeFriend = async function (userId) {
       UI.showToast(UI.translate('friends_remove_success'), 'info');
       UI.loadFriends();
     }
-  } catch (err) {
-    console.error('[FRIENDS] Remove error:', err);
-  }
+  } catch { /* Best effort. */ }
 };
 
 UI.cancelRequest = async function (userId) {
@@ -3300,9 +3279,7 @@ UI.redirectToActiveLobbyIfNeeded = async function () {
       this.updateLobbyRoute(lobbyCode, true);
       return true;
     }
-  } catch (err) {
-    console.error('[ACTIVE LOBBY REDIRECT ERROR]', err);
-  }
+  } catch { /* Best effort. */ }
   return false;
 };
 
@@ -3405,8 +3382,7 @@ UI.loadLeaderboard = async function () {
     }
 
     UI.loadLeaderboardYou();
-  } catch (err) {
-    console.error('[LEADERBOARD] Failed to load:', err);
+  } catch {
     rowsEl.innerHTML = `<div class="home-lb-empty">${UI.escapeHtml(UI.translate('lb_error'))}</div>`;
   }
 };

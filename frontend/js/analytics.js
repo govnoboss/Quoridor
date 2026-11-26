@@ -157,9 +157,9 @@
                 if (navigator.sendBeacon('/api/analytics/events', blob)) return;
             }
             fetch('/api/analytics/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(function () {
-                console.warn('[Analytics] Delivery failed');
+                /* Delivery is best effort. */
             });
-        } catch (e) { console.warn('[Analytics] Delivery failed'); }
+        } catch { /* Delivery is best effort. */ }
     }
 
     function schedule() {
